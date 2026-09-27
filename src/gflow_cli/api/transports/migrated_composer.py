@@ -60,6 +60,7 @@ from gflow_cli.api.transports.batchexecute import (
     generation_record,
     image_records,
     parse_frames,
+    rpc_errors,
 )
 from gflow_cli.api.video import (
     I2V_DEFAULT_MODEL,
@@ -71,7 +72,9 @@ from gflow_cli.api.video import (
     VideoStatus,
 )
 from gflow_cli.errors import (
+    CONTENT_SAFETY_REASONS,
     ConfigurationError,
+    ContentPolicyError,
     FlowAgentUiError,
     FlowHostMigratedError,
     InsufficientCreditsError,
@@ -79,6 +82,7 @@ from gflow_cli.errors import (
     ReferenceNotFoundError,
     TransportTimeoutError,
     UiSelectorDriftError,
+    WafRejectionError,
     WireFormatError,
 )
 from gflow_cli.redaction import redact_sensitive_text
@@ -608,6 +612,50 @@ def _picker_pane(page: Any) -> Any:
 def _ligature(page: Any, name: str) -> Any:
     """A ``mat-icon`` whose ligature text is exactly ``name`` — for ``filter(has=…)``."""
     return page.locator("mat-icon").filter(has_text=_exact(name))
+
+
+#: Google's ErrorInfo reason on a submit reCAPTCHA Enterprise scored as a bot. The labs
+#: REST path has always raised WafRejectionError for it (KNOWN_ISSUES, HTTP 403).
+UNUSUAL_ACTIVITY_REASON = "PUBLIC_ERROR_UNUSUAL_ACTIVITY"
+
+
+def _submit_refusal(
+    text: str, rpcids: tuple[str, ...]
+) -> WafRejectionError | ContentPolicyError | None:
+    """The typed refusal a submit reply states on the wire, or ``None``.
+
+    flow.google.com refuses a submit with HTTP 200 and an error envelope whose payload
+    is null, so ``parse_frames`` sees nothing and the run used to end as a video
+    timeout or an image "no frame" wire fault, while the grid showed "We noticed some
+    unusual activity". Measured 2026-09-27 (spike
+    2026-09-27-migrated-refusal-is-on-the-wire). Only REASONS decide: a bare status
+    is not a refusal, since the #723 entity submit Flow queued and ran replies ``[5]``.
+    """
+    for err in rpc_errors(text):
+        if err.rpcid not in rpcids:
+            continue
+        route = f"batchexecute:{err.rpcid}"
+        if UNUSUAL_ACTIVITY_REASON in err.reasons:
+            # Class and retryable flag preserved from the labs raise sites for the same
+            # reason: a per-profile WAF score that decays (KNOWN_ISSUES).
+            return WafRejectionError(
+                detail=f"Flow refused the submit: {UNUSUAL_ACTIVITY_REASON} (gRPC {err.code})",
+                route=route,
+                remediation_hint=(
+                    "Flow's bot check scored this browser profile as unusual activity; "
+                    "the prompt is not the cause and nothing was charged. Wait a few "
+                    "hours before retrying on this profile, or use another profile. "
+                    "See KNOWN_ISSUES: PUBLIC_ERROR_UNUSUAL_ACTIVITY."
+                ),
+            )
+        # Same reason set the REST path maps to ContentPolicyError. Not yet observed on
+        # this host; the class default (exit 5, not retryable) is the REST path's answer.
+        safety = next((r for r in err.reasons if r in CONTENT_SAFETY_REASONS), None)
+        if safety is not None:
+            return ContentPolicyError(
+                detail=f"Flow refused the submit: {safety} (gRPC {err.code})", route=route
+            )
+    return None
 
 
 async def _raise_if_out_of_credits(page: Any) -> None:
@@ -2441,6 +2489,10 @@ class MigratedComposer:
                 text = await response.text()
             except Exception:  # noqa: BLE001 - an aborted/streamed body is not our frame
                 return
+            refusal = _submit_refusal(text, SUBMIT_RPCS)
+            if refusal is not None and not submitted.done():
+                submitted.set_exception(refusal)
+                return
             for rid, payload in parse_frames(text):
                 # Record the id the FRAME names, not just the URL's. The interpolation
                 # reply arrives on a bare `batchexecute` with no `rpcids` param, so a
@@ -2712,6 +2764,9 @@ class MigratedComposer:
                 return
             try:
                 text = await response.text()
+                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,))
+                if refusal is not None:
+                    raise refusal
                 parsed = parse_frames(text)
                 records = [
                     record

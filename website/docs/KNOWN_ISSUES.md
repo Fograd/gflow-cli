@@ -966,6 +966,11 @@ find "$HOME/Downloads/gflow-cli" -type f -mtime +30 -delete
 - **Status:** Open · **Severity:** High (blocks affected profile until WAF score decays or profile is replaced)
 - **First observed:** 2026-05-23 on profile `my-profile` during `gflow image batch` runs
 - **Surfaces as:** `gflow_cli.errors.WafRejectionError: WAF rejection (HTTP 403): batchGenerateImages HTTP 403 — reCAPTCHA score too low or WAF fingerprint mismatch`
+- **On flow.google.com** (since 2026-09-27): the same reason arrives as HTTP 200 with a
+  `batchexecute` error envelope (`[7,null,[["type.googleapis.com/google.rpc.ErrorInfo",["PUBLIC_ERROR_UNUSUAL_ACTIVITY"]]]]`)
+  and surfaces as `WafRejectionError: … Flow refused the submit: PUBLIC_ERROR_UNUSUAL_ACTIVITY`.
+  Flow's grid shows *"We noticed some unusual activity… You have not been charged"*
+  ([spike](https://github.com/ffroliva/gflow-cli/blob/main/docs/superpowers/spikes/2026-09-27-migrated-refusal-is-on-the-wire.md)).
 - **structlog signature:** `ui_automation.batch_response_seen` with `status=403` followed by `ui_automation.batch_403_body` containing `'message': 'reCAPTCHA evaluation failed', 'status': 'PERMISSION_DENIED', 'reason': 'PUBLIC_ERROR_UNUSUAL_ACTIVITY'`
 
 Distinct from the historical `aisandbox-pa` 401 (resolved in v0.7.0). The 403
