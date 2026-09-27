@@ -13,6 +13,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 from gflow_cli.api.image import GenerateImageRequest
 from gflow_cli.api.transports.migrated_composer import MigratedComposer
 from gflow_cli.errors import ContentPolicyError, TransportTimeoutError, WafRejectionError
+from tests.api.transports.test_batchexecute import REFUSAL
 from tests.api.transports.test_migrated_composer import PROJ, FakePage, _batch_url
 
 scenarios("migrated_refusal_envelope.feature")
@@ -46,7 +47,7 @@ def _page(rpcid: str, body: str) -> FakePage:
 @given("the migrated host refuses an image submit for unusual activity")
 def _image_unusual(world: dict[str, Any]) -> None:
     world["kind"] = "image"
-    world["page"] = _page("ogiZ0b", refusal_body("ogiZ0b", 7, "PUBLIC_ERROR_UNUSUAL_ACTIVITY"))
+    world["page"] = _page("ogiZ0b", REFUSAL)  # the 2026-09-27 capture, byte for byte
 
 
 @given("the migrated host refuses a video submit for unusual activity")

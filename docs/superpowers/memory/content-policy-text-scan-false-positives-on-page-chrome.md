@@ -44,6 +44,12 @@ Two phrases are specifically **not** refusal evidence:
   [[flow-credits-videos-only]] and the #721/#719 pair where a drained wallet
   replaced the submit control entirely.
 
+**On flow.google.com, read the wire, not the page.** A refused submit carries its reason in
+the `batchexecute` error envelope (`rpc_errors`), and a refusal tile is structurally
+identical to an aborted submit's — measured 2026-09-27, see
+[[migrated-refusal-is-a-dom-card-not-a-wire-record]]. The rule below still governs any
+DOM signal where no wire reason exists.
+
 **How to apply:** a new refusal/blocked detector anchors on **structure** and reads
 text only from the node it already matched — detection structural, detail textual.
 `CREDITS_WARNING` (`src/gflow_cli/api/transports/migrated_composer.py:152`) is the

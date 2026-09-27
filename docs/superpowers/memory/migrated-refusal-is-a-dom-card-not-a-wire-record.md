@@ -38,8 +38,8 @@ which scraped the tile — see [[content-policy-text-scan-false-positives-on-pag
 
 **"Unusual activity" is not a content verdict.** It is reCAPTCHA Enterprise scoring the
 browser profile. Never route it to `ContentPolicyError`'s "rewrite the prompt"
-remediation. #906 reported it on every automated submit on one account; the
-[stealth spike](../spikes/2026-09-27-stealth-fingerprint-delta.md) found
+remediation. #906 reported it on every automated submit on one account; the stealth
+spike (PR #908, `2026-09-27-stealth-fingerprint-delta.md`) found
 `playwright-stealth` changes no automation tell on gflow's context, so do not add a
 stealth dependency on the strength of #906.
 

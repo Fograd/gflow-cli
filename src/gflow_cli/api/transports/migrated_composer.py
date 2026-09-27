@@ -635,9 +635,12 @@ def _submit_refusal(
         if err.rpcid not in rpcids:
             continue
         route = f"batchexecute:{err.rpcid}"
+        if err.reasons:
+            log.info("migrated.submit_refused", rpc=err.rpcid, code=err.code, reasons=err.reasons)
         if UNUSUAL_ACTIVITY_REASON in err.reasons:
-            # Class and retryable flag preserved from the labs raise sites for the same
-            # reason: a per-profile WAF score that decays (KNOWN_ISSUES).
+            # Same class as the labs raise sites for the same reason, with no per-site
+            # override, so retryability is the class default there and here: a
+            # per-profile WAF score that decays (KNOWN_ISSUES).
             return WafRejectionError(
                 detail=f"Flow refused the submit: {UNUSUAL_ACTIVITY_REASON} (gRPC {err.code})",
                 route=route,
@@ -2490,6 +2493,8 @@ class MigratedComposer:
             except Exception:  # noqa: BLE001 - an aborted/streamed body is not our frame
                 return
             refusal = _submit_refusal(text, SUBMIT_RPCS)
+            # An envelope arriving after an accepted submit is ignored: that run's outcome
+            # is already decided, and it now belongs to the terminal wait.
             if refusal is not None and not submitted.done():
                 submitted.set_exception(refusal)
                 return

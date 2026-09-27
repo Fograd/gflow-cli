@@ -115,9 +115,13 @@ def _wrb_rows(text: str) -> list[list[Any]]:
             continue
         for raw_item in _as_list(decoded) or []:
             item = _as_list(raw_item)
-            if item is not None and len(item) >= 3 and item[0] == "wrb.fr":
-                if isinstance(item[1], str):
-                    rows.append(item)
+            if (
+                item is not None
+                and len(item) >= 3
+                and item[0] == "wrb.fr"
+                and isinstance(item[1], str)
+            ):
+                rows.append(item)
     return rows
 
 
@@ -160,6 +164,7 @@ class RpcError:
 
 
 def _strings(node: object) -> list[str]:
+    """Every string anywhere under ``node``, depth-first."""
     if isinstance(node, str):
         return [node]
     return [s for child in _as_list(node) or [] for s in _strings(child)]

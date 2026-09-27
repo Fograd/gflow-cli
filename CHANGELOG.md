@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   content-safety reasons map to `ContentPolicyError` (exit 5) as on the REST path. Read from the
   wire, not from the grid's failure card, which looks identical for a refusal and an aborted
   submit ([spike](docs/superpowers/spikes/2026-09-27-migrated-refusal-is-on-the-wire.md)).
+  The refusal was observed live on the image submit; the video submit reads the same framing
+  and is covered offline, but a live video refusal has not been captured yet.
   Diagnosed by [@stgmt](https://github.com/stgmt) in #873 and #906; this change supersedes
   #873 and the refusal-card half of #907.
 
