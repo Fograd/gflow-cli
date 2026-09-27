@@ -535,7 +535,7 @@ See [`errors.py::EXIT_CODE_MAP`](../src/gflow_cli/errors.py) for the complete ex
 Distinct from the above (which are errors OF the data layer), the
 `operations.error_type` column stores the taxonomy of RECORDED generation
 failures — the last segment of each exception's `problem_type` URI. Common
-values: `waf-rejection` (HTTP 403 / WAF), `content-policy`, `auth-expired`,
+values: `waf-rejection` (reCAPTCHA/WAF refusal — labs HTTP 403, or a flow.google.com `PUBLIC_ERROR_UNUSUAL_ACTIVITY` envelope), `content-policy`, `auth-expired`,
 `transport-timeout`, `wire-format`, `rate-limit`, `ui-mode-unavailable`
 (cohort pin), `media-attribution`. Query them with `gflow data list errors`.
 

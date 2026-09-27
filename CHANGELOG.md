@@ -20,6 +20,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A generation flow.google.com refuses is now reported as that refusal, by name (#906, #873).**
+  Flow answers a refused submit with HTTP 200 and a `batchexecute` error envelope carrying
+  Google's reason (`PUBLIC_ERROR_UNUSUAL_ACTIVITY`), but gflow's parser discarded any frame
+  without a payload. So a refusal ended as a retryable 60 s video timeout (exit 9) or an image
+  "no ogiZ0b frame" wire fault (exit 7), whose remediation tells you to file a frontend bug.
+  It is now `WafRejectionError` (exit 10) — the class the labs path has always used for the same
+  reason — with a remediation that says the prompt is not the cause and nothing was charged. The
+  content-safety reasons map to `ContentPolicyError` (exit 5) as on the REST path. Read from the
+  wire, not from the grid's failure card, which looks identical for a refusal and an aborted
+  submit ([spike](docs/superpowers/spikes/2026-09-27-migrated-refusal-is-on-the-wire.md)).
+  The refusal was observed live on the image submit; the video submit reads the same framing
+  and is covered offline, but a live video refusal has not been captured yet.
+  Diagnosed by [@stgmt](https://github.com/stgmt) in #873 and #906; this change supersedes
+  #873 and the refusal-card half of #907.
+
 - **`gflow auth login` no longer reports success while Google is waiting for the account to
   "Confirm it's you" (#902).** In that state the cookies stay valid, so the session probe
   answered in 0.4 s and the login closed Chrome before Flow's client-side hop to

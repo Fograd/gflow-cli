@@ -155,6 +155,7 @@ test, not a mocked proxy — the Bug Lane's step 5.
 | `GFLOW_CLI_E2E_VIDEO_ASPECT` | `"landscape"` | Aspect ratio for video e2e: `landscape` or `portrait`. |
 | `GFLOW_CLI_E2E_VIDEO_MODEL` | `"omni-flash"` | Veo model for i2v tests: `omni-flash` or `veo-fast`. |
 | `GFLOW_CLI_E2E_VIDEO_DURATION` | `"4"` | Seconds of video to generate in i2v tests (minimum credit unit). |
+| `GFLOW_CLI_E2E_RUN_REFUSAL` | `"0"` | Set to `"1"` to run the migrated refusal e2e (`e2e_image`): one image submit goes out with its reCAPTCHA token corrupted so Flow refuses it, proving the refusal is reported as `WafRejectionError`. Zero credits, but a refused token can raise the profile's WAF score for hours, so run it **alone** and on a probe profile, never before other image tests in the same session. |
 | `GFLOW_CLI_E2E_RUN_ENTITY_PROV` | `"0"` | Set to `"1"` to run the entity-provenance e2e (#402) — asserts a generation Flow actually accepted records its `entity_ids` / `entity_names` in `operations.metadata_json`. Opt-in because it drives a real browser generation (no credit cost — images are free). |
 | `GFLOW_CLI_E2E_BATCH_MANIFEST` | `test_assets/sample_batch.tsv` | TSV manifest for the batch image e2e. |
 | `GFLOW_CLI_E2E_BATCH_JITTER` | `"1"` | Set to `"0"` to disable inter-request jitter in batch tests. |
