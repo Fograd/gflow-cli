@@ -58,3 +58,7 @@ re-derived the body-wide scan from scratch. The lesson existed the whole time, i
 a lesson only a human reader can find will be re-learned by the next contributor.
 See [[migrated-refusal-is-a-dom-card-not-a-wire-record]] for the real problem it
 was trying to solve.
+
+Reintroduced a third time by **PR #907** (2026-09-27): `querySelectorAll('body *')`
+with an EN/RU phrase list that includes `'content policy'`, "smallest match wins" and
+no scoping to the current submit. Same council finding, same memory.

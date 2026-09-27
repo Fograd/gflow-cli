@@ -48,3 +48,12 @@ Before implementing, spike the failed-card DOM: as of 2026-09-18 nothing in
 guess — see [[migrated-host-driver-wire-lessons]] for what *is* measured on this
 host. Diagnosed by an external contributor in PR #873; the diagnosis is sound and
 the PR was blocked on its detection mechanism, not on its premise.
+
+**The "unusual activity" card is not a content verdict.** #906 (2026-09-27) reports it
+on every Playwright-driven video submit on one account while manual Chrome on the same
+profile succeeds — a claim from one account, not yet reproduced here. So a detector must
+not route it to `ContentPolicyError`'s "rewrite the prompt" remediation. Its cause is also
+unproven: [spike 2026-09-27](../spikes/2026-09-27-stealth-fingerprint-delta.md) measured
+that `playwright-stealth` changes no automation tell on gflow's own context, which
+leaves the contributor's isolated-desktop launcher (visibility/focus) as the leading
+unmeasured confound. Do not add a stealth dependency on the strength of #906.
