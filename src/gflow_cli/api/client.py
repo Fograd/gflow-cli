@@ -2726,12 +2726,14 @@ class FlowApiClient:
         on_checkpoint: GenerationCheckpointObserver | None = None,
         name_resolver: Callable[[str], str | None] | None = None,
     ) -> list[GeneratedImage]:
-        """Mint a token, call the transport once, and return all images.
+        """Call the transport once and return all images, minting first only for a
+        transport that sends the token itself.
 
         ``req.count`` controls how many images Flow generates (1–4). The UI
         transport clicks the matching x{N} tab so one submission produces N
         images; other transports may fan-out internally, but that is their
-        concern. This method is the single place reCAPTCHA minting happens.
+        concern. The UI transport never reads ``recaptcha_token`` (#891), so it
+        gets no client mint; the HTTP image transports do.
 
         ``on_checkpoint`` (Task C1) receives a ``submit_attempted`` observation
         immediately before the credit-spending transport call, then a
@@ -2743,7 +2745,8 @@ class FlowApiClient:
             raise RuntimeError(
                 msg,
             )
-        if callable(getattr(self.transport, "uses_page_owned_image_recaptcha", None)):
+        page_owned = getattr(self.transport, "uses_page_owned_image_recaptcha", None)
+        if callable(page_owned) and page_owned():
             # #891: a transport that drives Flow's own page never reads
             # `recaptcha_token` -- the page mints its own on click -- so a client
             # mint here is dead weight at best. At worst it runs on whatever page the

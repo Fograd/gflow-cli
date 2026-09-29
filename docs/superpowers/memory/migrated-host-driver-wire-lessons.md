@@ -71,7 +71,8 @@ cost a real run to learn; each is now a unit test in `tests/api/transports/`.
 so `discover_site_key` raised `RecaptchaError` — a `RuntimeError` unmapped in
 `EXIT_CODE_MAP` — as exit 1 "unexpected" instead of exit 36. The guard now runs at the
 mint too (`client.py`, `at="mint_recaptcha_token"`); `git grep raise_if_migrated` is
-the current list of sites. Reviewing anything that adds a pre-transport step: ask
+the current list of sites. Since #891 that mint guard covers only callers that really send
+the token (HTTP image transports, upscale, extend — #914); UI images no longer mint. Reviewing anything that adds a pre-transport step: ask
 "which page is the pool holding at that moment on a moved account?"
 
 Related: [[flow-recon-must-run-on-denon82-ffroliva-migrated]],
@@ -194,12 +195,15 @@ rounds); e2e `tests/e2e/test_migrated_host_e2e.py`. Read this before re-mining t
   `flow.google.com` grid, which carries no `enterprise.js`, so the mint failed before
   any guard could classify it (#673). The client now skips minting when the transport
   reports `uses_page_owned_image_recaptcha()` and lets the project page mint + submit.
-- **Derive that capability from a latch, not from `page.url`.** The image path parks the
-  page on `about:blank` when it finishes, which routes as `labs` — so a URL-derived
-  capability answers `False` on the *second* image in one client session and falls back
-  to the very mint it exists to avoid. Invisible to every single-image test; reachable
-  from `gflow image batch`, which runs every prompt through one `FlowApiClient`. Same
-  shape as the r2v listener above: both halves correct, the join stateful and wrong.
+- **The UI transport never needed the client token at all (#891).** Nothing in
+  `ui_automation.py`, `drivers/` or `migrated_composer.py` reads `recaptcha_token`, and
+  `git log -S` shows it never did: Flow's page mints its own on click, on either host. The
+  capability is therefore unconditional. The earlier URL- and then latch-derived versions
+  existed only to decide a mint that was dead weight, and the dead mint was not harmless:
+  after a successful run the page is parked on `about:blank`, where it raised
+  `RecaptchaError` instead of exit 36. For UI images, exit 36 now comes from the
+  composer, which names the unported form. Review lesson: before tuning *when* a step
+  runs, grep whether anything consumes its output.
 - **Enumerate the axis before mapping to it.** The image aspect radiogroup carried four
   radios — `crop_16_9`, `crop_landscape`, `crop_square`, `crop_9_16` — and no
   `crop_portrait`. A driver that maps 3:4 to a guessed ligature does not fail as "not

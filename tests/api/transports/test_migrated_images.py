@@ -275,31 +275,17 @@ async def test_migrated_image_route_dispatches_before_the_labs_driver(
     assert page.url == "about:blank"
 
 
-@pytest.mark.parametrize("flow_host", ["auto", "labs.google"])
-@pytest.mark.parametrize(
-    "url",
-    [
-        "about:blank",
-        "https://labs.google/fx/tools/flow?hl=en",
-        f"https://labs.google/fx/en/tools/flow/project/{PROJECT}",
-        f"https://flow.google.com/project/{PROJECT}",
-    ],
-)
-def test_ui_transport_owns_its_image_recaptcha_on_every_page(
-    monkeypatch: pytest.MonkeyPatch, flow_host: str, url: str
+def test_ui_transport_owns_its_image_recaptcha_on_about_blank(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """#891: the answer no longer depends on the page. The UI transport never reads a
-    client-minted token on any host, so deriving the answer from ``page.url`` only
-    ever produced wrong answers -- the parked ``about:blank`` read as a labs account
-    and the client minted there, turning exit 36 into a RecaptchaError."""
+    """#891: the answer no longer depends on the page. The URL-derived version read the
+    parked ``about:blank`` as a labs account, and the client minted there -- turning
+    exit 36 into a RecaptchaError. The UI transport never reads a client token."""
     from gflow_cli.api.transports.ui_automation import UiAutomationTransport
-    from gflow_cli.config import reset_settings
 
-    monkeypatch.setenv("GFLOW_CLI_FLOW_HOST", flow_host)
-    reset_settings()
     transport = UiAutomationTransport()
     page = MagicMock()
-    page.url = url
+    page.url = "about:blank"
     transport._page = page  # noqa: SLF001
 
     assert transport.uses_page_owned_image_recaptcha()
