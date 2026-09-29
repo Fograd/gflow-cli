@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Locked `oauthlib` 4.0.0 (CVE-2026-49265) and `pyjwt` 2.15.1 (CVE-2026-102274).**
+  Both are transitive: `oauthlib` via the `gcs` extra (`gcsfs` → `google-auth-oauthlib`
+  → `requests-oauthlib`), `pyjwt` via `mcp[crypto]`. No gflow code imports either directly.
+
 ### Added
 
 - **Explicit video resolution control (`--resolution [360p|720p]`).** Added `--resolution`
