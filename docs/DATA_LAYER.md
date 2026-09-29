@@ -206,6 +206,11 @@ async worker (which mirrors its `generation_queue.error_json` failure into
   `count>1` request fires the callback per output — no sibling row is
   stranded); failures before `on_started`, and all image failures, INSERT a
   fresh row with full request metadata.
+- A download whose connection drops on every retry AFTER Flow reported the clip done
+  (`MediaDownloadError`, exit 6, `error_type=media-download`, #896) also marks that
+  clip's asset `MEDIA_GENERATION_STATUS_SUCCESSFUL`: the operation failed, the
+  generation did not, and `gflow data download <media_id>` recovers it for free. An
+  HTTP error answer on the signed URL (e.g. an expired link) still leaves it `pending`.
 - A poll that COMPLETES with a Flow-reported failure (`succeeded=false`) is
   recorded as `failed` with `error_type=generation-failed` and the
   `failure_reasons` as detail — not as a success.
@@ -333,6 +338,10 @@ The `images` and `videos` subcommands support an additional flag:
 By default, `images` and `videos` aggregate rows by Flow media ID. If an asset
 has multiple local copies (e.g. re-downloaded to different paths), they appear
 as a single row with a `COPIES` count and the path of the latest copy.
+
+`videos` also shows the asset `STATUS` (`status` in `--json`): `pending` until Flow
+reports the clip done, then `MEDIA_GENERATION_STATUS_SUCCESSFUL` — including when only
+the download failed (#896). Images are recorded `ready`.
 
 TTY stdout → Rich table; pipe or `--json` → JSONL. Default sort: newest first. Exit code 16 on data-store errors (same `DataStoreError` family as `gflow data media`). A **missing or freshly-created** DB is NOT a data-store error — `data list` auto-creates the schema via `DataStore.open()` and returns exit 0 with an empty result (see [#88](https://github.com/ffroliva/gflow-cli/issues/88)).
 
@@ -537,7 +546,8 @@ Distinct from the above (which are errors OF the data layer), the
 failures — the last segment of each exception's `problem_type` URI. Common
 values: `waf-rejection` (reCAPTCHA/WAF refusal — labs HTTP 403, or a flow.google.com `PUBLIC_ERROR_UNUSUAL_ACTIVITY` envelope), `content-policy`, `auth-expired`,
 `transport-timeout`, `wire-format`, `rate-limit`, `ui-mode-unavailable`
-(cohort pin), `media-attribution`. Query them with `gflow data list errors`.
+(cohort pin), `media-attribution`, `media-download` (the clip was generated; only
+the transfer failed — recover it with `gflow data download`). Query them with `gflow data list errors`.
 
 ---
 
