@@ -137,6 +137,16 @@ class TestExhaustedTransferIsTyped:
         with pytest.raises(NetworkError):
             await MigratedComposer._fetch_mp4(page, _record())  # pyright: ignore[reportPrivateUsage, reportArgumentType]
 
+    async def test_it_names_the_generated_clip_for_the_recorder(self) -> None:
+        """#896: the recorder marks THIS media id generated only because the error says
+        which clip it was. Reverting to a bare NetworkError silently restores 'pending'."""
+        from gflow_cli.errors import MediaDownloadError
+
+        page = FakePage(PlaywrightError())
+        with pytest.raises(MediaDownloadError) as caught:
+            await MigratedComposer._fetch_mp4(page, _record())  # pyright: ignore[reportPrivateUsage, reportArgumentType]
+        assert caught.value.media_id == MEDIA_ID
+
     async def test_it_exits_6_and_is_marked_retryable(self) -> None:
         page = FakePage(PlaywrightError())
         with pytest.raises(NetworkError) as caught:

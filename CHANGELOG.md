@@ -6,6 +6,76 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.80.0] — 2026-09-29
+
+### Security
+
+- **Locked `oauthlib` 4.0.0 (CVE-2026-49265) and `pyjwt` 2.15.1 (CVE-2026-102274).**
+  Both are transitive: `oauthlib` via the `gcs` extra (`gcsfs` → `google-auth-oauthlib`
+  → `requests-oauthlib`), `pyjwt` via `mcp[crypto]`. No gflow code imports either directly.
+
+### Added
+
+- **Explicit video resolution control (`--resolution [360p|720p]`, #787).** Added `--resolution`
+  to `gflow video t2v`, `i2v`, and `r2v`, as well as MCP tool `gflow_generate_video`.
+  Enables explicit selection of `360p` or `720p` on models providing resolution controls
+  (such as `omni-flash`), preventing unintended defaults.
+- **Support for Nano Banana 2 Lite (`--model nano2-lite`, #787).** Added `nano2-lite` alias mapped
+  to Google's internal `HARBOR_SEAL` wire model for `gflow image t2i`, `i2i`, and `batch`. Its I2I reference
+  cap starts at 3 because it has not been measured yet, and its daily quota is
+  unmeasured too ([spike](docs/superpowers/spikes/2026-09-11-nano2-lite-capability.md)).
+
+### Fixed
+
+- **An unported image form is refused by name, on a fresh or a reused client (#891).**
+  The browser transport no longer pre-mints a reCAPTCHA token for images: Flow's page
+  mints its own, and the client's token was never read. After a successful image the
+  pre-mint ran on the parked `about:blank` page and turned exit 36 into a misleading
+  `RecaptchaError`. The refusal now comes from the composer and names the form, e.g.
+  "the IMAGEN_3_5 model is not ported yet". Reachable from `gflow run --config` with a
+  per-prompt `imagen4` after a successful prompt: that run used to crash with exit 1 and
+  lose its results table; now the prompt fails by name and the run completes. This
+  corrects the 0.78.0 note that project-less image runs "keep the served host": the
+  client creates the project first, so they are served by the migrated composer. The HTTP
+  image transports still mint.
+- **A clip whose download connection dropped is no longer recorded as never generated
+  (#896, #898).** When Flow reports a video done but the signed-media connection drops
+  on every retry, the catalog now marks the asset `MEDIA_GENERATION_STATUS_SUCCESSFUL`
+  rather than leaving it `pending` forever. The operation's `error_type` is
+  `media-download` (still exit 6), so `gflow data list errors` tells a lost transfer from
+  a failed generation. `gflow data list videos` gains a `STATUS` column and a `status`
+  field in `--json`. An HTTP error answer on the signed URL still leaves the asset
+  `pending`. **Changed:** that failure's Problem Details `type` is now
+  `…/errors/media-download` (a subclass of the `network` error, same exit code).
+- **A generation flow.google.com refuses is now reported as that refusal, by name (#906, #873).**
+  Flow answers a refused submit with HTTP 200 and a `batchexecute` error envelope carrying
+  Google's reason (`PUBLIC_ERROR_UNUSUAL_ACTIVITY`), but gflow's parser discarded any frame
+  without a payload. So a refusal ended as a retryable 60 s video timeout (exit 9) or an image
+  "no ogiZ0b frame" wire fault (exit 7), whose remediation tells you to file a frontend bug.
+  It is now `WafRejectionError` (exit 10) — the class the labs path has always used for the same
+  reason — with a remediation that says the prompt is not the cause and nothing was charged. The
+  content-safety reasons map to `ContentPolicyError` (exit 5) as on the REST path. Read from the
+  wire, not from the grid's failure card, which looks identical for a refusal and an aborted
+  submit ([spike](docs/superpowers/spikes/2026-09-27-migrated-refusal-is-on-the-wire.md)).
+  The refusal was observed live on the image submit; the video submit reads the same framing
+  and is covered offline, but a live video refusal has not been captured yet.
+  Diagnosed by [@stgmt](https://github.com/stgmt) in #873 and #906; this change supersedes
+  #873 and the refusal-card half of #907.
+
+- **`gflow auth login` no longer reports success while Google is waiting for the account to
+  "Confirm it's you" (#902).** In that state the cookies stay valid, so the session probe
+  answered in 0.4 s and the login closed Chrome before Flow's client-side hop to
+  `flow.google.com/about` could land. It then printed `[OK] Flow session verified` on an
+  account where every command still exited 31. The login now watches a `flow.google.com`
+  landing for up to 3 s before it closes. If Flow routes the page to `/about`, Chrome stays open
+  and the user is told to press the page's main button and finish Google's check. Closing the
+  window or running out of time in that state exits 12 with the new
+  `IdentityRecheckPendingError`. The #849 on-disk check is skipped in that case, because it reads
+  the same healthy cookies. A labs-served login closes as fast as before. The failing state is
+  tested offline only: the one account measured in it (2026-09-23) had already been cleared by
+  hand, and none of the profiles here is in that state now.
+
 ## [0.79.1] — 2026-09-22
 
 ### Fixed
@@ -5638,7 +5708,8 @@ shell-script template that branches on these codes.
 
 First skeleton. Not functional end-to-end yet.
 
-[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...HEAD
+[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.80.0...HEAD
+[0.80.0]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...v0.80.0
 [0.79.1]: https://github.com/ffroliva/gflow-cli/compare/v0.79.0...v0.79.1
 [0.79.0]: https://github.com/ffroliva/gflow-cli/compare/v0.78.0...v0.79.0
 [0.78.0]: https://github.com/ffroliva/gflow-cli/compare/v0.77.1...v0.78.0

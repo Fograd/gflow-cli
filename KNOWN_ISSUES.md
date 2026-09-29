@@ -14,14 +14,46 @@ Living list of behaviour that's broken, surprising, or limited by design — alo
 
 ## Open
 
+### Every command lands on `flow.google.com/about` (exit 31) while `gflow auth status` says the session is fine
+
+- **Status:** Open · **Severity:** High for the affected account (nothing runs) · **Affected:** measured on one account (`denon82`, 2026-09-23). Other `/about` occurrences are not yet shown to share the cause.
+- **Tracked:** [#902](https://github.com/ffroliva/gflow-cli/issues/902) (`auth login` cannot clear it) · [#888](https://github.com/ffroliva/gflow-cli/issues/888) · [#756](https://github.com/ffroliva/gflow-cli/issues/756)
+- **Evidence:** [spike](docs/superpowers/spikes/2026-09-23-about-cta-leads-to-google-reauth.md)
+
+Flow sends every visit to its public landing page `/about`, while every Google and Flow cookie
+gflow checks is present and unexpired. On the measured account, the page's "Create with Google
+Flow" button led to Google's **"Confirm it's you — sign in again to continue"** page: Google was
+waiting for the account to re-verify its identity.
+
+**Through v0.79.1, `gflow auth login` does not fix it.** It sees the valid cookies, reports
+`Flow session verified` in about half a second, and closes Chrome before Google can ask (#902).
+From the next release, the login watches where the page lands. If Flow sends it to `/about`, the
+login keeps Chrome open and asks you to press the page's main button and finish "Confirm it's
+you". If you close the window or the time limit runs out first, it exits 12
+(`IdentityRecheckPendingError`) instead of reporting success. The failing state could not be
+reproduced live for this fix, because the one measured account was already cleared by hand. The
+detection is tested offline only.
+
+**Workaround (needs the account password):** with no gflow command running, open real Chrome on
+the profile directory yourself:
+
+```bash
+"<chrome.exe>" --user-data-dir="<GFLOW_CLI_HOME profile dir, e.g. …/profile_<name>>" --password-store=basic https://flow.google.com/
+```
+
+Click the landing page's main button, complete "Confirm it's you", wait for the Flow editor, then
+close Chrome yourself. On the measured account, `/about` was gone on the next run and
+`gflow project create` succeeded.
+
 ### Flow is migrating to `flow.google.com`; generation coverage is partial but includes images
 
-- **Status:** Open (partially resolved) · **Severity:** High for unported forms · **Affected:** on accounts the rollout has reached, `gflow video t2v`, local-file `video i2v` / `r2v`, `gflow image t2i`, and local-file `gflow image i2i` now run on the migrated host. Image mode supports Nano Banana 2 / Pro, all five aspect ratios its radiogroup renders (16:9, 4:3, 1:1, 3:4, 9:16 — 3:4 appeared by 2026-09-17, #864), and count 1–4. Image refs by UUID, `@Name` / `--reference-entity`, Agent instructions, Imagen 4, video frame refs by UUID/name, scenes, extend, instructions and tools are not ported yet and fail before submit. **`character create` is NOT in that list any more** — it works on the migrated host. `character list` does NOT: it reads the retired labs `projectInitialData` route and exits 7, measured 2026-09-20 both on `auto` and with `GFLOW_CLI_FLOW_HOST=flow.google.com` (#875). Of the remainder, only the i2v-by-UUID case rests on a positive observation of absence (the Frames picker tiles carry no media id); `scenes`, `extend`, `instructions` and `tools` remain *unported by gflow*, never proven impossible on the host.
+- **Status:** Open (partially resolved) · **Severity:** High for unported forms · **Affected:** on accounts the rollout has reached, `gflow video t2v`, local-file `video i2v` / `r2v`, `gflow image t2i`, and local-file `gflow image i2i` now run on the migrated host. Image mode supports Nano Banana 2 / 2 Lite / Pro, all five aspect ratios its radiogroup renders (16:9, 4:3, 1:1, 3:4, 9:16 — 3:4 appeared by 2026-09-17, #864), and count 1–4. Image refs by UUID, `@Name` / `--reference-entity`, Agent instructions, Imagen 4, video frame refs by UUID/name, scenes, extend, instructions and tools are not ported yet and fail before submit. **`character create` is NOT in that list any more** — it works on the migrated host. `character list` does NOT: it reads the retired labs `projectInitialData` route and exits 7, measured 2026-09-20 both on `auto` and with `GFLOW_CLI_FLOW_HOST=flow.google.com` (#875). Of the remainder, only the i2v-by-UUID case rests on a positive observation of absence (the Frames picker tiles carry no media id); `scenes`, `extend`, `instructions` and `tools` remain *unported by gflow*, never proven impossible on the host.
 - **Tracked:** [#639](https://github.com/ffroliva/gflow-cli/issues/639) · Reported 2026-09-02 against 0.59.0, 0.62.1, 0.63.0 and 0.65.0
 - **Confirmed live 2026-09-03 on a second, independent account** (`ffroliva`) — see [LIVE_VERIFICATION_v0.66.0](docs/LIVE_VERIFICATION_v0.66.0.md). A read-only probe of the migrated origin measured `i_total: 0`, reproducing the reporter's central measurement.
 - **`--reference-entity` was refused on `r2v` but not on `t2v`** ([#716](https://github.com/ffroliva/gflow-cli/issues/716), fixed in v0.71.0): the "not ported, exit 36" refusal above sat inside the r2v branch of the routing gate, so a `t2v` request carrying a character entity returned from that gate without its entities ever being inspected — and nothing downstream attaches one on this host. The generation was **submitted and billed** with the entity silently dropped, returning a plausible clip of the wrong person. The check is now mode-independent and ahead of every early return. If you ran `gflow video t2v @Name …` or `--reference-entity` on a moved account before this fix, the identity in those clips was never bound.
 - **The migrated composer image path is now driven** ([#692](https://github.com/ffroliva/gflow-cli/issues/692)): the first probe established a hit-testable Image mode; the 2026-09-08 follow-up captured real T2I and local-file I2I submissions on `ogiZ0b`, including page-owned reCAPTCHA, upload ids, response records and signed JPEG downloads. See [the submit-wire spike](docs/superpowers/spikes/2026-09-08-migrated-image-submit-wire.md).
-- **Image commands on a moved account** ([#673](https://github.com/ffroliva/gflow-cli/issues/673), fixed in v0.69.0): through v0.68.0 `image t2i` / `i2i` (and `upscale`, `extend`) died with exit 1 `RecaptchaError` within seconds, before any submit, instead of the exit 36 above, because the labs client minted the reCAPTCHA token on the `flow.google.com` project grid before any migration guard ran. The guard now runs at the mint. If you still see a `RecaptchaError` on a moved account right after `auth login`, that is the labs logged-out landing page from the [#644](https://github.com/ffroliva/gflow-cli/issues/644) cookie harvest, not this.
+- **Image commands on a moved account** ([#673](https://github.com/ffroliva/gflow-cli/issues/673), fixed in v0.69.0): through v0.68.0 `image t2i` / `i2i` (and `upscale`, `extend`) died with exit 1 `RecaptchaError` within seconds, before any submit, instead of the exit 36 above, because the labs client minted the reCAPTCHA token on the `flow.google.com` project grid before any migration guard ran. The guard now runs at the mint; since v0.80.0 the browser transport no longer mints for images at all, and the flow.google.com composer itself refuses unported forms (#891). If you still see a `RecaptchaError` on a moved account right after `auth login`, that is the labs logged-out landing page from the [#644](https://github.com/ffroliva/gflow-cli/issues/644) cookie harvest, not this.
+- **A second image request on one client hit the same `RecaptchaError`** ([#891](https://github.com/ffroliva/gflow-cli/issues/891), fixed in v0.80.0): after a successful image on an account served flow.google.com, the page is parked on `about:blank`, and the client's pre-mint ran there, so an unported form (e.g. `--model imagen4`) failed with "the Flow editor page may have failed to load" instead of exit 36. The browser transport never used that token, so it no longer mints; the composer refuses the form by name. Reachable from `gflow run --config` with a per-prompt `"model": "imagen4"` after a successful prompt, where it also crashed the whole run (exit 1, results table lost); it now reports that prompt as exit 36 and the run completes.
 
 Google is moving Flow off Labs onto its own origin. On a migrated page load,
 `https://labs.google/fx/tools/flow/project/<id>` redirects to
@@ -935,6 +967,11 @@ find "$HOME/Downloads/gflow-cli" -type f -mtime +30 -delete
 - **Status:** Open · **Severity:** High (blocks affected profile until WAF score decays or profile is replaced)
 - **First observed:** 2026-05-23 on profile `denon82` during `gflow image batch` runs
 - **Surfaces as:** `gflow_cli.errors.WafRejectionError: WAF rejection (HTTP 403): batchGenerateImages HTTP 403 — reCAPTCHA score too low or WAF fingerprint mismatch`
+- **On flow.google.com** (measured 2026-09-27): the same reason arrives as HTTP 200 with a
+  `batchexecute` error envelope (`[7,null,[["type.googleapis.com/google.rpc.ErrorInfo",["PUBLIC_ERROR_UNUSUAL_ACTIVITY"]]]]`)
+  and surfaces as `WafRejectionError: … Flow refused the submit: PUBLIC_ERROR_UNUSUAL_ACTIVITY`.
+  Flow's grid shows *"We noticed some unusual activity… You have not been charged"*
+  ([spike](docs/superpowers/spikes/2026-09-27-migrated-refusal-is-on-the-wire.md)).
 - **structlog signature:** `ui_automation.batch_response_seen` with `status=403` followed by `ui_automation.batch_403_body` containing `'message': 'reCAPTCHA evaluation failed', 'status': 'PERMISSION_DENIED', 'reason': 'PUBLIC_ERROR_UNUSUAL_ACTIVITY'`
 
 Distinct from the historical `aisandbox-pa` 401 (resolved in v0.7.0). The 403

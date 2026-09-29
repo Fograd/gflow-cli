@@ -134,6 +134,7 @@ IMAGE_MODEL_OPTION_SELECTORS: dict[Model, tuple[str, ...]] = {
     # governance test bless something that cannot work against Flow.
     Model.NARWHAL: ("[role='menuitem']:has-text('Nano Banana 2'):not(:has-text('Lite'))",),
     Model.GEM_PIX_2: ("[role='menuitem']:has-text('Nano Banana Pro')",),
+    Model.HARBOR_SEAL: ("[role='menuitem']:has-text('Nano Banana 2 Lite')",),
     Model.IMAGEN_3_5: ("[role='menuitem']:has-text('Imagen 4')",),
 }
 
@@ -959,15 +960,6 @@ class UiAutomationTransport(VideoGenerationMixin):
         self._page: Page | None = None
         self._setup_done: bool = False
         self._owns_playwright: bool = False
-        # Latches once this transport has seen Flow serve the migrated host. The
-        # handoff is a server-assigned per-account boolean applied on every load,
-        # so it does not flip back mid-session — and the image path parks the page
-        # on about:blank after every run, which reads back as `labs`. Without the
-        # latch the SECOND image in one client session mints on the labs path and
-        # dies with the RecaptchaError of #673, i.e. the exact bug the page-owned
-        # mint exists to fix. Reachable from `gflow image batch`, which runs every
-        # prompt through one FlowApiClient (image_batch.py::_run_sequential).
-        self._served_migrated_host: bool = False
         # #792: set when a migrated run FAILED, so the park that would otherwise
         # run in a `finally` is deferred past FlowApiClient's incident capture.
         self._deferred_park_pending: bool = False
@@ -3087,42 +3079,11 @@ class UiAutomationTransport(VideoGenerationMixin):
             )
 
     def uses_page_owned_image_recaptcha(self) -> bool:
-        """Whether this run will let the migrated page own token mint + submit.
-
-        Kept as a narrow optional transport capability rather than changing every
-        strategy protocol: only UI automation can observe a page-owned request.
-
-        Answers from the LATCH as well as the current URL. Reading `page.url`
-        alone was wrong in a way no single-image test could see: every migrated
-        image run ends by parking the page on ``about:blank`` (see
-        ``_generate_images_locked``), which routes as ``labs``, so a second image
-        on one warm client fell back to minting on the labs bootstrap page — the
-        #673 failure this capability exists to prevent.
-        """
-        if self._page is None:
-            return self._served_migrated_host
-        from gflow_cli.config import get_settings  # noqa: PLC0415
-
-        url = self._page.url
-        if (
-            url.startswith("https://labs.google/fx/")
-            and extract_project_id(url) is None
-            and get_settings().flow_host != "labs.google"
-        ):
-            # Pre-navigation bootstrap page (bare or locale-prefixed, no project
-            # segment): Flow may still redirect it client-side, so assume the
-            # migrated host and let the page-owned recaptcha path win the
-            # post-goto handoff race (#692). Deliberately WITHOUT arming the
-            # latch — an assumption is not evidence, and arming it here would
-            # stop a labs account minting the token it genuinely needs.
-            # `_drive_images_generation` re-checks servability before skipping
-            # the mint, so a wrong assumption costs a redundant mint, never a run.
-            return True
-        route = migrated_route(url, get_settings().flow_host)
-        if route in {"migrated", "blocked"}:
-            self._served_migrated_host = True
-            return True
-        return self._served_migrated_host
+        """This transport drives Flow's own page, which mints its own reCAPTCHA token on
+        click -- nothing here ever reads ``request.recaptcha_token`` (#891). The client
+        uses the capability to skip its pre-mint. Narrow optional capability rather than
+        a Protocol member: only UI automation owns a page."""
+        return True
 
     async def _generate_images_locked(
         self,
@@ -3160,8 +3121,6 @@ class UiAutomationTransport(VideoGenerationMixin):
             await self._dismiss_blocking_overlays(page, out_dir)
             prefer = migrated_images_prefer(request, page_url=page.url, project_id=project_id)
             route = migrated_route(page.url, flow_host, prefer_migrated=prefer)
-        if route in {"migrated", "blocked"}:
-            self._served_migrated_host = True
         if route == "blocked":
             raise_if_migrated(page, at="image_flow_host_kill_switch")
         if route == "migrated":
@@ -3184,9 +3143,7 @@ class UiAutomationTransport(VideoGenerationMixin):
                 raise
             # Park off the project so the next borrower of this page does not
             # inherit a mounted composer (on the FAILURE path this is deferred to
-            # the next run -- see park_deferred_page, #792). The URL is NOT a reliable
-            # record of which host served us — `_served_migrated_host` above is,
-            # and `uses_page_owned_image_recaptcha` reads that latch.
+            # the next run -- see park_deferred_page, #792).
             await self._park_composer_page(page, event="migrated.image_page_park_failed")
             return result
 

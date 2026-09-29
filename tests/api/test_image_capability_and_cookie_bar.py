@@ -240,9 +240,11 @@ def test_migrated_images_prefer_refuses_unported_forms(wip_src):
 def test_migrated_images_prefer_keeps_project_less_runs_on_labs(wip_src):
     from gflow_cli.api.transports.migrated_composer import migrated_images_prefer
 
-    # The labs driver auto-creates the project; the migrated composer needs
-    # --project. Preferring migrated here would trade the auto-create path
-    # for a ConfigurationError.
+    # Pins the predicate's totality only. No production caller passes None:
+    # `generate_image` creates the project BEFORE the transport routes, so a
+    # project-less CLI run reaches the router with a real id and is served by
+    # the migrated composer (#891 point 2 — the 0.78.0 changelog claim that such
+    # runs "keep the served host" was never true for the path users take).
     assert (
         migrated_images_prefer(
             _plain_request(),
@@ -290,7 +292,12 @@ def _drive_client(transport: Any):
     return client
 
 
-async def test_drive_mints_when_request_is_not_migrated_servable():
+async def test_drive_never_mints_for_a_page_owning_transport():
+    """#891: the UI transport never reads a client-minted token (Flow's page mints
+    its own on click), so the client must not mint for it -- even for a form the
+    migrated composer refuses. The old pre-mint ran on whatever page the pool
+    handed out; after a successful migrated run that is `about:blank`, where the
+    mint raises a misleading RecaptchaError instead of the transport's exit 36."""
     from unittest.mock import AsyncMock
 
     from gflow_cli.api.image import GenerateImageRequest
@@ -307,7 +314,7 @@ async def test_drive_mints_when_request_is_not_migrated_servable():
             recaptcha_action="imageGeneration",
         )
 
-    client._mint_recaptcha_token.assert_awaited_once()  # type: ignore[attr-defined]
+    client._mint_recaptcha_token.assert_not_awaited()  # type: ignore[attr-defined]
     assert transport.calls == 1
 
 

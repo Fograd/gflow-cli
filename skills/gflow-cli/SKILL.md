@@ -65,7 +65,7 @@ gflow credits list [--json]                               # all saved profiles
 
 # Image generation (Imagen / Nano Banana)
 gflow image upload <path>                                 # → asset UUID + dimensions
-gflow image t2i "<prompt>" [--model {nano2|nano-pro|image4}] \
+gflow image t2i "<prompt>" [--model {nano2|nano2-lite|nano-pro|image4}] \
                             [--aspect {9:16|16:9|1:1|4:3|3:4}] \
                             [-n 1..4] [--out DIR]
 gflow image i2i "<prompt>" --ref PATH_OR_UUID [--ref ...] [...same as t2i]
@@ -76,7 +76,7 @@ gflow image batch <manifest.tsv|manifest.json> [-n 1..4] [--aspect ...] [--out D
 # are refused there with exit 36.
 
 # Video generation (Veo 3.1)
-gflow video t2v "<prompt>" [--project ID] [--model ...] [--duration 4|6|8|10] [--out-dir DIR] [--aspect ...]  # without --project a project is created first, on either host (#864); 10s is omni-flash-only
+gflow video t2v "<prompt>" [--project ID] [--model ...] [--duration 4|6|8|10] [--resolution 360p|720p] [--out-dir DIR] [--aspect ...]  # --resolution: omni-flash only; without --project a project is created first, on either host (#864); 10s is omni-flash-only
 gflow video i2v --initial-frame <image|media-UUID> "<prompt>" [--out-dir DIR] [...same as t2v]  # UUID = in-project asset, no re-upload (#287; pair with --project)
 # `gflow video` has no `batch` subcommand — that stub never worked and was
 # removed. For multi-clip runs, loop `gflow video t2v`/`i2v` from the shell.

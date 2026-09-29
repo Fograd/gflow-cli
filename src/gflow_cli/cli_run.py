@@ -189,8 +189,8 @@ async def _run_batch(
 
     Per AUDIT_E1 D.2: a single ``async with FlowApiClient(...)`` block
     wraps the whole loop so the browser/page/project context persists
-    across iterations. reCAPTCHA tokens mint fresh on each
-    ``generate_image`` call.
+    across iterations. On the UI transport Flow's page mints its own reCAPTCHA
+    token per submit (#891).
     """
     outcomes = await run_image_batch(
         profile_dir=profile_dir,

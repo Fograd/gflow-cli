@@ -60,6 +60,7 @@ from gflow_cli.api.transports.batchexecute import (
     generation_record,
     image_records,
     parse_frames,
+    rpc_errors,
 )
 from gflow_cli.api.video import (
     I2V_DEFAULT_MODEL,
@@ -71,7 +72,9 @@ from gflow_cli.api.video import (
     VideoStatus,
 )
 from gflow_cli.errors import (
+    CONTENT_SAFETY_REASONS,
     ConfigurationError,
+    ContentPolicyError,
     FlowAgentUiError,
     FlowHostMigratedError,
     InsufficientCreditsError,
@@ -79,6 +82,7 @@ from gflow_cli.errors import (
     ReferenceNotFoundError,
     TransportTimeoutError,
     UiSelectorDriftError,
+    WafRejectionError,
     WireFormatError,
 )
 from gflow_cli.redaction import redact_sensitive_text
@@ -401,6 +405,7 @@ IMAGE_MODEL_MENU_MATCHERS: dict[ImageModel, ModelMenuMatcher] = {
     # depending on the decorative banana glyph that precedes both live labels.
     ImageModel.NARWHAL: ModelMenuMatcher("Nano Banana 2", excludes=("Lite",)),
     ImageModel.GEM_PIX_2: ModelMenuMatcher("Nano Banana Pro"),
+    ImageModel.HARBOR_SEAL: ModelMenuMatcher("Nano Banana 2 Lite"),
 }
 
 
@@ -547,13 +552,10 @@ def migrated_images_prefer(
       (:func:`_unported_image_form` names anything it does not);
     - a project is named or the page already sits in one — the labs driver
       auto-creates a project, the migrated composer needs ``--project``;
-    - the page is not already inside an editor — there the served host rules,
-      and assuming migrated would skip the mint a labs editor needs
-      (the #673 mirror: a wrong skip is a terminal auth failure, a redundant
-      mint on a migrated run is free because the page mints its own).
+    - the page is not already inside an editor — there the served host rules.
 
-    Pure predicate over the request and the URL: no browser, no spend. Both
-    the router and the mint decision call it so the two cannot disagree.
+    Pure predicate over the request and the URL: no browser, no spend. Routing
+    only: the client no longer consults it for a reCAPTCHA mint (#891).
     """
     if _unported_image_form(request) is not None:
         return False
@@ -607,6 +609,53 @@ def _picker_pane(page: Any) -> Any:
 def _ligature(page: Any, name: str) -> Any:
     """A ``mat-icon`` whose ligature text is exactly ``name`` — for ``filter(has=…)``."""
     return page.locator("mat-icon").filter(has_text=_exact(name))
+
+
+#: Google's ErrorInfo reason on a submit reCAPTCHA Enterprise scored as a bot. The labs
+#: REST path has always raised WafRejectionError for it (KNOWN_ISSUES, HTTP 403).
+UNUSUAL_ACTIVITY_REASON = "PUBLIC_ERROR_UNUSUAL_ACTIVITY"
+
+
+def _submit_refusal(
+    text: str, rpcids: tuple[str, ...]
+) -> WafRejectionError | ContentPolicyError | None:
+    """The typed refusal a submit reply states on the wire, or ``None``.
+
+    flow.google.com refuses a submit with HTTP 200 and an error envelope whose payload
+    is null, so ``parse_frames`` sees nothing and the run used to end as a video
+    timeout or an image "no frame" wire fault, while the grid showed "We noticed some
+    unusual activity". Measured 2026-09-27 (spike
+    2026-09-27-migrated-refusal-is-on-the-wire). Only REASONS decide: a bare status
+    is not a refusal, since the #723 entity submit Flow queued and ran replies ``[5]``.
+    """
+    for err in rpc_errors(text):
+        if err.rpcid not in rpcids:
+            continue
+        route = f"batchexecute:{err.rpcid}"
+        if err.reasons:
+            log.info("migrated.submit_refused", rpc=err.rpcid, code=err.code, reasons=err.reasons)
+        if UNUSUAL_ACTIVITY_REASON in err.reasons:
+            # Same class as the labs raise sites for the same reason, with no per-site
+            # override, so retryability is the class default there and here: a
+            # per-profile WAF score that decays (KNOWN_ISSUES).
+            return WafRejectionError(
+                detail=f"Flow refused the submit: {UNUSUAL_ACTIVITY_REASON} (gRPC {err.code})",
+                route=route,
+                remediation_hint=(
+                    "Flow's bot check scored this browser profile as unusual activity; "
+                    "the prompt is not the cause and nothing was charged. Wait a few "
+                    "hours before retrying on this profile, or use another profile. "
+                    "See KNOWN_ISSUES: PUBLIC_ERROR_UNUSUAL_ACTIVITY."
+                ),
+            )
+        # Same reason set the REST path maps to ContentPolicyError. Not yet observed on
+        # this host; the class default (exit 5, not retryable) is the REST path's answer.
+        safety = next((r for r in err.reasons if r in CONTENT_SAFETY_REASONS), None)
+        if safety is not None:
+            return ContentPolicyError(
+                detail=f"Flow refused the submit: {safety} (gRPC {err.code})", route=route
+            )
+    return None
 
 
 async def _raise_if_out_of_credits(page: Any) -> None:
@@ -1351,11 +1400,14 @@ class MigratedComposer:
                 await self._select(page, pane, axis="duration", text=f"{request.duration}s")
             elif request.mode is Mode.R2V:
                 await self._pin_r2v_duration(page, pane)
+            if request.resolution is not None:
+                await self._select_resolution(page, pane, request.resolution)
             await self._select(page, pane, axis="count", text=f"x{request.count}")
             log.info(
                 "migrated.settings_applied",
                 aspect=request.aspect.value,
                 duration=request.duration,
+                resolution=request.resolution,
                 count=request.count,
                 # The EFFECTIVE model — `request.model` is None on an i2v run that
                 # took the #125 default, and logging that read as "no model bound".
@@ -1622,6 +1674,38 @@ class MigratedComposer:
             ),
         )
 
+    async def _select_resolution(self, page: Page, pane: Any, resolution: str) -> None:
+        """Select 360p or 720p on models that offer a resolution control (Omni Flash)."""
+        radios = pane.locator(RADIO)
+        matches = radios.filter(has_text=re.compile(re.escape(resolution)))
+        target = matches.first
+        if not await target.count():
+            groups = await pane.locator(RADIOGROUP).count()
+            raise ConfigurationError(
+                detail=(
+                    f"the migrated Flow host renders no resolution control offering {resolution!r} "
+                    f"for this account and model ({groups} option groups shown)"
+                ),
+                remediation_hint=(
+                    "Drop --resolution to accept Flow's default, or use a model whose "
+                    "settings pane shows a resolution row (Omni 1.1 Flash)."
+                ),
+            )
+        if await target.get_attribute("aria-checked") == "true":
+            log.info("migrated.resolution_already_selected", resolution=resolution)
+            return
+        await target.click(timeout=4000)
+        await asyncio.sleep(0.2)
+        if await matches.first.get_attribute("aria-checked") == "true":
+            log.info("migrated.resolution_selected", resolution=resolution)
+            return
+        raise UiSelectorDriftError(
+            detail=(
+                f"migrated host: the resolution radio {resolution!r} did not become aria-checked "
+                f"after the click (host=migrated)"
+            ),
+        )
+
     async def _select_model(self, page: Page, pane: Any, model: VideoModel) -> None:
         matcher = VIDEO_MODEL_MENU_MATCHERS.get(model)
         if matcher is None:
@@ -1634,13 +1718,16 @@ class MigratedComposer:
                 remediation_hint="Pass --model with one of the offered names, or omit it.",
             )
         button = pane.locator("button").filter(has=_ligature(page, "arrow_drop_down")).first
-        if not await button.count():
-            raise UiSelectorDriftError(
-                detail=(
-                    "migrated host: model picker button (arrow_drop_down) not found in the "
-                    "settings pane (host=migrated)"
-                ),
-            )
+        try:
+            await button.wait_for(state="visible", timeout=4000)
+        except Exception:
+            if not await button.count():
+                raise UiSelectorDriftError(
+                    detail=(
+                        "migrated host: model picker button (arrow_drop_down) not found in the "
+                        "settings pane (host=migrated)"
+                    ),
+                ) from None
         current = (await button.text_content() or "").strip()
         if matcher.matches(current):
             # Logged, because otherwise this path is invisible: a run that short-circuits
@@ -1702,10 +1789,13 @@ class MigratedComposer:
                 ),
             )
         button = pane.locator("button").filter(has=_ligature(page, "arrow_drop_down")).first
-        if not await button.count():
-            raise UiSelectorDriftError(
-                detail="migrated host: image model picker is missing (host=migrated)"
-            )
+        try:
+            await button.wait_for(state="visible", timeout=4000)
+        except Exception:
+            if not await button.count():
+                raise UiSelectorDriftError(
+                    detail="migrated host: image model picker is missing (host=migrated)"
+                ) from None
         current = (await button.text_content() or "").strip()
         if matcher.matches(current):
             log.info("migrated.image_model_already_selected", model=current, requested=model.value)
@@ -2399,6 +2489,12 @@ class MigratedComposer:
                 text = await response.text()
             except Exception:  # noqa: BLE001 - an aborted/streamed body is not our frame
                 return
+            refusal = _submit_refusal(text, SUBMIT_RPCS)
+            # An envelope arriving after an accepted submit is ignored: that run's outcome
+            # is already decided, and it now belongs to the terminal wait.
+            if refusal is not None and not submitted.done():
+                submitted.set_exception(refusal)
+                return
             for rid, payload in parse_frames(text):
                 # Record the id the FRAME names, not just the URL's. The interpolation
                 # reply arrives on a bare `batchexecute` with no `rpcids` param, so a
@@ -2670,13 +2766,24 @@ class MigratedComposer:
                 return
             try:
                 text = await response.text()
+                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,))
+                if refusal is not None:
+                    raise refusal
+                parsed = parse_frames(text)
                 records = [
                     record
-                    for rpcid, payload in parse_frames(text)
+                    for rpcid, payload in parsed
                     if rpcid == IMAGE_SUBMIT_RPC
                     for record in image_records(rpcid, payload)
                 ]
                 if not records:
+                    log.warning(
+                        "migrated.image_submit_unparsed_reply",
+                        rpcid=IMAGE_SUBMIT_RPC,
+                        text_len=len(text),
+                        parsed_count=len(parsed),
+                        parsed_rpcids=[p[0] for p in parsed],
+                    )
                     raise WireFormatError(
                         detail="migrated image submit returned no ogiZ0b frame",
                         route=f"batchexecute:{IMAGE_SUBMIT_RPC}",
@@ -2882,7 +2989,7 @@ async def run_video(
     if unported is not None:
         raise FlowHostMigratedError(
             detail=(
-                f"this account's Flow lives on flow.google.com, where gflow drives "
+                f"Flow served flow.google.com, where gflow drives "
                 f"text-to-video, image-to-video from local start (and end) frames, and "
                 f"reference-to-video from local files; {unported} is not ported yet "
                 f"(#639) — pass --initial-frame / --ref as local files"
@@ -2975,7 +3082,7 @@ async def run_images(
     if unported is not None:
         raise FlowHostMigratedError(
             detail=(
-                "this account's Flow lives on flow.google.com, where gflow drives t2i "
+                "Flow served flow.google.com, where gflow drives t2i "
                 f"and i2i from local files; {unported} is not ported yet (#639)"
             )
         )
