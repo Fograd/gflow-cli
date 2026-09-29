@@ -1045,14 +1045,6 @@ class OperationRecorder:
         completed_at = _now_utc_iso()
         repo = self.repository
         repo.upsert_profile(profile_name, profile_dir)
-        if isinstance(exc, MediaDownloadError) and exc.media_id:
-            # #896: Flow said DONE and billed; only the transfer failed. Without this the
-            # asset reads "pending" forever and nothing distinguishes it from a failed
-            # generation. Same vocabulary record_completed_video writes.
-            repo.update_asset_status(
-                profile_name, exc.media_id, "MEDIA_GENERATION_STATUS_SUCCESSFUL"
-            )
-
         recorded = False
         for media_id in flow_media_ids:
             op = repo.get_operation_for_output_asset(profile_name, media_id, mode)
@@ -1065,6 +1057,14 @@ class OperationRecorder:
                 recorded = True
             elif op.status == OperationStatus.FAILED:
                 recorded = True  # already terminal — do not duplicate
+        if isinstance(exc, MediaDownloadError) and exc.media_id:
+            # #896: Flow said DONE and billed; only the transfer failed. Without this the
+            # asset reads "pending" forever and nothing distinguishes it from a failed
+            # generation. Same vocabulary record_completed_video writes. Runs after the
+            # operation write, which matters more if a busy store fails one of the two.
+            repo.update_asset_status(
+                profile_name, exc.media_id, "MEDIA_GENERATION_STATUS_SUCCESSFUL"
+            )
         if recorded:
             return
 
