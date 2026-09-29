@@ -296,7 +296,7 @@ Options:
 |---|---|---|
 | `nano2` | Nano Banana 2 (`NARWHAL`) | Default. Fast, balanced quality. |
 | `nano-pro` | Nano Banana Pro (`GEM_PIX_2`) | Higher quality, slower. |
-| `nano2-lite` | Nano Banana 2 Lite (`HARBOR_SEAL`) | Lightweight, faster Nano Banana 2 variant. |
+| `nano2-lite` | Nano Banana 2 Lite (`HARBOR_SEAL`) | Lightweight Nano Banana 2 variant. Its i2i reference cap is a provisional 3 and its daily quota is unmeasured (#787). |
 | `image4` | Imagen 4 (`IMAGEN_3_5`) | Photoreal-leaning Imagen variant. |
 
 **Multi-prompt shortcut.**
@@ -638,7 +638,9 @@ gflow video t2v PROMPT [--model] [--duration] [--resolution] [--count] [--aspect
 
 Options:
   --resolution [360p|720p]
-                        Video resolution ('360p' or '720p', supported on omni-flash).
+                        Video resolution ('360p' or '720p', supported on omni-flash; on any other
+                        model, or on the labs editor, the run stops before submit with exit 11
+                        and no credits spent).
                         Omit for Flow's default.
   -o, --output PATH     Explicit destination file path for the generated asset
                         (e.g., `./out/clip.mp4`). Overrides automatic filename.
@@ -717,7 +719,9 @@ Options:
   --initial-frame PATH|UUID  Initial frame to animate: local image path or in-project
                              asset media UUID. Canonical form; replaces the positional IMAGE.
   --end-frame PATH|UUID      Optional end frame — Flow interpolates initial frame -> end frame.
-  --resolution [360p|720p]   Video resolution ('360p' or '720p', supported on omni-flash).
+  --resolution [360p|720p]   Video resolution ('360p' or '720p', supported on omni-flash; on any other
+                        model, or on the labs editor, the run stops before submit with exit 11
+                        and no credits spent).
                              Omit for Flow's default.
   --project ID               Generate in this EXISTING Flow project instead of a
                              scratch project (see "Sharing one project across calls").
@@ -755,7 +759,9 @@ gflow video r2v PROMPT --ref IMG [--ref IMG ...] [--model] [--duration] [--resol
 
 Options:
   --ref PATH                Reference image; repeat for up to 7 (omni-flash) / 3 (veo). [required]
-  --resolution [360p|720p]  Video resolution ('360p' or '720p', supported on omni-flash).
+  --resolution [360p|720p]  Video resolution ('360p' or '720p', supported on omni-flash; on any other
+                        model, or on the labs editor, the run stops before submit with exit 11
+                        and no credits spent).
                             Omit for Flow's default.
   --project ID              Generate in this EXISTING Flow project instead of a scratch
                             project (see "Sharing one project across calls").

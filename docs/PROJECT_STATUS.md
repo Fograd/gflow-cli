@@ -4,6 +4,41 @@
 
 ## Current release
 
+**v0.80.0 — alpha.** Two new controls, four fixes, and two dependency CVEs locked out.
+
+**`--resolution 360p|720p` and `--model nano2-lite` (#787).** Video models that render a
+resolution row (Omni Flash) take an explicit resolution instead of Flow's default, on the
+CLI and through `gflow_generate_video`. Nano Banana 2 Lite joins the image models. Both
+were verified live without spending Veo credits: the resolution check drove the real
+settings pane and stopped before the submit, on the CLI and the MCP twin.
+
+**An unported image form is refused by name, on a fresh or a reused client (#891).** The
+browser transport pre-minted a reCAPTCHA token it never read. After a successful image the
+page is parked on `about:blank`, where that mint raised `RecaptchaError`. So
+`gflow run --config` with a per-prompt `imagen4` after a working prompt crashed the whole
+run with exit 1 and lost its results table. The dead mint is gone. The composer now
+refuses the form with exit 36 and names it ("the IMAGEN_3_5 model is not ported yet"),
+and the run completes. Measured before and after on both paths.
+
+**A lost transfer is recorded as a generated clip (#896).** When the signed-media
+connection drops on every retry after Flow reported the clip done, the catalog marked it
+`pending` forever. It now records it as generated, with `error_type=media-download`, and
+`gflow data list videos` shows each clip's `STATUS`.
+
+**A refusal is reported as the refusal (#909), and `auth login` stops claiming success on
+the `/about` identity re-check (#902).** flow.google.com states its refusal on the wire
+(`PUBLIC_ERROR_UNUSUAL_ACTIVITY`), and gflow now reads it instead of timing out.
+
+**Security:** `oauthlib` 4.0.0 (CVE-2026-49265) and `pyjwt` 2.15.1 (CVE-2026-102274), both
+transitive.
+
+**Not verified here:** the rendered resolution (it needs a billed clip; selection is
+proven), the `/about` re-check arm (no profile is in that state), and accounts served
+labs (labs answers 308 on every profile here). Full ledger:
+[LIVE_VERIFICATION_v0.80.0](LIVE_VERIFICATION_v0.80.0.md).
+
+<details><summary>v0.79.1 — a billed clip survives a dropped download</summary>
+
 **v0.79.1 — alpha.** A finished, billed clip is no longer thrown away when its download
 hits a transient connection reset — and when the transfer truly cannot complete, you are
 told the clip exists and how to get it, instead of `Unexpected error`.
@@ -48,6 +83,8 @@ is unreadable and none was spent. The shared helper it calls *is* live-verified 
 RST with a control. The reporter's fault was **not** reproduced locally — 20/20 clean here
 against their 2-in-6, so it looks environment-specific. Recorded as blockers, not passes.
 Full ledger: [LIVE_VERIFICATION_v0.79.1](LIVE_VERIFICATION_v0.79.1.md).
+
+</details>
 
 <details><summary>v0.79.0 — recovering a billed clip whose download failed</summary>
 
@@ -261,6 +298,7 @@ migrated accounts (#795), and the agent-only composer driver (#799, #824 open).
 
 | Milestone | Status |
 |---|---|
+| An unported image form is refused by name instead of crashing a `gflow run` batch with a misleading `RecaptchaError` — the browser transport stops pre-minting a token it never read (#891); a lost transfer is recorded as a generated clip with a visible `STATUS` (#896); `--resolution` and `nano2-lite` (#787); flow.google.com refusals read from the wire (#909); `auth login` stops on the `/about` identity re-check (#902); `oauthlib`/`pyjwt` CVE locks | ✅ done (v0.80.0) |
 | A finished, billed clip is no longer discarded when its download hits a transient connection reset, at all three download sites including the recovery command's own; and the failure that survives is typed rather than `Unexpected error` — naming the clip and the free way to fetch it, on the CLI and through both MCP doors (#895) | ✅ done (v0.79.1) |
 | A billed generation whose download failed can be fetched back for free instead of paid for twice — `gflow data download`, video only (#865/#871, image gap #877); and two error paths stop asserting what nothing measured: aisandbox auth failures stop blaming a SAPISID cookie no such route reads (#803), and the migrated host stops echoing the requested model back as though Flow had confirmed it (#789). CI runs e2e tests for the first time — five hermetic, route-intercepted files that had been excluded from every run | ✅ done (v0.79.0) |
 | A clean Windows install can run at all — `colorama` declared, so `ConsoleRenderer` stops aborting every interactive command before any subcommand body (#846); the sign-in window closes itself on a migrated account and a completed login stops being discarded unread as exit 12 (#849); `gflow update` detects a half-replaced install (#848); the migrated-host address scan goes linear (#852) | ✅ done (v0.77.1) |
