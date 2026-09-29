@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.80.0] — 2026-09-29
+
 ### Security
 
 - **Locked `oauthlib` 4.0.0 (CVE-2026-49265) and `pyjwt` 2.15.1 (CVE-2026-102274).**
@@ -15,11 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Explicit video resolution control (`--resolution [360p|720p]`).** Added `--resolution`
+- **Explicit video resolution control (`--resolution [360p|720p]`, #787).** Added `--resolution`
   to `gflow video t2v`, `i2v`, and `r2v`, as well as MCP tool `gflow_generate_video`.
   Enables explicit selection of `360p` or `720p` on models providing resolution controls
   (such as `omni-flash`), preventing unintended defaults.
-- **Support for Nano Banana 2 Lite (`--model nano2-lite`).** Added `nano2-lite` alias mapped
+- **Support for Nano Banana 2 Lite (`--model nano2-lite`, #787).** Added `nano2-lite` alias mapped
   to Google's internal `HARBOR_SEAL` wire model for `gflow image t2i`, `i2i`, and `batch`. Its I2I reference
   cap starts at 3 because it has not been measured yet, and its daily quota is
   unmeasured too ([spike](docs/superpowers/spikes/2026-09-11-nano2-lite-capability.md)).
@@ -73,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same healthy cookies. A labs-served login closes as fast as before. The failing state is
   tested offline only: the one account measured in it (2026-09-23) had already been cleared by
   hand, and none of the profiles here is in that state now.
+
 ## [0.79.1] — 2026-09-22
 
 ### Fixed
@@ -5705,7 +5708,8 @@ shell-script template that branches on these codes.
 
 First skeleton. Not functional end-to-end yet.
 
-[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...HEAD
+[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.80.0...HEAD
+[0.80.0]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...v0.80.0
 [0.79.1]: https://github.com/ffroliva/gflow-cli/compare/v0.79.0...v0.79.1
 [0.79.0]: https://github.com/ffroliva/gflow-cli/compare/v0.78.0...v0.79.0
 [0.78.0]: https://github.com/ffroliva/gflow-cli/compare/v0.77.1...v0.78.0

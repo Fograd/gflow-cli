@@ -757,7 +757,8 @@ def _build_video_media_inputs(
     description=(
         "Generate an image using Google Flow's Imagen model. "
         "Produces 1-4 images from a text prompt. "
-        "Models: nano2 (fast), nano-pro (balanced), image4 (highest quality). "
+        "Models: nano2 (fast), nano2-lite (lightweight), nano-pro (balanced), "
+        "image4 (highest quality). "
         "Aspects: 1:1, 9:16, 16:9, 4:3, 3:4. "
         "The prompt supports @AssetName mentions to tag saved project characters/assets by name "
         "(resolves to referenceEntities/referenceImages). Reference a SAVED named asset via "
@@ -796,7 +797,7 @@ async def gflow_generate_image(
             referenceEntities / referenceImages, deduped against reference_images). Use
             ``@Name`` for a saved named asset; use ``reference_images`` for an arbitrary
             one-off image. See ``docs/REFERENCE_STRATEGIES.md``.
-        model: Model to use — 'nano2', 'nano-pro', or 'image4'.
+        model: Model to use — 'nano2', 'nano2-lite', 'nano-pro', or 'image4'.
         aspect: Aspect ratio — '1:1', '9:16', '16:9', '4:3', '3:4'.
         count: Number of images to generate (1-4).
         seed: Optional random seed for reproducibility.
@@ -1070,7 +1071,9 @@ async def gflow_generate_video(  # NOSONAR
             4 or 6 it drops the references and bills a text-to-video clip instead of
             refusing; any other value returns the exit-11-equivalent envelope.
         resolution: Optional video resolution — '360p' or '720p' (omni-flash only,
-            mirrors the CLI ``--resolution``). When omitted, Flow's default applies.
+            mirrors the CLI ``--resolution``). When omitted, Flow's default applies. On any
+            other model, or on the labs editor, the job fails pre-submit with the
+            exit-11-equivalent envelope and no credits spent.
         count: Number of videos to generate (mirrors the CLI ``--count``; default 1).
         tools: Optional list of prompt tools to apply before generation.
             Each item is ``{"name": str, "options": dict}``.  Valid names
