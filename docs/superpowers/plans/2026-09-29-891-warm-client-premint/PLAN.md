@@ -57,35 +57,35 @@ KNOWN_ISSUES.md, CHANGELOG.md
 ## Task 1 — Red tests
 **What:** Pin the new contract before touching `src/`.
 **Steps:**
-- [ ] Replace `test_drive_mints_when_request_is_not_migrated_servable` with `test_drive_never_mints_for_a_page_owning_transport`: unported request (`reference_entities`), and the mint must not be awaited.
-- [ ] Rewrite `test_migrated_images_prefer_keeps_project_less_runs_on_labs` so it asserts the predicate as routing uses it (`page_url` given), not the unreachable `project_id=None` client call.
+- [x] Replace `test_drive_mints_when_request_is_not_migrated_servable` with `test_drive_never_mints_for_a_page_owning_transport`: unported request (`reference_entities`), and the mint must not be awaited.
+- [x] Rewrite `test_migrated_images_prefer_keeps_project_less_runs_on_labs` so it asserts the predicate as routing uses it (`page_url` given), not the unreachable `project_id=None` client call.
 **Tests created (red):**
-- [ ] `test_drive_never_mints_for_a_page_owning_transport` fails on `develop`.
+- [x] `test_drive_never_mints_for_a_page_owning_transport` fails on `develop`.
 
 ## Task 2 — Client + capability
 **Steps:**
-- [ ] `_drive_images_generation`: `if callable(getattr(self.transport, "uses_page_owned_image_recaptcha", None))` → no mint.
-- [ ] `UiAutomationTransport.uses_page_owned_image_recaptcha` → `return True`, with a docstring naming the fact (the token is never read). Delete the URL/latch body.
-- [ ] Delete the capability's URL-branch tests in `test_migrated_images.py`; keep `test_client_keeps_legacy_mint_for_other_image_transports`.
-- [ ] Fix the `migrated_images_prefer` docstring and the `_mint_recaptcha_token` #673 comment.
+- [x] `_drive_images_generation`: `if callable(getattr(self.transport, "uses_page_owned_image_recaptcha", None))` → no mint.
+- [x] `UiAutomationTransport.uses_page_owned_image_recaptcha` → `return True`, with a docstring naming the fact (the token is never read). Delete the URL/latch body.
+- [x] Delete the capability's URL-branch tests in `test_migrated_images.py`; keep `test_client_keeps_legacy_mint_for_other_image_transports`.
+- [x] Fix the `migrated_images_prefer` docstring and the `_mint_recaptcha_token` #673 comment.
 **Tests:** Task 1 green; `tests/api`, `tests/features` green.
 
 ## Task 3 — E2E (Iron Law)
-- [ ] #3: fresh client, `--model imagen4` on a served-flow.google.com profile → exit 36, $0. Re-run BOTH baseline arms (with and without `--project`) and compare them against the 2026-09-29 baseline: exit code, error type, and which step raised.
-- [ ] #4: warm client, one t2i then `imagen4` → exit 36 (ports the spike). One image of the daily cap.
-- [ ] MCP twin of #3 via `gflow_generate_image`, or record the reason with evidence.
-- [ ] Run on `ffroliva`, and paste the result into the PR.
+- [x] #3: fresh client, `--model imagen4` on a served-flow.google.com profile → exit 36, $0. Re-run BOTH baseline arms (with and without `--project`) and compare them against the 2026-09-29 baseline: exit code, error type, and which step raised.
+- [x] #4: warm client, one t2i then `imagen4` → exit 36 (ports the spike). One image of the daily cap.
+- [x] MCP twin of #3 via `gflow_generate_image`, or record the reason with evidence.
+- [x] Run on `ffroliva`, and paste the result into the PR.
 
 ## Task 4 — Evidence + docs
-- [ ] Commit the two spike scripts and a spike verdict doc.
-- [ ] Add the #891 line under KNOWN_ISSUES #673.
-- [ ] CHANGELOG `### Fixed`.
-- [ ] File the deferred issues listed in SCENARIO.md.
+- [x] Commit the two spike scripts and a spike verdict doc.
+- [x] Add the #891 line under KNOWN_ISSUES #673.
+- [x] CHANGELOG `### Fixed`.
+- [x] File the deferred issues listed in SCENARIO.md.
 
 ## Task 5 — Gates
-- [ ] `/gflow:check` green, then PR → `/gflow:pr-council-review`.
+- [x] `/gflow:check` green, then PR → `/gflow:pr-council-review` (council pending).
 
 ---
 
 ## Definition of done
-- [ ] All tasks checked; e2e #3 and #4 pasted in the PR; deferred issues filed; Closes #891.
+- [x] All tasks checked; e2e #3 and #4 pasted in the PR; deferred issues filed; Closes #891.

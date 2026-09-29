@@ -2643,11 +2643,10 @@ class FlowApiClient:
             # root grid, which is where the client-side handoff leaves the pooled
             # bootstrap page, has no script at all.
             #
-            # The migrated image path now bypasses this method through the
-            # ``uses_page_owned_image_recaptcha`` transport capability. Keep this
-            # host guard for the narrow race where a labs page hands off while a
-            # caller is already minting; the project page owns the token and the
-            # migrated composer submits ``ogiZ0b`` itself.
+            # Image generation no longer reaches this method on the UI transport
+            # (#891: it never read the token). The guard stays for the callers that
+            # genuinely send one -- the experimental HTTP image transports, upscale
+            # and extend -- where a labs page can hand off mid-mint.
             raise_if_migrated(page, at="mint_recaptcha_token")
             # Patchright evaluates in an isolated world by default, where the
             # page's main-world ``grecaptcha`` global is undefined; the resolver
@@ -2744,24 +2743,13 @@ class FlowApiClient:
             raise RuntimeError(
                 msg,
             )
-        page_owned = getattr(self.transport, "uses_page_owned_image_recaptcha", None)
-        serve_migrated = False
-        if callable(page_owned) and page_owned():
-            from gflow_cli.api.transports.migrated_composer import (  # noqa: PLC0415
-                migrated_images_prefer,
-            )
-
-            # The capability answers from the page URL alone and cannot see the
-            # request: re-check servability here so entity/instruction runs and
-            # project-less runs keep their pre-minted token. A redundant mint on
-            # a migrated run is harmless (the page mints its own); a missing mint
-            # on a labs run is a terminal auth failure.
-            serve_migrated = migrated_images_prefer(req, project_id=project_id)
-        if serve_migrated:
-            # The migrated Angular page mints and submits its own token on ogiZ0b.
-            # Minting here first is not only redundant: the pooled bootstrap page is
-            # flow.google.com/ (no enterprise.js), while /project/<id> is the page that
-            # owns the script. Let the transport navigate before Flow spends a token.
+        if callable(getattr(self.transport, "uses_page_owned_image_recaptcha", None)):
+            # #891: a transport that drives Flow's own page never reads
+            # `recaptcha_token` -- the page mints its own on click -- so a client
+            # mint here is dead weight at best. At worst it runs on whatever page the
+            # pool hands out, which after a successful migrated run is about:blank,
+            # and turns the transport's precise exit 36 into a misleading
+            # RecaptchaError. Unported forms are refused by the transport's router.
             req_with_token = req
         else:
             token = await self._mint_recaptcha_token(recaptcha_action)

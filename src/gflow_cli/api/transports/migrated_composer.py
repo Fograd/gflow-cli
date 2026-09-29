@@ -552,13 +552,10 @@ def migrated_images_prefer(
       (:func:`_unported_image_form` names anything it does not);
     - a project is named or the page already sits in one — the labs driver
       auto-creates a project, the migrated composer needs ``--project``;
-    - the page is not already inside an editor — there the served host rules,
-      and assuming migrated would skip the mint a labs editor needs
-      (the #673 mirror: a wrong skip is a terminal auth failure, a redundant
-      mint on a migrated run is free because the page mints its own).
+    - the page is not already inside an editor — there the served host rules.
 
-    Pure predicate over the request and the URL: no browser, no spend. Both
-    the router and the mint decision call it so the two cannot disagree.
+    Pure predicate over the request and the URL: no browser, no spend. Routing
+    only: the client no longer consults it for a reCAPTCHA mint (#891).
     """
     if _unported_image_form(request) is not None:
         return False
@@ -2992,7 +2989,7 @@ async def run_video(
     if unported is not None:
         raise FlowHostMigratedError(
             detail=(
-                f"this account's Flow lives on flow.google.com, where gflow drives "
+                f"Flow served flow.google.com, where gflow drives "
                 f"text-to-video, image-to-video from local start (and end) frames, and "
                 f"reference-to-video from local files; {unported} is not ported yet "
                 f"(#639) — pass --initial-frame / --ref as local files"
@@ -3085,7 +3082,7 @@ async def run_images(
     if unported is not None:
         raise FlowHostMigratedError(
             detail=(
-                "this account's Flow lives on flow.google.com, where gflow drives t2i "
+                "Flow served flow.google.com, where gflow drives t2i "
                 f"and i2i from local files; {unported} is not ported yet (#639)"
             )
         )
