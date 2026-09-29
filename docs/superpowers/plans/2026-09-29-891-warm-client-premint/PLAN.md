@@ -22,6 +22,7 @@ reroute (predict design step 2) is dropped because no shipped surface reaches it
 | Severity | Risk | Mitigation |
 |---|---|---|
 | Medium | An account served labs relies on the client token after all | Grep proof: no reader in `ui_automation.py`, `drivers/`, `migrated_composer.py`. The labs arm cannot be observed here (308 on every profile), so record it, don't claim it |
+| **High** | **Today's exit 36 on the shipped path COMES FROM the mint's host guard.** Baseline 2026-09-29 (`develop` 342f39df, `ffroliva`, `t2i --model imagen4`, $0): both arms exit 36 with `ui_driver.migrated_host_bail at=mint_recaptcha_token` — `--project` at `flow.google.com/?hl=en`, no-project at `flow.google.com/project/<id>`. Removing the mint removes that raise, so the transport must take over | By code the transport should raise instead: `migrated_route(flow.google.com URL, auto)` returns `migrated`, then `run_images` refuses the unported form with exit 36 and names the model. **Unrun.** Task 3 re-runs these exact two commands after the change, and the PR is not mergeable until both exit 36 |
 | Medium | A fresh client whose page is still the labs bootstrap takes the labs detour before exit 36 | Same as today: the old mint did not bail there either (it minted, then the transport ran). Covered by e2e #3 |
 | Low | Merge conflict with #882 (`_mint_recaptcha_token`) and #824 (`run_images`) | Neither function body changes |
 
@@ -70,7 +71,7 @@ KNOWN_ISSUES.md, CHANGELOG.md
 **Tests:** Task 1 green; `tests/api`, `tests/features` green.
 
 ## Task 3 — E2E (Iron Law)
-- [ ] #3: fresh client, `--model imagen4` on a served-flow.google.com profile → exit 36, $0.
+- [ ] #3: fresh client, `--model imagen4` on a served-flow.google.com profile → exit 36, $0. Re-run BOTH baseline arms (with and without `--project`) and compare them against the 2026-09-29 baseline: exit code, error type, and which step raised.
 - [ ] #4: warm client, one t2i then `imagen4` → exit 36 (ports the spike). One image of the daily cap.
 - [ ] MCP twin of #3 via `gflow_generate_image`, or record the reason with evidence.
 - [ ] Run on `ffroliva`, and paste the result into the PR.
