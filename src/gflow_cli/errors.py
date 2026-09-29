@@ -41,6 +41,7 @@ __all__ = [
     "ReferenceNotFoundError",
     "MentionIndexUnavailableError",
     "ModelModeIncompatibilityError",
+    "MediaDownloadError",
     "NetworkError",
     "OwnerEvidence",
     "ProblemDetails",
@@ -359,6 +360,22 @@ class NetworkError(FlowApiError):
     problem_type = "https://gflow-cli.dev/errors/network"
     title = "Network failure persisted across retries"
     _default_remediation = "Check connectivity and try again."
+
+
+class MediaDownloadError(NetworkError):
+    """The signed-media GET failed AFTER Flow reported the generation done (#896).
+
+    Raised only by ``get_signed_media``, so catching it means the clip exists and was
+    billed — the recorder uses it to mark the asset generated instead of leaving it
+    ``pending`` forever. Exits 6 like its parent.
+    """
+
+    problem_type = "https://gflow-cli.dev/errors/media-download"
+    title = "Generated media could not be downloaded"
+
+    def __init__(self, *args: Any, media_id: str = "", **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.media_id = media_id
 
 
 class WireFormatError(FlowApiError):

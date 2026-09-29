@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A clip whose download failed is no longer recorded as never generated (#896, #898).**
+  When Flow reports a video done but the signed-media download fails, the catalog now
+  marks the asset `MEDIA_GENERATION_STATUS_SUCCESSFUL` rather than leaving it `pending`
+  forever. The operation's `error_type` is `media-download` (still exit 6), so
+  `gflow data list errors` tells a lost transfer from a failed generation.
+  `gflow data list videos` gains a `STATUS` column and a `status` field in `--json`.
 - **A generation flow.google.com refuses is now reported as that refusal, by name (#906, #873).**
   Flow answers a refused submit with HTTP 200 and a `batchexecute` error envelope carrying
   Google's reason (`PUBLIC_ERROR_UNUSUAL_ACTIVITY`), but gflow's parser discarded any frame

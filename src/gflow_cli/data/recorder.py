@@ -28,7 +28,7 @@ from gflow_cli.data.redaction import (
 )
 from gflow_cli.data.repository import DataRepository
 from gflow_cli.data.store import DataStore
-from gflow_cli.errors import GFlowError, MediaAttributionError
+from gflow_cli.errors import GFlowError, MediaAttributionError, MediaDownloadError
 from gflow_cli.observability import exception_message_hash
 
 if TYPE_CHECKING:
@@ -1045,6 +1045,13 @@ class OperationRecorder:
         completed_at = _now_utc_iso()
         repo = self.repository
         repo.upsert_profile(profile_name, profile_dir)
+        if isinstance(exc, MediaDownloadError) and exc.media_id:
+            # #896: Flow said DONE and billed; only the transfer failed. Without this the
+            # asset reads "pending" forever and nothing distinguishes it from a failed
+            # generation. Same vocabulary record_completed_video writes.
+            repo.update_asset_status(
+                profile_name, exc.media_id, "MEDIA_GENERATION_STATUS_SUCCESSFUL"
+            )
 
         recorded = False
         for media_id in flow_media_ids:
