@@ -440,6 +440,104 @@ async def test_e2e_t2i_runs_on_a_moved_account(
     assert "ui_driver.migrated_host_bail" not in events
 
 
+def _spy_on_client_mint(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every client-side reCAPTCHA mint -- successful or not (#891)."""
+    calls: list[str] = []
+    original = FlowApiClient._mint_recaptcha_token  # noqa: SLF001
+
+    async def spy(self: FlowApiClient, action: str) -> str:
+        calls.append(action)
+        return await original(self, action)
+
+    monkeypatch.setattr(FlowApiClient, "_mint_recaptcha_token", spy)
+    return calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.e2e_auth
+async def test_e2e_unported_image_form_is_refused_by_name(
+    e2e_profile_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#891, $0: an unported form on a fresh client is refused by the composer (exit 36,
+    naming the model), not by the client's pre-mint -- which no longer runs."""
+    project = _project_id()
+    _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
+    req = GenerateImageRequest(prompt="a red cube", model=ImageModel.IMAGEN_3_5)
+    async with FlowApiClient(profile_dir=e2e_profile_dir, out_dir=tmp_path) as client:
+        page = client._page  # noqa: SLF001 - the e2e reads the live page
+        assert page is not None
+        if flow_host_kind(page.url) != "migrated":
+            pytest.skip("profile is not served flow.google.com")
+        with pytest.raises(FlowHostMigratedError, match="IMAGEN_3_5 model is not ported"):
+            await client.generate_image(project_id=project, req=req)
+
+    assert mints == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.e2e_image
+async def test_e2e_warm_client_refuses_an_unported_form_after_a_success(
+    e2e_profile_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#891: after a successful image the page is parked on ``about:blank``. The old
+    client pre-mint ran there and raised RecaptchaError ("the Flow editor page may have
+    failed to load") instead of exit 36. One image of the daily cap; the second call is
+    refused before submit."""
+    project = _project_id()
+    _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
+    async with FlowApiClient(profile_dir=e2e_profile_dir, out_dir=tmp_path) as client:
+        page = client._page  # noqa: SLF001 - the e2e reads the live page
+        assert page is not None
+        if flow_host_kind(page.url) != "migrated":
+            pytest.skip("profile is not served flow.google.com")
+        image = await client.generate_image(
+            project_id=project, req=GenerateImageRequest(prompt="a plain matte grey cube")
+        )
+        assert image.media_name
+        assert client._page is not None and client._page.url == "about:blank"  # noqa: SLF001
+
+        with pytest.raises(FlowHostMigratedError, match="IMAGEN_3_5 model is not ported"):
+            await client.generate_image(
+                project_id=project,
+                req=GenerateImageRequest(prompt="a red cube", model=ImageModel.IMAGEN_3_5),
+            )
+
+    assert mints == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.e2e_auth
+async def test_e2e_mcp_unported_image_form_is_refused_by_name(
+    e2e_profile_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#891 MCP twin, $0: the queued tool reaches the same refusal as the CLI."""
+    del e2e_profile_dir  # fixture selects the real authenticated gflow home
+    project = _project_id()
+    _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
+    profile = os.environ["GFLOW_CLI_E2E_PROFILE"].strip()
+
+    result = await mcp_tools.gflow_generate_image(
+        prompt="a red cube",
+        model="imagen4",
+        profile=profile,
+        project=project,
+        wait=True,
+    )
+
+    assert result["status"] == "failed", result
+    blob = str(result)
+    assert "flow-host-migrated" in blob and "IMAGEN_3_5 model is not ported" in blob, result
+    assert mints == []
+
+
 @pytest.mark.asyncio
 @pytest.mark.e2e_image
 async def test_e2e_mcp_i2i_runs_on_the_migrated_host(

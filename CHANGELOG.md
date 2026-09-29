@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An unported image form is refused by name, on a fresh or a reused client (#891).**
+  The browser transport no longer pre-mints a reCAPTCHA token for images: Flow's page
+  mints its own, and the client's token was never read. After a successful image the
+  pre-mint ran on the parked `about:blank` page and turned exit 36 into a misleading
+  `RecaptchaError`. The refusal now comes from the composer and names the form, e.g.
+  "the IMAGEN_3_5 model is not ported yet". Reachable from `gflow run --config` with a
+  per-prompt `imagen4` after a successful prompt: that run used to crash with exit 1 and
+  lose its results table; now the prompt fails by name and the run completes. This
+  corrects the 0.78.0 note that project-less image runs "keep the served host": the
+  client creates the project first, so they are served by the migrated composer. The HTTP
+  image transports still mint.
 - **A clip whose download connection dropped is no longer recorded as never generated
   (#896, #898).** When Flow reports a video done but the signed-media connection drops
   on every retry, the catalog now marks the asset `MEDIA_GENERATION_STATUS_SUCCESSFUL`
