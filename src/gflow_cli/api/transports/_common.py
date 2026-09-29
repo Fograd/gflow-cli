@@ -30,6 +30,7 @@ from gflow_cli.errors import (
     FlowApiError,
     FlowAppError,
     FlowHostMigratedError,
+    MediaDownloadError,
     NetworkError,
     RateLimitError,
     WafRejectionError,
@@ -678,7 +679,8 @@ async def get_signed_media(
             error_class=type(exc).__name__,
             route=route,
         )
-        raise NetworkError(
+        raise MediaDownloadError(
+            media_id=media_id,
             detail=(
                 f"the signed media URL for {media_id} dropped the connection on all "
                 f"{_DOWNLOAD_ATTEMPTS} attempts ({type(exc).__name__})"
