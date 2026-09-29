@@ -1751,7 +1751,7 @@ gflow run --config FILE [--output-dir DIR] [--profile NAME] [--continue-on-error
 
 The config is a JSON file with a top-level `prompts` array; each entry
 produces 1–4 images through one `FlowApiClient` session (one Playwright
-browser, one Flow project, sequential reCAPTCHA mints).
+browser, one Flow project; prompts run one after another).
 
 ### Config schema
 

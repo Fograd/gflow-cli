@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import structlog
 
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.dto import GeneratedImage
@@ -289,6 +290,30 @@ def test_ui_transport_owns_its_image_recaptcha_on_about_blank(
     transport._page = page  # noqa: SLF001
 
     assert transport.uses_page_owned_image_recaptcha()
+
+
+async def test_image_kill_switch_refuses_a_migrated_page_with_exit_36(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#891: with the client mint gone for the UI transport, this route guard is the only
+    thing that keeps `GFLOW_CLI_FLOW_HOST=labs.google` an exit 36 for images."""
+    from gflow_cli.api.transports.ui_automation import UiAutomationTransport
+    from gflow_cli.config import reset_settings
+    from gflow_cli.errors import FlowHostMigratedError
+
+    monkeypatch.setenv("GFLOW_CLI_FLOW_HOST", "labs.google")
+    reset_settings()
+    transport = UiAutomationTransport()
+    page = MagicMock()
+    page.url = f"https://flow.google.com/project/{PROJECT}"
+    transport._page = page  # noqa: SLF001
+    transport._setup_done = True  # noqa: SLF001
+
+    with structlog.testing.capture_logs() as logs, pytest.raises(FlowHostMigratedError):
+        await transport.generate_images(project_id=PROJECT, request=_request())
+    assert {"at": "image_flow_host_kill_switch"}.items() <= next(
+        e for e in logs if e.get("event") == "ui_driver.migrated_host_bail"
+    ).items()
 
 
 async def test_image_batch_is_refused_on_the_migrated_host_before_any_submit(

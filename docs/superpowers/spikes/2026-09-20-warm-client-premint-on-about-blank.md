@@ -50,9 +50,16 @@ failed, still got exit 36.
 
 ## Reachability
 
-No shipped command reused a client across a successful image and an unported form:
-- A single CLI run and each MCP/worker task get a fresh client.
-- Multi-prompt `t2i` shares one form.
-- `image batch` is refused on flow.google.com.
+**Corrected 2026-09-29 by the #916 council (D6).** `gflow run --config` runs every prompt
+through one client (`run_image_batch`) and accepts a per-prompt `model`, so
+`[nano2, imagen4]` is the #891 repro. Measured on `ffroliva`:
 
-The defect was latent, and reachable only from direct `FlowApiClient` reuse.
+| | exit | prompt 2 |
+|---|---|---|
+| `develop` 342f39df | 1 — traceback, results table lost | `RecaptchaError` |
+| fix branch | 36 — table printed, "1/2 succeeded" | `FlowHostMigratedError`, "the IMAGEN_3_5 model is not ported yet" |
+
+The scenario's reachability sweep had covered `t2i` multi-prompt (one shared model), `image
+batch` (refused on flow.google.com), MCP (fresh client per task) and `movie`, and missed
+`gflow run`. Lesson: enumerate callers of `generate_image` by *runner*, not by command
+name — `run_sequential_batch` has two front doors.

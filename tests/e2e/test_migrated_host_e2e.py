@@ -440,9 +440,17 @@ async def test_e2e_t2i_runs_on_a_moved_account(
     assert "ui_driver.migrated_host_bail" not in events
 
 
-def _minted_on(capture: structlog.testing.LogCapture) -> list[object]:
-    """Where the CLIENT tried to mint -- its host guard logs ``at=mint_recaptcha_token*``."""
-    return [e.get("at") for e in capture.entries if str(e.get("at", "")).startswith("mint_")]
+def _spy_on_client_mint(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every client-side reCAPTCHA mint -- successful or not (#891)."""
+    calls: list[str] = []
+    original = FlowApiClient._mint_recaptcha_token  # noqa: SLF001
+
+    async def spy(self: FlowApiClient, action: str) -> str:
+        calls.append(action)
+        return await original(self, action)
+
+    monkeypatch.setattr(FlowApiClient, "_mint_recaptcha_token", spy)
+    return calls
 
 
 @pytest.mark.asyncio
@@ -451,12 +459,12 @@ async def test_e2e_unported_image_form_is_refused_by_name(
     e2e_profile_dir: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    install_log_capture: structlog.testing.LogCapture,
 ) -> None:
     """#891, $0: an unported form on a fresh client is refused by the composer (exit 36,
     naming the model), not by the client's pre-mint -- which no longer runs."""
     project = _project_id()
     _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
     req = GenerateImageRequest(prompt="a red cube", model=ImageModel.IMAGEN_3_5)
     async with FlowApiClient(profile_dir=e2e_profile_dir, out_dir=tmp_path) as client:
         page = client._page  # noqa: SLF001 - the e2e reads the live page
@@ -466,7 +474,7 @@ async def test_e2e_unported_image_form_is_refused_by_name(
         with pytest.raises(FlowHostMigratedError, match="IMAGEN_3_5 model is not ported"):
             await client.generate_image(project_id=project, req=req)
 
-    assert _minted_on(install_log_capture) == []
+    assert mints == []
 
 
 @pytest.mark.asyncio
@@ -475,7 +483,6 @@ async def test_e2e_warm_client_refuses_an_unported_form_after_a_success(
     e2e_profile_dir: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    install_log_capture: structlog.testing.LogCapture,
 ) -> None:
     """#891: after a successful image the page is parked on ``about:blank``. The old
     client pre-mint ran there and raised RecaptchaError ("the Flow editor page may have
@@ -483,6 +490,7 @@ async def test_e2e_warm_client_refuses_an_unported_form_after_a_success(
     refused before submit."""
     project = _project_id()
     _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
     async with FlowApiClient(profile_dir=e2e_profile_dir, out_dir=tmp_path) as client:
         page = client._page  # noqa: SLF001 - the e2e reads the live page
         assert page is not None
@@ -500,7 +508,7 @@ async def test_e2e_warm_client_refuses_an_unported_form_after_a_success(
                 req=GenerateImageRequest(prompt="a red cube", model=ImageModel.IMAGEN_3_5),
             )
 
-    assert _minted_on(install_log_capture) == []
+    assert mints == []
 
 
 @pytest.mark.asyncio
@@ -513,6 +521,7 @@ async def test_e2e_mcp_unported_image_form_is_refused_by_name(
     del e2e_profile_dir  # fixture selects the real authenticated gflow home
     project = _project_id()
     _set_flow_host(monkeypatch, None)
+    mints = _spy_on_client_mint(monkeypatch)
     profile = os.environ["GFLOW_CLI_E2E_PROFILE"].strip()
 
     result = await mcp_tools.gflow_generate_image(
@@ -526,6 +535,7 @@ async def test_e2e_mcp_unported_image_form_is_refused_by_name(
     assert result["status"] == "failed", result
     blob = str(result)
     assert "flow-host-migrated" in blob and "IMAGEN_3_5 model is not ported" in blob, result
+    assert mints == []
 
 
 @pytest.mark.asyncio

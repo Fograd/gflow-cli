@@ -25,9 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mints its own, and the client's token was never read. After a successful image the
   pre-mint ran on the parked `about:blank` page and turned exit 36 into a misleading
   `RecaptchaError`. The refusal now comes from the composer and names the form, e.g.
-  "the IMAGEN_3_5 model is not ported yet". This corrects the 0.78.0 note that project-less
-  image runs "keep the served host": the client creates the project first, so they are
-  served by the migrated composer. The HTTP image transports still mint.
+  "the IMAGEN_3_5 model is not ported yet". Reachable from `gflow run --config` with a
+  per-prompt `imagen4` after a successful prompt: that run used to crash with exit 1 and
+  lose its results table; now the prompt fails by name and the run completes. This
+  corrects the 0.78.0 note that project-less image runs "keep the served host": the
+  client creates the project first, so they are served by the migrated composer. The HTTP
+  image transports still mint.
 - **A generation flow.google.com refuses is now reported as that refusal, by name (#906, #873).**
   Flow answers a refused submit with HTTP 200 and a `batchexecute` error envelope carrying
   Google's reason (`PUBLIC_ERROR_UNUSUAL_ACTIVITY`), but gflow's parser discarded any frame
