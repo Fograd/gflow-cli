@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The generation browser opens off-screen (#923).** Headed Chrome is required, so until
+  now every `image`/`video` run put a Chrome window over your desktop. It now opens at
+  `-30000,-30000`. It is still fully headed, so Flow and reCAPTCHA see the same browser.
+  Image and video generation were measured unchanged, and the page is not throttled.
+  `GFLOW_CLI_BROWSER_WINDOW_POSITION` takes any `X,Y` to place it where you want (to watch
+  a run or clear a consent screen by hand); empty restores Chrome's own placement. It
+  does not stop Chrome taking keyboard focus at launch. Login windows are unaffected. See
+  [docs/CONFIGURATION.md](docs/CONFIGURATION.md#gflow_cli_browser_window_position).
+  Thanks to @johngbl for the idea and the first implementation.
+
 ### Security
 
 - **Locked `urllib3` 2.8.0 (CVE-2026-97687, CVE-2026-97688, CVE-2026-97689).**
