@@ -378,48 +378,72 @@ async def test_launch_target_closed_raises_profile_locked_error(
         pw.stop.assert_awaited()  # partial-setup guard still tears down the driver
 
 
+_SINGLETON_HEADER = (
+    "BrowserType.launch_persistent_context: Failed to create a ProcessSingleton "
+    "for your profile directory. This usually means that the profile is already "
+    "in use by another instance of Chromium."
+)
+
+
+@pytest.mark.parametrize("error_class_name", ["TargetClosedError", "Error"])
 @pytest.mark.parametrize(
-    "access_denied_marker",
+    "lock_line",
     [
-        "Lock file can not be created! Error code: 5",
-        "Access is denied. (0x5)",
-        "拒绝访问。 (0x5)",
+        "Lock file can not be created: Access is denied. (0x5)",
+        "Lock file can not be created: 拒绝访问。 (0x5)",  # zh-CN, measured on Chrome 154
+        "Lock file can not be created: Acesso negado. (0x5)",  # pt-BR
+        "Lock file can not be created: Zugriff verweigert (0x5)",  # de-DE
+        "Lock file can not be created! Error code: 5",  # older Chrome wording
     ],
 )
 @pytest.mark.asyncio
 async def test_process_singleton_access_denied_raises_profile_access_error(
-    tmp_path: Path, settings_n4: Settings, access_denied_marker: str
+    tmp_path: Path, settings_n4: Settings, error_class_name: str, lock_line: str
 ) -> None:
-    """A launch-time access denial is not evidence of a competing Chrome owner."""
-    from gflow_cli.errors import EXIT_CODE_MAP, ConfigurationError, ProfileAccessError
+    """A launch-time access denial is not evidence of a competing Chrome owner — in
+    any Windows display language, and whether Playwright raises TargetClosedError
+    or a generic Error (Chrome 154's real shape)."""
+    from gflow_cli.errors import ProfileAccessError
+    from gflow_cli.json_output import exit_code_for
 
-    class TargetClosedError(Exception):
-        pass
-
-    detail = (
-        f"Failed to create a ProcessSingleton for your profile directory.\n{access_denied_marker}"
-    )
+    launch_error = type(error_class_name, (Exception,), {})
     with patch("gflow_cli.api.client.async_playwright") as mock_pw_factory:
         pw = MagicMock()
         pw.stop = AsyncMock()
-        pw.chromium.launch_persistent_context = AsyncMock(side_effect=TargetClosedError(detail))
+        pw.chromium.launch_persistent_context = AsyncMock(
+            side_effect=launch_error(f"{_SINGLETON_HEADER}\n{lock_line}")
+        )
         mock_pw_factory.return_value.start = AsyncMock(return_value=pw)
         client = FlowApiClient(profile_dir=tmp_path, settings=settings_n4)
         with pytest.raises(ProfileAccessError, match="not writable") as exc_info:
             await client.__aenter__()
         error = exc_info.value
-        assert isinstance(error, ConfigurationError)
-        assert (
-            next(
-                code
-                for error_class, code in EXIT_CODE_MAP.items()
-                if isinstance(error, error_class)
-            )
-            == 11
-        )
+        assert exit_code_for(error) == 11
         assert error.to_problem_details()["type"] == "https://gflow-cli.dev/errors/profile-access"
         assert "filesystem permissions" in (error.remediation_hint or "")
         pw.stop.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_singleton_without_access_code_stays_contention(
+    tmp_path: Path, settings_n4: Settings
+) -> None:
+    """Playwright's real 'already in use' header with no 0x5 line is still contention."""
+    from gflow_cli.errors import ProfileLockedError
+
+    class TargetClosedError(Exception):
+        pass
+
+    with patch("gflow_cli.api.client.async_playwright") as mock_pw_factory:
+        pw = MagicMock()
+        pw.stop = AsyncMock()
+        pw.chromium.launch_persistent_context = AsyncMock(
+            side_effect=TargetClosedError(_SINGLETON_HEADER)
+        )
+        mock_pw_factory.return_value.start = AsyncMock(return_value=pw)
+        client = FlowApiClient(profile_dir=tmp_path, settings=settings_n4)
+        with pytest.raises(ProfileLockedError):
+            await client.__aenter__()
 
 
 @pytest.mark.parametrize(
@@ -434,29 +458,3 @@ def test_profile_access_denied_requires_singleton_and_permission_markers(detail:
     from gflow_cli.api.client import _is_profile_access_denied
 
     assert not _is_profile_access_denied(RuntimeError(detail))
-
-
-@pytest.mark.asyncio
-async def test_chrome_access_denied_payload_without_target_closed_marker(
-    tmp_path: Path, settings_n4: Settings
-) -> None:
-    """Chrome 154's Windows ACL failure arrives as a generic Playwright Error."""
-    from gflow_cli.errors import ProfileAccessError
-
-    class Error(Exception):
-        pass
-
-    detail = (
-        "BrowserType.launch_persistent_context: Failed to create a ProcessSingleton "
-        "for your profile directory.\n"
-        "Lock file can not be created: 拒绝访问。 (0x5)"
-    )
-    with patch("gflow_cli.api.client.async_playwright") as mock_pw_factory:
-        driver = MagicMock()
-        driver.stop = AsyncMock()
-        driver.chromium.launch_persistent_context = AsyncMock(side_effect=Error(detail))
-        mock_pw_factory.return_value.start = AsyncMock(return_value=driver)
-        client = FlowApiClient(profile_dir=tmp_path, settings=settings_n4)
-        with pytest.raises(ProfileAccessError):
-            await client.__aenter__()
-        driver.stop.assert_awaited()

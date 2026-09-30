@@ -166,19 +166,15 @@ _TARGET_CLOSED_MARKERS = (
 )
 
 
-_PROFILE_ACCESS_DENIED_MARKERS = (
-    "Lock file can not be created! Error code: 5",
-    "Access is denied. (0x5)",
-    "拒绝访问。 (0x5)",
-)
-
-
 def _is_profile_access_denied(exc: BaseException) -> bool:
-    """True when Chrome's ProcessSingleton failed because the profile is read-only."""
+    """True when Chrome's ProcessSingleton failed because the profile is read-only.
+
+    Matches the Win32 code (ERROR_ACCESS_DENIED = 5), never the message text: Chrome
+    embeds the OS's *localized* description (``拒绝访问。 (0x5)``, ``Acesso negado.
+    (0x5)``), so only the code is the same on every Windows display language.
+    """
     message = str(exc)
-    return "ProcessSingleton" in message and any(
-        marker in message for marker in _PROFILE_ACCESS_DENIED_MARKERS
-    )
+    return "ProcessSingleton" in message and ("(0x5)" in message or "Error code: 5" in message)
 
 
 def _is_target_closed(exc: BaseException) -> bool:
@@ -1114,19 +1110,13 @@ class FlowApiClient:
         try:
             return await self._pw.chromium.launch_persistent_context(**kwargs)
         except Exception as exc:
+            # Before _is_target_closed: an access denial can arrive as a
+            # TargetClosedError too, and must not be reported as contention.
             if _is_profile_access_denied(exc):
                 raise ProfileAccessError(
                     detail=(
                         f"Chrome cannot create runtime files under {self.profile_dir}; "
                         "the directory is not writable by this process"
-                    ),
-                    remediation_hint=(
-                        "Check filesystem permissions or sandbox policy for the full "
-                        "profile directory. Grant this process write access, "
-                        "or authenticate a profile inside a writable GFLOW_CLI_HOME. "
-                        "Relocating application-level coordination locks is not enough; "
-                        "Chrome still writes ProcessSingleton, cookies, and Crashpad "
-                        "files inside the profile."
                     ),
                 ) from exc
             if _is_target_closed(exc):

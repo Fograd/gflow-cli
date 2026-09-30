@@ -466,10 +466,11 @@ class ProfileAccessError(ConfigurationError):
     problem_type = "https://gflow-cli.dev/errors/profile-access"
     title = "Profile directory not writable"
     _default_remediation = (
-        "Grant the current process write access to the full Chrome profile "
-        "directory, or use a writable profile. Relocating only application-level "
-        "lock files does not move Chrome's own ProcessSingleton, cookie, and "
-        "crash-report files."
+        "Check filesystem permissions or sandbox policy for the full profile "
+        "directory. Grant this process write access, or authenticate a profile "
+        "inside a writable GFLOW_CLI_HOME. Relocating only application-level lock "
+        "files is not enough; Chrome still writes its ProcessSingleton, cookie, and "
+        "crash-report files inside the profile."
     )
 
 
