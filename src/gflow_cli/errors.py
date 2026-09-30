@@ -45,6 +45,7 @@ __all__ = [
     "NetworkError",
     "OwnerEvidence",
     "ProblemDetails",
+    "ProfileAccessError",
     "QueueSchemaError",
     "RateLimitError",
     "SceneConcatError",
@@ -456,6 +457,20 @@ class ConfigurationError(GFlowError):
     _default_remediation = (
         "Check that the transport name is registered via make_transport(). "
         "Run `gflow config list-transports` to see available strategies."
+    )
+
+
+class ProfileAccessError(ConfigurationError):
+    """Raised when Chrome cannot write its persistent profile directory."""
+
+    problem_type = "https://gflow-cli.dev/errors/profile-access"
+    title = "Profile directory not writable"
+    _default_remediation = (
+        "Check filesystem permissions or sandbox policy for the full profile "
+        "directory. Grant this process write access, or authenticate a profile "
+        "inside a writable GFLOW_CLI_HOME. Relocating only application-level lock "
+        "files is not enough; Chrome still writes its ProcessSingleton, cookie, and "
+        "crash-report files inside the profile."
     )
 
 
