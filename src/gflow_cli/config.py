@@ -534,6 +534,15 @@ class Settings(BaseSettings):
             "that use a different transport (e.g. bearer/sapisidhash)."
         ),
     )
+    stealth_window: bool = Field(
+        default=True,
+        description=(
+            "Launch the headed browser off-screen without stealing window focus. "
+            "Keeps the headed browser fully compliant with reCAPTCHA Enterprise while "
+            "preventing the window from interrupting user workflow. "
+            "Set GFLOW_CLI_STEALTH_WINDOW=0 (or false) to restore visible window behavior."
+        ),
+    )
     browser_engine: BrowserEngine = Field(
         default=BrowserEngine.PLAYWRIGHT,
         description=(

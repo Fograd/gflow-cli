@@ -529,6 +529,11 @@ class FlowApiClient:
                 "--password-store=basic",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-dev-shm-usage",
+                *(
+                    ["--window-position=-30000,-30000", "--no-focus-on-init"]
+                    if self.settings.stealth_window
+                    else []
+                ),
             ],
         }
         if self.settings.har_path is not None:
