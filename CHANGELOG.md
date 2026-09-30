@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Locked `urllib3` 2.8.0 (CVE-2026-97687, CVE-2026-97688, CVE-2026-97689).**
+  Transitive only — via `requests` and, with the `s3` extra, `botocore`. No gflow
+  code imports it directly.
+
 ### Fixed
 
 - **Windows profile write-denial is distinguished from browser contention.** When
