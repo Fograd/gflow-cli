@@ -349,6 +349,49 @@ GFLOW_CLI_HISTORY_PROMPTS=redacted gflow image t2i "confidential brief"
 **Default:** `false` — **headed real Chrome is the production default**, not an opt-in fallback. The `ui_automation` transport (gflow-cli's only production transport) requires a headed browser: reCAPTCHA Enterprise rejects headless Chromium with an immediate 403, so `headless=true` is not a WAF workaround — it only exists for CI/CD environments running a non-`ui_automation` transport (e.g. `bearer`/`sapisidhash`, experimental).
 **WAF-sensitive runs:** set `GFLOW_CLI_HEADLESS=false` explicitly (it is already the default, but pin it in CI/CD env files or scripts that also set `headless=true` for a different transport, so a transport switch back to `ui_automation` doesn't silently regress to a rejected headless launch).
 
+### `GFLOW_CLI_BROWSER_WINDOW_POSITION`
+
+**What:** Where on screen the headed generation browser opens, as `X,Y` in pixels.
+**Values:** `X,Y` (integers, may be negative) | empty
+**Default:** `-30000,-30000`: off-screen. Generation needs a real **headed** Chrome (see
+[`GFLOW_CLI_HEADLESS`](#gflow_cli_headless)), and without this setting that window
+opens over whatever you are working on during every run. Off-screen it is still fully
+headed, so Flow and reCAPTCHA see exactly the same browser.
+
+| Set it to | Result |
+|---|---|
+| unset | off-screen (default) |
+| `0,0`, `1920,0`, … | the window opens there: watch a run, or park it on a second monitor |
+| empty (`GFLOW_CLI_BROWSER_WINDOW_POSITION=`) | Chrome's own placement, the behaviour before this setting existed |
+
+**When to bring it back on-screen:** a run that waits on something only a person can
+clear. Examples are an account chooser that wants a click, a Google consent or
+verification screen, or Flow's one-time *rights to use this image* confirmation on an
+account's first upload. The error names where the session stopped. Set a visible
+position, re-run, and deal with it in the window.
+
+**What it does not do:** it does not stop Chrome **taking keyboard focus** when it
+launches. Windows decides that, not Chrome. If you are typing when a run starts, the
+first keystrokes can land in the (invisible) browser. Login (`gflow auth login`) is
+unaffected and always opens where you can see it.
+
+**Measured (Windows 11, 2026-09-30):** off-screen and visible runs behaved the same.
+
+| | off-screen | visible |
+|---|---|---|
+| `gflow image t2i` | image saved, 34 s | image saved, 33 s |
+| `gflow video t2v` (`veo-lite`) | video saved, 53 s, no poll stalls | video saved, 65 s, no poll stalls |
+| page `visibilityState` | `visible` | `visible` |
+| animation frames / 100 ms timer ticks in 5 s | 300 / 50 | 295 / 50 |
+
+Chrome does not throttle an off-screen window: the page still counts as visible.
+Windows clamps very large offsets, so `-30000,-30000` lands at `-21845,-21845`, still
+past any monitor. A position like `100,100` lands exactly. Not yet measured on macOS or
+Linux, or for runs whose polling lasts longer than about five minutes.
+Measurement script: `scripts/dev/spike_offscreen_window.py`.
+
+**Malformed values** (`100`, `1,2,3`, `a,b`) fail at startup with a validation error.
+
 ### `GFLOW_CLI_BROWSER_ENGINE`
 
 **What:** Selects the browser-automation engine backing the Playwright API.

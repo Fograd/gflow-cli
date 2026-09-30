@@ -534,13 +534,16 @@ class Settings(BaseSettings):
             "that use a different transport (e.g. bearer/sapisidhash)."
         ),
     )
-    stealth_window: bool = Field(
-        default=True,
+    browser_window_position: str = Field(
+        default="-30000,-30000",
+        pattern=r"^(-?\d+,-?\d+)?$",
         description=(
-            "Launch the headed browser off-screen without stealing window focus. "
-            "Keeps the headed browser fully compliant with reCAPTCHA Enterprise while "
-            "preventing the window from interrupting user workflow. "
-            "Set GFLOW_CLI_STEALTH_WINDOW=0 (or false) to restore visible window behavior."
+            "Screen position 'X,Y' of the headed generation browser window (#923). "
+            "The default puts it off-screen: still a real headed Chrome, so reCAPTCHA "
+            "is unaffected, but it no longer covers your desktop. Set e.g. '0,0' to "
+            "watch a run, or '' for Chrome's own placement. It does NOT stop Chrome "
+            "taking keyboard focus at launch. Override via "
+            "GFLOW_CLI_BROWSER_WINDOW_POSITION."
         ),
     )
     browser_engine: BrowserEngine = Field(
