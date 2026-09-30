@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Windows profile write-denial is distinguished from browser contention.** A
+  persistent-context launch carrying `ProcessSingleton` and a known access-denied
+  error-code-5 marker now raises `ProfileAccessError` (configuration exit code 11),
+  including generic Playwright errors that previously escaped classification.
+  The remediation points to complete profile-directory write access, not to
+  closing a competing Chrome. Other launch failures keep their existing behavior;
+  this does not add general cross-platform permission detection or cover CDP launch.
+
 ## [0.80.0] — 2026-09-29
 
 ### Security

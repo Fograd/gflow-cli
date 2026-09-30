@@ -31,6 +31,18 @@ See [AUTHENTICATION § Session storage](AUTHENTICATION.md#session-storage) for t
 create it — a `tools/` directory of user-authored "My Tools" TOMLs
 (`<GFLOW_CLI_HOME>/tools/*.toml`, auto-loaded; see [TOOLS.md § My Tools](TOOLS.md)).
 
+#### Profile-directory permissions at browser launch
+
+On Windows, a Chrome `ProcessSingleton` launch failure with access-denied error
+code 5 is reported as `ProfileAccessError`, a configuration error (exit code 11),
+rather than suggesting contention or surfacing an unclassified launch failure. Ensure
+the process can write the complete persistent profile directory, or authenticate
+a profile inside a writable `GFLOW_CLI_HOME`. Relocating application-level lease
+locks alone does not relocate Chrome's `ProcessSingleton`, cookies, or crash
+reports. Launch failures without these access-denied markers retain their
+existing classification; this does not provide general cross-platform
+permission-error detection.
+
 ### `GFLOW_CLI_PROFILE`
 
 **What:** Default profile name used when `--profile` isn't passed on the CLI.

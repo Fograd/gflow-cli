@@ -98,6 +98,7 @@ from gflow_cli.errors import (
     FlowApiError,  # re-exported via gflow_cli.api.__init__
     FlowHostMigratedError,
     NetworkError,
+    ProfileAccessError,
     ProfileLockedError,
     RateLimitError,
     SceneConcatError,
@@ -163,6 +164,21 @@ _TARGET_CLOSED_MARKERS = (
     "Target page, context or browser has been closed",
     "Target closed",
 )
+
+
+_PROFILE_ACCESS_DENIED_MARKERS = (
+    "Lock file can not be created! Error code: 5",
+    "Access is denied. (0x5)",
+    "拒绝访问。 (0x5)",
+)
+
+
+def _is_profile_access_denied(exc: BaseException) -> bool:
+    """True when Chrome's ProcessSingleton failed because the profile is read-only."""
+    message = str(exc)
+    return "ProcessSingleton" in message and any(
+        marker in message for marker in _PROFILE_ACCESS_DENIED_MARKERS
+    )
 
 
 def _is_target_closed(exc: BaseException) -> bool:
@@ -1093,11 +1109,26 @@ class FlowApiClient:
         return after
 
     async def _launch_persistent_context(self, kwargs: JsonObject) -> BrowserContext:
-        """Launch the persistent context; translate a launch-time crash into ProfileLockedError."""
+        """Launch the context and classify profile access versus contention failures."""
         assert self._pw is not None
         try:
             return await self._pw.chromium.launch_persistent_context(**kwargs)
         except Exception as exc:
+            if _is_profile_access_denied(exc):
+                raise ProfileAccessError(
+                    detail=(
+                        f"Chrome cannot create runtime files under {self.profile_dir}; "
+                        "the directory is not writable by this process"
+                    ),
+                    remediation_hint=(
+                        "Check filesystem permissions or sandbox policy for the full "
+                        "profile directory. Grant this process write access, "
+                        "or authenticate a profile inside a writable GFLOW_CLI_HOME. "
+                        "Relocating application-level coordination locks is not enough; "
+                        "Chrome still writes ProcessSingleton, cookies, and Crashpad "
+                        "files inside the profile."
+                    ),
+                ) from exc
             if _is_target_closed(exc):
                 # A TargetClosedError at LAUNCH usually means the profile dir
                 # is held by another Chrome — most commonly a stale browser
