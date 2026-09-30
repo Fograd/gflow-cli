@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Windows profile write-denial is distinguished from browser contention.** When
+  the generation client's browser launch fails with a Chrome `ProcessSingleton`
+  error carrying Windows access-denied code 5, it now raises `ProfileAccessError`
+  (configuration exit code 11) instead of a misleading "another Chrome holds it"
+  `ProfileLockedError` or an unclassified error. The match is on the error code,
+  so it works in every Windows display language. The remediation points to
+  profile-directory write access, not to closing a competing Chrome. Not covered
+  yet: `gflow auth login` / auth verification, the standalone and experimental
+  transport launches, and CDP launch — those still surface Chrome's raw error.
+  Thanks @L1meSn0w for the diagnosis and the Windows reproduction (#919).
+
 ## [0.80.0] — 2026-09-29
 
 ### Security
