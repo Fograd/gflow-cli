@@ -1793,7 +1793,7 @@ browser, one Flow project; prompts run one after another).
 | `prompts[].model` | no | `nano2` | `nano2` / `nano-pro` / `imagen4`. |
 | `prompts[].count` | no | `1` | 1–4. |
 | `prompts[].output_filename` | no | `prompt_<index>` | Filename stem; saved as `<stem>_<image-index>.png`. |
-| `prompts[].ref` | no | — | `"batch:N"`: generate from row N's image. See [Referencing an earlier row](#referencing-an-earlier-row). |
+| `prompts[].ref` | no | — | `"batch:N"` (generate from row N's image) or a local image file. See [Referencing an earlier row](#referencing-an-earlier-row) and [Referencing a local file](#referencing-a-local-file). |
 | `profile` | no | active profile | CLI `--profile` overrides. |
 | `transport` | no | `ui_automation` | Experimental strategies need `GFLOW_CLI_EXPERIMENTAL_TRANSPORTS=1`. |
 | `output_dir` | no | `out/<UTC-timestamp>/` | CLI `--output-dir` overrides. |
@@ -1833,12 +1833,28 @@ that row's position in `prompts` (0-based).
   as image-to-image with its parent as the input (`gflow data`).
 - **No resume.** A re-run starts a new project and regenerates every row, parents
   included.
-- **Only `batch:N`.** A local file path, a media id or `reference_entity` in a row is
-  refused (exit 11); for those use `gflow image i2i --ref` or `--reference-entity`.
+- **`batch:N` or a local file.** A media id or `reference_entity` in a row is refused
+  (exit 11); for those use `gflow image i2i --ref` or `--reference-entity`.
 - **A parent Flow returned without a caption** cannot be found in the composer's `@`
   picker, so its child is refused (exit 36, "an image Flow returned without a caption").
 - **Measured on flow.google.com** (2026-10-01). An account served labs takes a different
   driver, which references the image by its media id; that arm has not been observed.
+
+### Referencing a local file
+
+A row's `ref` can also be a local image: `"ref": "refs/product.png"`.
+
+- **Resolved against the config file's folder** (an absolute path also works), so a config
+  and its images move together. The file must exist and be a real image (PNG, JPEG, WebP or
+  GIF, up to 20 MB) before the browser starts; anything else is refused (exit 11).
+- **Uploaded once per run.** The first row that names a file uploads it into the run's
+  project; every row that names the same file references that upload in place. The
+  project holds one copy.
+- **A failed upload** fails that row with the reason; a later row naming the same file
+  tries the upload again.
+- **Not resumable.** A re-run uploads the file again into its new project.
+- **Measured on flow.google.com** (2026-10-01). With `GFLOW_CLI_FLOW_HOST=labs.google` the
+  file goes through the REST upload instead; that path has not been observed live.
 
 `--fail-fast`: first failure stops the batch. Remaining prompts are reported as SKIPPED in the summary table.
 

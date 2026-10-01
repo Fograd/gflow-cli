@@ -1511,8 +1511,8 @@ def batch(
         if row.ref is not None:
             # The stay-mounted batch path cannot reference an earlier row (#913).
             msg = (
-                f"prompts[{row.index}].ref: references between rows work with "
-                "`gflow run --config`, not `gflow image batch`."
+                f"prompts[{row.index}].ref: manifest references (an earlier row or a "
+                "local file) work with `gflow run --config`, not `gflow image batch`."
             )
             raise click.UsageError(msg)
 
