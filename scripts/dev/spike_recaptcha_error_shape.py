@@ -94,13 +94,16 @@ async def _main(profile: str, project: str, steady: int) -> int:
         await _settle(page, proj)
         findings["C_project_steady"] = [await _minter(page) for _ in range(steady)]
         ok = sum(r.startswith("OK") for r in findings["C_project_steady"])
-        step("C", f"{ok}/{steady} OK; failures={[r for r in findings['C_project_steady'] if not r.startswith('OK')]}")
+        failed = [r for r in findings["C_project_steady"] if not r.startswith("OK")]
+        step("C", f"{ok}/{steady} OK; failures={failed}")
 
         races: list[dict[str, str]] = []
         for _ in range(3):
             mint = asyncio.create_task(_minter(page))
             await asyncio.sleep(0.05)
-            nav = asyncio.create_task(page.goto(proj, wait_until="domcontentloaded", timeout=45_000))
+            nav = asyncio.create_task(
+                page.goto(proj, wait_until="domcontentloaded", timeout=45_000)
+            )
             raced = await mint
             try:
                 await nav
