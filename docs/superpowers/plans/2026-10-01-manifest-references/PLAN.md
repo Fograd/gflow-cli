@@ -152,15 +152,17 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`run_one_image_prompt` success path), `data/recorder.py` if needed.
 
 **Steps:**
-- [ ] Red tests: #31, #31a, #31b, #41
-- [ ] successful `run` rows call `record_generated_images` (as `image batch` does, `:945`)
-- [ ] a `batch:N` row records `operation_kind="i2i"`, `input_media_ids=[parent media id]`; others stay `t2i`
-- [ ] a failed referencing row is recorded as I2I
-- [ ] a recorder `DataStoreError` warns and continues; the in-memory handle still feeds the child
+- [x] Red tests: #31, #31b, metadata half of #31a (`tests/test_batch_recording.py`); the asset-link half of #31a and #41 are asserted in T6 against a real store, once rows carry refs
+- [x] successful `run` rows call `record_generated_images` (as `image batch` does, `:945`)
+- [x] a `batch:N` row records `operation_kind="i2i"`, `input_media_ids=[parent media id]`; others stay `t2i`
+- [x] a failed referencing row is recorded as I2I (`mode` from `req.refs`)
+- [x] a recorder `DataStoreError` warns and continues; the in-memory handle still feeds the child
 
 **Tests:** must-cover #31, #31a; should-cover #31b, #41.
 
 ---
+
+- [x] Also: multi-prompt `gflow image t2i` shares `run_image_batch`, so its successes are now recorded too (they were not); lineage ids also written to operation metadata (`reference_media_ids`)
 
 ## Task 5 — Transport: reference an existing image, no upload (PR B)
 

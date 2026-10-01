@@ -521,6 +521,7 @@ async def run_one_image_prompt(
     profile_name: str | None = None,
     profile_dir: Path | None = None,
     command: str = "image t2i",
+    project_title: str | None = None,
 ) -> BatchOutcome:
     """Generate images for one prompt and download them.
 
@@ -529,7 +530,7 @@ async def run_one_image_prompt(
 
     When ``recorder``/``profile_name``/``profile_dir`` are provided, a failed
     prompt also persists a FAILED operation row (#341) before the outcome is
-    returned.
+    returned, and a successful one is recorded with its images (#913).
     """
     req = GenerateImageRequest(
         prompt=item.text,
@@ -539,6 +540,22 @@ async def run_one_image_prompt(
         tool=item.tool,
     )
     stem = item.output_filename or f"prompt_{idx}"
+    mode = OperationKind.I2I if req.refs else OperationKind.T2I
+
+    def record_failure(exc: BaseException) -> None:
+        if profile_name is not None and profile_dir is not None:
+            record_failed_operation_safe(
+                recorder,
+                logger=logger,
+                profile_name=profile_name,
+                profile_dir=profile_dir,
+                command=command,
+                mode=mode,
+                exc=exc,
+                request=req,
+                flow_project_id=project_id,
+            )
+
     try:
         if item.count == 1:
             img = await client.generate_image(project_id=project_id, req=req)
@@ -554,18 +571,7 @@ async def run_one_image_prompt(
         # single-prompt CLI paths catch `Exception`; batch coverage must not
         # be narrower). Batch semantics unchanged: GFlowError becomes a "fail"
         # outcome, anything else still propagates.
-        if profile_name is not None and profile_dir is not None:
-            record_failed_operation_safe(
-                recorder,
-                logger=logger,
-                profile_name=profile_name,
-                profile_dir=profile_dir,
-                command=command,
-                mode=OperationKind.T2I,
-                exc=exc,
-                request=req,
-                flow_project_id=project_id,
-            )
+        record_failure(exc)
         if not isinstance(exc, GFlowError):
             raise
         return BatchOutcome(
@@ -585,6 +591,7 @@ async def run_one_image_prompt(
         # The images exist in Flow; only the local copy failed. Report the row as failed
         # but keep what Flow generated, so a `batch:N` child can still reference it.
         logger.warning("batch.download_failed", index=idx, error_class=type(exc).__name__)
+        record_failure(exc)
         return BatchOutcome(
             index=idx,
             prompt=item,
@@ -594,7 +601,55 @@ async def run_one_image_prompt(
             error=f"download failed: {type(exc).__name__}: {exc}",
             exit_code=resolve_exit_code(exc) if isinstance(exc, GFlowError) else 1,
         )
+    if recorder is not None and profile_name is not None and profile_dir is not None and project_id:
+        _record_row_success(
+            recorder=recorder,
+            profile_name=profile_name,
+            profile_dir=profile_dir,
+            project=ProjectInfo(project_id=project_id, title=project_title or ""),
+            request=req,
+            images=list(images),
+            saved=saved,
+            operation_kind=mode.value,
+        )
     return BatchOutcome(index=idx, prompt=item, status="ok", saved_paths=saved, images=list(images))
+
+
+def _record_row_success(
+    *,
+    recorder: OperationRecorder,
+    profile_name: str,
+    profile_dir: Path,
+    project: ProjectInfo,
+    request: GenerateImageRequest,
+    images: list[GeneratedImage],
+    saved: list[Path],
+    operation_kind: str,
+) -> None:
+    """Record one successful row; a store failure warns and never fails the row.
+
+    Same collision escalation as the manifest path's :func:`_try_record_images`.
+    """
+    try:
+        recorder.record_generated_images(
+            profile_name=profile_name,
+            profile_dir=profile_dir,
+            project=project,
+            request=request,
+            images=images,
+            saved_paths=saved,
+            cloud_storage_infos=[cloud_info_from_path(path) for path in saved],
+            input_media_ids=[ref.name for ref in request.refs],
+            operation_kind=operation_kind,
+        )
+    except DataStoreError as exc:
+        if isinstance(exc, DataIntegrityError):
+            escalate_asset_collision(exc, images=images, saved_paths=saved)
+        _warn_persistence_failed_after_success(
+            exc=exc,
+            flow_media_id=images[0].media_name if images else None,
+            local_path=saved[0] if saved else None,
+        )
 
 
 async def run_image_batch(
@@ -652,6 +707,7 @@ async def run_image_batch(
             profile_name=_profile_name,
             profile_dir=profile_dir,
             command=_command,
+            project_title=project_title,
         )
         results[item.index] = outcome
         return outcome
