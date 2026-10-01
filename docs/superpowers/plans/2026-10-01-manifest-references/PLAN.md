@@ -75,14 +75,14 @@ docs/LIVE_VERIFICATION_v0.52.0.md (correction note), website/docs mirror
 
 ## Task 1 — Refuse every reference form, correct the record (PR A)
 
-**What:** `ref` / `reference_entity` in any manifest row exits 11 before browser work,
+**What:** `ref` / `reference_entity` in any manifest row is refused before browser work (`run --config` exit 11, `image batch` usage error exit 2),
 naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 
 **Files:** `image_batch.py` (`parse_batch_item_dict`), `tests/test_manifest_refs.py`,
 `CHANGELOG.md`, `docs/LIVE_VERIFICATION_v0.52.0.md`, the spike scripts and findings.
 
 **Steps:**
-- [x] Red test: each form (`batch:0`, a path, an entity UUID, `reference_entity: "batch:0"`) via `run --config` and `image batch` exits 11, names row + field, launches no browser
+- [x] Red test: each form (`batch:0`, a path, an entity UUID, `reference_entity: "batch:0"`) is refused (`run --config` exit 11, `image batch` exit 2), names row + field, launches no browser
 - [x] `parse_batch_item_dict` raises `ConfigurationError` for any non-null `ref` / `reference_entity`
 - [x] `image batch` surfaces exit 11 (not `click.UsageError` exit 2) for this error, or the test pins the observed code with a comment (pinned: exit 2, `_as_usage_error`)
 - [x] Correction notes: `LIVE_VERIFICATION_v0.52.0.md` row 5 (the PASS could not be produced) and the CHANGELOG #317 entry; CHANGELOG `[Unreleased]` Fixed
