@@ -380,6 +380,16 @@ def parse_batch_item_dict(p: dict[str, Any], idx: int) -> BatchPromptItem:
     if reference_entity is not None and not isinstance(reference_entity, str):
         msg = f"prompts[{idx}].reference_entity must be a string."
         raise ConfigurationError(msg)
+    # #913: both fields were parsed and then silently ignored (the row ran as plain
+    # text-to-image, exit 0). Refuse them until a form is actually wired.
+    for key, value in (("ref", ref), ("reference_entity", reference_entity)):
+        if value is not None:
+            msg = (
+                f"prompts[{idx}].{key} is not supported yet: manifest references were "
+                "never applied (#913). Remove the field; for a one-off reference use "
+                "`gflow image i2i --ref <file>`."
+            )
+            raise ConfigurationError(msg)
     return BatchPromptItem(
         text=text_raw,
         aspect_ratio=aspect_ratio,

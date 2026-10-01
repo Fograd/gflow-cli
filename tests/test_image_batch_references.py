@@ -63,19 +63,6 @@ def test_batch_dag_uses_reference_entity_if_ref_unset() -> None:
     assert [item.index for item in ordered] == [0, 1]
 
 
-def test_parse_batch_item_dict_with_ref_and_reference_entity() -> None:
-    from gflow_cli.image_batch import parse_batch_item_dict
-
-    d = {
-        "text": "A futuristic city skyline",
-        "ref": "batch:0",
-        "reference_entity": "character_456",
-    }
-    item = parse_batch_item_dict(d, 0)
-    assert item.ref == "batch:0"
-    assert item.reference_entity == "character_456"
-
-
 def test_parse_batch_item_dict_invalid_ref_type_raises_error() -> None:
     from gflow_cli.image_batch import parse_batch_item_dict
 
