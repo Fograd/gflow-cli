@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Manifest references are refused instead of silently ignored (#913).** A
+  `gflow run --config` or `gflow image batch` row with `ref` or `reference_entity` was
+  accepted, then ran as plain text-to-image with exit 0. v0.52.0 announced the fields
+  (#317), but nothing ever applied them. Both commands now refuse such a row before any
+  browser work, naming the row and field: exit 11 for `run`, a usage error (exit 2) for
+  `image batch`. Wiring `ref: "batch:N"` for real is tracked in #913.
+
 - **The docs no longer suggest clearing a sign-in screen in the generation window
   (#925).** 0.81.0's docs said to make the off-screen generation browser visible and
   clear an account chooser or consent screen in it. A generation run gives up about 30 s
@@ -3027,6 +3034,8 @@ completed exit 0, proving no regression. See
 ### Added
 
 - **Intra-batch reference support for image batches (#317).** `BatchPromptItem` and `gflow image batch` now support `ref` and `reference_entity` fields (e.g. `ref="batch:0"`), with topological dependency sorting and circular dependency validation.
+  **Correction (#913):** this never worked. The fields were parsed and silently ignored,
+  and the sorting was never called; see the `[Unreleased]` Fixed entry for #913.
 - **Character entity provenance recording and video CLI flag parity (#402).** Added `--reference-entity` and `--reference-entity-name` CLI options to `gflow video` commands (`t2v`, `i2v`, `r2v`) and verified character provenance recording in `operations.metadata_json`.
 
 ### Fixed
