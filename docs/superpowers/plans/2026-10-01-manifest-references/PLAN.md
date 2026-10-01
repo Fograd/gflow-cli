@@ -253,12 +253,14 @@ no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected
 re-mentioned afterwards.
 
 **Steps:**
-- [ ] Red tests: #28, #29, #30
-- [ ] resolve against the manifest's directory; `resolve(strict=True)`, `is_file()`, image magic bytes
-- [ ] per-run cache `{resolved path: (media_id, display_name)}` scoped to one `run_sequential_batch` call
-- [ ] e2e: two rows referencing the same file → one `maseQ` upload
+- [x] Red tests: #28, #29, #30
+- [x] resolve against the manifest's directory; `resolve(strict=True)`, `is_file()`, image magic bytes
+- [x] per-run cache `{resolved path: ImageRef}` scoped to one `run_image_batch` call; uploads go through `FlowApiClient.upload_reference` (transport composer upload on flow.google.com, REST otherwise) and are then referenced in place like `batch:N` — measured first: `scripts/dev/spike_upload_token_join.py` (uploads join grid tile ↔ picker token, round trip true)
+- [x] e2e: two rows referencing the same file → one upload (`migrated.reference_uploaded`), two in-place attaches, guard passed ×2; CLI repro and e2e both pass. One earlier e2e invocation stalled at startup (no DB writes for 30 min) and was stopped; not reproduced on two reruns, cause not isolated
 
 ---
+
+- [x] Council (correctness/security/parity): must-fix — a non-GFlowError upload failure ended the run; fixed (row fails, later row retries) with a test
 
 ## Definition of done
 

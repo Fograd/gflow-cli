@@ -11,3 +11,9 @@ Feature: A run config row generates from an earlier row's image, in place
     Then every row succeeds and saves a real image
     And each referencing row attached its parent in place, with no upload
     And the catalog records each referencing row as image-to-image with its parent as input
+
+  Scenario: Two rows naming the same local file upload it once and reference it in place
+    Given a run config whose two rows name the same local image file
+    When gflow run executes it on the live profile
+    Then both rows succeed and save a real image
+    And the file was uploaded once and attached in place by both rows

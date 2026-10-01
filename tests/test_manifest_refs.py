@@ -20,7 +20,6 @@ from gflow_cli.errors import ConfigurationError
 from gflow_cli.image_batch import parse_batch_item_dict
 
 _NOT_YET = [
-    ("ref", "./photo.png"),
     ("ref", "11111111-1111-1111-1111-111111111111"),
     ("reference_entity", "11111111-1111-1111-1111-111111111111"),
     ("reference_entity", "batch:0"),
@@ -104,3 +103,53 @@ def test_image_batch_refuses_every_reference_before_any_browser(
     if field == "ref" and value.startswith("batch:"):
         assert "gflow run --config" in result.output
     client.assert_not_called()
+
+
+# --- local-file references (PR C) -------------------------------------------------
+
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def _cfg_with_ref(tmp_path: Path, ref: str) -> Path:
+    return _run_config(tmp_path, [{"text": "a"}, {"text": "b", "ref": ref}])
+
+
+def test_a_local_file_ref_resolves_against_the_config_folder(tmp_path: Path) -> None:
+    from gflow_cli.cli_run import BatchConfig
+
+    (tmp_path / "refs").mkdir()
+    (tmp_path / "refs" / "photo.png").write_bytes(_PNG)
+    cfg = _cfg_with_ref(tmp_path, "refs/photo.png")
+    config = BatchConfig.from_json_path(cfg)
+    assert config.prompts[1].ref == str((tmp_path / "refs" / "photo.png").resolve())
+
+
+@pytest.mark.parametrize(
+    ("ref", "content", "expected"),
+    [
+        ("missing.png", None, "does not exist"),
+        ("notes.png", b"just some text, not an image", "not a supported image"),
+        ("11111111-1111-1111-1111-111111111111", None, "media id"),
+    ],
+)
+def test_a_bad_local_file_ref_is_refused_before_any_browser(
+    tmp_path: Path, ref: str, content: bytes | None, expected: str
+) -> None:
+    if content is not None:
+        (tmp_path / ref).write_bytes(content)
+    cfg = _cfg_with_ref(tmp_path, ref)
+    with patch("gflow_cli.cli_run.FlowApiClient") as client:
+        result = CliRunner().invoke(cli_main, ["run", "--config", str(cfg)])
+    assert result.exit_code == 11, result.output
+    flat = " ".join(result.output.split()).lower()  # Rich wraps long messages
+    assert "prompts[1].ref" in flat and expected in flat
+    client.assert_not_called()
+
+
+def test_image_batch_still_refuses_a_file_ref(tmp_path: Path) -> None:
+    (tmp_path / "photo.png").write_bytes(_PNG)
+    manifest = tmp_path / "m.json"
+    manifest.write_text(json.dumps(_rows("ref", "photo.png")), encoding="utf-8")
+    result = CliRunner().invoke(cli_main, ["image", "batch", str(manifest)])
+    assert result.exit_code == 2, result.output
+    assert "gflow run --config" in result.output

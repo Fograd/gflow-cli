@@ -1932,6 +1932,14 @@ class MigratedComposer:
         )
         return media_id
 
+    async def upload(self, page: Page, project_id: str, image_path: Path) -> tuple[str, str]:
+        """Upload ``image_path`` into the project; ``(media_id, run-unique caption)``.
+
+        The public face of :meth:`_upload_via_toolbar`, for a reference that will be
+        mentioned in place on later rows instead of uploaded again (#913).
+        """
+        return await self._upload_via_toolbar(page, project_id, image_path)
+
     async def _upload_via_toolbar(
         self, page: Page, project_id: str, image_path: Path
     ) -> tuple[str, str]:

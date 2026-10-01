@@ -116,3 +116,81 @@ def test_a_failed_child_is_recorded_as_image_to_image(
     db = tmp_path / "gflow.db"
     failed = _rows(db, "SELECT prompt, mode, status FROM operations WHERE status = 'failed'")
     assert failed == [("green", "i2i", "failed")]
+
+
+class UploadingClient(RecordingClient):
+    def __init__(self, **kw: Any) -> None:
+        super().__init__(**kw)
+        self.uploads: list[Path] = []
+
+    async def upload_reference(self, project_id: str, path: Path) -> Any:
+        from gflow_cli.api.image import ImageRef
+
+        self.uploads.append(path)
+        return ImageRef(name="up-1", display_name="photo-1a2b3c4d.png", in_project=True)
+
+
+def test_a_local_file_is_uploaded_once_and_referenced_in_place(tmp_path: Path) -> None:
+    photo = tmp_path / "photo.png"
+    photo.write_bytes(b"\x89PNG")
+    client = UploadingClient(fail_generate=set(), fail_download=set())
+    rows = (
+        BatchPromptItem("green", index=0, ref=str(photo)),
+        BatchPromptItem("blue", index=1, ref=str(photo)),
+        BatchPromptItem("plain", index=2),
+    )
+    asyncio.run(
+        run_image_batch(
+            profile_dir=tmp_path,
+            headless=True,
+            transport=None,
+            prompts=rows,
+            output_dir=tmp_path / "out",
+            continue_on_error=True,
+            project_title="t",
+            client_factory=lambda **_: client,
+            jitter_range=(0, 0),
+            _command="run",
+        )
+    )
+    assert client.uploads == [photo]  # once, for two rows
+    for prompt in ("green", "blue"):
+        req = client.requests[prompt]
+        assert [(r.name, r.in_project) for r in req.refs] == [("up-1", True)]
+        assert req.ref_paths == ()
+    assert client.requests["plain"].refs == ()
+
+
+class FlakyUploadClient(UploadingClient):
+    async def upload_reference(self, project_id: str, path: Path) -> Any:
+        self.uploads.append(path)
+        if len(self.uploads) == 1:
+            raise ValueError("Not a supported image format: photo.png")  # swapped after load
+        return await super().upload_reference(project_id, path)
+
+
+def test_a_failed_upload_fails_that_row_and_a_later_row_retries(tmp_path: Path) -> None:
+    photo = tmp_path / "photo.png"
+    photo.write_bytes(b"\x89PNG")
+    client = FlakyUploadClient(fail_generate=set(), fail_download=set())
+    rows = (
+        BatchPromptItem("green", index=0, ref=str(photo)),
+        BatchPromptItem("blue", index=1, ref=str(photo)),
+    )
+    outcomes = asyncio.run(
+        run_image_batch(
+            profile_dir=tmp_path,
+            headless=True,
+            transport=None,
+            prompts=rows,
+            output_dir=tmp_path / "out",
+            continue_on_error=True,
+            project_title="t",
+            client_factory=lambda **_: client,
+            jitter_range=(0, 0),
+            _command="run",
+        )
+    )
+    assert [o.status for o in outcomes] == ["fail", "ok"]
+    assert "reference upload failed" in (outcomes[0].error or "")
+    assert len(client.uploads) == 3  # 1 failed; row 2 retried (its own call + the base's)

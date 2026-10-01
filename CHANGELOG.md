@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A `gflow run --config` row can reference a local image file (#913).** Set `"ref"` to a
+  path, resolved against the config file's folder. The file is checked before the browser
+  starts (it must exist and be a real image). It is uploaded once per run, on first use;
+  every row naming the same file references that upload in place, so the project holds
+  one copy. See [docs/USAGE.md](docs/USAGE.md#referencing-a-local-file).
 - **A `gflow run --config` row can generate from an earlier row's image (#913).** Set
   `"ref": "batch:N"`. The earlier image is already in the run's Flow project, so it is
   referenced in place by the handle Flow returned. Nothing is re-uploaded, and the

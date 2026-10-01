@@ -145,6 +145,7 @@ class BatchPromptItem:
 
 
 _BATCH_REF = re.compile(r"batch:(0|[1-9][0-9]*)", re.ASCII)
+_MEDIA_ID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
 
 
 def batch_parent(item: BatchPromptItem) -> int | None:
@@ -154,8 +155,8 @@ def batch_parent(item: BatchPromptItem) -> int | None:
     alone would accept ``"batch: 1"``, ``"batch:01"``, ``"batch:1_0"`` (10) and non-ASCII
     digits (#913).
     """
-    if item.ref is None:
-        return None
+    if item.ref is None or not item.ref.startswith("batch:"):
+        return None  # no reference, or a local file
     match = _BATCH_REF.fullmatch(item.ref)
     if match is None:
         msg = (
@@ -402,16 +403,18 @@ def parse_batch_item_dict(p: dict[str, Any], idx: int) -> BatchPromptItem:
         msg = f"prompts[{idx}].reference_entity must be a string."
         raise ConfigurationError(msg)
     # #913: both fields were parsed and then silently ignored (the row ran as plain
-    # text-to-image, exit 0). Only `"ref": "batch:N"` is wired (validated strictly by
-    # `order_batch_rows`); every other form is refused until it is.
+    # text-to-image, exit 0). `"ref"` takes an earlier row (`batch:N`, validated by
+    # `order_batch_rows`) or a local image file (resolved and checked when the run
+    # config is loaded); a media id and `reference_entity` are refused.
     for key, value in (("ref", ref), ("reference_entity", reference_entity)):
-        if key == "ref" and isinstance(value, str) and value.startswith("batch:"):
+        if key == "ref" and isinstance(value, str) and not _MEDIA_ID.fullmatch(value):
             continue
         if value is not None:
             msg = (
                 f"prompts[{idx}].{key} is not supported yet: manifest references were "
-                'never applied (#913). Only `"ref": "batch:N"` is supported; for a '
-                "one-off reference use `gflow image i2i --ref <file>`."
+                "never applied (#913). A row's `ref` names an earlier row "
+                '("batch:N") or a local image file, not a media id; for that use '
+                "`gflow image i2i --ref <media id>`."
             )
             raise ConfigurationError(msg)
     return BatchPromptItem(
@@ -525,7 +528,7 @@ async def run_one_image_prompt(
     profile_dir: Path | None = None,
     command: str = "image t2i",
     project_title: str | None = None,
-    parent: GeneratedImage | None = None,
+    reference: ImageRef | None = None,
 ) -> BatchOutcome:
     """Generate images for one prompt and download them.
 
@@ -542,19 +545,10 @@ async def run_one_image_prompt(
         model=Model.from_cli(item.model),
         original_prompt=item.original_prompt,
         tool=item.tool,
-        # `batch:N`: the parent's image, referenced in place by its reply handle. Never
-        # a `local_path`: that fallback would re-upload a duplicate (#913).
-        refs=(
-            (
-                ImageRef(
-                    name=parent.media_name,
-                    display_name=parent.display_name or "",
-                    in_project=True,
-                ),
-            )
-            if parent is not None
-            else ()
-        ),
+        # An image already in this run's project (`batch:N`, or a local file uploaded
+        # once), referenced in place. Never a `local_path`: that fallback would
+        # re-upload a duplicate (#913).
+        refs=(reference,) if reference is not None else (),
     )
     stem = item.output_filename or f"prompt_{idx}"
     mode = OperationKind.I2I if req.refs else OperationKind.T2I
@@ -707,6 +701,8 @@ async def run_image_batch(
     parent produced no image is skipped with the reason, never submitted without it.
     """
     results: dict[int, BatchOutcome] = {}
+    # One upload per distinct local file per run (one run, one project).
+    uploads: dict[str, ImageRef] = {}
 
     async def image_worker(
         client: Any,
@@ -715,19 +711,49 @@ async def run_image_batch(
         item: BatchPromptItem,
     ) -> BatchOutcome:
         parent = batch_parent(item)
-        parent_outcome = results.get(parent) if parent is not None else None
-        if parent is not None and (parent_outcome is None or not parent_outcome.images):
-            reason = (
-                "was skipped" if parent_outcome and parent_outcome.status == "skipped" else "failed"
+        reference: ImageRef | None = None
+        if parent is not None:
+            parent_outcome = results.get(parent)
+            if parent_outcome is None or not parent_outcome.images:
+                skipped = parent_outcome is not None and parent_outcome.status == "skipped"
+                outcome = BatchOutcome(
+                    index=item.index,
+                    prompt=item,
+                    status="skipped",
+                    error=f"parent row {parent} {'was skipped' if skipped else 'failed'}",
+                )
+                results[item.index] = outcome
+                return outcome
+            image = parent_outcome.images[0]
+            reference = ImageRef(
+                name=image.media_name, display_name=image.display_name or "", in_project=True
             )
-            outcome = BatchOutcome(
-                index=item.index,
-                prompt=item,
-                status="skipped",
-                error=f"parent row {parent} {reason}",
-            )
-            results[item.index] = outcome
-            return outcome
+        elif item.ref is not None:
+            # A local file, validated when the config was loaded: uploaded into this
+            # run's project once, then referenced in place by every row that names it.
+            cached = uploads.get(item.ref)
+            if cached is None:
+                try:
+                    cached = await client.upload_reference(project_id, Path(item.ref))
+                except Exception as exc:  # noqa: BLE001 - one row's upload must not end the run
+                    # Like a generation failure: the row fails with the reason and the run
+                    # goes on. Not cached, so a later row naming the file retries it.
+                    logger.warning(
+                        "batch.reference_upload_failed",
+                        index=item.index,
+                        error_class=type(exc).__name__,
+                    )
+                    outcome = BatchOutcome(
+                        index=item.index,
+                        prompt=item,
+                        status="fail",
+                        error=f"reference upload failed: {type(exc).__name__}: {exc}",
+                        exit_code=resolve_exit_code(exc) if isinstance(exc, GFlowError) else 1,
+                    )
+                    results[item.index] = outcome
+                    return outcome
+                uploads[item.ref] = cached
+            reference = cached
         outcome = await run_one_image_prompt(
             client=client,
             project_id=project_id,
@@ -739,7 +765,7 @@ async def run_image_batch(
             profile_dir=profile_dir,
             command=_command,
             project_title=project_title,
-            parent=parent_outcome.images[0] if parent_outcome is not None else None,
+            reference=reference,
         )
         results[item.index] = outcome
         return outcome

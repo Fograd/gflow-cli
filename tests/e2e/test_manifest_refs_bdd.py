@@ -139,3 +139,64 @@ def _lineage(world: dict[str, Any]) -> None:
         assert (
             by_prompt[texts[child]]["input"] and by_prompt[texts[child]]["input"][0] in parent_out
         )
+
+
+# --- local file, uploaded once (PR C) ---------------------------------------------
+
+
+@given("a run config whose two rows name the same local image file", target_fixture="world")
+def _file_config(tmp_path: Path, e2e_env: dict[str, str]) -> dict[str, Any]:
+    refs = tmp_path / "refs"
+    refs.mkdir()
+    img = Image.new("RGB", (768, 768))
+    for x in range(768):
+        for y in range(0, 768, 8):
+            img.putpixel((x, y), (x % 256, (y * 2) % 256, 160))
+    img.save(refs / "palette.png")
+    rows = [
+        {
+            "text": "a ceramic vase in these colours",
+            "aspect_ratio": "1:1",
+            "ref": "refs/palette.png",
+        },
+        {
+            "text": "a woollen scarf in these colours",
+            "aspect_ratio": "1:1",
+            "ref": "refs/palette.png",
+        },
+    ]
+    cfg = tmp_path / "run.json"
+    cfg.write_text(json.dumps({"prompts": rows}), encoding="utf-8")
+    return {"cfg": cfg, "env": e2e_env, "out": tmp_path / "run_out", "rows": rows}
+
+
+@then("both rows succeed and save a real image")
+def _both_ok(world: dict[str, Any]) -> None:
+    proc = world["proc"]
+    assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-1500:]
+    saved = sorted(world["out"].glob("prompt_*"))
+    assert [p.name.split("_")[1] for p in saved] == ["0", "1"], saved
+    for path in saved:
+        with Image.open(path) as img:
+            assert min(img.size) >= 512, (path, img.size)
+
+
+@then("the file was uploaded once and attached in place by both rows")
+def _uploaded_once(world: dict[str, Any]) -> None:
+    events = world["events"]
+    names = [e.get("event") for e in events]
+    uploads = [e for e in events if e.get("event") == "migrated.reference_uploaded"]
+    assert len(uploads) == 1, names
+    assert names.count("migrated.existing_references_attached") == 2, names
+    assert "migrated.references_attached" not in names  # never the per-row upload path
+    guarded = [
+        e.get("outcome") for e in events if e.get("event") == "migrated.image_submit_guarded"
+    ]
+    assert guarded == ["passed", "passed"], guarded
+    db = Path(world["env"]["GFLOW_CLI_DB_PATH"])
+    with sqlite3.connect(db) as con:
+        rows = con.execute("SELECT mode, metadata_json FROM operations").fetchall()
+    uploaded_id = uploads[0]["media_id"]
+    assert [mode for mode, _ in rows] == ["i2i", "i2i"], rows
+    for _mode, meta in rows:
+        assert json.loads(meta or "{}").get("reference_media_ids") == [uploaded_id], meta

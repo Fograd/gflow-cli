@@ -131,3 +131,12 @@ A just-generated image appears after a reload, not after waiting. The transport 
 the editor (and re-applies the settings, which a reload resets) until the reference is
 mentionable, within a 90 s budget.
 
+
+## Local files: uploads bind by identity too (PR C)
+
+`scripts/dev/spike_upload_token_join.py` ($0), project holding two composer uploads
+(`migrated-mcp-i2i-*.png`): both picker options map to grid tiles carrying a
+`data-media-id` (`835690c8…`, `5afc9489…`), and each tile's id resolves back to the same
+`/asb/` token (round trip true). So a local file uploaded once can be referenced in place
+on later rows exactly like a generated image. Live: two rows naming one file → one upload
+(`migrated.reference_uploaded`), two in-place attaches, the submit guard passed twice.
