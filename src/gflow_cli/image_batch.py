@@ -232,6 +232,10 @@ class BatchOutcome:
     saved_paths: list[Path] = field(default_factory=lambda: [])
     error: str | None = None
     exit_code: int = 0
+    # What Flow generated, kept apart from the download result: a row whose transfer
+    # failed still has its image in the project, and a `batch:N` child references it
+    # (#913, SCENARIO #35).
+    images: list[GeneratedImage] = field(default_factory=lambda: [])
 
 
 def resolve_exit_code(exc: GFlowError) -> int:
@@ -545,12 +549,6 @@ async def run_one_image_prompt(
                 req=req,
                 count=item.count,
             )
-        saved: list[Path] = []
-        for img_idx, img in enumerate(images):
-            target = output_dir / f"{stem}_{img_idx}.png"
-            path = await client.download_image(img, target)
-            saved.append(path)
-        return BatchOutcome(index=idx, prompt=item, status="ok", saved_paths=saved)
     except Exception as exc:
         # #341: both typed and unexpected failures reach the funnel (the
         # single-prompt CLI paths catch `Exception`; batch coverage must not
@@ -578,6 +576,26 @@ async def run_one_image_prompt(
             exit_code=resolve_exit_code(exc),
         )
 
+    saved: list[Path] = []
+    try:
+        for img_idx, img in enumerate(images):
+            target = output_dir / f"{stem}_{img_idx}.png"
+            saved.append(await client.download_image(img, target))
+    except Exception as exc:  # noqa: BLE001 - one row's transfer must not end the run
+        # The images exist in Flow; only the local copy failed. Report the row as failed
+        # but keep what Flow generated, so a `batch:N` child can still reference it.
+        logger.warning("batch.download_failed", index=idx, error_class=type(exc).__name__)
+        return BatchOutcome(
+            index=idx,
+            prompt=item,
+            status="fail",
+            saved_paths=saved,
+            images=list(images),
+            error=f"download failed: {type(exc).__name__}: {exc}",
+            exit_code=resolve_exit_code(exc) if isinstance(exc, GFlowError) else 1,
+        )
+    return BatchOutcome(index=idx, prompt=item, status="ok", saved_paths=saved, images=list(images))
+
 
 async def run_image_batch(
     *,
@@ -596,18 +614,38 @@ async def run_image_batch(
     # caller's failure rows with another command's name (#341 review).
     _command: str,
 ) -> list[BatchOutcome]:
-    """Run prompts sequentially through one FlowApiClient session."""
+    """Run prompts sequentially through one FlowApiClient session.
+
+    Rows run in dependency order (``order_batch_rows``) but keep their own index for
+    file names and results, which are returned in file order. A row whose ``batch:N``
+    parent produced no image is skipped with the reason, never submitted without it.
+    """
+    results: dict[int, BatchOutcome] = {}
 
     async def image_worker(
         client: Any,
         project_id: str,
-        idx: int,
+        _position: int,
         item: BatchPromptItem,
     ) -> BatchOutcome:
-        return await run_one_image_prompt(
+        parent = batch_parent(item)
+        parent_outcome = results.get(parent) if parent is not None else None
+        if parent is not None and (parent_outcome is None or not parent_outcome.images):
+            reason = (
+                "was skipped" if parent_outcome and parent_outcome.status == "skipped" else "failed"
+            )
+            outcome = BatchOutcome(
+                index=item.index,
+                prompt=item,
+                status="skipped",
+                error=f"parent row {parent} {reason}",
+            )
+            results[item.index] = outcome
+            return outcome
+        outcome = await run_one_image_prompt(
             client=client,
             project_id=project_id,
-            idx=idx,
+            idx=item.index,
             item=item,
             output_dir=output_dir,
             recorder=_recorder,
@@ -615,12 +653,14 @@ async def run_image_batch(
             profile_dir=profile_dir,
             command=_command,
         )
+        results[item.index] = outcome
+        return outcome
 
-    return await run_sequential_batch(
+    outcomes = await run_sequential_batch(
         profile_dir=profile_dir,
         headless=headless,
         transport=transport,
-        items=prompts,
+        items=tuple(order_batch_rows(list(prompts))),
         continue_on_error=continue_on_error,
         project_title=project_title,
         worker=image_worker,
@@ -628,6 +668,7 @@ async def run_image_batch(
         output_dir=output_dir,
         jitter_range=jitter_range,
     )
+    return sorted(outcomes, key=lambda outcome: outcome.index)
 
 
 async def run_sequential_batch(
@@ -670,7 +711,9 @@ async def run_sequential_batch(
                 for skip_idx in range(idx + 1, len(items)):
                     outcomes.append(
                         BatchOutcome(
-                            index=skip_idx,
+                            # The row's own index: under dependency order the loop
+                            # position is not the row (#913).
+                            index=getattr(items[skip_idx], "index", skip_idx),
                             prompt=items[skip_idx],
                             status="skipped",
                         ),
@@ -1301,7 +1344,7 @@ def render_image_batch_summary(outcomes: list[BatchOutcome], *, title: str) -> i
             detail = outcome.error or ""
             status_str = "[red]FAIL[/red]"
         else:
-            detail = "(not attempted)"
+            detail = outcome.error or "(not attempted)"
             status_str = "[yellow]SKIPPED[/yellow]"
         table.add_row(
             str(outcome.index),

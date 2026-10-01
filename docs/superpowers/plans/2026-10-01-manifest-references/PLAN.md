@@ -132,16 +132,18 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`BatchOutcome`, `run_one_image_prompt`, `run_sequential_batch`, `render_image_batch_summary`).
 
 **Steps:**
-- [ ] Red tests: #8, #9, #10, #13, #35, #38
-- [ ] `BatchOutcome.images: list[GeneratedImage]` set from the reply even when the download fails
-- [ ] output names, outcome indexes and `--fail-fast` skip rows use `item.index`
-- [ ] a child whose parent has no `images` is `skipped` with error "parent row N failed", transitively
-- [ ] a non-`GFlowError` from `download_image` (`ValueError`) is contained per row, not run-fatal
-- [ ] the results table shows a skipped row's reason; the run exits non-zero when anything was skipped
+- [x] Red tests: #8, #9, #10, #13, #35, #38
+- [x] `BatchOutcome.images: list[GeneratedImage]` set from the reply even when the download fails
+- [x] output names, outcome indexes and `--fail-fast` skip rows use `item.index`
+- [x] a child whose parent has no `images` is `skipped` with error "parent row N failed", transitively
+- [x] a non-`GFlowError` from `download_image` (`ValueError`) is contained per row, not run-fatal
+- [x] the results table shows a skipped row's reason; the run exits non-zero when anything was skipped
 
 **Tests:** must-cover #8, #9, #10, #13, #35, #38.
 
 ---
+
+- [x] Note for T4: a download failure no longer goes through the generation-failure recorder; T4 records it as generated with a failed transfer (#896 semantics).
 
 ## Task 4 — Persistence and lineage (PR B)
 
