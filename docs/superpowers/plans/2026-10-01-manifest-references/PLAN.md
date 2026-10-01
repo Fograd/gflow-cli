@@ -172,18 +172,20 @@ submit aborted unless it carries the media id.
 **Files:** `migrated_composer.py` (`_unported_image_form`, `run_images`, `_mention_by_name`, submit observation), tests.
 
 **Steps:**
-- [ ] Red tests: #15, #18, #19, #21, #23, #39
-- [ ] `_unported_image_form`: refs **with** `display_name` pass; a bare UUID ref stays exit 36
-- [ ] new branch next to `ref_paths`: mention each existing ref, append its media id to `reference_ids`, check the chip count
-- [ ] sanitise the caption (strip control chars and `@`, cap length); refuse if changed or empty; empty `display_name` refused on flow.google.com only
-- [ ] select the option whose thumbnail token matches the parent's grid tile (`img[data-media-id]`), not the first option; none matches → `ReferenceNotFoundError`
-- [ ] on a miss, press Escape to close the picker dialog before retrying (latent defect, gate #39)
-- [ ] abort a mismatched `ogiZ0b` with `page.route` before it reaches Flow (keep the observer as the second line)
-- [ ] apply T0's #40 mitigation
+- [x] Red tests: #15, #18, #19, #21, #23, #39
+- [x] `_unported_image_form`: refs **with** `display_name` pass; a bare UUID ref stays exit 36
+- [x] new branch next to `ref_paths`: mention each existing ref, append its media id to `reference_ids`, check the chip count
+- [x] sanitise the caption (strip control chars and `@`, cap length); refuse if changed or empty; empty `display_name` refused on flow.google.com only
+- [x] select the option whose thumbnail token matches the parent's grid tile (`img[data-media-id]`), not the first option; none matches → `ReferenceNotFoundError`
+- [x] on a miss, press Escape to close the picker dialog before retrying (latent defect, gate #39)
+- [x] abort a mismatched `ogiZ0b` with `page.route` before it reaches Flow (keep the observer as the second line)
+- [x] apply T0's #40 mitigation (none needed: the picker is project-scoped, measured)
 
 **Tests:** must-cover #15, #18, #19, #23, #39.
 
 ---
+
+- [x] Note: one combined `tests/api tests/mcp` run hung for 38 min while a fake page lacked `route()`; after the fake gained no-op `route`/`unroute` the same run passed (2085 in 77 s). Mechanism not isolated.
 
 ## Task 6 — Wire `batch:N` on `gflow run --config` (PR B)
 
