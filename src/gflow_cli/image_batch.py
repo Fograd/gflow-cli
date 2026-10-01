@@ -545,7 +545,13 @@ async def run_one_image_prompt(
         # `batch:N`: the parent's image, referenced in place by its reply handle. Never
         # a `local_path`: that fallback would re-upload a duplicate (#913).
         refs=(
-            (ImageRef(name=parent.media_name, display_name=parent.display_name or ""),)
+            (
+                ImageRef(
+                    name=parent.media_name,
+                    display_name=parent.display_name or "",
+                    in_project=True,
+                ),
+            )
             if parent is not None
             else ()
         ),
@@ -613,16 +619,30 @@ async def run_one_image_prompt(
             exit_code=resolve_exit_code(exc) if isinstance(exc, GFlowError) else 1,
         )
     if recorder is not None and profile_name is not None and profile_dir is not None and project_id:
-        _record_row_success(
-            recorder=recorder,
-            profile_name=profile_name,
-            profile_dir=profile_dir,
-            project=ProjectInfo(project_id=project_id, title=project_title or ""),
-            request=req,
-            images=list(images),
-            saved=saved,
-            operation_kind=mode.value,
-        )
+        try:
+            _record_row_success(
+                recorder=recorder,
+                profile_name=profile_name,
+                profile_dir=profile_dir,
+                project=ProjectInfo(project_id=project_id, title=project_title or ""),
+                request=req,
+                images=list(images),
+                saved=saved,
+                operation_kind=mode.value,
+            )
+        except MediaAttributionError as exc:
+            # Same as the manifest path: the generation succeeded, so this row fails
+            # without a FAILED-operation record, and the run goes on (#913 review).
+            logger.warning("batch.media_attribution_collision", index=idx, error=str(exc))
+            return BatchOutcome(
+                index=idx,
+                prompt=item,
+                status="fail",
+                saved_paths=saved,
+                images=list(images),
+                error=f"{type(exc).__name__}: {exc}",
+                exit_code=resolve_exit_code(exc),
+            )
     return BatchOutcome(index=idx, prompt=item, status="ok", saved_paths=saved, images=list(images))
 
 
@@ -1079,28 +1099,16 @@ def _try_record_images(
     other (unrelated) ``DataIntegrityError``, in which case this falls through
     to the same warn-and-continue path as a plain ``DataStoreError``.
     """
-    try:
-        recorder.record_generated_images(
-            profile_name=profile_name,
-            profile_dir=profile_dir,
-            project=ProjectInfo(project_id=result.project_id, title="gflow-cli image batch"),
-            request=_to_request(item),
-            images=list(result.images),
-            saved_paths=saved,
-            cloud_storage_infos=[cloud_info_from_path(path) for path in saved],
-            input_media_ids=[],
-            operation_kind="t2i",
-        )
-    except DataStoreError as exc:
-        if isinstance(exc, DataIntegrityError):
-            escalate_asset_collision(exc, images=list(result.images), saved_paths=saved)
-        first_image = result.images[0] if result.images else None
-        first_path = saved[0] if saved else None
-        _warn_persistence_failed_after_success(
-            exc=exc,
-            flow_media_id=first_image.media_name if first_image else None,
-            local_path=first_path,
-        )
+    _record_row_success(
+        recorder=recorder,
+        profile_name=profile_name,
+        profile_dir=profile_dir,
+        project=ProjectInfo(project_id=result.project_id, title="gflow-cli image batch"),
+        request=_to_request(item),
+        images=list(result.images),
+        saved=saved,
+        operation_kind="t2i",
+    )
 
 
 async def _process_ok_row(

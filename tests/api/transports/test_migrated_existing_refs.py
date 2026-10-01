@@ -30,7 +30,6 @@ def _short_grid_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     # The fake page's waits return at once; keep the real-clock budget short.
     from gflow_cli.api.transports import migrated_composer
 
-    monkeypatch.setattr(migrated_composer, "GRID_TILE_WAIT_S", 0.2)
     monkeypatch.setattr(migrated_composer, "EXISTING_REF_WAIT_S", 0.2)
 
 
@@ -126,7 +125,7 @@ class FakePage:
 
 
 def _ref(display_name: str = "a single red apple") -> ImageRef:
-    return ImageRef(name=PARENT, display_name=display_name)
+    return ImageRef(name=PARENT, display_name=display_name, in_project=True)
 
 
 def _composer() -> MigratedComposer:
@@ -183,7 +182,10 @@ async def test_no_matching_option_is_refused_without_binding_anything() -> None:
     assert "<Enter>" not in page.typed
 
 
-@pytest.mark.parametrize("caption", ["two\nlines", "say @hi", "", "   "])
+@pytest.mark.parametrize(
+    "caption",
+    ["two\nlines", "say @hi", "", "   ", "x" * 121, "zero\u200bwidth", "line\u2028sep"],
+)
 async def test_an_unusable_caption_is_refused_before_typing(caption: str) -> None:
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[(caption, "tokNew")])
     with pytest.raises(ReferenceNotFoundError):
@@ -197,9 +199,14 @@ def _req(**kw: Any) -> GenerateImageRequest:
     )
 
 
-def test_only_a_captioned_reference_is_ported(tmp_path: Any) -> None:
+def test_only_an_in_project_captioned_reference_is_ported(tmp_path: Any) -> None:
     assert _unported_image_form(_req(refs=(_ref(),))) is None
-    assert _unported_image_form(_req(refs=(ImageRef(name=PARENT),))) is not None
+    # A catalog/MCP UUID ref carries a caption too, but is not from this run's project:
+    # it stays unported on flow.google.com (exit 36), as before #913.
+    catalog = ImageRef(name=PARENT, display_name="a single red apple")
+    assert _unported_image_form(_req(refs=(catalog,))) == "a reference given by Flow media UUID"
+    no_caption = ImageRef(name=PARENT, in_project=True)
+    assert "without a caption" in (_unported_image_form(_req(refs=(no_caption,))) or "")
     local = tmp_path / "x.png"
     local.write_bytes(b"\x89PNG")
     assert _unported_image_form(_req(refs=(_ref(),), ref_paths=(local,))) is not None
@@ -251,3 +258,34 @@ async def test_a_parent_tile_that_never_appears_is_refused_after_the_budget() ->
         await _attach(page, (_ref("c"),))
     assert page.reloads >= 1  # it reloaded before giving up
     assert "<Enter>" not in page.typed
+
+
+async def test_a_character_chip_is_not_taken_for_the_image() -> None:
+    # A caption query can also match a character entity; only a media chip is the image.
+    page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokNew")])
+
+    async def entity_chips(script: str, arg: Any = None) -> Any:
+        if "data-media-id" in script:
+            return page.grid.get(arg, "")
+        if arg == PICKER_OPTION:
+            page.searches += 1
+            return [token for _caption, token in page.options()]
+        return [{"text": "x", "entity_id": "e1", "reference_type": "entity"}] * len(page.chips)
+
+    page.evaluate = entity_chips
+    with pytest.raises(ReferenceNotFoundError):
+        await _attach(page, (_ref("c"),))
+
+
+async def test_the_arrow_settles_before_enter() -> None:
+    page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokOld"), ("c", "tokNew")])
+    waits: list[float] = []
+
+    async def record(ms: float) -> None:
+        waits.append(ms)
+
+    page.wait_for_timeout = record
+    await _attach(page, (_ref("c"),))
+    arrow_at = page.typed.index("<ArrowDown>")
+    assert arrow_at < page.typed.index("<Enter>")
+    assert 3500 in waits  # measured UpteDb settle (capture_migrated_attach_rpcs.py)

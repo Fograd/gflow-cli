@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 from gflow_cli.api.image import Aspect, GenerateImageRequest, ImageRef, Model
 from gflow_cli.data.recorder import OperationRecorder
-from gflow_cli.errors import DataStoreError
+from gflow_cli.errors import DataStoreError, MediaAttributionError
 from gflow_cli.image_batch import BatchPromptItem, run_image_batch
 from tests.test_batch_outcomes import FakeClient
 
@@ -82,3 +82,16 @@ def test_reference_media_ids_are_kept_in_operation_metadata() -> None:
     )
     metadata = OperationRecorder._generation_metadata(MagicMock(), request)  # noqa: SLF001
     assert metadata["reference_media_ids"] == ["22222222-2222-2222-2222-222222222222"]
+
+
+def test_a_media_collision_fails_that_row_and_the_run_goes_on(tmp_path: Path) -> None:
+    # Council #913 review: the run path did not catch it, so one collision ended the run.
+    recorder = MagicMock()
+    recorder.record_generated_images.side_effect = [
+        MediaAttributionError(detail="media-a already belongs to another asset"),
+        None,
+    ]
+    outcomes = _run(tmp_path, recorder)
+    assert [o.status for o in outcomes] == ["fail", "ok"]
+    assert outcomes[0].images  # the generation happened; the child-facing handle is kept
+    assert not recorder.record_failed_operation.called  # not a failed generation

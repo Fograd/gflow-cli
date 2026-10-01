@@ -6,10 +6,16 @@ Binds ``tests/features/manifest_refs_live.feature``. Selected by ``-m e2e_image`
 **Why an e2e.** Offline tests pin our wiring with a fake page. Only a live run proves Flow
 still lists the parent in the ``@`` picker under its reply caption, that the picker
 option's thumbnail token still equals the grid tile's, and that the submit Flow accepts
-carries the parent's media id (the route guard aborts it otherwise).
+carries the parent's media id (the route guard aborts it otherwise, and logs each
+decision as ``migrated.image_submit_guarded``).
 
-**Cost.** Four images of daily quota, zero Veo credits. Prints each run's
-``mention_miss`` count: the search-lag measurement PLAN Task 8 asks for.
+**The rows.** Rows 0 and 1 share a short prompt, so Flow often gives them the same
+caption; row 2 references row 1, the newer, which the picker lists after the older. That
+exercises the token binder past the first option (logged as
+``migrated.existing_reference_option``). Row 3 references row 2 (a chain).
+
+**Cost.** Four images of daily quota, zero Veo credits. Prints the option indices and the
+reload count: the measurements PLAN Task 8 asks for.
 """
 
 from __future__ import annotations
@@ -21,21 +27,22 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
 from pytest_bdd import given, scenarios, then, when
 
 scenarios("../features/manifest_refs_live.feature")
 
 _ROWS = [
-    {"text": "a single red apple on a wooden table", "aspect_ratio": "1:1"},
-    {"text": "the same apple, now green", "aspect_ratio": "1:1", "ref": "batch:0"},
-    {"text": "the same apple, cut in half", "aspect_ratio": "1:1", "ref": "batch:0"},
-    {"text": "the green apple on a blue plate", "aspect_ratio": "1:1", "ref": "batch:1"},
+    {"text": "a single red apple", "aspect_ratio": "1:1"},
+    {"text": "a single red apple", "aspect_ratio": "1:1"},
+    {"text": "the same apple, now green", "aspect_ratio": "1:1", "ref": "batch:1"},
+    {"text": "the green apple on a blue plate", "aspect_ratio": "1:1", "ref": "batch:2"},
 ]
-_PARENT = {1: 0, 2: 0, 3: 1}
+_PARENT = {2: 1, 3: 2}
 
 
 @given(
-    "a run config with row 0 plain, rows 1 and 2 referencing row 0, and row 3 referencing row 1",
+    "a run config whose referencing rows point at earlier rows, one sharing its caption",
     target_fixture="world",
 )
 def _config(tmp_path: Path, e2e_env: dict[str, str]) -> dict[str, Any]:
@@ -73,50 +80,62 @@ def _run(world: dict[str, Any]) -> None:
     world.update(proc=proc, events=events)
     log = world["out"].parent / "run.log"
     log.write_text(proc.stdout + "\n--- stderr ---\n" + proc.stderr, encoding="utf-8")
-    for e in events:
-        if e.get("level") in ("error", "warning"):
-            print(f"[#913 event] {json.dumps(e)[:600]}")
-    print(f"[#913 log] {log}")
-    misses = sum(1 for e in events if e.get("event") == "migrated.mention_miss")
-    print(f"\n[#913 lag] mention_miss across 3 referencing rows: {misses}")
+    names = [e.get("event") for e in events]
+    options = [
+        e.get("option_index")
+        for e in events
+        if e.get("event") == "migrated.existing_reference_option"
+    ]
+    print(f"\n[#913 log] {log}")
+    print(f"[#913] option indices chosen: {options}")
+    print(
+        f"[#913] reloads: {names.count('migrated.existing_reference_reload')}, "
+        f"not listed: {names.count('migrated.existing_reference_not_listed')}, "
+        f"mention misses: {names.count('migrated.mention_miss')}"
+    )
 
 
-@then("every row succeeds and saves its image")
+@then("every row succeeds and saves a real image")
 def _all_ok(world: dict[str, Any]) -> None:
     proc = world["proc"]
     assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-1500:]
-    saved = sorted(p.name for p in world["out"].glob("prompt_*"))
-    assert [n.split("_")[1] for n in saved] == ["0", "1", "2", "3"], saved
+    saved = sorted(world["out"].glob("prompt_*"))
+    assert [p.name.split("_")[1] for p in saved] == ["0", "1", "2", "3"], saved
+    for path in saved:
+        head = path.read_bytes()[:4]
+        assert head[:3] == b"\xff\xd8\xff" or head == b"\x89PNG", (path, head)
+        with Image.open(path) as img:
+            assert min(img.size) >= 512, (path, img.size)
 
 
 @then("each referencing row attached its parent in place, with no upload")
 def _in_place(world: dict[str, Any]) -> None:
-    names = [e.get("event") for e in world["events"]]
+    events = world["events"]
+    names = [e.get("event") for e in events]
     assert names.count("migrated.existing_references_attached") == len(_PARENT), names
     assert "migrated.references_attached" not in names  # the upload path never ran
+    guarded = [
+        e.get("outcome") for e in events if e.get("event") == "migrated.image_submit_guarded"
+    ]
+    assert guarded == ["passed"] * len(_PARENT), guarded
 
 
 @then("the catalog records each referencing row as image-to-image with its parent as input")
 def _lineage(world: dict[str, Any]) -> None:
     db = Path(world["env"]["GFLOW_CLI_DB_PATH"])
     with sqlite3.connect(db) as con:
-        ops = dict(con.execute("SELECT prompt, mode FROM operations").fetchall())
-        out_media = dict(
-            con.execute(
-                "SELECT o.prompt, a.flow_media_id FROM operation_assets l "
-                "JOIN operations o ON o.id = l.operation_id "
-                "JOIN assets a ON a.id = l.asset_id WHERE l.role = 'output'"
-            ).fetchall()
-        )
-        inputs = dict(
-            con.execute(
-                "SELECT o.prompt, a.flow_media_id FROM operation_assets l "
-                "JOIN operations o ON o.id = l.operation_id "
-                "JOIN assets a ON a.id = l.asset_id WHERE l.role = 'input'"
-            ).fetchall()
-        )
+        rows = con.execute(
+            "SELECT o.prompt, o.mode, a.flow_media_id, l.role FROM operation_assets l "
+            "JOIN operations o ON o.id = l.operation_id JOIN assets a ON a.id = l.asset_id"
+        ).fetchall()
+    by_prompt: dict[str, dict[str, Any]] = {}
+    for prompt, mode, media, role in rows:
+        entry = by_prompt.setdefault(prompt, {"mode": mode, "output": [], "input": []})
+        entry[role].append(media)
     texts = [r["text"] for r in _ROWS]
-    assert ops[texts[0]] == "t2i"
     for child, parent in _PARENT.items():
-        assert ops[texts[child]] == "i2i", ops
-        assert inputs[texts[child]] == out_media[texts[parent]], (child, inputs, out_media)
+        assert by_prompt[texts[child]]["mode"] == "i2i", by_prompt
+        parent_out = by_prompt[texts[parent]]["output"]
+        assert (
+            by_prompt[texts[child]]["input"] and by_prompt[texts[child]]["input"][0] in parent_out
+        )
