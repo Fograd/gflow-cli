@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The docs no longer suggest clearing a sign-in screen in the generation window
+  (#925).** 0.81.0's docs said to make the off-screen generation browser visible and
+  clear an account chooser or consent screen in it. A generation run gives up about 30 s
+  after it clicks the chooser row, so that was a race. It also contradicted the error
+  itself, which says to run `gflow auth login --profile <name>`. The login window is
+  always visible and waits for you, so that is the remedy the docs now give.
+  `GFLOW_CLI_BROWSER_WINDOW_POSITION` remains for watching or debugging a run.
+
 ## [0.81.0] — 2026-09-30
 
 ### Added

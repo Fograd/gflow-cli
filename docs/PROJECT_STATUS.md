@@ -10,8 +10,9 @@ directory stops looking like another gflow holding it, and one dependency CVE lo
 **The generation browser opens off-screen (#923).** Generation needs a real headed Chrome,
 so every `image`/`video` run used to put a window over whatever you were doing. It now
 opens at `-30000,-30000`, still fully headed, so Flow and reCAPTCHA see the same browser.
-`GFLOW_CLI_BROWSER_WINDOW_POSITION` takes any `X,Y` to watch a run or clear a consent
-screen by hand; empty restores Chrome's placement. Measured before adopting it: image and
+`GFLOW_CLI_BROWSER_WINDOW_POSITION` takes any `X,Y` to watch or debug a run; empty
+restores Chrome's placement. (A consent or account-chooser screen is cleared through
+`gflow auth login`, whose window is always visible; see #925.) Measured before adopting it: image and
 video generation unchanged, no timer or animation throttling off-screen. The contributor's
 `--no-focus-on-init` measured as a no-op on Windows and was dropped, so the docs say
 plainly that Chrome can still take keyboard focus at launch. Thanks to @johngbl.
