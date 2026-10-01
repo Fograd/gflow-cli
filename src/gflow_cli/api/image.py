@@ -226,9 +226,10 @@ class ImageRef:
     display_name: str = ""
     local_path: str = ""
     local_sha256: str = ""
-    #: True only for an image this run generated in the project being driven (a
-    #: manifest's ``"ref": "batch:N"``, #913). On flow.google.com only such a ref is
-    #: referenced in place; a UUID ref from anywhere else stays unported (exit 36).
+    #: True only for an image already in the project being driven: one this run
+    #: generated (``"ref": "batch:N"``) or uploaded (a local-file ref), #913. On
+    #: flow.google.com only such a ref is referenced in place; a UUID ref from anywhere
+    #: else stays unported (exit 36).
     in_project: bool = False
 
     def __post_init__(self) -> None:

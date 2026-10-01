@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82.0] — 2026-10-01
+
 ### Added
 
 - **A `gflow run --config` row can reference a local image file (#913).** Set `"ref"` to a
@@ -35,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accepted, then ran as plain text-to-image with exit 0. v0.52.0 announced the fields
   (#317), but nothing ever applied them. Both commands now refuse such a row before any
   browser work, naming the row and field: exit 11 for `run`, a usage error (exit 2) for
-  `image batch`. The one exception is `"ref": "batch:N"` in `gflow run --config`, which
-  now works (see Added).
+  `image batch`. The exceptions are `"ref": "batch:N"` and a local image file in
+  `gflow run --config`, which now work (see Added).
 
 - **The docs no longer suggest clearing a sign-in screen in the generation window
   (#925).** 0.81.0's docs said to make the off-screen generation browser visible and
@@ -5782,7 +5784,8 @@ shell-script template that branches on these codes.
 
 First skeleton. Not functional end-to-end yet.
 
-[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.81.0...HEAD
+[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.82.0...HEAD
+[0.82.0]: https://github.com/ffroliva/gflow-cli/compare/v0.81.0...v0.82.0
 [0.81.0]: https://github.com/ffroliva/gflow-cli/compare/v0.80.0...v0.81.0
 [0.80.0]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...v0.80.0
 [0.79.1]: https://github.com/ffroliva/gflow-cli/compare/v0.79.0...v0.79.1

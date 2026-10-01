@@ -550,8 +550,9 @@ an isometric pixel-art bakery	1	1:1	nano2
 
 ### JSON manifest
 
-References between rows (`"ref": "batch:N"`) are not supported here; `gflow image batch`
-refuses them. Use [`gflow run --config`](#referencing-an-earlier-row).
+`gflow image batch` refuses any `ref` or `reference_entity` in a row (exit 2) —
+`"ref": "batch:N"` and local files included. Use `gflow run --config`
+([earlier row](#referencing-an-earlier-row), [local file](#referencing-a-local-file)).
 
 ```json
 [
@@ -1802,6 +1803,10 @@ browser, one Flow project; prompts run one after another).
 
 `--continue-on-error` (default): one prompt failing logs the error and continues. Final exit code is the max per-prompt exit code (so a `WafRejectionError` anywhere in the batch makes the whole run exit 10).
 
+`--fail-fast`: first failure stops the batch. Remaining prompts are reported as SKIPPED in the summary table.
+
+A row skipped because its parent failed (see below) is not an error of its own: the run exits with the parent's code.
+
 ### Referencing an earlier row
 
 A row can generate from the image another row made: set `"ref": "batch:N"`, where `N` is
@@ -1853,10 +1858,10 @@ A row's `ref` can also be a local image: `"ref": "refs/product.png"`.
 - **A failed upload** fails that row with the reason; a later row naming the same file
   tries the upload again.
 - **Not resumable.** A re-run uploads the file again into its new project.
-- **Measured on flow.google.com** (2026-10-01). With `GFLOW_CLI_FLOW_HOST=labs.google` the
-  file goes through the REST upload instead; that path has not been observed live.
-
-`--fail-fast`: first failure stops the batch. Remaining prompts are reported as SKIPPED in the summary table.
+- **Measured on flow.google.com** (2026-10-01). When Flow serves the project from labs,
+  the file goes through the REST upload instead; that path has not been observed live.
+  `GFLOW_CLI_FLOW_HOST=labs.google` on a project Flow serves from flow.google.com is
+  refused (exit 36), not rerouted.
 
 ### Example
 
@@ -2034,7 +2039,7 @@ shell scripts can branch on the failure mode without parsing stderr.
 | `33` | — (`gflow doctor` verdict) | Doctor found warn/fail findings — a successful diagnosis, not an error class | Review the report; see [`gflow doctor`](#gflow-doctor) |
 | `34` | `SyncPartialError`    | `gflow data sync` failed on some projects but succeeded on others — completed writes stay committed | Retryable: re-run the same command; it resumes with what is still nameless (see [`gflow data sync`](#gflow-data-sync)) |
 | `35` | `ExtendUnavailableError` | No Veo extend model is orderable for this account and aspect — the extend family is tier-gated and there is no square variant. **Never auto-retry**: a tier gate does not clear on its own. |
-| `36` | `FlowHostMigratedError` | Flow served the project from `flow.google.com` and the request could not be represented by the migrated composer, or `GFLOW_CLI_FLOW_HOST=labs.google` disabled it. Supported today: `video t2v`; local-file video i2v/r2v; `image t2i`; and local-file `image i2i`. Image UUID/entity/instruction/Imagen-4 forms and `image batch` remain unsupported. Not selector drift (23) | **Not retryable.** Use one of the supported forms, or the REST surface (`gflow project list`, `gflow data …`); follow #639 for the remaining matrix |
+| `36` | `FlowHostMigratedError` | Flow served the project from `flow.google.com` and the request could not be represented by the migrated composer, or `GFLOW_CLI_FLOW_HOST=labs.google` disabled it. Supported today: `video t2v`; local-file video i2v/r2v; `image t2i`; local-file `image i2i`; and `gflow run --config` rows referencing an earlier row (`batch:N`) or a local file. Image UUID/entity/instruction/Imagen-4 forms and `image batch` remain unsupported. Not selector drift (23) | **Not retryable.** Use one of the supported forms, or the REST surface (`gflow project list`, `gflow data …`); follow #639 for the remaining matrix |
 | `37` | `InsufficientCreditsError` | The account's balance is short **for the model it asked for**, so Flow **replaced** the submit control with its `Insufficient credits warning` instead of disabling it. Short, not necessarily empty: measured 2026-09-07, an account holding **50** credits requesting `--model veo-quality` (**100**) rendered the warning. Explicitly **not** selector drift (23): reporting it as drift told users to file a frontend bug over a credit shortfall | Check the balance with `gflow credits user`, then pick a cheaper `--model` (`veo-lite` costs 10), top up, or wait for the allowance to reset. Nothing was submitted, so no credit was spent. `gflow image` draws on a separate daily quota and may still work |
 | `38` | `FlowAccountChooserError` | The post-migration hop landed on Google's account chooser and the profile's recorded account (`.gflow_account`) could not be selected automatically (row absent, click-through did not return to the editor, or `--account` mismatch) | **Not retryable**: run `gflow auth login --profile <name>` and complete the chooser manually, while signed in as the recorded account (re-run `gflow auth login` if the chooser offers a different session) |
 | `39` | `FlowAccessUnavailableError` | Flow loaded and routed to its own "you don't have access" screen (`<flow-pinhole-unavailable-screen>`): this Google account has no Flow entitlement. Detected by component, not by URL — the hop is client-side (`flow.google.com/` answers 200) and the path varies (`/unavailable`, `/u/8/unavailable`). Explicitly **not** auth expiry (3/8) and **not** selector drift (23): nothing expired and nothing drifted | **Not retryable, and signing in again cannot change it.** Flow needs an age-verified account in a supported region on a Google AI Plus/Pro/Ultra or qualifying Workspace plan — check which applies at [Google's eligibility page](https://support.google.com/flow/answer/16353333) and open https://flow.google.com in a browser on this account to confirm |
