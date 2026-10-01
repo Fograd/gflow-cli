@@ -12,7 +12,10 @@ than none (see `FlowHostMigratedError`, #639). This measures each shape gflow ca
   D. a mint racing a navigation on that project page -> the transient shape, then a
      re-mint once the page settles                   -> does a retry recover?
 
-Pre-registered reading:
+Arms E/F were added after a council review of #939 (D only raced the execute step); they
+falsified "missing site key is deterministic" for an https page -- see the spike doc.
+
+Pre-registered reading (A-D):
   A fails identically every time, C mints N/N, D fails then the re-mint succeeds
     -> a missing site key is deterministic for that page (not retryable); an execute
        failure is a page-state race that a re-run clears (retryable).
@@ -36,11 +39,17 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gflow_cli.api._engine import mint_evaluate_kwargs  # noqa: E402
-from gflow_cli.api.recaptcha import TokenMinter  # noqa: E402
+from gflow_cli.api.recaptcha import TokenMinter, discover_site_key  # noqa: E402
 
 from _spike_common import build_client, default_out_path, resolve_profile_dir, step  # noqa: E402, isort: skip
 
 _ROOT = "https://flow.google.com"
+
+_KEY_AND_STATE_JS = r"""() => {
+  const s = [...document.querySelectorAll('script[src*="recaptcha/enterprise.js"]')];
+  const m = s.map(e => (e.getAttribute('src') || '').match(/[?&]render=([^&]+)/)).find(Boolean);
+  return {ready: document.readyState, key: m ? m[1] : null, url: location.protocol};
+}"""
 
 
 def _shape(exc: BaseException) -> str:
@@ -113,6 +122,57 @@ async def _main(profile: str, project: str, steady: int) -> int:
             races.append({"raced": raced, "re_mint": await _minter(page)})
         findings["D_race"] = races
         step("D", json.dumps(races))
+
+        # E (council #939): D's failures came from the EXECUTE evaluate. The site-key READ
+        # is a separate evaluate; race it alone, at a few offsets into the navigation.
+        reads: list[dict[str, str]] = []
+        for delay in (0.0, 0.0, 0.02, 0.05, 0.1, 0.2):
+            nav = asyncio.create_task(
+                page.goto(proj, wait_until="domcontentloaded", timeout=45_000)
+            )
+            await asyncio.sleep(delay)
+            try:
+                raced = f"OK ({await discover_site_key(page)!s:.6}…)"
+            except Exception as exc:  # noqa: BLE001
+                raced = _shape(exc)
+            try:
+                await nav
+            except Exception:  # noqa: BLE001
+                pass
+            await _settle(page, proj)
+            try:
+                again = f"OK ({await discover_site_key(page)!s:.6}…)"
+            except Exception as exc:  # noqa: BLE001
+                again = _shape(exc)
+            reads.append({"delay_s": str(delay), "raced": raced, "re_read": again})
+        findings["E_site_key_read_race"] = reads
+        step("E", json.dumps(reads))
+
+        # F: E showed a "missing" key 100-200 ms into a navigation that a re-read clears.
+        # Hypothesis: document.readyState separates that (still loading) from a page that
+        # finished loading with no script (about:blank). Read both at the failure point.
+        states: list[dict[str, str]] = []
+        for delay in (0.1, 0.15, 0.2, 0.3, 0.5):
+            nav = asyncio.create_task(
+                page.goto(proj, wait_until="domcontentloaded", timeout=45_000)
+            )
+            await asyncio.sleep(delay)
+            try:
+                key = await page.evaluate(_KEY_AND_STATE_JS)
+            except Exception as exc:  # noqa: BLE001
+                key = {"error": type(exc).__name__}
+            try:
+                await nav
+            except Exception:  # noqa: BLE001
+                pass
+            await _settle(page, proj)
+            states.append({"delay_s": str(delay), **{k: str(v)[:8] for k, v in key.items()}})
+        await page.goto("about:blank")
+        await page.wait_for_timeout(1000)
+        blank = await page.evaluate(_KEY_AND_STATE_JS)
+        states.append({"delay_s": "about:blank", **{k: str(v)[:8] for k, v in blank.items()}})
+        findings["F_ready_state"] = states
+        step("F", json.dumps(states))
 
     out = default_out_path("recaptcha_error_shape")
     out.write_text(json.dumps(findings, indent=2), encoding="utf-8")

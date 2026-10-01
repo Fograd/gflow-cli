@@ -895,8 +895,9 @@ class RecaptchaError(GFlowError):
     problem_type = "https://gflow-cli.dev/errors/recaptcha-mint"
     title = "reCAPTCHA token mint failed"
     _default_remediation = (
-        "No request was sent and no credit was spent. Re-run the command; if it fails the "
-        "same way, run `gflow doctor` and report it with the incident ID."
+        "No request was sent and no credit was spent. When `retryable` is true, run the "
+        "command again; otherwise the page it ran on cannot mint, and a repeat run that "
+        "fails the same way is worth reporting with the incident ID."
     )
 
 

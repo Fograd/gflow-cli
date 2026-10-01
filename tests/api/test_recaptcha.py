@@ -72,18 +72,40 @@ class TestTyped:
         assert info.value.problem_type == "https://gflow-cli.dev/errors/recaptcha-mint"
         assert info.value.remediation_hint
 
-    async def test_missing_site_key_is_not_retryable_and_does_not_blame_the_editor(
-        self,
-    ) -> None:
+    async def test_missing_site_key_off_the_web_is_not_retryable(self) -> None:
         from gflow_cli.errors import is_retryable
 
         page = AsyncMock()
+        page.url = "about:blank"
         page.evaluate.return_value = None
         with pytest.raises(RecaptchaError) as info:
             await discover_site_key(page)
         # Spike arm A: 3/3 identical on about:blank -- the page state, not timing (#891).
         assert is_retryable(info.value) is False
         assert "script tag layout" not in str(info.value)
+        assert "not a Flow page" in str(info.value)
+
+    async def test_missing_site_key_on_a_web_page_is_retryable(self) -> None:
+        from gflow_cli.errors import is_retryable
+
+        page = AsyncMock()
+        page.url = "https://flow.google.com/project/p"
+        page.evaluate.return_value = None
+        with pytest.raises(RecaptchaError) as info:
+            await discover_site_key(page)
+        # Spike arms E/F: read 0.1-0.3 s into a load the key is absent (readyState may
+        # already be "complete"); a re-read on the settled page found it, 4/4.
+        assert is_retryable(info.value) is True
+        assert "yet" in str(info.value)
+
+    async def test_a_page_without_a_url_string_is_not_claimed_retryable(self) -> None:
+        from gflow_cli.errors import is_retryable
+
+        page = AsyncMock()  # a mock url attribute is not a str
+        page.evaluate.return_value = None
+        with pytest.raises(RecaptchaError) as info:
+            await discover_site_key(page)
+        assert is_retryable(info.value) is False
 
     async def test_a_site_key_evaluate_that_raises_is_typed_and_retryable(self) -> None:
         from gflow_cli.errors import is_retryable

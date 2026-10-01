@@ -8,6 +8,13 @@ navigation succeeds once the page settles. A mocked ``evaluate`` can only assert
 told it; only a real page can falsify either half. Measured first by
 ``scripts/dev/spike_recaptcha_error_shape.py``
 (``docs/superpowers/spikes/2026-10-01-recaptcha-error-shape.md``).
+
+**What the race arm proves, and what it does not.** It drives ``TokenMinter`` directly on a
+flow.google.com project page. Through the client, a flow.google.com page is refused before
+the mint (``raise_if_migrated`` -> exit 36), so a user only meets the retryable shape on a
+page Flow served from labs -- and no profile here is served labs (it answers 308). A
+navigation destroying the page's context is Playwright behaviour, not a host's, so the
+minter's flag is measured where it can be; the labs arm itself is unobserved.
 """
 
 from __future__ import annotations
@@ -66,9 +73,13 @@ def _project(e2e_profile_dir: Path) -> dict[str, Any]:
 def _mint_on_blank(world: dict[str, Any]) -> None:
     async def run() -> None:
         async with FlowApiClient(profile_dir=world["profile"], headless=False) as client:
-            page = await client._checkout_page()  # noqa: SLF001 - the real pool page
-            client._checkin_page(page)  # noqa: SLF001
-            await page.goto("about:blank")
+            # Park EVERY pool page: the pool is FIFO, so with GFLOW_CLI_CONCURRENCY > 1 the
+            # mint would otherwise be handed a healthy page and never fail.
+            queue = client._page_queue  # noqa: SLF001
+            pages = [await client._checkout_page() for _ in range(queue.qsize())]  # noqa: SLF001
+            for page in pages:
+                await page.goto("about:blank")
+                client._checkin_page(page)  # noqa: SLF001
             try:
                 await client._mint_recaptcha_token("IMAGE_GENERATION")  # noqa: SLF001
                 world["failure"] = None

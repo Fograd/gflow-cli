@@ -57,10 +57,12 @@ async ([siteKey, action]) => {
 async def discover_site_key(page: _PageLike) -> str:
     """Read the reCAPTCHA Enterprise site key from the loaded page.
 
-    Raises `RecaptchaError` if the recaptcha/enterprise.js script tag is
-    missing or doesn't carry a `render=<key>` query param (not retryable: the same
-    page fails the same way), or if the read itself fails, typically because a
-    navigation destroyed the page's context mid-read (retryable) (#915).
+    Raises `RecaptchaError` (#915) if the read itself fails, typically because a
+    navigation destroyed the page's context mid-read (retryable), or if no
+    recaptcha/enterprise.js tag carries a `render=<key>` query param. A missing key is
+    retryable only on a web page: Flow injects the script after the document reports
+    `complete`, so a Flow page read too early has none yet and a re-read finds it
+    (spike arms E/F), while a non-web page such as `about:blank` never will.
     """
     try:
         key = await page.evaluate(_DISCOVER_SITE_KEY_JS)
@@ -68,13 +70,17 @@ async def discover_site_key(page: _PageLike) -> str:
         msg = f"reading the reCAPTCHA site key failed: {exc}"
         raise RecaptchaError(msg, retryable=True) from exc
     if not isinstance(key, str) or not key:
-        # Name the page state, not a cause: on a pool page parked at about:blank this is
-        # the whole story, and "the editor failed to load" sent #891 the wrong way.
-        msg = (
-            "Could not discover the reCAPTCHA site key: the page the mint ran on carries "
-            "no reCAPTCHA Enterprise script, so it is not a loaded Flow project page."
+        # Name the page state, not a cause: "the editor failed to load" sent #891 the
+        # wrong way on a pool page parked at about:blank.
+        url = getattr(page, "url", None)
+        on_web_page = isinstance(url, str) and url.startswith(("https://", "http://"))
+        state = (
+            "carries no reCAPTCHA Enterprise script yet (Flow injects it after the page loads)"
+            if on_web_page
+            else "is not a Flow page, so it has no reCAPTCHA Enterprise script"
         )
-        raise RecaptchaError(msg, retryable=False)
+        msg = f"Could not discover the reCAPTCHA site key: the page the mint ran on {state}."
+        raise RecaptchaError(msg, retryable=on_web_page)
     return key
 
 
@@ -122,5 +128,5 @@ class TokenMinter:
                 "Likely causes: headless detection by Google, or the page "
                 "navigated away before mint. Try GFLOW_CLI_HEADLESS=false."
             )
-            raise RecaptchaError(msg)  # class default: unmeasured, no retry claim
+            raise RecaptchaError(msg)  # class default (not retryable) until it is observed
         return token
