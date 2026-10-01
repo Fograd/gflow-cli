@@ -91,7 +91,7 @@ with the same caption (the body check would refuse, not disambiguate); a row wit
 | **#40 picker scope** | **Project-scoped.** In a new project, a caption that exists only in another project is not offered (0 options); control: the same search in the project holding it offers it. The picker dialog also shows a project selector set to the current project. |
 | **#16 negative control** | **The body check discriminates.** Row 1 mentioned an unrelated image ("Teal origami crane on table") while declaring row 0's media id: refused, `WireFormatError` "submit body is missing … reference(s) 90879017…". |
 | **#39 Enter on an empty picker** | **Does not submit** (no `ogiZ0b` within 8 s). `@` opens an asset-picker **dialog** with its own search box; Enter on "No assets found" does nothing and the dialog stays open over the composer, so the next composer click times out. Production's `_mention_by_name` retry clicks the composer after a miss without closing the dialog: a latent defect on exactly the lag path (#17). Fix: Escape before retrying. |
-| **#17 search lag** | 3 searches for a just-generated image (spike row 1, negative row 1, chain row 1): all found on the first attempt (`mention_miss` 0). Repeated measurement continues in the e2e (PLAN Task 8). |
+| **#17 search lag** | 3 searches for a just-generated image (spike row 1, negative row 1, chain row 1): all found on the first attempt (`mention_miss` 0). **Superseded by the live e2e (below):** the lag exists, per editor load. |
 
 **#21 same caption, observed for real.** Flow's caption is sometimes the prompt verbatim
 ("a single red apple"). Two images with that caption existed in the project; the picker
@@ -113,3 +113,21 @@ id ↔ token pairs (parsed structurally), so the DOM mapping is backed by the wi
 search by the reply caption, then select the option whose token matches the parent's
 grid tile; the `ogiZ0b` body check stays as the second line. Not measured: a project large
 enough for the grid to virtualise tiles off-screen (gflow run projects hold ≤ 50 rows).
+
+## Live e2e findings (2026-10-01, `tests/e2e/test_manifest_refs_bdd.py`)
+
+Rows `0`, `1→0`, `2→0`, `3→1` through the real `gflow run --config`, `ci-probe`.
+
+| Run | Row 1 (first child, right after its parent) | Cause, from the run's own log |
+|---|---|---|
+| 1 | failed: not in the grid | opened the editor 1 s after row 0 generated; the tile never appeared in 30 s of in-page polling; row 2 reloaded and found it |
+| 2 | failed: not in the grid (after the in-page wait fix) | same; waiting in the page does not help |
+| 3 | passed | reload-on-miss for the grid: one reload |
+| 4 | failed: 0 picker options, 3 in-page searches | the picker search is also a per-load snapshot; row 2 found it after a reload |
+| 5, 6 | passed (both) | reload-on-miss for grid and picker; one reload each; 6/6 references in place |
+
+**Reading.** The grid and the `@` picker reflect what was indexed when the editor loaded.
+A just-generated image appears after a reload, not after waiting. The transport reloads
+the editor (and re-applies the settings, which a reload resets) until the reference is
+mentionable, within a 90 s budget.
+

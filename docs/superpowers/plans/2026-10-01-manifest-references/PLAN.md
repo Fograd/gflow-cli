@@ -223,10 +223,14 @@ no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected
 - [x] `row 1 references row 0`: both succeed, row 1's submit carries row 0's media id, no `maseQ` upload
 - [x] chain depth 2 (3→1→0) and two children of one parent (#11, #12): rows `0`, `1→0`, `2→0`, `3→1`
 - [x] catalog: each child recorded i2i with its parent as INPUT (#31a)
-- [ ] run it ≥5 times across sessions; record `mention_miss` counts (#17) — **5 live runs so far, 2 on the final design (both pass, 6/6 refs, 1 grid reload each)**; the 3 earlier failures each exposed a mechanism now fixed (below). Target not yet met: the picker-search reload path has not recurred live since its fix
+- [x] run it ≥5 times across sessions; record `mention_miss` counts (#17) — 6 e2e runs: 3 failures before the fixes (each a mechanism, now fixed) and 3 passes on the final design (9/9 references in place). The last run hit both a grid miss and a picker miss and recovered by reload (2 reloads), so the reload path is now observed live
 
 ---
 
+- [x] Council fixes, verified live 2026-10-01:
+  - collision binder past option 0: `probe_collision_binder.py` chose option index 1 (the newer of two "a single red apple") and a media chip landed ($0)
+  - route guard logs `migrated.image_submit_guarded`; the e2e asserts it passed on every referencing submit; `gflow image i2i --ref <file>` (exit 0, guard passed) and the MCP i2i e2e (passed) go through it
+  - a catalog UUID ref stays unported on flow.google.com: CLI `i2i --ref <uuid>` exit 36, MCP `reference_images=[uuid]` refused (`ImageRef.in_project` gate)
 - [x] Live findings the e2e caught (fixed, unit-tested):
   1. the grid is the asset list fetched at editor load, not live: a first child opened 1 s after its parent never saw the tile in 30 s of polling → reload the editor until it is listed (`await_existing_references`)
   2. the `@` picker search likewise: 0 options three times in one page load, found at once after a reload → one search per load, reload and redo settings + mention on a miss (`reference_existing`)

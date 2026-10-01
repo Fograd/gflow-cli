@@ -1826,8 +1826,8 @@ that row's position in `prompts` (0-based).
   names exactly one image. Anything else is refused before the browser starts (exit 11),
   as are an out-of-range row, a row referencing itself, a cycle, and any form other than
   `batch:<number>` (no spaces, signs or leading zeros).
-- **A failed parent.** Rows that depend on it, directly or not, are skipped with
-  "parent row N failed" and never submitted without their reference. A parent whose image
+- **A failed parent.** Its direct dependents are skipped with "parent row N failed",
+  and theirs with "parent row M was skipped"; none is submitted without its reference. A parent whose image
   was generated but whose download failed still counts as generated: its children run.
 - **Tracking.** Each row is recorded in the local catalog; a referencing row is recorded
   as image-to-image with its parent as the input (`gflow data`).
@@ -1835,6 +1835,10 @@ that row's position in `prompts` (0-based).
   included.
 - **Only `batch:N`.** A local file path, a media id or `reference_entity` in a row is
   refused (exit 11); for those use `gflow image i2i --ref` or `--reference-entity`.
+- **A parent Flow returned without a caption** cannot be found in the composer's `@`
+  picker, so its child is refused (exit 36, "an image Flow returned without a caption").
+- **Measured on flow.google.com** (2026-10-01). An account served labs takes a different
+  driver, which references the image by its media id; that arm has not been observed.
 
 `--fail-fast`: first failure stops the batch. Remaining prompts are reported as SKIPPED in the summary table.
 
