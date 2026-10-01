@@ -144,54 +144,71 @@ class BatchPromptItem:
     reference_entity: str | None = None
 
 
-def resolve_batch_dependencies(prompts: list[BatchPromptItem]) -> list[BatchPromptItem]:
-    """Validate references and return prompt items sorted by dependency order DAG.
+_BATCH_REF = re.compile(r"batch:(0|[1-9][0-9]*)", re.ASCII)
 
-    Raises:
-        BatchIntegrityError: If circular dependencies exist or reference targets do not exist.
-        ConfigurationError: If reference syntax is invalid.
+
+def batch_parent(item: BatchPromptItem) -> int | None:
+    """The row index ``item.ref`` names (``"batch:N"``), or None without a reference.
+
+    Raises ConfigurationError for anything but the exact ``batch:<index>`` form: ``int()``
+    alone would accept ``"batch: 1"``, ``"batch:01"``, ``"batch:1_0"`` (10) and non-ASCII
+    digits (#913).
     """
-    index_map: dict[int, BatchPromptItem] = {item.index: item for item in prompts}
-    adj: dict[int, list[int]] = {item.index: [] for item in prompts}
-    in_degree: dict[int, int] = {item.index: 0 for item in prompts}
+    if item.ref is None:
+        return None
+    match = _BATCH_REF.fullmatch(item.ref)
+    if match is None:
+        msg = (
+            f"prompts[{item.index}].ref {item.ref!r} is not a batch reference: "
+            'use "batch:<row index>", e.g. "batch:0".'
+        )
+        raise ConfigurationError(msg)
+    return int(match.group(1))
 
-    for item in prompts:
-        ref_val = item.ref
-        if not ref_val and item.reference_entity and item.reference_entity.startswith("batch:"):
-            ref_val = item.reference_entity
 
-        if ref_val and ref_val.startswith("batch:"):
-            try:
-                parent_idx = int(ref_val.split(":", 1)[1])
-            except ValueError:
-                msg = f"Invalid reference format '{ref_val}' for prompt at index {item.index}."
-                raise ConfigurationError(msg) from None
+def order_batch_rows(rows: list[BatchPromptItem]) -> list[BatchPromptItem]:
+    """Validate intra-batch references and return the rows in a stable run order.
 
-            if parent_idx not in index_map:
-                msg = f"Invalid reference target '{ref_val}' for prompt at index {item.index}."
-                raise BatchIntegrityError(msg)
-            if parent_idx == item.index:
-                msg = f"Circular dependency: prompt at index {item.index} references itself."
-                raise BatchIntegrityError(msg)
+    File order is kept; a row is deferred only until the row it references has run, so a
+    manifest that is already in order runs unchanged (the #317 resolver reshuffled it).
+    A referenced row must make exactly one image: ``batch:N`` names one image.
+    """
+    by_index = {row.index: row for row in rows}
+    parents: dict[int, int] = {}
+    for row in rows:
+        parent = batch_parent(row)
+        if parent is None:
+            continue
+        if parent == row.index:
+            msg = f"prompts[{row.index}].ref {row.ref!r} references itself."
+            raise ConfigurationError(msg)
+        if parent not in by_index:
+            msg = f"prompts[{row.index}].ref {row.ref!r} names a row that does not exist."
+            raise ConfigurationError(msg)
+        if by_index[parent].count != 1:
+            msg = (
+                f"prompts[{parent}] makes {by_index[parent].count} images, so "
+                f"prompts[{row.index}].ref {row.ref!r} is ambiguous: a referenced row "
+                'needs "count": 1.'
+            )
+            raise ConfigurationError(msg)
+        parents[row.index] = parent
 
-            adj[parent_idx].append(item.index)
-            in_degree[item.index] += 1
-
-    queue = [idx for idx, deg in in_degree.items() if deg == 0]
     ordered: list[BatchPromptItem] = []
-
-    while queue:
-        curr = queue.pop(0)
-        ordered.append(index_map[curr])
-        for nxt in adj[curr]:
-            in_degree[nxt] -= 1
-            if in_degree[nxt] == 0:
-                queue.append(nxt)
-
-    if len(ordered) != len(prompts):
-        msg = "Circular dependency detected in image batch prompt references."
-        raise BatchIntegrityError(msg)
-
+    done: set[int] = set()
+    pending = list(rows)
+    while pending:
+        ready = [r for r in pending if parents.get(r.index) in (None, *done)]
+        if not ready:
+            cycle = sorted(r.index for r in pending)
+            msg = f"prompts{cycle} reference each other in a cycle; no row can run first."
+            raise ConfigurationError(msg)
+        # One row per pass, the earliest ready in file order: a child runs as soon as its
+        # parent has, never ahead of an earlier independent row.
+        first = ready[0]
+        ordered.append(first)
+        done.add(first.index)
+        pending.remove(first)
     return ordered
 
 

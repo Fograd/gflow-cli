@@ -115,11 +115,11 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`parse_batch_item_dict`, `resolve_batch_dependencies`), tests.
 
 **Steps:**
-- [ ] Red tests: #1–3, #5–7, #36, #37
-- [ ] `ref` matches `^batch:(0|[1-9][0-9]*)$` (other `ref` strings stay refused until T10)
-- [ ] range, self, cycle → `ConfigurationError` (exit 11), not `BatchIntegrityError`
-- [ ] `reference_entity: "batch:N"` refused; `count > 1` parent refused ("row N makes K images")
-- [ ] Replace the FIFO topological sort with a stable one (file order, defer a row only until its parent)
+- [x] Red tests: #1–3, #5–7, #36, #37
+- [x] `ref` matches `^batch:(0|[1-9][0-9]*)$` (other `ref` strings stay refused until T10) — `batch_parent`
+- [x] range, self, cycle → `ConfigurationError` (exit 11), not `BatchIntegrityError`
+- [x] `reference_entity: "batch:N"` refused; `count > 1` parent refused ("row N makes K images")
+- [x] Replace the FIFO topological sort with a stable one — `order_batch_rows`; `reference_entity: "batch:N"` stays refused at parse (T1) (file order, defer a row only until its parent)
 
 **Tests:** must-cover #1, #2, #3, #7, #36, #37; should-cover #5, #6.
 
