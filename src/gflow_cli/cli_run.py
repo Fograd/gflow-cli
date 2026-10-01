@@ -223,7 +223,7 @@ async def _run_batch(
     "config_path",
     required=True,
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="Path to a JSON batch config (see AUDIT_E1 § D for the schema).",
+    help="Path to a JSON batch config (schema: docs/USAGE.md, gflow run).",
 )
 @click.option(
     "--output-dir",
