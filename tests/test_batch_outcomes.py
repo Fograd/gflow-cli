@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from gflow_cli.api.dto import GeneratedImage, ProjectInfo
+from gflow_cli.api.recaptcha import RecaptchaError
 from gflow_cli.errors import TransportTimeoutError
 from gflow_cli.image_batch import (
     BatchOutcome,
@@ -42,6 +43,7 @@ class FakeClient:
     def __init__(self, *, fail_generate: set[str], fail_download: set[str]) -> None:
         self.fail_generate = fail_generate
         self.fail_download = fail_download
+        self.fail_mint: set[str] = set()
         self.generated: list[str] = []
 
     async def __aenter__(self) -> FakeClient:
@@ -57,6 +59,8 @@ class FakeClient:
         self.generated.append(req.prompt)
         if req.prompt in self.fail_generate:
             raise TransportTimeoutError(detail="scripted generation failure")
+        if req.prompt in self.fail_mint:
+            raise RecaptchaError("scripted mint failure")
         return _img(f"media-{req.prompt}")
 
     async def download_image(self, img: GeneratedImage, target: Path) -> Path:
@@ -158,3 +162,26 @@ def test_summary_shows_why_a_row_was_skipped(
     printed = capsys.readouterr().out
     assert "parent row 0 failed" in printed
     assert code != 0
+
+
+def test_a_mint_failure_fails_its_row_and_the_run_continues(tmp_path: Path) -> None:
+    """#915: a RecaptchaError used to escape the batch (not a GFlowError) and end the run."""
+    client = FakeClient(fail_generate=set(), fail_download=set())
+    client.fail_mint = {"a"}
+    outcomes = asyncio.run(
+        run_image_batch(
+            profile_dir=tmp_path,
+            headless=True,
+            transport=None,
+            prompts=(_row(0, "a"), _row(1, "b"), _row(2, "c")),
+            output_dir=tmp_path / "out",
+            continue_on_error=True,
+            project_title="t",
+            client_factory=lambda **_: client,
+            jitter_range=(0, 0),
+            _command="run",
+        )
+    )
+    assert client.generated == ["a", "b", "c"]
+    assert [(o.index, o.status) for o in outcomes] == [(0, "fail"), (1, "ok"), (2, "ok")]
+    assert "RecaptchaError" in (outcomes[0].error or "")
