@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A reCAPTCHA mint failure is a typed error with Problem Details (#915).** It was a bare
+  `RuntimeError`: `gflow image upscale` and `gflow video extend` (and image generation on
+  the experimental HTTP transports) exited 1 with an "unexpected" message and no
+  remediation, an MCP/worker caller got a hashed "Unknown Error", and on an experimental
+  transport one failure ended a multi-prompt run past `--continue-on-error`. It now has its
+  own `type` (`…/errors/recaptcha-mint`) and a `retryable` flag set from a live measurement:
+  a mint that lost a race with a navigation, or ran on a Flow page before Flow injected its
+  reCAPTCHA script, is retryable (the settled page mints); a mint on a page that is not a
+  web page (`about:blank`) is not (it fails the same way every time). It still exits 1 —
+  branch on the `type`. The site-key message no longer blames "the Flow editor page" or "the
+  script tag layout", which was false on the `about:blank` page where it was seen (#891).
+
 ## [0.82.0] — 2026-10-01
 
 ### Added

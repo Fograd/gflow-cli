@@ -2699,15 +2699,12 @@ class FlowApiClient:
             minter = TokenMinter(page, mint_evaluate_kwargs=mint_evaluate_kwargs())
             try:
                 return await minter.mint(action)
-            # Deliberately broad. `TokenMinter.mint` guards only its SECOND
-            # evaluate: `site_key()` -> `discover_site_key` runs an unguarded
-            # `page.evaluate`, and the minter is rebuilt per call so `_site_key`
-            # is always None and that unguarded call runs every time. A hop
-            # mid-mint destroys the execution context, so the likeliest shape of
-            # this failure is a RAW Playwright error, not RecaptchaError —
-            # catching only the latter would miss the very race this exists for.
-            # Nothing is swallowed: the original propagates untouched unless the
-            # page turns out to be migrated.
+            # Deliberately broad. Both of `TokenMinter`'s evaluates now raise
+            # `RecaptchaError` (#915; the site-key read was unguarded until then and
+            # surfaced a RAW Playwright error), but the minter is not the only code in
+            # this block, and the re-classification below must see any failure a hop
+            # mid-mint can cause. Nothing is swallowed: the original propagates
+            # untouched unless the page turns out to be migrated.
             except Exception:
                 # #692: the guard above is a point-in-time read, and the handoff
                 # to flow.google.com is a CLIENT-SIDE navigation that can land
