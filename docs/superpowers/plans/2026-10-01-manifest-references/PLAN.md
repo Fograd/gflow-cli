@@ -194,11 +194,11 @@ submit aborted unless it carries the media id.
 **Files:** `image_batch.py`, `cli_run.py`, `cli_image.py`.
 
 **Steps:**
-- [ ] Red tests: #4, #11, #26, #27
-- [ ] T1's blanket refusal is narrowed: `batch:N` accepted by `run`; paths / entities still refused (T10)
-- [ ] child request built from the parent's `BatchOutcome.images[0]`; never a `local_path` (no labs re-upload)
-- [ ] `image batch` keeps refusing references, pointing at `gflow run --config`
-- [ ] `reference_entity` on flow.google.com refused before row 0 submits
+- [x] Red tests: #4, #11, #26, #27
+- [x] T1's blanket refusal is narrowed: `batch:N` accepted by `run`; paths / entities still refused (T10)
+- [x] child request built from the parent's `BatchOutcome.images[0]`; never a `local_path` (no labs re-upload)
+- [x] `image batch` keeps refusing references, pointing at `gflow run --config`
+- [x] `reference_entity` on flow.google.com refused before row 0 submits (refused at parse on every host: still unwired)
 
 **Tests:** must-cover #26, #27; should-cover #4, #11.
 
@@ -210,8 +210,8 @@ submit aborted unless it carries the media id.
 no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected.
 
 **Steps:**
-- [ ] Fix the `"run"` exemption reason in `tests/mcp/test_cli_parity.py` (#33)
-- [ ] Confirm no MCP docstring claims manifest references
+- [x] Fix the `"run"` exemption reason in `tests/mcp/test_cli_parity.py` (#33)
+- [x] Confirm no MCP docstring claims manifest references
 
 ---
 

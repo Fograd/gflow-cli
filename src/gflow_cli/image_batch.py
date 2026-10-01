@@ -22,7 +22,7 @@ from gflow_cli._cli_helpers import (
 )
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.dto import BatchSubmissionResult, ProjectInfo
-from gflow_cli.api.image import Aspect, GenerateImageRequest, Model
+from gflow_cli.api.image import Aspect, GenerateImageRequest, ImageRef, Model
 from gflow_cli.api.transports.ui_automation import UiAutomationTransport
 from gflow_cli.config import get_settings, parse_jitter_range
 from gflow_cli.data.models import OperationKind
@@ -402,13 +402,16 @@ def parse_batch_item_dict(p: dict[str, Any], idx: int) -> BatchPromptItem:
         msg = f"prompts[{idx}].reference_entity must be a string."
         raise ConfigurationError(msg)
     # #913: both fields were parsed and then silently ignored (the row ran as plain
-    # text-to-image, exit 0). Refuse them until a form is actually wired.
+    # text-to-image, exit 0). Only `"ref": "batch:N"` is wired (validated strictly by
+    # `order_batch_rows`); every other form is refused until it is.
     for key, value in (("ref", ref), ("reference_entity", reference_entity)):
+        if key == "ref" and isinstance(value, str) and value.startswith("batch:"):
+            continue
         if value is not None:
             msg = (
                 f"prompts[{idx}].{key} is not supported yet: manifest references were "
-                "never applied (#913). Remove the field; for a one-off reference use "
-                "`gflow image i2i --ref <file>`."
+                'never applied (#913). Only `"ref": "batch:N"` is supported; for a '
+                "one-off reference use `gflow image i2i --ref <file>`."
             )
             raise ConfigurationError(msg)
     return BatchPromptItem(
@@ -522,6 +525,7 @@ async def run_one_image_prompt(
     profile_dir: Path | None = None,
     command: str = "image t2i",
     project_title: str | None = None,
+    parent: GeneratedImage | None = None,
 ) -> BatchOutcome:
     """Generate images for one prompt and download them.
 
@@ -538,6 +542,13 @@ async def run_one_image_prompt(
         model=Model.from_cli(item.model),
         original_prompt=item.original_prompt,
         tool=item.tool,
+        # `batch:N`: the parent's image, referenced in place by its reply handle. Never
+        # a `local_path`: that fallback would re-upload a duplicate (#913).
+        refs=(
+            (ImageRef(name=parent.media_name, display_name=parent.display_name or ""),)
+            if parent is not None
+            else ()
+        ),
     )
     stem = item.output_filename or f"prompt_{idx}"
     mode = OperationKind.I2I if req.refs else OperationKind.T2I
@@ -708,6 +719,7 @@ async def run_image_batch(
             profile_dir=profile_dir,
             command=_command,
             project_title=project_title,
+            parent=parent_outcome.images[0] if parent_outcome is not None else None,
         )
         results[item.index] = outcome
         return outcome

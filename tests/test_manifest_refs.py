@@ -1,9 +1,9 @@
-"""Manifest references are refused, never silently dropped (#913).
+"""Manifest references: what each command accepts, and what is refused up front (#913).
 
-Every ``ref`` / ``reference_entity`` form was parsed and then ignored: the row ran as a
-plain text-to-image with exit 0 (measured live, docs/superpowers/spikes/
-2026-10-01-batch-ref-dropped.md). Until a form is actually wired, it is refused at parse
-time, before any browser work, naming the row and the field.
+Every ``ref`` / ``reference_entity`` form used to be parsed and then ignored (measured
+live, docs/superpowers/spikes/2026-10-01-batch-ref-dropped.md). Now ``gflow run --config``
+honours ``"ref": "batch:N"``; every other form, and any reference in ``gflow image
+batch``, is refused before browser work, naming the row and the field.
 """
 
 from __future__ import annotations
@@ -19,8 +19,7 @@ from gflow_cli.cli import main as cli_main
 from gflow_cli.errors import ConfigurationError
 from gflow_cli.image_batch import parse_batch_item_dict
 
-_FORMS = [
-    ("ref", "batch:0"),
+_NOT_YET = [
     ("ref", "./photo.png"),
     ("ref", "11111111-1111-1111-1111-111111111111"),
     ("reference_entity", "11111111-1111-1111-1111-111111111111"),
@@ -28,13 +27,16 @@ _FORMS = [
 ]
 
 
-@pytest.mark.parametrize(("field", "value"), _FORMS)
-def test_parse_refuses_every_reference_form(field: str, value: str) -> None:
+@pytest.mark.parametrize(("field", "value"), _NOT_YET)
+def test_parse_refuses_forms_that_are_not_wired(field: str, value: str) -> None:
     with pytest.raises(ConfigurationError) as info:
         parse_batch_item_dict({"text": "x", field: value}, 1)
-    message = str(info.value)
-    assert f"prompts[1].{field}" in message
-    assert "#913" in message
+    assert f"prompts[1].{field}" in str(info.value)
+    assert "#913" in str(info.value)
+
+
+def test_parse_accepts_a_batch_reference() -> None:
+    assert parse_batch_item_dict({"text": "x", "ref": "batch:0"}, 1).ref == "batch:0"
 
 
 @pytest.mark.parametrize("field", ["ref", "reference_entity"])
@@ -48,10 +50,17 @@ def _rows(field: str, value: str) -> list[dict[str, str]]:
     return [{"text": "a red apple"}, {"text": "the same apple, green", field: value}]
 
 
-@pytest.mark.parametrize(("field", "value"), _FORMS)
-def test_run_config_refuses_before_any_browser(tmp_path: Path, field: str, value: str) -> None:
+def _run_config(tmp_path: Path, rows: list[dict[str, object]]) -> Path:
     cfg = tmp_path / "run.json"
-    cfg.write_text(json.dumps({"prompts": _rows(field, value)}), encoding="utf-8")
+    cfg.write_text(json.dumps({"prompts": rows}), encoding="utf-8")
+    return cfg
+
+
+@pytest.mark.parametrize(("field", "value"), _NOT_YET)
+def test_run_config_refuses_unwired_forms_before_any_browser(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    cfg = _run_config(tmp_path, _rows(field, value))  # type: ignore[arg-type]
     with patch("gflow_cli.cli_run.FlowApiClient") as client:
         result = CliRunner().invoke(cli_main, ["run", "--config", str(cfg)])
     assert result.exit_code == 11, result.output
@@ -59,8 +68,31 @@ def test_run_config_refuses_before_any_browser(tmp_path: Path, field: str, value
     client.assert_not_called()
 
 
-@pytest.mark.parametrize(("field", "value"), _FORMS)
-def test_image_batch_refuses_before_any_browser(tmp_path: Path, field: str, value: str) -> None:
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        ([{"text": "a"}, {"text": "b", "ref": "batch:7"}], "batch:7"),
+        ([{"text": "a", "ref": "batch:0"}], "itself"),
+        ([{"text": "a", "ref": "batch:1"}, {"text": "b", "ref": "batch:0"}], "cycle"),
+        ([{"text": "a", "count": 2}, {"text": "b", "ref": "batch:0"}], "makes 2 images"),
+        ([{"text": "a"}, {"text": "b", "ref": "batch:01"}], "batch:01"),
+    ],
+)
+def test_run_config_refuses_bad_batch_references_before_any_browser(
+    tmp_path: Path, rows: list[dict[str, object]], expected: str
+) -> None:
+    cfg = _run_config(tmp_path, rows)
+    with patch("gflow_cli.cli_run.FlowApiClient") as client:
+        result = CliRunner().invoke(cli_main, ["run", "--config", str(cfg)])
+    assert result.exit_code == 11, result.output
+    assert expected in result.output
+    client.assert_not_called()
+
+
+@pytest.mark.parametrize(("field", "value"), [("ref", "batch:0"), *_NOT_YET])
+def test_image_batch_refuses_every_reference_before_any_browser(
+    tmp_path: Path, field: str, value: str
+) -> None:
     manifest = tmp_path / "m.json"
     manifest.write_text(json.dumps(_rows(field, value)), encoding="utf-8")
     with patch("gflow_cli.cli_image.FlowApiClient") as client:
@@ -69,4 +101,6 @@ def test_image_batch_refuses_before_any_browser(tmp_path: Path, field: str, valu
     # every other malformed manifest field (`_as_usage_error`, cli_image.py).
     assert result.exit_code == 2, result.output
     assert f"prompts[1].{field}" in result.output
+    if field == "ref" and value.startswith("batch:"):
+        assert "gflow run --config" in result.output
     client.assert_not_called()

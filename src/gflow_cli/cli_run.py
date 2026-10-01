@@ -34,6 +34,7 @@ from gflow_cli.image_batch import (
     MIN_PROMPTS,
     BatchOutcome,
     BatchPromptItem,
+    order_batch_rows,
     parse_batch_item_dict,
     render_image_batch_summary,
     resolve_exit_code,
@@ -121,6 +122,9 @@ class BatchConfig:
                 msg = f"prompts[{idx}] must be a JSON object."
                 raise ConfigurationError(msg)
             prompts.append(parse_batch_item_dict(cast("dict[str, Any]", p), idx))
+        # Validate `batch:N` references (range, self, cycle, multi-image parent) here, so
+        # a bad config exits 11 before any browser work (#913).
+        order_batch_rows(prompts)
 
         profile = data.get("profile")
         if profile is not None and (not isinstance(profile, str) or not profile):
