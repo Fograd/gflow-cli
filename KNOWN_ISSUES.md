@@ -390,6 +390,16 @@ listing endpoint (privacy-gated to `store` history mode), and `gflow doctor`
 (#542) surfaces the affected-row count. Freshly generated rows whose caption
 has not landed yet stay nameless until the next sync sweep.
 
+### `gflow run --config` references cannot resume (#913)
+
+- **Status:** Open · **Severity:** Low (a re-run regenerates; nothing is lost) · **Affected:** every `gflow run --config` with `"ref": "batch:N"` rows
+- **Tracked:** [#913](https://github.com/ffroliva/gflow-cli/issues/913)
+
+A run with `"ref": "batch:N"` rows has no resume: a re-run creates a new project and
+regenerates every row, parents included, and one early failure skips the whole chain under
+it. The handle that makes in-place referencing work (Flow's reply for the parent) exists
+only within the run that generated it.
+
 ### Video duration control is absent on some account cohorts
 
 - **Status:** Mitigated — fail-fast shipped in

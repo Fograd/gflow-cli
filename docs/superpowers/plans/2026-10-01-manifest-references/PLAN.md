@@ -98,13 +98,15 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 `spike_batch_ref_existing_media.py`.
 
 **Steps:**
-- [ ] **#40 picker scope:** in a **new** project, search a caption that exists only in another project. Found → account-wide search; record it and choose the mitigation (project filter or rely on the T5 abort)
-- [ ] **#16 negative control:** mention an unrelated image, return row 0's id → the body check must refuse
-- [ ] **#17 lag:** 5 runs of the batch-shaped spike; record `mention_miss` attempts per run
-- [ ] **#39 Enter on empty:** query a caption not yet indexed; confirm whether Enter submits
-- [ ] Record the readings in the spike doc **before** T5 starts; if #40 is account-wide and no filter exists, stop and revisit the design with the owner
+- [x] **#40 picker scope:** measured: project-scoped (control included).  in a **new** project, search a caption that exists only in another project. Found → account-wide search; record it and choose the mitigation (project filter or rely on the T5 abort)
+- [x] **#16 negative control:** measured: refused (`WireFormatError`).  mention an unrelated image, return row 0's id → the body check must refuse
+- [x] **#17 lag:** 3/3 first-attempt hits so far; ≥5 more in Task 8.  5 runs of the batch-shaped spike; record `mention_miss` attempts per run
+- [x] **#39 Enter on empty:** measured: no submit; the dialog stays open (latent retry defect, see T5).  query a caption not yet indexed; confirm whether Enter submits
+- [x] Record the readings in the spike doc **before** T5 starts; if #40 is account-wide and no filter exists, stop and revisit the design with the owner
 
 ---
+
+- [x] **Found during the gate:** captions collide (#21, observed); binder changed to thumbnail-token identity (spike doc § Gate). Owner informed.
 
 ## Task 2 — Validation and stable order (PR B)
 
@@ -113,11 +115,11 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`parse_batch_item_dict`, `resolve_batch_dependencies`), tests.
 
 **Steps:**
-- [ ] Red tests: #1–3, #5–7, #36, #37
-- [ ] `ref` matches `^batch:(0|[1-9][0-9]*)$` (other `ref` strings stay refused until T10)
-- [ ] range, self, cycle → `ConfigurationError` (exit 11), not `BatchIntegrityError`
-- [ ] `reference_entity: "batch:N"` refused; `count > 1` parent refused ("row N makes K images")
-- [ ] Replace the FIFO topological sort with a stable one (file order, defer a row only until its parent)
+- [x] Red tests: #1–3, #5–7, #36, #37
+- [x] `ref` matches `^batch:(0|[1-9][0-9]*)$` (other `ref` strings stay refused until T10) — `batch_parent`
+- [x] range, self, cycle → `ConfigurationError` (exit 11), not `BatchIntegrityError`
+- [x] `reference_entity: "batch:N"` refused; `count > 1` parent refused ("row N makes K images")
+- [x] Replace the FIFO topological sort with a stable one — `order_batch_rows`; `reference_entity: "batch:N"` stays refused at parse (T1) (file order, defer a row only until its parent)
 
 **Tests:** must-cover #1, #2, #3, #7, #36, #37; should-cover #5, #6.
 
@@ -130,16 +132,18 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`BatchOutcome`, `run_one_image_prompt`, `run_sequential_batch`, `render_image_batch_summary`).
 
 **Steps:**
-- [ ] Red tests: #8, #9, #10, #13, #35, #38
-- [ ] `BatchOutcome.images: list[GeneratedImage]` set from the reply even when the download fails
-- [ ] output names, outcome indexes and `--fail-fast` skip rows use `item.index`
-- [ ] a child whose parent has no `images` is `skipped` with error "parent row N failed", transitively
-- [ ] a non-`GFlowError` from `download_image` (`ValueError`) is contained per row, not run-fatal
-- [ ] the results table shows a skipped row's reason; the run exits non-zero when anything was skipped
+- [x] Red tests: #8, #9, #10, #13, #35, #38
+- [x] `BatchOutcome.images: list[GeneratedImage]` set from the reply even when the download fails
+- [x] output names, outcome indexes and `--fail-fast` skip rows use `item.index`
+- [x] a child whose parent has no `images` is `skipped` with error "parent row N failed", transitively
+- [x] a non-`GFlowError` from `download_image` (`ValueError`) is contained per row, not run-fatal
+- [x] the results table shows a skipped row's reason; the run exits non-zero when anything was skipped
 
 **Tests:** must-cover #8, #9, #10, #13, #35, #38.
 
 ---
+
+- [x] Note for T4: a download failure no longer goes through the generation-failure recorder; T4 records it as generated with a failed transfer (#896 semantics).
 
 ## Task 4 — Persistence and lineage (PR B)
 
@@ -148,15 +152,17 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 **Files:** `image_batch.py` (`run_one_image_prompt` success path), `data/recorder.py` if needed.
 
 **Steps:**
-- [ ] Red tests: #31, #31a, #31b, #41
-- [ ] successful `run` rows call `record_generated_images` (as `image batch` does, `:945`)
-- [ ] a `batch:N` row records `operation_kind="i2i"`, `input_media_ids=[parent media id]`; others stay `t2i`
-- [ ] a failed referencing row is recorded as I2I
-- [ ] a recorder `DataStoreError` warns and continues; the in-memory handle still feeds the child
+- [x] Red tests: #31, #31b, metadata half of #31a (`tests/test_batch_recording.py`); the asset-link half of #31a and #41 are asserted in T6 against a real store, once rows carry refs
+- [x] successful `run` rows call `record_generated_images` (as `image batch` does, `:945`)
+- [x] a `batch:N` row records `operation_kind="i2i"`, `input_media_ids=[parent media id]`; others stay `t2i`
+- [x] a failed referencing row is recorded as I2I (`mode` from `req.refs`)
+- [x] a recorder `DataStoreError` warns and continues; the in-memory handle still feeds the child
 
 **Tests:** must-cover #31, #31a; should-cover #31b, #41.
 
 ---
+
+- [x] Also: multi-prompt `gflow image t2i` shares `run_image_batch`, so its successes are now recorded too (they were not); lineage ids also written to operation metadata (`reference_media_ids`)
 
 ## Task 5 — Transport: reference an existing image, no upload (PR B)
 
@@ -166,17 +172,20 @@ submit aborted unless it carries the media id.
 **Files:** `migrated_composer.py` (`_unported_image_form`, `run_images`, `_mention_by_name`, submit observation), tests.
 
 **Steps:**
-- [ ] Red tests: #15, #18, #19, #23, #39
-- [ ] `_unported_image_form`: refs **with** `display_name` pass; a bare UUID ref stays exit 36
-- [ ] new branch next to `ref_paths`: mention each existing ref, append its media id to `reference_ids`, check the chip count
-- [ ] sanitise the caption (strip control chars and `@`, cap length); refuse if changed or empty; empty `display_name` refused on flow.google.com only
-- [ ] `_mention_by_name` presses Enter only when the picker offers an option
-- [ ] abort a mismatched `ogiZ0b` with `page.route` before it reaches Flow (keep the observer as the second line)
-- [ ] apply T0's #40 mitigation
+- [x] Red tests: #15, #18, #19, #21, #23, #39
+- [x] `_unported_image_form`: refs **with** `display_name` pass; a bare UUID ref stays exit 36
+- [x] new branch next to `ref_paths`: mention each existing ref, append its media id to `reference_ids`, check the chip count
+- [x] sanitise the caption (strip control chars and `@`, cap length); refuse if changed or empty; empty `display_name` refused on flow.google.com only
+- [x] select the option whose thumbnail token matches the parent's grid tile (`img[data-media-id]`), not the first option; none matches → `ReferenceNotFoundError`
+- [x] on a miss, press Escape to close the picker dialog before retrying (latent defect, gate #39)
+- [x] abort a mismatched `ogiZ0b` with `page.route` before it reaches Flow (keep the observer as the second line)
+- [x] apply T0's #40 mitigation (none needed: the picker is project-scoped, measured)
 
 **Tests:** must-cover #15, #18, #19, #23, #39.
 
 ---
+
+- [x] Note: one combined `tests/api tests/mcp` run hung for 38 min while a fake page lacked `route()`; after the fake gained no-op `route`/`unroute` the same run passed (2085 in 77 s). Mechanism not isolated.
 
 ## Task 6 — Wire `batch:N` on `gflow run --config` (PR B)
 
@@ -185,11 +194,11 @@ submit aborted unless it carries the media id.
 **Files:** `image_batch.py`, `cli_run.py`, `cli_image.py`.
 
 **Steps:**
-- [ ] Red tests: #4, #11, #26, #27
-- [ ] T1's blanket refusal is narrowed: `batch:N` accepted by `run`; paths / entities still refused (T10)
-- [ ] child request built from the parent's `BatchOutcome.images[0]`; never a `local_path` (no labs re-upload)
-- [ ] `image batch` keeps refusing references, pointing at `gflow run --config`
-- [ ] `reference_entity` on flow.google.com refused before row 0 submits
+- [x] Red tests: #4, #11, #26, #27
+- [x] T1's blanket refusal is narrowed: `batch:N` accepted by `run`; paths / entities still refused (T10)
+- [x] child request built from the parent's `BatchOutcome.images[0]`; never a `local_path` (no labs re-upload)
+- [x] `image batch` keeps refusing references, pointing at `gflow run --config`
+- [x] `reference_entity` on flow.google.com refused before row 0 submits (refused at parse on every host: still unwired)
 
 **Tests:** must-cover #26, #27; should-cover #4, #11.
 
@@ -201,8 +210,8 @@ submit aborted unless it carries the media id.
 no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected.
 
 **Steps:**
-- [ ] Fix the `"run"` exemption reason in `tests/mcp/test_cli_parity.py` (#33)
-- [ ] Confirm no MCP docstring claims manifest references
+- [x] Fix the `"run"` exemption reason in `tests/mcp/test_cli_parity.py` (#33)
+- [x] Confirm no MCP docstring claims manifest references
 
 ---
 
@@ -211,22 +220,30 @@ no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected
 **What:** the BDD-bound live test, `@e2e @e2e_image` (images only, 0 credits).
 
 **Steps:**
-- [ ] `row 1 references row 0`: both succeed, row 1's submit carries row 0's media id, no `maseQ` upload
-- [ ] 3-row chain 2→1→0 (#12) and two children of one parent (#11)
-- [ ] catalog: row 1 recorded as i2i with row 0 as input (#31a)
-- [ ] run it ≥5 times across sessions; record `mention_miss` counts (#17)
+- [x] `row 1 references row 0`: both succeed, row 1's submit carries row 0's media id, no `maseQ` upload
+- [x] chain depth 2 (3→1→0) and two children of one parent (#11, #12): rows `0`, `1→0`, `2→0`, `3→1`
+- [x] catalog: each child recorded i2i with its parent as INPUT (#31a)
+- [x] run it ≥5 times across sessions; record `mention_miss` counts (#17) — 6 e2e runs: 3 failures before the fixes (each a mechanism, now fixed) and 3 passes on the final design (9/9 references in place). The last run hit both a grid miss and a picker miss and recovered by reload (2 reloads), so the reload path is now observed live
 
 ---
+
+- [x] Council fixes, verified live 2026-10-01:
+  - collision binder past option 0: `probe_collision_binder.py` chose option index 1 (the newer of two "a single red apple") and a media chip landed ($0)
+  - route guard logs `migrated.image_submit_guarded`; the e2e asserts it passed on every referencing submit; `gflow image i2i --ref <file>` (exit 0, guard passed) and the MCP i2i e2e (passed) go through it
+  - a catalog UUID ref stays unported on flow.google.com: CLI `i2i --ref <uuid>` exit 36, MCP `reference_images=[uuid]` refused (`ImageRef.in_project` gate)
+- [x] Live findings the e2e caught (fixed, unit-tested):
+  1. the grid is the asset list fetched at editor load, not live: a first child opened 1 s after its parent never saw the tile in 30 s of polling → reload the editor until it is listed (`await_existing_references`)
+  2. the `@` picker search likewise: 0 options three times in one page load, found at once after a reload → one search per load, reload and redo settings + mention on a miss (`reference_existing`)
 
 ## Task 9 — Docs (PR B)
 
 **Steps:**
-- [ ] `docs/USAGE.md`: a `gflow run` section (none exists) with `ref: "batch:N"`, the `count: 1` rule, skip semantics, no resume (#42)
-- [ ] `run --config` help: point at USAGE, not the planning file `AUDIT_E1 § D`
-- [ ] `image batch` help: references not supported there; use `gflow run --config`
-- [ ] `docs/REFERENCE_STRATEGIES.md`: `batch:N` as an in-place reference, no upload
-- [ ] KNOWN_ISSUES: same-caption fails closed (#21); no resume (#42)
-- [ ] CHANGELOG `[Unreleased]` Added; website mirror regenerated
+- [x] `docs/USAGE.md`: the existing `gflow run` section, extended with `ref: "batch:N"`, the `count: 1` rule, skip semantics, no resume (#42)
+- [x] `run --config` help: point at USAGE, not the planning file `AUDIT_E1 § D`
+- [x] `image batch` help: references not supported there; use `gflow run --config`
+- [x] `docs/REFERENCE_STRATEGIES.md`: `batch:N` as an in-place reference, no upload
+- [x] KNOWN_ISSUES: no resume (#42). Same-caption (#21) is no longer a limitation: the binder is the thumbnail token
+- [x] CHANGELOG `[Unreleased]` Added; website mirror regenerated
 
 ---
 

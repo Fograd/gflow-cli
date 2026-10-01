@@ -550,6 +550,9 @@ an isometric pixel-art bakery	1	1:1	nano2
 
 ### JSON manifest
 
+References between rows (`"ref": "batch:N"`) are not supported here; `gflow image batch`
+refuses them. Use [`gflow run --config`](#referencing-an-earlier-row).
+
 ```json
 [
   {"text": "a small calico kitten sitting on a windowsill"},
@@ -1790,6 +1793,7 @@ browser, one Flow project; prompts run one after another).
 | `prompts[].model` | no | `nano2` | `nano2` / `nano-pro` / `imagen4`. |
 | `prompts[].count` | no | `1` | 1–4. |
 | `prompts[].output_filename` | no | `prompt_<index>` | Filename stem; saved as `<stem>_<image-index>.png`. |
+| `prompts[].ref` | no | — | `"batch:N"`: generate from row N's image. See [Referencing an earlier row](#referencing-an-earlier-row). |
 | `profile` | no | active profile | CLI `--profile` overrides. |
 | `transport` | no | `ui_automation` | Experimental strategies need `GFLOW_CLI_EXPERIMENTAL_TRANSPORTS=1`. |
 | `output_dir` | no | `out/<UTC-timestamp>/` | CLI `--output-dir` overrides. |
@@ -1797,6 +1801,44 @@ browser, one Flow project; prompts run one after another).
 ### Error semantics
 
 `--continue-on-error` (default): one prompt failing logs the error and continues. Final exit code is the max per-prompt exit code (so a `WafRejectionError` anywhere in the batch makes the whole run exit 10).
+
+### Referencing an earlier row
+
+A row can generate from the image another row made: set `"ref": "batch:N"`, where `N` is
+that row's position in `prompts` (0-based).
+
+```json
+{
+  "prompts": [
+    {"text": "a single red apple on a wooden table", "aspect_ratio": "1:1"},
+    {"text": "the same apple, now green", "aspect_ratio": "1:1", "ref": "batch:0"},
+    {"text": "the green apple on a blue plate", "aspect_ratio": "1:1", "ref": "batch:1"}
+  ]
+}
+```
+
+- **Nothing is uploaded.** Row N's image is already in the run's Flow project, so it is
+  referenced where it is, by the handle Flow returned when it was generated. The project
+  holds no duplicate.
+- **Order.** Rows run in file order; a row that references a later row waits only until
+  that row has run. Output names and the results table keep each row's own number.
+- **A referenced row must make one image** (`"count": 1`, the default), so `batch:N`
+  names exactly one image. Anything else is refused before the browser starts (exit 11),
+  as are an out-of-range row, a row referencing itself, a cycle, and any form other than
+  `batch:<number>` (no spaces, signs or leading zeros).
+- **A failed parent.** Its direct dependents are skipped with "parent row N failed",
+  and theirs with "parent row M was skipped"; none is submitted without its reference. A parent whose image
+  was generated but whose download failed still counts as generated: its children run.
+- **Tracking.** Each row is recorded in the local catalog; a referencing row is recorded
+  as image-to-image with its parent as the input (`gflow data`).
+- **No resume.** A re-run starts a new project and regenerates every row, parents
+  included.
+- **Only `batch:N`.** A local file path, a media id or `reference_entity` in a row is
+  refused (exit 11); for those use `gflow image i2i --ref` or `--reference-entity`.
+- **A parent Flow returned without a caption** cannot be found in the composer's `@`
+  picker, so its child is refused (exit 36, "an image Flow returned without a caption").
+- **Measured on flow.google.com** (2026-10-01). An account served labs takes a different
+  driver, which references the image by its media id; that arm has not been observed.
 
 `--fail-fast`: first failure stops the batch. Remaining prompts are reported as SKIPPED in the summary table.
 

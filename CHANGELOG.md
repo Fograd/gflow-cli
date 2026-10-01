@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A `gflow run --config` row can generate from an earlier row's image (#913).** Set
+  `"ref": "batch:N"`. The earlier image is already in the run's Flow project, so it is
+  referenced in place by the handle Flow returned. Nothing is re-uploaded, and the
+  project holds no duplicate. Rows run in file order, deferred only until
+  their parent has run. A failed parent skips its dependents with the reason instead of
+  submitting them without the reference. A referenced row must make one image. On
+  flow.google.com the image is found in the composer's `@` picker and chosen by its
+  thumbnail identity, not its caption (captions repeat). The submit is aborted before
+  Flow acts if it does not carry the reference. `gflow image batch` refuses references and
+  points at `gflow run`. See [docs/USAGE.md](docs/USAGE.md#referencing-an-earlier-row).
+- **`gflow run --config` and multi-prompt `gflow image t2i` now record their successful
+  generations in the local catalog.** They recorded failures only. A referencing row is
+  recorded as image-to-image with its parent as the input.
+
 ### Fixed
 
 - **Manifest references are refused instead of silently ignored (#913).** A
@@ -14,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accepted, then ran as plain text-to-image with exit 0. v0.52.0 announced the fields
   (#317), but nothing ever applied them. Both commands now refuse such a row before any
   browser work, naming the row and field: exit 11 for `run`, a usage error (exit 2) for
-  `image batch`. Wiring `ref: "batch:N"` for real is tracked in #913.
+  `image batch`. The one exception is `"ref": "batch:N"` in `gflow run --config`, which
+  now works (see Added).
 
 - **The docs no longer suggest clearing a sign-in screen in the generation window
   (#925).** 0.81.0's docs said to make the off-screen generation browser visible and

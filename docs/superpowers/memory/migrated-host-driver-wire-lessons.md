@@ -87,7 +87,10 @@ Evidence: `docs/LIVE_VERIFICATION_v0.69.0.md`; recon
 
 - **The Start-frame picker exposes no media id in its DOM.** Uploads are listed by *file
   name*, so binding is a name search — not an id lookup. Plan for name collisions rather
-  than assuming identity.
+  than assuming identity. *(#913 found an indirect id: each `@`-picker option's thumbnail
+  is `/asb/<token>`, and the project grid tile `img[data-media-id=<uuid>]` carries the same
+  token, so an option maps to an exact media id. See
+  `docs/superpowers/spikes/2026-10-01-batch-ref-dropped.md`.)*
 - **That collision arrived, as #792 — and the tie-break that lost was a sort assumption.**
   A second run of one file leaves two identical library entries; i2v leaned on the
   picker's newest-first order to pick the right one, which is an assumption about
@@ -211,3 +214,9 @@ rounds); e2e `tests/e2e/test_migrated_host_e2e.py`. Read this before re-mining t
   tells the user to file a frontend bug about a frontend that is fine. Refuse an
   unmeasured axis value as an unported form (exit 36) and keep the measured set in its
   own constant, so the difference between *observed* and *assumed* survives in code.
+- **The grid and the `@` picker are per-editor-load snapshots (#913, live e2e
+  2026-10-01).** A row that opened the editor one second after its parent was generated
+  polled the grid for 30 s without the new tile, and on another run searched the picker
+  three times with 0 options; the next row's fresh editor load found the same image at
+  once. To reference a just-generated image, reload the editor; waiting in the page does
+  not help. A reload resets the image settings, so re-apply them after it.
