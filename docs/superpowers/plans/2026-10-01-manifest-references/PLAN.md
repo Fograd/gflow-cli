@@ -220,22 +220,26 @@ no consent path). Mirror axes per `skills/check/SKILL.md` step 1b: none affected
 **What:** the BDD-bound live test, `@e2e @e2e_image` (images only, 0 credits).
 
 **Steps:**
-- [ ] `row 1 references row 0`: both succeed, row 1's submit carries row 0's media id, no `maseQ` upload
-- [ ] 3-row chain 2→1→0 (#12) and two children of one parent (#11)
-- [ ] catalog: row 1 recorded as i2i with row 0 as input (#31a)
-- [ ] run it ≥5 times across sessions; record `mention_miss` counts (#17)
+- [x] `row 1 references row 0`: both succeed, row 1's submit carries row 0's media id, no `maseQ` upload
+- [x] chain depth 2 (3→1→0) and two children of one parent (#11, #12): rows `0`, `1→0`, `2→0`, `3→1`
+- [x] catalog: each child recorded i2i with its parent as INPUT (#31a)
+- [ ] run it ≥5 times across sessions; record `mention_miss` counts (#17) — **5 live runs so far, 2 on the final design (both pass, 6/6 refs, 1 grid reload each)**; the 3 earlier failures each exposed a mechanism now fixed (below). Target not yet met: the picker-search reload path has not recurred live since its fix
 
 ---
+
+- [x] Live findings the e2e caught (fixed, unit-tested):
+  1. the grid is the asset list fetched at editor load, not live: a first child opened 1 s after its parent never saw the tile in 30 s of polling → reload the editor until it is listed (`await_existing_references`)
+  2. the `@` picker search likewise: 0 options three times in one page load, found at once after a reload → one search per load, reload and redo settings + mention on a miss (`reference_existing`)
 
 ## Task 9 — Docs (PR B)
 
 **Steps:**
-- [ ] `docs/USAGE.md`: a `gflow run` section (none exists) with `ref: "batch:N"`, the `count: 1` rule, skip semantics, no resume (#42)
-- [ ] `run --config` help: point at USAGE, not the planning file `AUDIT_E1 § D`
-- [ ] `image batch` help: references not supported there; use `gflow run --config`
-- [ ] `docs/REFERENCE_STRATEGIES.md`: `batch:N` as an in-place reference, no upload
-- [ ] KNOWN_ISSUES: same-caption fails closed (#21); no resume (#42)
-- [ ] CHANGELOG `[Unreleased]` Added; website mirror regenerated
+- [x] `docs/USAGE.md`: the existing `gflow run` section, extended with `ref: "batch:N"`, the `count: 1` rule, skip semantics, no resume (#42)
+- [x] `run --config` help: point at USAGE, not the planning file `AUDIT_E1 § D`
+- [x] `image batch` help: references not supported there; use `gflow run --config`
+- [x] `docs/REFERENCE_STRATEGIES.md`: `batch:N` as an in-place reference, no upload
+- [x] KNOWN_ISSUES: no resume (#42). Same-caption (#21) is no longer a limitation: the binder is the thumbnail token
+- [x] CHANGELOG `[Unreleased]` Added; website mirror regenerated
 
 ---
 

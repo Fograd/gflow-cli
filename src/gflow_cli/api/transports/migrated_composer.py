@@ -229,6 +229,12 @@ _OPTION_TOKENS_JS = (
     " const m = ((img && img.getAttribute('src')) || '').match(/\\/asb\\/([A-Za-z0-9_-]+)/);"
     " return m ? m[1] : ''; })"
 )
+#: How long a just-generated image may take to appear in the project grid, and the
+#: pause between editor reloads while waiting for it (#913).
+GRID_TILE_WAIT_S = 60.0
+GRID_TILE_POLL_S = 5.0
+#: Total budget for a referenced image to become mentionable, across editor reloads.
+EXISTING_REF_WAIT_S = 90.0
 #: Flow writes captions with its own model; they reach the composer by typing.
 _CAPTION_MAX = 120
 
@@ -2111,8 +2117,66 @@ class MigratedComposer:
             page.remove_listener("response", on_response)
             page.remove_listener("request", on_request)
 
+    async def reference_existing(
+        self, page: Page, project_id: str, request: GenerateImageRequest
+    ) -> tuple[str, ...]:
+        """Apply the image settings and mention ``request.refs`` in place, reloading on a miss.
+
+        A just-generated image can be missing from this page load's grid or picker
+        search and present after a reload (measured twice, live e2e 2026-10-01). A reload
+        resets the settings and the composer, so each attempt redoes all three steps.
+        """
+        deadline = time.monotonic() + EXISTING_REF_WAIT_S
+        while True:
+            tokens = await self.await_existing_references(page, project_id, request.refs)
+            await self.apply_image_settings(page, request)
+            try:
+                return await self.attach_existing_references(page, request.refs, tokens)
+            except ReferenceNotFoundError:
+                if time.monotonic() >= deadline:
+                    raise
+            log.info("migrated.existing_reference_reload")
+            await page.wait_for_timeout(GRID_TILE_POLL_S * 1000)
+            await page.reload(wait_until="domcontentloaded", timeout=45_000)
+            await self.ensure_editor(page, project_id)
+
+    async def await_existing_references(
+        self, page: Page, project_id: str, refs: tuple[ImageRef, ...]
+    ) -> dict[str, str]:
+        """Each reference's grid thumbnail token, reloading the editor until all are there.
+
+        Measured (live e2e, 2026-10-01): the project grid is the asset list fetched when
+        the editor loads, and it is not updated in place. A row that opens the editor a
+        second after its parent was generated polled for 30 s without the tile; the next
+        row, after a reload, found it at once. So a missing tile triggers a reload, and
+        absence is concluded after :data:`GRID_TILE_WAIT_S`. Runs before the settings
+        are applied, because a reload resets them.
+        """
+        for ref in refs:
+            _picker_query(ref)  # refuse an unusable caption before any reload
+        deadline = time.monotonic() + GRID_TILE_WAIT_S
+        while True:
+            tokens = {
+                ref.name: str(await page.evaluate(_GRID_TOKEN_JS, ref.name) or "") for ref in refs
+            }
+            missing = [media_id for media_id, token in tokens.items() if not token]
+            if not missing:
+                return tokens
+            if time.monotonic() >= deadline:
+                raise ReferenceNotFoundError(
+                    detail=(
+                        f"migrated host: image {missing[0]} is not in this project's grid "
+                        f"after {GRID_TILE_WAIT_S:.0f}s of reloads, so it cannot be "
+                        "referenced in place"
+                    ),
+                )
+            log.info("migrated.existing_reference_not_listed", missing=len(missing))
+            await page.wait_for_timeout(GRID_TILE_POLL_S * 1000)
+            await page.reload(wait_until="domcontentloaded", timeout=45_000)
+            await self.ensure_editor(page, project_id)
+
     async def attach_existing_references(
-        self, page: Page, refs: tuple[ImageRef, ...]
+        self, page: Page, refs: tuple[ImageRef, ...], tokens: dict[str, str]
     ) -> tuple[str, ...]:
         """Mention images already in the project, chosen by identity; upload nothing.
 
@@ -2126,51 +2190,49 @@ class MigratedComposer:
         """
         for count, ref in enumerate(refs, start=1):
             query = _picker_query(ref)
-            token = str(await page.evaluate(_GRID_TOKEN_JS, ref.name) or "")
-            if not token:
-                raise ReferenceNotFoundError(
-                    detail=(
-                        f"migrated host: image {ref.name} is not in this project's grid, so "
-                        "it cannot be referenced in place"
-                    ),
-                )
-            await self._mention_by_token(page, query, token, ref.name, expect_chips=count)
-        return tuple(ref.name for ref in refs)
+            await self._mention_by_token(
+                page, query, tokens[ref.name], ref.name, expect_chips=count
+            )
+        media_ids = tuple(ref.name for ref in refs)
+        # Distinct from `migrated.references_attached` (the upload path): this one means
+        # nothing was uploaded.
+        log.info("migrated.existing_references_attached", count=len(refs), media_ids=media_ids)
+        return media_ids
 
     async def _mention_by_token(
         self, page: Page, query: str, token: str, media_id: str, *, expect_chips: int
     ) -> None:
-        offered = 0
-        for attempt in range(1, FRAME_SEARCH_ATTEMPTS + 1):
-            await page.locator(COMPOSER).first.click(timeout=5000)
-            await page.keyboard.type("@", delay=120)
-            await page.wait_for_timeout(2200)
-            await page.keyboard.type(query, delay=100)
+        """One search in this page load; a miss closes the picker and raises.
+
+        Measured (live e2e, 2026-10-01): when the picker does not offer a just-generated
+        image, searching again in the same page load does not help (0 options three times
+        over 30 s), while a fresh editor load offers it at once. So retrying belongs to
+        :meth:`reference_existing`, which reloads.
+        """
+        await page.locator(COMPOSER).first.click(timeout=5000)
+        await page.keyboard.type("@", delay=120)
+        await page.wait_for_timeout(2200)
+        await page.keyboard.type(query, delay=100)
+        await page.wait_for_timeout(2500)
+        tokens = [str(t) for t in await page.evaluate(_OPTION_TOKENS_JS, PICKER_OPTION)]
+        if token in tokens:
+            for _ in range(tokens.index(token)):
+                await page.keyboard.press("ArrowDown")
+                await page.wait_for_timeout(300)
+            await page.keyboard.press("Enter")
             await page.wait_for_timeout(2500)
-            tokens = [str(t) for t in await page.evaluate(_OPTION_TOKENS_JS, PICKER_OPTION)]
-            offered = len(tokens)
-            if token in tokens:
-                for _ in range(tokens.index(token)):
-                    await page.keyboard.press("ArrowDown")
-                    await page.wait_for_timeout(300)
-                await page.keyboard.press("Enter")
-                await page.wait_for_timeout(2500)
-                if len(await self.read_chips(page)) == expect_chips:
-                    await page.keyboard.type(" ", delay=80)
-                    return
-                break
-            log.info("migrated.mention_miss", attempt=attempt, offered=offered, by="token")
-            # The picker is a dialog over the composer: close it before trying again, or
-            # the next composer click cannot land (measured, gate #39). The typed "@" is
-            # left in the composer; remove it.
+            if len(await self.read_chips(page)) == expect_chips:
+                await page.keyboard.type(" ", delay=80)
+                return
+        else:
+            log.info("migrated.mention_miss", offered=len(tokens), by="token")
+            # The picker is a dialog over the composer (measured, gate #39): close it.
             await page.keyboard.press("Escape")
             await page.wait_for_timeout(800)
-            await page.keyboard.press("Backspace")
-            await page.wait_for_timeout(FRAME_SEARCH_RETRY_PAUSE_S * 1000)
         raise ReferenceNotFoundError(
             detail=(
                 f"migrated host: image {media_id} did not attach as a reference "
-                f"({offered} picker option(s) offered for its caption, none of them it)"
+                f"({len(tokens)} picker option(s) offered for its caption, none of them it)"
             ),
         )
 
@@ -3238,12 +3300,13 @@ async def run_images(
         )
     composer = MigratedComposer(out_dir=out_dir)
     await composer.ensure_editor(page, pid)
-    await composer.apply_image_settings(page, request)
     reference_ids: tuple[str, ...] = ()
     if request.refs:
         # Images already in this project (a manifest's `batch:N`, #913): referenced in
-        # place, never re-uploaded.
-        reference_ids = await composer.attach_existing_references(page, request.refs)
+        # place, never re-uploaded. Finding them may reload, so settings are applied there.
+        reference_ids = await composer.reference_existing(page, pid, request)
+    else:
+        await composer.apply_image_settings(page, request)
     if request.ref_paths:
         reference_ids = await composer.attach_references(page, pid, request.ref_paths)
         chips = await composer.read_chips(page)

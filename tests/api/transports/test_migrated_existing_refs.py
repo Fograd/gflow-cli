@@ -23,6 +23,17 @@ from gflow_cli.api.transports.migrated_composer import (
 from gflow_cli.errors import ReferenceNotFoundError
 
 PARENT = "3f4272fd-2897-4621-b0cd-0fb9576758d3"
+
+
+@pytest.fixture(autouse=True)
+def _short_grid_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The fake page's waits return at once; keep the real-clock budget short.
+    from gflow_cli.api.transports import migrated_composer
+
+    monkeypatch.setattr(migrated_composer, "GRID_TILE_WAIT_S", 0.2)
+    monkeypatch.setattr(migrated_composer, "EXISTING_REF_WAIT_S", 0.2)
+
+
 OTHER = "90879017-ff54-4232-9186-f6a61298a6cc"
 
 
@@ -70,11 +81,18 @@ class FakePage:
         grid: dict[str, str],
         options: list[tuple[str, str]],
         miss_first: int = 0,
+        grid_after: int = 0,
     ) -> None:
         self.keyboard = _Keyboard(self)
         self.grid = grid
         self._options = options
         self.miss_first = miss_first
+        #: Grid lookups that find nothing before the tile renders (measured live: a
+        #: just-generated image is missing from the grid for a while).
+        #: Reloads before a just-generated tile is in the grid. Measured live: the grid is
+        #: the asset list fetched when the editor loads; it is not updated in place.
+        self.grid_after = grid_after
+        self.reloads = 0
         self.searches = 0
         self.typed: list[str] = []
         self.chips: list[dict[str, str]] = []
@@ -94,9 +112,13 @@ class FakePage:
     async def wait_for_timeout(self, _ms: float) -> None:
         return None
 
+    async def reload(self, **_: Any) -> None:
+        self.reloads += 1
+
     async def evaluate(self, script: str, arg: Any = None) -> Any:
         if "data-media-id" in script:
-            return self.grid.get(arg, "")
+            return self.grid.get(arg, "") if self.reloads >= self.grid_after else ""
+
         if arg == PICKER_OPTION:
             self.searches += 1
             return [token for _caption, token in self.options()]
@@ -107,12 +129,30 @@ def _ref(display_name: str = "a single red apple") -> ImageRef:
     return ImageRef(name=PARENT, display_name=display_name)
 
 
+def _composer() -> MigratedComposer:
+    composer = MigratedComposer()
+
+    async def no_editor(*_: Any, **__: Any) -> None:
+        return None
+
+    composer.ensure_editor = no_editor  # type: ignore[method-assign]
+    composer.apply_image_settings = no_editor  # type: ignore[method-assign]
+    return composer
+
+
+async def _attach(page: Any, refs: tuple[ImageRef, ...]) -> tuple[str, ...]:
+    request = GenerateImageRequest(
+        prompt="p", aspect=Aspect.from_cli("1:1"), model=Model.from_cli("nano2"), refs=refs
+    )
+    return await _composer().reference_existing(page, "proj", request)
+
+
 async def test_the_option_is_chosen_by_token_when_captions_collide() -> None:
     page: Any = FakePage(
         grid={PARENT: "tokNew", OTHER: "tokOld"},
         options=[("a single red apple", "tokOld"), ("a single red apple", "tokNew")],
     )
-    ids = await MigratedComposer().attach_existing_references(page, (_ref(),))
+    ids = await _attach(page, (_ref(),))
     assert ids == (PARENT,)
     assert page.bound == ["tokNew"]
     assert page.typed.count("<ArrowDown>") == 1
@@ -121,24 +161,24 @@ async def test_the_option_is_chosen_by_token_when_captions_collide() -> None:
 async def test_a_parent_missing_from_the_grid_is_refused_before_searching() -> None:
     page: Any = FakePage(grid={}, options=[("a single red apple", "tokNew")])
     with pytest.raises(ReferenceNotFoundError, match=PARENT):
-        await MigratedComposer().attach_existing_references(page, (_ref(),))
+        await _attach(page, (_ref(),))
     assert "<Enter>" not in page.typed
 
 
-async def test_a_late_index_is_retried_after_closing_the_dialog() -> None:
+async def test_a_search_miss_reloads_the_editor_and_tries_again() -> None:
+    # Live e2e 2026-10-01: three searches in one page load offered nothing; the next
+    # row's fresh load found the same image at once.
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokNew")], miss_first=1)
-    ids = await MigratedComposer().attach_existing_references(page, (_ref("c"),))
+    ids = await _attach(page, (_ref("c"),))
     assert ids == (PARENT,)
-    # The dialog covers the composer: a retry that does not close it first cannot click.
-    first_escape = page.typed.index("<Escape>")
-    second_at = [i for i, t in enumerate(page.typed) if t == "@"][1]
-    assert first_escape < second_at
+    assert page.reloads == 1
+    assert page.typed.index("<Escape>") < [i for i, t in enumerate(page.typed) if t == "@"][1]
 
 
 async def test_no_matching_option_is_refused_without_binding_anything() -> None:
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokOld")])
     with pytest.raises(ReferenceNotFoundError):
-        await MigratedComposer().attach_existing_references(page, (_ref("c"),))
+        await _attach(page, (_ref("c"),))
     assert page.bound == []
     assert "<Enter>" not in page.typed
 
@@ -147,7 +187,7 @@ async def test_no_matching_option_is_refused_without_binding_anything() -> None:
 async def test_an_unusable_caption_is_refused_before_typing(caption: str) -> None:
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[(caption, "tokNew")])
     with pytest.raises(ReferenceNotFoundError):
-        await MigratedComposer().attach_existing_references(page, (_ref(caption),))
+        await _attach(page, (_ref(caption),))
     assert page.typed == []
 
 
@@ -194,3 +234,20 @@ async def test_a_submit_carrying_its_reference_goes_through() -> None:
     problem = await _guard_image_submit(route, _Request(f"ogiZ0b {PARENT}"), (PARENT,), None)
     assert problem is None
     assert route.continued and not route.aborted
+
+
+async def test_a_parent_missing_after_load_is_found_by_reloading_the_editor() -> None:
+    # Live e2e 2026-10-01: row 1 opened the editor one second after row 0 was generated
+    # and polled the grid for 30 s without the tile; row 2 reloaded and found it at once.
+    page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokNew")], grid_after=2)
+    ids = await _attach(page, (_ref("c"),))
+    assert ids == (PARENT,)
+    assert page.reloads == 2
+
+
+async def test_a_parent_tile_that_never_appears_is_refused_after_the_budget() -> None:
+    page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokNew")], grid_after=10**9)
+    with pytest.raises(ReferenceNotFoundError, match="grid"):
+        await _attach(page, (_ref("c"),))
+    assert page.reloads >= 1  # it reloaded before giving up
+    assert "<Enter>" not in page.typed
