@@ -81,3 +81,35 @@ the reply's `media_id` is the identity, and the existing body check refuses the 
 caption bound any other image (fail-safe, never silently wrong). Not measured: two images
 with the same caption (the body check would refuse, not disambiguate); a row with
 `count > 1` (which of its images `batch:N` means is a design decision); the labs host.
+
+## Gate (PLAN Task 0): four claims the transport rests on
+
+`scripts/dev/spike_ref_gate.py`, `ci-probe`, flow.google.com, 2026-10-01.
+
+| Claim | Result |
+|---|---|
+| **#40 picker scope** | **Project-scoped.** In a new project, a caption that exists only in another project is not offered (0 options); control: the same search in the project holding it offers it. The picker dialog also shows a project selector set to the current project. |
+| **#16 negative control** | **The body check discriminates.** Row 1 mentioned an unrelated image ("Teal origami crane on table") while declaring row 0's media id: refused, `WireFormatError` "submit body is missing … reference(s) 90879017…". |
+| **#39 Enter on an empty picker** | **Does not submit** (no `ogiZ0b` within 8 s). `@` opens an asset-picker **dialog** with its own search box; Enter on "No assets found" does nothing and the dialog stays open over the composer, so the next composer click times out. Production's `_mention_by_name` retry clicks the composer after a miss without closing the dialog: a latent defect on exactly the lag path (#17). Fix: Escape before retrying. |
+| **#17 search lag** | 3 searches for a just-generated image (spike row 1, negative row 1, chain row 1): all found on the first attempt (`mention_miss` 0). Repeated measurement continues in the e2e (PLAN Task 8). |
+
+**#21 same caption, observed for real.** Flow's caption is sometimes the prompt verbatim
+("a single red apple"). Two images with that caption existed in the project; the picker
+listed the **older first** (timestamps 1790858420 vs …8466) despite its "Recent" label, the
+chain mentioned the first option, and the body check refused. Binding by caption alone is
+not reliable.
+
+**The exact binder (measured, $0).** Each picker option's thumbnail is
+`/asb/<token>`; each project-grid tile is `img[data-media-id=<uuid>]` with the **same**
+token. Mapping option token → grid tile gives the option's media id:
+
+| option | token | grid tile id |
+|---|---|---|
+| 0 | `ANqvLOZNWEQMo-…` | `90879017…` (older) |
+| 1 | `ANqvLOaOnHmQZ6N0…` | `3f4272fd…` (newer) |
+
+The project's asset list (`Zzl0ze`, fetched when the editor opens) carries the same
+id ↔ token pairs (parsed structurally), so the DOM mapping is backed by the wire. Design:
+search by the reply caption, then select the option whose token matches the parent's
+grid tile; the `ogiZ0b` body check stays as the second line. Not measured: a project large
+enough for the grid to virtualise tiles off-screen (gflow run projects hold ≤ 50 rows).

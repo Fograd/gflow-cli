@@ -98,13 +98,15 @@ naming the row and field, until T6 replaces it for `batch:N`. Ships alone.
 `spike_batch_ref_existing_media.py`.
 
 **Steps:**
-- [ ] **#40 picker scope:** in a **new** project, search a caption that exists only in another project. Found → account-wide search; record it and choose the mitigation (project filter or rely on the T5 abort)
-- [ ] **#16 negative control:** mention an unrelated image, return row 0's id → the body check must refuse
-- [ ] **#17 lag:** 5 runs of the batch-shaped spike; record `mention_miss` attempts per run
-- [ ] **#39 Enter on empty:** query a caption not yet indexed; confirm whether Enter submits
-- [ ] Record the readings in the spike doc **before** T5 starts; if #40 is account-wide and no filter exists, stop and revisit the design with the owner
+- [x] **#40 picker scope:** measured: project-scoped (control included).  in a **new** project, search a caption that exists only in another project. Found → account-wide search; record it and choose the mitigation (project filter or rely on the T5 abort)
+- [x] **#16 negative control:** measured: refused (`WireFormatError`).  mention an unrelated image, return row 0's id → the body check must refuse
+- [x] **#17 lag:** 3/3 first-attempt hits so far; ≥5 more in Task 8.  5 runs of the batch-shaped spike; record `mention_miss` attempts per run
+- [x] **#39 Enter on empty:** measured: no submit; the dialog stays open (latent retry defect, see T5).  query a caption not yet indexed; confirm whether Enter submits
+- [x] Record the readings in the spike doc **before** T5 starts; if #40 is account-wide and no filter exists, stop and revisit the design with the owner
 
 ---
+
+- [x] **Found during the gate:** captions collide (#21, observed); binder changed to thumbnail-token identity (spike doc § Gate). Owner informed.
 
 ## Task 2 — Validation and stable order (PR B)
 
@@ -166,11 +168,12 @@ submit aborted unless it carries the media id.
 **Files:** `migrated_composer.py` (`_unported_image_form`, `run_images`, `_mention_by_name`, submit observation), tests.
 
 **Steps:**
-- [ ] Red tests: #15, #18, #19, #23, #39
+- [ ] Red tests: #15, #18, #19, #21, #23, #39
 - [ ] `_unported_image_form`: refs **with** `display_name` pass; a bare UUID ref stays exit 36
 - [ ] new branch next to `ref_paths`: mention each existing ref, append its media id to `reference_ids`, check the chip count
 - [ ] sanitise the caption (strip control chars and `@`, cap length); refuse if changed or empty; empty `display_name` refused on flow.google.com only
-- [ ] `_mention_by_name` presses Enter only when the picker offers an option
+- [ ] select the option whose thumbnail token matches the parent's grid tile (`img[data-media-id]`), not the first option; none matches → `ReferenceNotFoundError`
+- [ ] on a miss, press Escape to close the picker dialog before retrying (latent defect, gate #39)
 - [ ] abort a mismatched `ogiZ0b` with `page.route` before it reaches Flow (keep the observer as the second line)
 - [ ] apply T0's #40 mitigation
 
