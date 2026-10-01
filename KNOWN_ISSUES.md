@@ -1451,9 +1451,10 @@ failed assert left the profile unusable — it is usable, just possibly as the w
 
 Two further items on the same issue are unfixed and worth knowing about: a second chooser
 hop (chooser → consent → chooser) is not handled and degrades into the landing timeout, and
-that timeout is still an unmeasured number. The generation browser opens off-screen since
-v0.81.0; to clear such a screen by hand, re-run with
-`GFLOW_CLI_BROWSER_WINDOW_POSITION=0,0` (see [CONFIGURATION](docs/CONFIGURATION.md#gflow_cli_browser_window_position)).
+that timeout is still an unmeasured number. To clear such a screen by hand, run
+`gflow auth login --profile <name>`: its window is always visible and waits for you. The
+generation browser opens off-screen since v0.81.0, and making it visible is not a remedy
+here, because the run gives up within 30 s (see [CONFIGURATION](docs/CONFIGURATION.md#gflow_cli_browser_window_position)).
 
 ### Auth verification depends on Google's NextAuth session endpoint
 
