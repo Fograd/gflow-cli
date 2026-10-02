@@ -14,7 +14,19 @@ from typing import Any, cast
 
 from gflow_cli import auth
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.transports.migrated_resources import read_project, trash_media
+from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
+from gflow_cli.api.transports.migrated_characters import (
+    CharacterBindingError,
+    CharacterDeletionError,
+    mutate_character,
+)
+from gflow_cli.api.transports.migrated_projects import list_projects
+from gflow_cli.api.transports.migrated_resources import (
+    project_media,
+    read_project,
+    read_project_payload,
+    trash_media,
+)
 from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError, upload_video
 from gflow_cli.config import get_settings
 
@@ -22,10 +34,50 @@ from gflow_cli.config import get_settings
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     if get_settings().flow_host == "labs.google":
         raise ValueError("Native resource operations require the migrated Flow host")
-    project_id = str(payload["project_id"])
+    project_id = "" if verb == "projects-list" else str(payload["project_id"])
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
+            if verb == "projects-list":
+                return {"status": "ok", **await list_projects(page, payload.get("cursor"))}
+            if verb in {"character-create", "character-update", "character-delete"}:
+                workflow_id = payload.get("workflow_id")
+                verified_image = payload.get("image_reference_confirmed", False)
+                if not isinstance(verified_image, bool):
+                    raise ValueError("image_reference_confirmed must be a boolean")
+                if verb == "character-create" and payload.get("media_id"):
+                    records = project_media(
+                        await read_project_payload(page, project_id), project_id
+                    )
+                    selected = [
+                        row
+                        for row in records
+                        if row["media_id"] == payload["media_id"] and not row["archived"]
+                    ]
+                    if len(selected) != 1:
+                        raise ValueError("Image media must belong to the selected active project")
+                    workflow_id = selected[0]["workflow_id"]
+                result = await mutate_character(
+                    page,
+                    project_id,
+                    verb.removeprefix("character-"),
+                    str(payload.get("entity_id", "")),
+                    payload.get("display_name"),
+                    payload.get("personality"),
+                    workflow_id,
+                    image_reference_confirmed=verified_image,
+                    source_media_id=payload.get("media_id"),
+                )
+                return {"status": "ok", "project_id": project_id, **result}
+            if verb in {"characters-list", "voice-presets"}:
+                data = await read_project_payload(page, project_id)
+                key = "characters" if verb == "characters-list" else "voices"
+                rows = (
+                    parse_native_characters(data, project_id)
+                    if key == "characters"
+                    else parse_native_voices(data)
+                )
+                return {"status": "ok", "project_id": project_id, key: rows}
             if verb == "upload-video":
                 rights = payload.get("rights_confirmed", False)
                 if not isinstance(rights, bool):
@@ -72,6 +124,22 @@ def main() -> None:
         raise SystemExit("Worker payload must be an object")
     try:
         result = asyncio.run(execute(sys.argv[1], sys.argv[2], cast("dict[str, Any]", data)))
+    except CharacterBindingError as exc:
+        result = {
+            "status": "error",
+            "code": "character_binding_outcome_unknown",
+            "createdCharacterRef": exc.entity_id,
+            "project_id": cast("dict[str, Any]", data).get("project_id"),
+            "detail": "Character created but image binding failed; inspect before retrying",
+        }
+    except CharacterDeletionError as exc:
+        result = {
+            "status": "error",
+            "code": "character_delete_outcome_unknown",
+            "characterRef": exc.entity_id,
+            "project_id": cast("dict[str, Any]", data).get("project_id"),
+            "detail": "Character deletion outcome unknown; inspect before retrying",
+        }
     except UploadRightsRequiredError:
         result = {
             "status": "error",

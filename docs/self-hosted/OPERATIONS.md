@@ -159,3 +159,7 @@ Protect backups like logged-in accounts: Chrome profiles contain session credent
 Record the current checkout commit and back up persistent state before updating. Stop services after jobs drain, fetch and check out the intended fork revision, run `uv sync`, run the applicable offline checks, then restart. Verify one known image/upscale operation before widening traffic. See [the verification ledger](VERIFICATION.md) for checks actually performed.
 
 Rollback to the recorded code revision and its compatible environment; do not erase persistent jobs. Queue schema incompatibility is an explicit startup error rather than silent migration. A new operation must use a fresh idempotency key; a network retry must keep its original key/body. Never replay interrupted billed work solely because code was rolled back.
+
+## Character metadata operations
+
+The verified native character flow copies one existing image from its owning project, applies initial notes and supports later name/notes updates, detail reads and removal. Use explicit account/project controls from [the API example](API.md); retain returned references. It does not generate portraits or assign voices, and a second image reference is unsupported. A partial HTTP 502 may include a created character reference: inspect it before retrying instead of creating another draft. Source images remain separate from copied character workflows. Remove test characters after verification through their exact owned references.

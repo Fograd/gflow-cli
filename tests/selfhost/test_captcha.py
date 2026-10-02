@@ -151,3 +151,62 @@ async def test_solver_stream_limit_stops_before_full_response():
         with pytest.raises(SolverError, match="exceeded"):
             await Solver._post(client, "CapSolver", "/createTask", {})
     assert stream.consumed == 9
+
+
+async def test_capsolver_balance_returns_number_only():
+    def handler(request):
+        import json
+
+        assert request.url.host == "api.capsolver.com" and request.url.path == "/getBalance"
+        assert json.loads(request.content) == {"clientKey": "private-key"}
+        return httpx.Response(
+            200, json={"errorId": 0, "balance": 3.25, "packages": ["private-package"]}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await Solver(client=client).balance("private-key") == 3.25
+
+
+@pytest.mark.parametrize("balance", [True, "12.5", -1, None, float("inf"), float("nan")])
+async def test_capsolver_balance_rejects_malformed_numbers(balance):
+    import json
+
+    def handler(request):
+        return httpx.Response(200, content=json.dumps({"errorId": 0, "balance": balance}))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(SolverError, match="invalid balance"):
+            await Solver(client=client).balance("private-key")
+
+
+@pytest.mark.parametrize(
+    "status,body",
+    [
+        (200, b'{"errorId":1,"errorDescription":"private-key"}'),
+        (200, b"private-key malformed"),
+        (302, b"private-key redirect"),
+        (200, b"private-key" * 10000),
+    ],
+)
+async def test_balance_errors_redacted_and_bounded(status, body):
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(status, content=body))
+    ) as client:
+        with pytest.raises(SolverError) as caught:
+            await Solver(client=client).balance("private-key")
+        assert "private-key" not in str(caught.value)
+
+
+async def test_balance_does_not_redirect_even_injected_client_allows_it():
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(307, headers={"Location": "https://untrusted.example/key"})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), follow_redirects=True
+    ) as client:
+        with pytest.raises(SolverError):
+            await Solver(client=client).balance("private-key")
+    assert calls == ["https://api.capsolver.com/getBalance"]

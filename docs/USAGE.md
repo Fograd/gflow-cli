@@ -414,6 +414,14 @@ A 4-image run with `--out ./logos/` produces:
 
 (`<media_name>` is the per-image UUID Flow assigns; the `_<n>` suffix is the 1-based index in the batch.)
 
+### Native image seeds
+
+`image t2i` and `image i2i` accept `--seed INTEGER` on the native `flow.google.com` UI transport. The range is zero through `2147483647-count+1`; a count of N requests seeds `seed` through `seed+N-1`. Google-returned seeds are verified and retained in JSON output. Other hosts/transports reject seeded generation before submission. Multi-prompt t2i, prompts files and stdin do not accept seed control; invoke one prompt at a time. A fixed seed does not guarantee identical pixels across Google model updates.
+
+```bash
+gflow image t2i "A ceramic blue sphere" --seed 42 --count 2 --project PROJECT_ID --json
+```
+
 ## `gflow image i2i`
 
 Generate 1–4 images by blending a text prompt with one or more reference images. Same flag set as `t2i`, plus a required `--ref` (repeatable).
@@ -1295,7 +1303,7 @@ ambiguous `--name` (multiple characters share it) exits with code **11**.
 gflow character voices [--json]
 ```
 
-Lists the **29 preset Gemini voices** available for character TTS — each with a
+Lists the **30 preset Gemini voices** available for character TTS — each with a
 name, description, and sample URL. These names are what `--voice` validates
 against (case-insensitively) on `gflow character create`.
 

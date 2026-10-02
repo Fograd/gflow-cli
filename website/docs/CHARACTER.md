@@ -541,8 +541,8 @@ body-mode icon/reference settle signals + picker-include structural selectors un
 
 The following are explicitly **out of the shipped scope** and tracked for future work:
 
-- **Voice listing via the live API.** The 29-voice catalog is currently a **hardcoded constant**
-  (`api/character.py::VOICES`). A future feature should fetch the live voice list from Flow's voice API
+- **Voice listing via the live API.** The CLI 30-voice catalog is currently a **hardcoded constant**
+  (`api/character.py::VOICES`). The self-hosted fork additionally fetches the native system catalog through `GET /voices?catalog=google&source=system`; see [the API guide](self-hosted/API.md). Broader CLI live lookup remains separate work
   (endpoint TBD) so the catalog cannot drift from what Flow actually offers. As part of this, **confirm the
   wire-case of `presetVoiceId`** — a prior live run sent lowercase `"charon"` and Flow persisted it, but the
   canonical UI form is Capitalized `"Charon"`; it is unverified which form Flow actually *applies* the voice

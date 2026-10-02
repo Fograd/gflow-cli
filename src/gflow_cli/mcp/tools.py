@@ -35,7 +35,7 @@ from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.image import AgentInstruction
+from gflow_cli.api.image import AgentInstruction, GenerateImageRequest
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
 from gflow_cli.auth import verification
@@ -802,7 +802,9 @@ async def gflow_generate_image(
         model: Model to use — 'nano2', 'nano2-lite', 'nano-pro', or 'image4'.
         aspect: Aspect ratio — '1:1', '9:16', '16:9', '4:3', '3:4'.
         count: Number of images to generate (1-4).
-        seed: Optional random seed for reproducibility.
+        seed: Optional native flow.google.com seed (0 through 2147483647-count+1).
+            Count outputs use seed+index; returned seeds are verified. Unsupported
+            host/transport paths reject before submission; identical pixels are not guaranteed.
         reference_images: Optional list of reference images for image-to-image generation.
             Can be local file paths or UUIDs of previously uploaded assets.
         reference_entities: Saved Flow CHARACTER entity **ids** to attach
@@ -840,6 +842,11 @@ async def gflow_generate_image(
         Dict with 'status', 'files' (list of local file paths), and metadata.
         On failure, 'status' is 'failed' or 'error' with an RFC 9457 'error' dict.
     """
+    if seed is not None:
+        try:
+            GenerateImageRequest(prompt=prompt, count=count, seed=seed)
+        except ValueError as error:
+            return _bad_param("Invalid image seed", str(error))
     if (proj_err := _validate_project(project)) is not None:
         return proj_err
 

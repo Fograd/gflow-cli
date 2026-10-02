@@ -19,4 +19,15 @@ Every remaining option has either an implemented tested path or an evidence-back
 
 ## Current evidence and remaining work
 
-Image seeds and native MP4 upload/timeline/archive passed real-profile BDD. Provider configuration, bounded clients and stats are implemented, but provider generation is guarded501: native action metadata was not captured by main-world or early execution hooks. Supplied-token rewriting is covered offline; live replacement acceptance remains unverified. Character/saved-voice investigation and global catalogue/extension/promotion contracts remain in the parity inventory with measured next probes. These unchecked native features prevent claiming complete useapi parity.
+Image seeds and native MP4 upload/timeline/archive passed real-profile BDD. Provider configuration, bounded clients and stats are implemented, but provider generation is guarded501: earlier main-world hooks failed, then native reload probes measured action metadata; actual replacement acceptance remains unproven. Supplied-token rewriting is covered offline; live replacement acceptance remains unverified. Character/saved-voice investigation and global catalogue/extension/promotion contracts remain in the parity inventory with measured next probes. These unchecked native features prevent claiming complete useapi parity.
+
+
+## Private CapSolver key editor follow-up
+
+Predict simplification review: CAUTION/GO. A tiny loopback-only FastAPI editor on127.0.0.1:8845, opened in Vivaldi through SSH forwarding, avoids storing the REST bearer in the browser. Reuse ProviderKeys and existing httpx; do not add a session framework or dependencies.
+
+Before publication verify exact Host/Origin, process/page CSRF header validation, nonce CSP, no-store and frame DENY; no key interpolation into HTML, query actions or credential logging. Only CapSolver save/remove/masked status and bounded read-only balance are in scope. Balance uses a15second deadline and64KiB streamed cap, with no paid tasks. Test foreign Origin/Host, missing CSRF, stored key masking, failed provider replies and timeout. Keep actual third-party replacement acceptance explicitly unverified; a working key editor or positive balance does not make image solving operational.
+
+## Latest stable publication gate
+
+5,085 passed / 47 skipped, 90.44% coverage in 223.54 seconds; Ruff checked 570 files clean, strict Pyright reported zero errors. Hygiene/docs/privacy/website/council and staged private-identifier/real-key scans passed. Native HTTP catalog BDD: 1 passed in 33.03 seconds and character CRUD BDD: 1 passed in 91.94 seconds cover documented narrow flows. Actual CapSolver trial solved/submitted once but Google rejected; public provider HTTP 501 guard remains. No complete parity claim. Second-image reference work is a separate spike held outside this verified publication snapshot.

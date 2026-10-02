@@ -13,6 +13,7 @@ from urllib.parse import parse_qs
 import pytest
 from pytest_bdd import given, scenarios, then, when
 
+from gflow_cli.api._engine import mint_evaluate_kwargs
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import Aspect, GenerateImageRequest
 from gflow_cli.api.recaptcha import TokenMinter
@@ -29,7 +30,6 @@ def case(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     }
     if not all(required.values()):
         pytest.skip("Verified profile/project environment required")
-    pytest.skip("Native CAPTCHA action metadata was not observed; fresh replacement proof blocked")
     monkeypatch.setenv("GFLOW_CLI_HOME", required["HOME"])
     monkeypatch.setenv("GFLOW_CLI_HEADLESS", "false")
     reset_settings()
@@ -51,12 +51,14 @@ class ObservedOverride(ImageOverrides):
 
 async def run(case: dict[str, Any]) -> None:
     async def fresh(page: Any) -> str:
-        metadata: Any = await page.evaluate("() => window.__gflowCaptchaMetadata")
+        metadata: Any = override.metadata
         assert isinstance(metadata, dict), "CAPTCHA metadata absent"
         data = cast(dict[str, Any], metadata)
         assert data.get("sitekey") and data.get("action")
         case["metadata_observed"] = True
-        return await TokenMinter(page).mint(data["action"])
+        return await TokenMinter(page, mint_evaluate_kwargs=mint_evaluate_kwargs()).mint(
+            data["action"]
+        )
 
     override = ObservedOverride(project=case["PROJECT"], count=1, token=fresh)
     state = active_overrides.set(override)

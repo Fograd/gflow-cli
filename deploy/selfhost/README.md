@@ -19,3 +19,5 @@ REST defaults to loopback port8844, independent of the existing MCP daemon. Set 
 A serial worker owns each profile; the SDK's profile lease also coordinates REST/MCP/CLI browser access. Drain work before restarts where possible. A generation stopped midway becomes `interrupted` on restart and is never automatically billed again. Inspect Google and local outputs before explicit retry. Back up queue, saved profiles and outputs together; see the setup guide's consistent-backup procedure.
 
 Successful native2K is recorded in [the deployment verification ledger](../../docs/self-hosted/VERIFICATION.md). Paid video generation, other profiles and Ultra4K must not be described as verified unless that ledger records the evidence.
+
+The optional [CapSolver key editor](../../docs/self-hosted/CAPSOLVER_GUI.md) has its own loopback-only [service unit](gflow-capsolver-gui.service), no display dependency and no paid tasks. Open its forwarded page in Vivaldi. Provider generation remains guarded until actual third-party replacement-token acceptance is proven.

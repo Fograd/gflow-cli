@@ -919,6 +919,12 @@ _ui_mode_option = click.option(
     multiple=True,
     help="Custom agent instruction to add or enable (only in agentic mode).",
 )
+@click.option(
+    "--seed",
+    type=click.IntRange(0, 2147483647),
+    default=None,
+    help="Native flow.google.com image seed; count outputs use seed+index. Single prompt only.",
+)
 @_ui_mode_option
 def t2i(  # NOSONAR
     prompts: tuple[str, ...],
@@ -941,10 +947,15 @@ def t2i(  # NOSONAR
     reference_entity_names: tuple[str, ...],
     as_json: bool,
     instructions: tuple[str, ...],
+    seed: int | None = None,
 ) -> None:
     """Generate image(s) from one or more text prompts."""
     is_multi_prompt = len(prompts) > 1 or prompts_file is not None or read_stdin
     _validate_t2i_input(prompts, prompts_file, read_stdin)
+    if seed is not None and (is_multi_prompt or seed > 2147483647 - count + 1):
+        raise click.UsageError(
+            "--seed requires a single prompt and seed+count within signed 32-bit range"
+        )
 
     if is_multi_prompt and output_file is not None:
         msg = (
@@ -999,6 +1010,8 @@ def t2i(  # NOSONAR
                 headless=settings.headless,
                 req=GenerateImageRequest(
                     prompt=prompt,
+                    seed=seed,
+                    count=count,
                     aspect=Aspect.from_cli(aspect),
                     model=Model.from_cli(model),
                     reference_entities=tuple(reference_entities),
@@ -1602,6 +1615,7 @@ class _I2IParams:
     tool: AppliedTool | None = None
     instructions: tuple[AgentInstruction, ...] | None = None
     ui_mode: UiMode | None = None
+    seed: int | None = None
 
 
 @image.command(
@@ -1702,6 +1716,12 @@ class _I2IParams:
     multiple=True,
     help="Custom agent instruction to add or enable (only in agentic mode).",
 )
+@click.option(
+    "--seed",
+    type=click.IntRange(0, 2147483647),
+    default=None,
+    help="Native flow.google.com image seed; count outputs use seed+index. Single prompt only.",
+)
 @_ui_mode_option
 def i2i(  # NOSONAR
     prompt: str,
@@ -1721,8 +1741,11 @@ def i2i(  # NOSONAR
     as_json: bool,
     instructions: tuple[str, ...],
     ui_mode: str | None,
+    seed: int | None = None,
 ) -> None:
     """Generate image(s) from PROMPT + reference image(s) (image-to-image)."""
+    if seed is not None and seed > 2147483647 - count + 1:
+        raise click.UsageError("--seed plus count exceeds the signed 32-bit range")
     if ui_mode == UiMode.CLASSIC.value and instructions:
         msg = "--ui-mode classic is incompatible with -i (instructions need the agentic UI)."
         raise click.UsageError(msg)
@@ -1749,6 +1772,7 @@ def i2i(  # NOSONAR
     settings = get_settings()
     i2i_params = _I2IParams(
         prompt=prompt,
+        seed=seed,
         classified_refs=classified_refs,
         aspect=Aspect.from_cli(aspect),
         model=model_enum,
@@ -1832,6 +1856,8 @@ async def _run_i2i(
             local_ref_paths = tuple(r for r in params.classified_refs if isinstance(r, Path))
             req = GenerateImageRequest(
                 prompt=params.prompt,
+                seed=params.seed,
+                count=count,
                 aspect=params.aspect,
                 model=params.model,
                 refs=tuple(uuid_refs_initial),

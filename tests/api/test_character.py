@@ -361,7 +361,7 @@ def test_character_create_result_voice_defaults_none() -> None:
 
 
 def test_voices_has_29_entries() -> None:
-    assert len(VOICES) == 29
+    assert len(VOICES) == 30
 
 
 def test_voice_sample_url_pattern() -> None:

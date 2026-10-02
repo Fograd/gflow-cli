@@ -1,0 +1,15 @@
+[Unit]
+Description=Private CapSolver key editor
+
+[Service]
+Type=simple
+WorkingDirectory=%h/workspace/gflow-host/source
+ExecStart=%h/workspace/gflow-host/source/.venv/bin/python -m gflow_cli.selfhost.admin
+UMask=0077
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

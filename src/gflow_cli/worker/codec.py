@@ -215,6 +215,7 @@ def build_image_request(payload: dict[str, Any]) -> GenerateImageRequest:
         reference_entities=reference_entities,
         reference_entity_names=reference_entity_names,
         count=count,
+        seed=payload.get("seed"),
         instructions=_parse_agent_instructions(payload.get("instructions")),
         ui_mode=UiMode(payload["ui_mode"]) if payload.get("ui_mode") else None,
     )

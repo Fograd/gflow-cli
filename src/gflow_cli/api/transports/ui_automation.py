@@ -3159,6 +3159,10 @@ class UiAutomationTransport(VideoGenerationMixin):
             await self._dismiss_blocking_overlays(page, out_dir)
             prefer = migrated_images_prefer(request, page_url=page.url, project_id=project_id)
             route = migrated_route(page.url, flow_host, prefer_migrated=prefer)
+        if route != "migrated" and request.seed is not None:
+            raise ConfigurationError(
+                detail="Image seed control is supported only on flow.google.com"
+            )
         if route == "blocked":
             raise_if_migrated(page, at="image_flow_host_kill_switch")
         if route == "migrated":

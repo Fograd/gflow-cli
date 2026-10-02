@@ -80,7 +80,7 @@ def trash_payload(media_ids: list[str], media: list[dict[str, Any]], project_id:
     return [rows, [["metadata.archived"]]]
 
 
-async def read_project(page: Any, project_id: str) -> list[dict[str, Any]]:
+async def read_project_payload(page: Any, project_id: str) -> Any:
     if not is_uuid(project_id):
         raise ValueError("Invalid project identifier")
     reply: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
@@ -93,15 +93,23 @@ async def read_project(page: Any, project_id: str) -> list[dict[str, Any]]:
         ):
             return
         try:
+            length = response.headers.get("content-length")
+            if length and int(length) > 2 * 1024 * 1024:
+                reply.set_exception(ValueError("Native project response exceeds 2 MiB"))
+                return
             text = await response.text()
+            if len(text.encode("utf-8")) > 2 * 1024 * 1024:
+                if not reply.done():
+                    reply.set_exception(ValueError("Native project response exceeds 2 MiB"))
+                return
         except Exception:
             return  # A previous navigation can abort a response body; it is not this read.
         try:
             for rpc, payload in parse_frames(text):
                 if rpc == "Zzl0ze":
-                    media = project_media(payload, project_id)
+                    project_media(payload, project_id)
                     if not reply.done():
-                        reply.set_result(media)
+                        reply.set_result(payload)
         except Exception as exc:
             if not reply.done():
                 reply.set_exception(exc)
@@ -114,6 +122,10 @@ async def read_project(page: Any, project_id: str) -> list[dict[str, Any]]:
         return list(await asyncio.wait_for(reply, timeout=30))
     finally:
         page.remove_listener("response", on_response)
+
+
+async def read_project(page: Any, project_id: str) -> list[dict[str, Any]]:
+    return project_media(await read_project_payload(page, project_id), project_id)
 
 
 async def trash_media(page: Any, project_id: str, media_ids: list[str]) -> list[str]:

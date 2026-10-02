@@ -11,8 +11,7 @@ A request with `seed: N` and `count: C` uses the deterministic sequence
 The sequence is this fork's explicit batching convention. It does not assert
 that useapi uses the same convention for multiple outputs.
 
-Seed control currently applies only to REST image generation. The upstream CLI
-and image MCP signatures have not gained seed options. Video seed transport
+Seed control is implemented for REST, the SDK image request, CLI t2i/i2i single-prompt `--seed`, MCP image calls and both queued/waited worker paths. It requires the migrated native UI transport. Offline tests cover callback context and worker serialization; the corrected CLI path is now live verified with returned seed 42, a 1024×1024 JPEG and 397,336bytes. MCP/queued paths have offline parity coverage but no separate live proof. REST seeded batching is separately live verified. Video seed transport
 still needs observation and remains explicitly unsupported by this adapter.
 A seed helps reproduce a request; it does not promise byte-identical output
 across model versions or changing references.

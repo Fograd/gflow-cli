@@ -34,7 +34,7 @@ The configured `email` field may be an operator alias. It identifies one authent
 
 Use [the API guide](API.md) for the current response modes and supported fields. Preserve an `Idempotency-Key` and the identical request body on connection retries. A job may still be running after the caller times out; poll its ID before sending another operation.
 
-Inspect `/capabilities` and authenticated `/openapi.json` against the deployed build. Default project/media catalogues contain local records. Explicit source=google reads the selected-project native timeline, not a complete merged Google inventory. DELETE without localOnly performs reversible whole-batch archive; migrate destructive useapi callers deliberately around that documented difference. Local concatenations carry local artifact IDs and cannot be sent to native Google generation as Google media references.
+Inspect `/capabilities` and authenticated `/openapi.json` against the deployed build. Default project/media catalogues contain local records. Explicit source=google reads the native account project catalog or selected-project timeline, not useapi history-count aggregation or a complete merged media inventory. DELETE without localOnly performs reversible whole-batch archive; migrate destructive useapi callers deliberately around that documented difference. Local concatenations carry local artifact IDs and cannot be sent to native Google generation as Google media references.
 
 Private LAN callbacks are currently rejected. Polling works across that network. Public callbacks require an allowlisted HTTPS hostname. Callback failure never causes generation to run again.
 

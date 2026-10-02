@@ -125,6 +125,10 @@ Every subcommand accepts `--profile <name>` (per-subcommand, not global) to driv
 gflow image t2i "a hot air balloon over Tokyo at sunrise" --aspect 16:9
 ```
 
+### Native image seed
+
+For a single prompt on `flow.google.com`, image `t2i` and `i2i` accept `--seed 42`. The CLI, SDK and MCP direct/queued paths retain the seed. Valid range is `0..2147483647-count+1`; outputs use seed+index and returned Google seeds are checked. Other hosts/transports and multi-prompt mode reject seeds before submission. Matching seeds do not promise identical pixels. Corrected CLI seed handling was live-verified with one native image returning seed42 and a valid1024×1024 downloaded JPEG.
+
 ### Image fan-out (4 variants in parallel)
 
 ```bash

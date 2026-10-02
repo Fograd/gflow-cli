@@ -115,3 +115,62 @@ user-preference RPC `xI9TVb`; it did not establish global project listing or the
 A fixture left by the first failed resource BDD was discovered in the native
 timeline and archived during final probe cleanup; no failed-test synthetic video
 remains active. The successful BDD also archived its fixture before passing.
+
+## Native account and character catalog follow-up
+
+Measured on the migrated authenticated UI on 2026-10-02, without image/video/TTS generation:
+
+* `UpteDb` lists account projects at `/u/0/` with arguments
+  `["projects/*",21,cursor,null,null,null,[1]]`. Two real pages returned 21 distinct
+  projects each, with disjoint IDs. This is a project catalog, not useapi's history
+  scan/count aggregation. Continuation is opaque, maximum 4096 characters.
+* `Zzl0ze` slot 3 contains 30 live system voice presets, including Enceladus
+  (male, breathy, lower pitch); slot 5 contains project character entities.
+  Character metadata is `[1,name,[imageReferences,audioReferences,personality]]`.
+  Readers retain stable IDs and plain metadata, never signed poster URLs.
+* Direct `/project/<project>/character/<entity>` navigation exposes the name,
+  personality editor and voice picker. The picker has sample dialogue (120
+  characters), performance customization, preview and an add-to-character action.
+  No preview/TTS/custom voice creation was submitted. A missing selector in the
+  earlier probe was not evidence that these features were absent.
+* `C4BZMd` creates an empty character from
+  `[[project,null,null,[1,name,[]]]]`. Binding is a separate **copy** operation,
+  `Sc7aEb`, with arguments
+  `[sourceMedia,null,null,project,null,null,null,[null,null,[entity,[0]]],null,uuid,uuid]`.
+  Its acknowledgement contains the new media and workflow, including matching
+  project/entity IDs. The new character references the copied workflow, not the
+  source workflow. The caller must first verify an owned registered PNG/JPEG.
+* Free metadata updates use `rzMKMb`; field masks are
+  `entity_info.display_name` and `entity_info.character_info.personality_notes`.
+  Permanent owned-entity deletion uses `cz8Z4b` with
+  `[null,null,project,[entity]]`. This differs from reversible media-batch archive.
+
+The native create/copy/update/delete adapter was run against an owned existing
+image. The copied workflow differed from the source; the character appeared in
+an authoritative project read, updated name/personality were acknowledged, and
+entity deletion was observed. The original image remained active. Every draft
+and character created by these probes was cleaned up; the final character list
+was empty. No Google generation credits or solver tasks were used by these
+catalog/metadata probes.
+
+An earlier empty draft acknowledged successfully but was temporarily omitted from
+project reads. An inline-reference creation attempt and a guessed image-reference
+update were refused. Neither was retried. The final adapter uses the measured
+copy operation and bounded **read-only** visibility polling. If copying or
+visibility fails after creation, it returns
+`character_binding_outcome_unknown`, the created character reference and project
+for inspection, and never creates another entity automatically.
+
+Private worker additions: `projects-list`, `characters-list`, `voice-presets`,
+`character-create`, `character-update`, `character-delete`. These use a shared
+same-origin metadata RPC helper (25-second request deadline, 256 KiB streamed
+reply cap); project timeline reads reject bodies over 2 MiB. Character creation
+requires an active owned source media plus an explicit caller-verified image
+assertion. These contracts do not establish custom saved-voice CRUD, voice
+assignment/rendered audio, multiple image references, or generated portraits.
+
+Correction to the earlier probe account: choosing an existing image in the
+character picker can create an empty character in the background and then copy
+media into it. Thus the earlier statement that no entity mutation occurred was
+too broad. The owned entities were identified from the captured acknowledgements
+and deleted in this follow-up.

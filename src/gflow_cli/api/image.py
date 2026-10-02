@@ -449,6 +449,8 @@ class GenerateImageRequest:
     recaptcha_token: str = ""  # populated by caller right before send; "" means unminted
     # number of images to generate (1–4); UI transport uses this to set Flow's count tab
     count: int = 1
+    # Native migrated-host seed; multi-image outputs use seed+index.
+    seed: int | None = None
     # Custom instructions for Flow's Agent Mode (only applicable when agentic UI cohort is active)
     instructions: tuple[AgentInstruction, ...] | None = None
     # Tool provenance (recorded, never sent on the wire). ``original_prompt`` is
@@ -468,6 +470,12 @@ class GenerateImageRequest:
         if not 1 <= self.count <= 4:
             msg = f"GenerateImageRequest.count must be 1–4, got {self.count}"
             raise ValueError(msg)
+        if self.seed is not None and (
+            type(self.seed) is not int
+            or type(self.count) is not int
+            or not 0 <= self.seed <= 2147483647 - self.count + 1
+        ):
+            raise ValueError("Image seed must fit the signed 32-bit seed+count range")
         n_refs = len(self.refs) + len(self.ref_paths) + len(self.reference_entities)
         cap = reference_cap_for(self.model)
         if n_refs > cap:

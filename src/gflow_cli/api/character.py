@@ -86,6 +86,7 @@ VOICES: tuple[Voice, ...] = (
     Voice("Callirrhoe", "Female, easy-going, mid pitch"),
     Voice("Charon", "Male, informative, lower pitch"),
     Voice("Despina", "Female, smooth, mid pitch"),  # descriptor unverified
+    Voice("Enceladus", "Male, breathy, lower pitch"),
     Voice("Erinome", "Female, clear, mid pitch"),
     Voice("Fenrir", "Male, excitable, younger pitch"),
     Voice("Gacrux", "Female, mature, mid pitch"),

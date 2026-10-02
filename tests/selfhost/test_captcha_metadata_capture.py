@@ -1,44 +1,75 @@
-from pathlib import Path
-
 import pytest
-from playwright.async_api import async_playwright
 
-from gflow_cli.api.transports.migrated_image_overrides import (
-    CAPTCHA_METADATA_JS,
-    CLEANUP_CAPTCHA_JS,
-    ImageOverrides,
+from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, reload_metadata
+
+KEY = "k" * 40
+KEY_BYTES = KEY.encode()
+URL = "https://www.google.com/recaptcha/enterprise/reload?k=" + KEY
+
+
+def protobuf_field(number, value):
+    assert len(value) < 128
+    return bytes([number << 3 | 2, len(value)]) + value
+
+
+def envelope(action=b"IMAGE_GENERATION", key=KEY_BYTES):
+    return protobuf_field(8, action) + protobuf_field(14, key)
+
+
+def test_observed_protobuf_metadata_is_public_only():
+    raw = protobuf_field(2, b"private-token") + envelope()
+    assert reload_metadata(URL, raw) == {"sitekey": KEY, "action": "IMAGE_GENERATION"}
+    assert (
+        reload_metadata("https://untrusted.example/recaptcha/enterprise/reload?k=" + KEY, raw)
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"",
+        b"x" * 65537,
+        envelope()[:-1],
+        envelope() + protobuf_field(8, b"IMAGE_GENERATION"),
+        envelope(action=b"VIDEO_GENERATION"),
+        envelope(key=b"wrong"),
+        b"\x00",
+        b"\x42\x80",
+    ],
 )
+def test_metadata_schema_drift_refuses_solver_tasks(body):
+    with pytest.raises(ValueError):
+        reload_metadata(URL, body)
 
 
-async def test_scoped_hook_observes_execute_and_restores_original():
-    if not Path("/usr/bin/google-chrome").exists():
-        pytest.skip("System Chrome required for browser hook regression")
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(
-            executable_path="/usr/bin/google-chrome", args=["--no-sandbox"]
-        )
-        page = await browser.new_page()
-        await page.goto("data:text/html,<html></html>")
-        await page.evaluate(
-            "() => {window.grecaptcha={enterprise:{execute:(key, opts)=>"
-            "Promise.resolve('fixture-token')}};"
-            "window.originalFixture=window.grecaptcha.enterprise.execute;}"
-        )
-        assert await page.evaluate(CAPTCHA_METADATA_JS) is True
-        await page.evaluate(
-            "() => window.grecaptcha.enterprise.execute("
-            "'observed-sitekey',{action:'observed-action'})"
-        )
-        assert await page.evaluate("() => window.__gflowCaptchaMetadata") == {
-            "sitekey": "observed-sitekey",
-            "action": "observed-action",
-        }
-        await page.evaluate(CLEANUP_CAPTCHA_JS)
-        assert await page.evaluate(
-            "() => window.grecaptcha.enterprise.execute === window.originalFixture"
-        )
-        assert await page.evaluate("() => typeof window.__gflowCaptchaMetadata") == "undefined"
-        await browser.close()
+def test_metadata_listener_cleanup_and_supplied_bypass():
+    from types import SimpleNamespace
+
+    class Page:
+        listener = None
+
+        def on(self, name, callback):
+            assert name == "request"
+            self.listener = callback
+
+        def remove_listener(self, name, callback):
+            assert self.listener is callback
+            self.listener = None
+
+    async def token(page):
+        return "t" * 30
+
+    page = Page()
+    override = ImageOverrides("project", 1, token=token)
+    override.capture_metadata(page)
+    page.listener(SimpleNamespace(url=URL, post_data_buffer=envelope()))
+    assert override.metadata == {"sitekey": KEY, "action": "IMAGE_GENERATION"}
+    override.stop_capture(page)
+    assert page.listener is None
+    supplied = ImageOverrides("project", 1, token=token, metadata_required=False)
+    supplied.capture_metadata(page)
+    assert page.listener is None
 
 
 async def test_supplied_token_needs_no_browser_metadata():
@@ -74,5 +105,5 @@ def test_provider_generation_guard_is_501_before_queue(tmp_path, monkeypatch):
                 json={"prompt": "fixture", field: value},
             )
             assert result.status_code == 501
-            assert "unmeasured" in result.json()["detail"]["feature"]
+            assert "unverified" in result.json()["detail"]["feature"]
         assert client.app.state.store.job_page(limit=100)["jobs"] == []

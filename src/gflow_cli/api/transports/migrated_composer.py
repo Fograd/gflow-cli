@@ -31,7 +31,6 @@ matched with a Python-side ``filter(has_text=re.compile(...))`` instead.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import mimetypes
 import re
@@ -46,7 +45,6 @@ from uuid import uuid4
 import structlog
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from gflow_cli.api._engine import mint_evaluate_kwargs
 from gflow_cli.api.dto import GeneratedImage, ProjectInfo
 from gflow_cli.api.image import Aspect as ImageAspect
 from gflow_cli.api.image import ImageRef
@@ -67,8 +65,7 @@ from gflow_cli.api.transports.batchexecute import (
     rpc_errors,
 )
 from gflow_cli.api.transports.migrated_image_overrides import (
-    CAPTCHA_METADATA_JS,
-    CLEANUP_CAPTCHA_JS,
+    ImageOverrides,
     active_overrides,
 )
 from gflow_cli.api.video import (
@@ -951,6 +948,7 @@ async def _guard_image_submit(
     model: ImageModel | None,
     *,
     page: Any = None,
+    override: ImageOverrides | None = None,
 ) -> str | None:
     """Abort an ``ogiZ0b`` submit that does not carry its references, before Flow acts.
 
@@ -962,7 +960,7 @@ async def _guard_image_submit(
     if problem is not None:
         await route.abort()
         return problem
-    override = active_overrides.get()
+    override = override or active_overrides.get()
     if override is not None:
         try:
             rewritten = await override.apply(page, request.post_data or "")
@@ -1107,6 +1105,9 @@ class MigratedComposer:
     async def ensure_editor(self, page: Page, project_id: str, *, timeout_s: float = 30.0) -> None:
         """Land on ``flow.google.com/project/<id>`` (direct — no labs.google visit
         needed on either kind of account) and wait for the settings trigger."""
+        override = active_overrides.get()
+        if override is not None:
+            override.capture_metadata(page)
         target = MIGRATED_PROJECT_URL.format(project_id=project_id)
         current = str(getattr(page, "url", "") or "")
         if not current.startswith(target):
@@ -3039,7 +3040,7 @@ class MigratedComposer:
 
         async def guard(route: Any, raw_request: Any) -> None:
             problem = await _guard_image_submit(
-                route, raw_request, reference_ids, request.model, page=page
+                route, raw_request, reference_ids, request.model, page=page, override=override
             )
             log.info(
                 "migrated.image_submit_guarded",
@@ -3052,13 +3053,6 @@ class MigratedComposer:
                 )
 
         override = active_overrides.get()
-        capture_metadata = (
-            override is not None and override.token is not None and override.metadata_required
-        )
-        if capture_metadata and not await cast(Any, page.evaluate)(
-            CAPTCHA_METADATA_JS, **mint_evaluate_kwargs()
-        ):
-            raise WireFormatError(detail="Page CAPTCHA metadata could not be captured")
         page.on("request", on_request)
         page.on("response", on_response)
         try:
@@ -3095,9 +3089,8 @@ class MigratedComposer:
             # reported a different, correct error. Not a no-op — do not delete.
             if result.done() and not result.cancelled():
                 result.exception()
-            if capture_metadata:
-                with contextlib.suppress(Exception):
-                    await cast(Any, page.evaluate)(CLEANUP_CAPTCHA_JS, **mint_evaluate_kwargs())
+            if override is not None:
+                override.stop_capture(page)
             page.remove_listener("request", on_request)
             page.remove_listener("response", on_response)
             if reference_ids or active_overrides.get() is not None:

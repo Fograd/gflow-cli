@@ -46,12 +46,15 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
 | `GET /assets/{id}`, `/assets/{id}/download` | Metadata and protected bytes for this server's managed assets |
-| `GET /assets/projects/{handle}` | Local gflow project catalog, labelled as such |
+| `GET /assets/projects/{handle}` | Local catalog by default; source=google reads paginated native account projects |
 | `GET /assets/media/{handle}` | Managed catalog by default; source=google reads selected-project native timeline |
 | `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
 | `DELETE /assets/{handle}` | Native reversible whole-batch archive; explicit localOnly cache deletion is separate |
-| `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded501; see CAPTCHA.md |
-| `GET /voices`, `/voices/{ref}` | Bundled system voice names, descriptors and sample URLs; case-insensitive lookup |
+| `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded with HTTP 501; see CAPTCHA.md |
+| `GET /voices`, `/voices/{ref}` | Bundled presets by default; catalog=google reads native system presets; case-insensitive lookup |
+| `GET /characters`, `/characters/{ref}` | Native project summaries/detail |
+| `PATCH/DELETE /characters/{ref}` | Native metadata changes/removal; inspect unconfirmed outcomes before retry |
+| `POST /characters` | Limited one-image native creation; initial notes supported; second reference and voice unsupported |
 | `POST /videos` | Text, start/end image or image-ingredient video adapter, explicitly enabled; not verified with paid live generation in this deployment |
 | `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
@@ -150,13 +153,12 @@ supplied through the API. Prompts are passed as positional arguments after `--`,
 without a shell.
 
 Image requests accept a native integer `seed` with room for `count` consecutive
-seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only external
-CAPTCHA controls and providers are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
+seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only supplied-token rewriting and provider configuration are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
 unverified. `captchaOrder` and `captchaRetry` return501 before queueing because the
 native action remains unmeasured. Provider keys alone do not enable generation.
 
 Still unsupported: automatic image aspect, inline grounding/entity/audio controls,
-character CRUD, custom voices, exact useapi deletion/full library sync,
+full character reference/voice creation and generation binding, custom voices, exact useapi deletion/full library sync,
 video extension/V2V and video CAPTCHA overrides. Unknown controls return501.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
@@ -211,3 +213,56 @@ uv run python -m pytest -q tests/selfhost
 Non-empty image output counts must match the requested count. A mismatch produces a failed job with `image_output_count_mismatch`, `expectedCount`, `receivedCount` and `retryable:false`; every returned image remains in `media` and its asset record. Inspect those outputs before any new generation. See [the bounded reliability test](STRESS_TEST.md).
 
 Empty or malformed image results fail validation instead of claiming completion.
+
+For a local masked key editor and credit-free balance check, see [the CapSolver GUI guide](CAPSOLVER_GUI.md). Saving a key does not automatically change generation or prove Google token acceptance.
+
+CAPTCHA statistics distinguish typed generation refusal (`rejected`) from post-submit timeout/download failures (`unknown`). `accepted` is recorded after successful download; counters do not cause retries.
+
+Native project discovery: `GET /assets/projects/{handle}?source=google` returns the account project catalog with `projectId`, `name`, optional modification timestamps/last media ID, `cursor` and explicit native scope. Pages have a fixed size of 21; `limit` is rejected. Pass the returned opaque cursor unchanged (maximum 4096 characters), stopping at null. This is direct account project discovery, not useapi media-history totals/byType or oldest/newest aggregation. Poster URLs and session data are omitted. Default `source=local` retains local pagination.
+
+
+Native read examples (use the bearer client from the example above):
+
+```python
+projects = client.get("/assets/projects/account-one", params={"source": "google"})
+characters = client.get("/characters", params={"email": "account-one", "source": "google"})
+voices = client.get("/voices", params={"email": "account-one", "source": "system", "catalog": "google"})
+```
+
+Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One-image POST creation has native adapter proof; deployed HTTP one-image CRUD is verified; use in generation is unsupported. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Custom voice creation/clone/delete and user voice listings remain unsupported.
+
+
+Limited native character operations: POST `/characters` accepts `displayName` (1–200 characters), optional `personalityNotes` (at most 2000 characters) and one `imageReference_1` registered PNG/JPEG in the selected project, plus optional account/project controls. The adapter validates saved PNG/JPEG bytes, confirms the owning active project workflow, then creates the character and copies the reference through the measured native binding operation. The copied workflow is distinct from the source and the original stays active. A merely local/raw-upload reference without that native workflow is refused. Initial `personalityNotes` (at most 2000 characters) is supported through a validated metadata update after copying the reference. A second reference and voice remain unsupported (501).
+
+PATCH `/characters/{ref}` accepts `displayName` and/or `personalityNotes` (at most 2000 characters), with `email`/`projectId` controls. DELETE and GET detail use query account/project controls; when multiple accounts are enabled, detail/mutations require an explicit account. GET detail includes `personalityNotes`, without signed URLs or voice data. These operations are native project extensions rather than exact account-wide useapi semantics.
+
+Character mutations are direct calls with a bounded worker timeout, not durable queued/idempotent jobs. An unconfirmed failure returns HTTP 502: inspect Flow before explicit retry because the mutation may have succeeded. The server does not automatically retry them. Preserve the documented unsupported fields and remaining creation restrictions before treating this as complete character CRUD parity.
+
+If creation succeeds but reference binding or initial metadata update is unconfirmed, HTTP502 can include `createdCharacterRef` and `projectId`. Keep those identifiers and inspect the existing draft; do not blindly repeat creation. The API does not automatically retry or delete the unknown-result character. Native adapter create/copy/list/update/delete is verified; deployed HTTP one-image CRUD is verified.
+
+Native creation, reference copying, catalog visibility and optional initial metadata update share a 45 second deadline. Deletion and its visibility check also have a 45 second deadline. Timeout never starts a replacement mutation; retain partial identity and inspect Flow.
+
+
+For the verified one-image character flow, start with a generated image ID registered by this service:
+
+```python
+project_id = client.get("/accounts/account-one").json()["projectId"]
+# image_id comes from the completed owned image job in that project.
+created = client.post("/characters", json={
+    "email": "account-one", "projectId": project_id,
+    "displayName": "Ceramic mascot", "imageReference_1": image_id,
+    "personalityNotes": "Calm and precise",
+})
+created.raise_for_status()
+ref = created.json()["character"]["ref"]
+updated = client.patch(f"/characters/{ref}", json={
+    "email": "account-one", "projectId": project_id,
+    "personalityNotes": "Warm and precise",
+})
+updated.raise_for_status()
+read = client.get(f"/characters/{ref}", params={"email": "account-one", "projectId": project_id})
+read.raise_for_status()
+# DELETE uses the same explicit account/project query controls when removal is intended.
+```
+
+These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for this narrow flow, not all useapi reference/voice variants.

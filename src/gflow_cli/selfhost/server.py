@@ -22,6 +22,7 @@ from typing import Annotated, Any, cast
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from gflow_cli.selfhost.config import (
@@ -123,15 +124,21 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             allowed: set[str] = set()
             if request.method == "GET":
                 if path == "/v1/google-flow/voices" or path.startswith("/v1/google-flow/voices/"):
-                    allowed = {"email", "source"}
+                    allowed = {"email", "source", "catalog", "projectId"}
+                elif path == "/v1/google-flow/characters" or path.startswith(
+                    "/v1/google-flow/characters/"
+                ):
+                    allowed = {"email", "source", "projectId"}
                 elif path == "/v1/google-flow/jobs":
                     allowed = {"email", "status", "kind", "limit", "cursor"}
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
-                    allowed = {"limit", "cursor"}
+                    allowed = {"limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/") and not path.endswith("/download"):
                     allowed = {"raw"}
+            if request.method == "DELETE" and path.startswith("/v1/google-flow/characters/"):
+                allowed = {"email", "projectId"}
             if set(request.query_params) - allowed or len(
                 request.query_params.multi_items()
             ) != len(request.query_params):
@@ -393,9 +400,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/read",
                 "assets/download",
                 "assets/projects",
+                "assets/projects-native",
                 "assets/media",
                 "jobs",
                 "voices/read-system",
+                "voices/read-system-native",
+                "characters/read-native-project",
+                "characters/create-native-image-reference",
+                "characters/edit-native-metadata",
+                "characters/delete-native",
                 "callbacks",
                 "idempotency",
             ],
@@ -412,14 +425,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "notImplemented": [
                 "videos/seed",
                 "aspectRatio/auto",
-                "characters",
+                "characters/voice-binding",
+                "characters/second-image-reference",
                 "voices/custom",
                 "images/provider-captcha-generation",
                 "captcha-google-refusal-retries",
                 "videos/extend",
                 "accounts/cookie-import",
                 "assets/delete-native-individual",
-                "assets/projects-native",
             ],
             "verification": "Adapters require live verification per account and operation",
         }
@@ -480,7 +493,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         supplied_token = payload.get("captchaToken")
         prepare_image_controls(payload, cfg.root, persist_token=False)
         if "captchaOrder" in payload or "captchaRetry" in payload:
-            feature_missing("provider CAPTCHA solving: native image action metadata is unmeasured")
+            feature_missing(
+                "provider CAPTCHA solving: Google replacement-token acceptance is unverified"
+            )
         return await submit(
             request,
             "images",
@@ -608,6 +623,47 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     @app.get(prefix + "/assets/projects/{email}")
     async def projects(request: Request, email: str) -> dict[str, Any]:
         profile = pick_account(email, [])
+        source = request.query_params.get("source", "local")
+        if source not in ("local", "google"):
+            raise HTTPException(422, "source requires local or google")
+        if source == "google":
+            cursor = request.query_params.get("cursor")
+            if cursor is not None and len(cursor) > 4096:
+                raise HTTPException(422, "Native project cursor exceeds 4096 characters")
+            if "limit" in request.query_params:
+                raise HTTPException(422, "Native project pages have a fixed size of 21")
+            code, raw = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.native_worker",
+                    "projects-list",
+                    profile,
+                    json.dumps({"cursor": cursor}),
+                ],
+                60,
+            )
+            if code:
+                raise HTTPException(502, "Google project catalog unavailable")
+            result = parse_json_output(raw)
+            if result.get("status") != "ok" or not isinstance(result.get("projects"), list):
+                raise HTTPException(502, "Google project catalog unavailable")
+            return {
+                "projects": [
+                    {
+                        "projectId": row["project_id"],
+                        "name": row["name"],
+                        **{
+                            key: value
+                            for key, value in row.items()
+                            if key not in ("project_id", "name")
+                        },
+                    }
+                    for row in result["projects"]
+                ],
+                "cursor": result.get("next_cursor"),
+                "scope": "native Google account project catalog",
+            }
         code, output = await subprocess_run(
             [
                 sys.executable,
@@ -790,14 +846,258 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             for voice in VOICES
         ]
 
+    async def native_catalog(request: Request, verb: str, key: str) -> dict[str, Any]:
+        profile = pick_account(request.query_params.get("email"), [])
+        project = uuid_value(
+            request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                verb,
+                profile,
+                json.dumps({"project_id": project}),
+            ],
+            60,
+        )
+        if code:
+            raise HTTPException(502, "Google native catalog unavailable")
+        result = parse_json_output(raw)
+        if result.get("status") != "ok" or not isinstance(result.get(key), list):
+            raise HTTPException(502, "Google native catalog unavailable")
+        return {key: result[key], "projectId": project, "scope": "native Google project catalog"}
+
+    def character_item(row: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
+        item = {
+            "ref": row["entity_id"],
+            "projectId": row["project_id"],
+            "displayName": row["display_name"],
+            "workflowIds": row["workflow_ids"],
+        }
+        if row.get("thumbnail_media_id"):
+            item["thumbnailMediaId"] = row["thumbnail_media_id"]
+        if detail:
+            item["personalityNotes"] = row.get("personality") or ""
+        return item
+
+    def character_project(controls: dict[str, Any]) -> tuple[str, str]:
+        if len(cfg.accounts) > 1 and not controls.get("email"):
+            raise HTTPException(422, "Native character operations require an explicit account")
+        profile = pick_account(controls.get("email"), [])
+        project = uuid_value(
+            controls.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        return profile, project
+
+    def character_fields(payload: dict[str, Any]) -> None:
+        name = payload.get("displayName")
+        if "displayName" in payload and (
+            not isinstance(name, str) or not 1 <= len(name) <= 200 or not name.strip()
+        ):
+            raise HTTPException(422, "displayName requires 1 to 200 characters")
+        notes = payload.get("personalityNotes")
+        if "personalityNotes" in payload and (not isinstance(notes, str) or len(notes) > 2000):
+            raise HTTPException(422, "personalityNotes requires at most 2000 characters")
+
+    async def character_mutation(profile: str, verb: str, data: dict[str, Any]) -> dict[str, Any]:
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                verb,
+                profile,
+                json.dumps(data),
+            ],
+            180,
+        )
+        if code:
+            raise HTTPException(
+                502, "Native character outcome unconfirmed; inspect Flow before retrying"
+            )
+        result = parse_json_output(raw)
+        if result.get("status") != "ok":
+            detail: dict[str, Any] = {
+                "code": "native_character_outcome_unknown",
+                "detail": "Inspect Flow before retrying; no automatic retry occurred",
+            }
+            partial_code = result.get("code")
+            if (
+                partial_code
+                in ("character_binding_outcome_unknown", "character_delete_outcome_unknown")
+                and result.get("project_id") == data["project_id"]
+            ):
+                identity_key = (
+                    "createdCharacterRef"
+                    if partial_code == "character_binding_outcome_unknown"
+                    else "characterRef"
+                )
+                reference = result.get(identity_key)
+                try:
+                    validated_ref = (
+                        str(uuid.UUID(reference)) if isinstance(reference, str) else None
+                    )
+                except ValueError:
+                    validated_ref = None
+                if validated_ref and (
+                    identity_key == "createdCharacterRef" or validated_ref == data.get("entity_id")
+                ):
+                    detail.update(code=partial_code, projectId=data["project_id"])
+                    detail[identity_key] = validated_ref
+            raise HTTPException(502, detail)
+        if verb == "character-delete":
+            return {"deleted": result["deleted"], "scope": "native Google project character"}
+        return {
+            "character": character_item(result["character"], detail=True),
+            "scope": "native Google project character",
+        }
+
+    @app.post(prefix + "/characters")
+    async def create_character(payload: dict[str, Any]) -> dict[str, Any]:
+        check_unknown(
+            payload, {"email", "projectId", "displayName", "imageReference_1", "personalityNotes"}
+        )
+        character_fields(payload)
+        if "displayName" not in payload:
+            raise HTTPException(422, "displayName is required")
+        media_id = uuid_value(payload.get("imageReference_1"), "imageReference_1")
+        try:
+            asset = store.asset_get(media_id)
+        except KeyError:
+            raise HTTPException(
+                422, "Character reference must be a registered native image"
+            ) from None
+        profile = pick_account(payload.get("email"), [media_id])
+        project = uuid_value(payload.get("projectId", asset["project"]), "projectId")
+        if asset["project"] != project or asset["mime"] not in ("image/png", "image/jpeg"):
+            raise HTTPException(422, "Character reference must be an image in the selected project")
+        from PIL import Image
+
+        try:
+            image_path = contained_file(asset["path"], cfg.root)
+
+            def verify_image() -> None:
+
+                if image_path.stat().st_size > 20 * 1024 * 1024:
+                    raise ValueError("Image exceeds limit")
+                with Image.open(image_path) as image:
+                    if image.format not in ("PNG", "JPEG"):
+                        raise ValueError("Unsupported character image")
+                    image.verify()
+
+            await run_in_threadpool(verify_image)
+        except (ValueError, OSError, Image.DecompressionBombError):
+            raise HTTPException(
+                422, "Registered character image bytes are unavailable or invalid"
+            ) from None
+        return await character_mutation(
+            profile,
+            "character-create",
+            {
+                "project_id": project,
+                "display_name": payload["displayName"],
+                "media_id": media_id,
+                "image_reference_confirmed": True,
+                **(
+                    {"personality": payload["personalityNotes"]}
+                    if "personalityNotes" in payload
+                    else {}
+                ),
+            },
+        )
+
+    @app.patch(prefix + "/characters/{ref}")
+    async def patch_character(ref: str, payload: dict[str, Any]) -> dict[str, Any]:
+        check_unknown(payload, {"email", "projectId", "displayName", "personalityNotes"})
+        character_fields(payload)
+        if not ({"displayName", "personalityNotes"} & payload.keys()):
+            raise HTTPException(422, "At least one character metadata field is required")
+        profile, project = character_project(payload)
+        return await character_mutation(
+            profile,
+            "character-update",
+            {
+                "project_id": project,
+                "entity_id": uuid_value(ref, "ref"),
+                **({"display_name": payload["displayName"]} if "displayName" in payload else {}),
+                **(
+                    {"personality": payload["personalityNotes"]}
+                    if "personalityNotes" in payload
+                    else {}
+                ),
+            },
+        )
+
+    @app.delete(prefix + "/characters/{ref}")
+    async def delete_character(request: Request, ref: str) -> dict[str, Any]:
+        profile, project = character_project(dict(request.query_params))
+        return await character_mutation(
+            profile,
+            "character-delete",
+            {
+                "project_id": project,
+                "entity_id": uuid_value(ref, "ref"),
+            },
+        )
+
+    @app.get(prefix + "/characters/{ref}")
+    async def get_character(request: Request, ref: str) -> dict[str, Any]:
+        if request.query_params.get("source", "google") != "google":
+            raise HTTPException(422, "Character source requires google")
+        if "catalog" in request.query_params:
+            raise HTTPException(422, "catalog is a voice-only option")
+        character_project(dict(request.query_params))
+        ref = uuid_value(ref, "ref")
+        result = await native_catalog(request, "characters-list", "characters")
+        row = next((row for row in result["characters"] if row["entity_id"] == ref), None)
+        if row is None:
+            raise HTTPException(404, "Character not present in the selected project")
+        return character_item(row, detail=True)
+
+    @app.get(prefix + "/characters")
+    async def characters(request: Request) -> dict[str, Any]:
+        if request.query_params.get("source", "google") != "google":
+            raise HTTPException(422, "Character source requires google")
+        result = await native_catalog(request, "characters-list", "characters")
+        result["characters"] = [character_item(row) for row in result["characters"]]
+        return result
+
     @app.get(prefix + "/voices")
     async def voices(request: Request) -> dict[str, Any]:
+        if request.query_params.get("source", "system") != "system":
+            feature_missing("custom voices")
+        catalog = request.query_params.get("catalog", "bundled")
+        if catalog not in ("bundled", "google"):
+            raise HTTPException(422, "Voice catalog requires bundled or google")
+        if catalog == "google":
+            result = await native_catalog(request, "voice-presets", "voices")
+            result["voices"] = [
+                {
+                    "ref": row["voice"],
+                    "name": row["voice"],
+                    "voice": row["voice"],
+                    "displayName": row["voice"],
+                    "description": row["description"],
+                    "source": "system",
+                    **({"sampleUrl": row["sample_url"]} if row.get("sample_url") else {}),
+                }
+                for row in result["voices"]
+            ]
+            return result
+        if "projectId" in request.query_params:
+            raise HTTPException(422, "projectId requires catalog=google")
         return {"voices": preset_voices(request), "scope": "bundled system voice catalog"}
 
     @app.get(prefix + "/voices/{ref}")
     async def voice(request: Request, ref: str) -> dict[str, Any]:
         match = next(
-            (item for item in preset_voices(request) if item["ref"].casefold() == ref.casefold()),
+            (
+                item
+                for item in (await voices(request))["voices"]
+                if item["ref"].casefold() == ref.casefold()
+            ),
             None,
         )
         if match is None:

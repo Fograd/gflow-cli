@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import json
+import math
 import os
 import re
 import tempfile
@@ -111,6 +112,29 @@ class Solver:
         self.timeout = timeout
         self.poll_interval = poll_interval
 
+    async def balance(self, key: str) -> float:
+        """Read CapSolver balance only; never return package or provider error bodies."""
+        if not key:
+            raise SolverError("CapSolver key is not configured")
+        client = self.client or httpx.AsyncClient(
+            timeout=15, follow_redirects=False, trust_env=False
+        )
+        try:
+            async with asyncio.timeout(15):
+                data = await self._post(client, "CapSolver", "/getBalance", {"clientKey": key})
+                value = data.get("balance")
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise SolverError("CapSolver returned an invalid balance")
+                balance = float(value)
+                if not math.isfinite(balance) or balance < 0:
+                    raise SolverError("CapSolver returned an invalid balance")
+                return balance
+        except (httpx.HTTPError, TimeoutError, ValueError, OverflowError):
+            raise SolverError("CapSolver balance request failed or exceeded its deadline") from None
+        finally:
+            if self.client is None:
+                await client.aclose()
+
     async def solve(self, provider: str, key: str, url: str, sitekey: str, action: str) -> Solution:
         if provider not in PROVIDERS or not key:
             raise SolverError("Requested solver is not configured")
@@ -165,7 +189,9 @@ class Solver:
     async def _post(
         client: httpx.AsyncClient, provider: str, path: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        async with client.stream("POST", _ENDPOINTS[provider] + path, json=payload) as response:
+        async with client.stream(
+            "POST", _ENDPOINTS[provider] + path, json=payload, follow_redirects=False
+        ) as response:
             response.raise_for_status()
             body = bytearray()
             async for chunk in response.aiter_bytes(chunk_size=8192):

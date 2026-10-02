@@ -2897,6 +2897,40 @@ class FlowApiClient:
         on_checkpoint: GenerationCheckpointObserver | None = None,
         name_resolver: Callable[[str], str | None] | None = None,
     ) -> list[GeneratedImage]:
+        """Apply a native seed without replacing an active provider override."""
+        if req.seed is None:
+            return await self._drive_images_generation_unseeded(
+                project_id=project_id,
+                req=req,
+                recaptcha_action=recaptcha_action,
+                on_checkpoint=on_checkpoint,
+                name_resolver=name_resolver,
+            )
+        if getattr(self.transport, "name", None) != "ui_automation":
+            raise ConfigurationError(detail="Image seeds require the native UI image transport")
+        from gflow_cli.api.transports.migrated_image_overrides import image_seed_scope
+
+        with image_seed_scope(project_id, req.count, req.seed):
+            images = await self._drive_images_generation_unseeded(
+                project_id=project_id,
+                req=req,
+                recaptcha_action=recaptcha_action,
+                on_checkpoint=on_checkpoint,
+                name_resolver=name_resolver,
+            )
+        if sorted(image.seed for image in images) != list(range(req.seed, req.seed + req.count)):
+            raise WireFormatError(detail="Google returned different image seeds than requested")
+        return images
+
+    async def _drive_images_generation_unseeded(
+        self,
+        *,
+        project_id: str,
+        req: GenerateImageRequest,
+        recaptcha_action: str,
+        on_checkpoint: GenerationCheckpointObserver | None = None,
+        name_resolver: Callable[[str], str | None] | None = None,
+    ) -> list[GeneratedImage]:
         """Call the transport once and return all images, minting first only for a
         transport that sends the token itself.
 
@@ -3072,6 +3106,7 @@ class FlowApiClient:
             msg = f"count must be between 1 and 4, got {count}"
             raise ValueError(msg)
 
+        req_with_count: GenerateImageRequest = _dc_replace(req, count=count)
         try:
             resolved_project_id: str
             if project_id is None:
@@ -3080,7 +3115,6 @@ class FlowApiClient:
             else:
                 resolved_project_id = project_id
 
-            req_with_count: GenerateImageRequest = _dc_replace(req, count=count)
             return await self._drive_images_generation(
                 project_id=resolved_project_id,
                 req=req_with_count,

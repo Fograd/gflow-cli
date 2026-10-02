@@ -1,31 +1,42 @@
-"""TDD red tests for commit #1b: --seed flag removal from gflow image t2i and i2i.
+"""Native seed control supersedes the upstream UI-only seed removal."""
 
-These tests fail now (--seed still accepted) and pass after Task 2.1 deletes
-the click option. Spec: docs/superpowers/specs/2026-05-21-multi-image-prompt-design.md §1, §12 D8.
-"""
-
-from __future__ import annotations
+import asyncio
 
 from click.testing import CliRunner
 
 from gflow_cli.cli import main as cli
 
 
-def test_t2i_rejects_seed_flag() -> None:
-    """--seed removed from `gflow image t2i` in commit #1b."""
-    runner = CliRunner()
-    result = runner.invoke(cli, ["image", "t2i", "--seed", "42", "dummy prompt"])
-    assert result.exit_code != 0, (
-        f"--seed should be unknown; got exit {result.exit_code}, output:\n{result.output}"
+def test_cli_seed_flows_to_t2i_and_i2i_params(tmp_path, monkeypatch):
+    seen = []
+
+    async def run(**kwargs):
+        seen.append(kwargs)
+
+    monkeypatch.setattr("gflow_cli.cli_image._run_t2i", run)
+    monkeypatch.setattr("gflow_cli.cli_image._run_i2i", run)
+    monkeypatch.setattr("gflow_cli.cli_image._resolve_profile", lambda profile: "fixture")
+    monkeypatch.setattr("gflow_cli.cli_image._make_provider_dir", lambda profile: tmp_path)
+    monkeypatch.setattr(
+        "gflow_cli.cli_image.run_with_handlers", lambda fn, **kwargs: asyncio.run(fn())
     )
-    assert "no such option" in result.output.lower() or "--seed" in result.output
+    runner = CliRunner()
+    result = runner.invoke(cli, ["image", "t2i", "--seed", "42", "-n", "2", "fixture"])
+    assert result.exit_code == 0, result.output
+    assert seen[0]["req"].seed == 42 and seen[0]["req"].count == 2
+    image = tmp_path / "ref.png"
+    image.write_bytes(b"fixture")
+    result = runner.invoke(cli, ["image", "i2i", "--seed", "43", "--ref", str(image), "fixture"])
+    assert result.exit_code == 0, result.output
+    assert seen[1]["params"].seed == 43
 
 
-def test_i2i_rejects_seed_flag() -> None:
-    """--seed removed from `gflow image i2i` in commit #1b."""
+def test_seed_invalid_ranges_and_multi_prompt_rejected_before_generation():
     runner = CliRunner()
-    result = runner.invoke(cli, ["image", "i2i", "--seed", "42", "--ref", "x.png", "dummy prompt"])
-    assert result.exit_code != 0, (
-        f"--seed should be unknown; got exit {result.exit_code}, output:\n{result.output}"
-    )
-    assert "no such option" in result.output.lower() or "--seed" in result.output
+    for args in (
+        ["--seed", "-1", "fixture"],
+        ["--seed", "2147483647", "-n", "2", "fixture"],
+        ["--seed", "42", "first", "second"],
+    ):
+        result = runner.invoke(cli, ["image", "t2i", *args])
+        assert result.exit_code == 2 and "seed" in result.output
