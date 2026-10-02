@@ -56,6 +56,63 @@ def update_payload(
     return [[project_id, entity_id, None, info], [paths]]
 
 
+def active_media_workflow(records: list[dict[str, Any]], media_id: object) -> str:
+    """Resolve a representative or measured batch member, never infer ownership."""
+    if not is_uuid(media_id):
+        raise ValueError("Source image must be an existing active project media UUID")
+    workflows = {
+        str(row["workflow_id"])
+        for row in records
+        if not row["archived"]
+        and (row["media_id"] == media_id or media_id in row.get("batch_media_ids", []))
+    }
+    if len(workflows) != 1:
+        raise ValueError("Source image must belong to one existing active project workflow")
+    return workflows.pop()
+
+
+async def _copy_image(
+    page: Any, project_id: str, created_id: str, source_media_id: object, slot: int
+) -> tuple[str, str]:
+    if slot not in (0, 1):
+        raise ValueError("Character copy supports portrait/body slots only")
+    copied = await _rpc(
+        page,
+        project_id,
+        "Sc7aEb",
+        [
+            source_media_id,
+            None,
+            None,
+            project_id,
+            None,
+            None,
+            None,
+            [None, None, [created_id, [slot]]],
+            None,
+            str(uuid4()).upper(),
+            str(uuid4()).upper(),
+        ],
+    )
+    if not isinstance(copied, list) or len(cast("list[Any]", copied)) < 2:
+        raise ValueError("Image binding reply has no media/workflow")
+    media, workflow = cast("list[Any]", copied)[:2]
+    if (
+        not isinstance(media, list)
+        or len(cast("list[Any]", media)) < 3
+        or not isinstance(workflow, list)
+        or len(cast("list[Any]", workflow)) < 6
+        or media[1] != project_id
+        or workflow[4] != project_id
+        or workflow[5] != created_id
+        or media[2] != workflow[0]
+        or not is_uuid(cast("list[Any]", media)[0])
+        or not is_uuid(cast("list[Any]", workflow)[0])
+    ):
+        raise ValueError("Image binding reply has unrelated identities")
+    return str(cast("list[Any]", workflow)[0]), str(cast("list[Any]", media)[0])
+
+
 async def mutate_character(
     page: Any,
     project_id: str,
@@ -66,6 +123,7 @@ async def mutate_character(
     workflow_id: object = None,
     image_reference_confirmed: bool = False,
     source_media_id: object = None,
+    second_media_id: object = None,
 ) -> dict[str, Any]:
     payload = await read_project_payload(page, project_id)
     owned = parse_native_characters(payload, project_id)
@@ -78,21 +136,21 @@ async def mutate_character(
         update_payload(project_id, project_id, name, personality)
         if not image_reference_confirmed:
             raise ValueError("Creation requires a caller-verified image reference")
-        if not is_uuid(workflow_id) or workflow_id not in {
-            row["workflow_id"] for row in project_media(payload, project_id) if not row["archived"]
-        }:
-            raise ValueError("Creation requires an existing active project image workflow")
-        candidates = [
-            row
-            for row in project_media(payload, project_id)
-            if row["workflow_id"] == workflow_id and not row["archived"]
-        ]
-        if source_media_id is None and len(candidates) == 1:
+        records = project_media(payload, project_id)
+        if source_media_id is None:
+            candidates = [
+                row for row in records if row["workflow_id"] == workflow_id and not row["archived"]
+            ]
+            if len(candidates) != 1:
+                raise ValueError("Creation requires an existing active project image workflow")
             source_media_id = candidates[0]["media_id"]
-        if not is_uuid(source_media_id) or source_media_id not in {
-            row["media_id"] for row in candidates
-        }:
+        resolved = active_media_workflow(records, source_media_id)
+        if workflow_id is not None and workflow_id != resolved:
             raise ValueError("Source image must match the selected active workflow")
+        sources = [source_media_id]
+        if second_media_id is not None:
+            active_media_workflow(records, second_media_id)
+            sources.append(second_media_id)
         data = await _rpc(page, project_id, "C4BZMd", [[project_id, None, None, [1, name, []]]])
         created = parse_native_characters([None, [], [], [], None, data], project_id)
         if len(created) != 1:
@@ -100,42 +158,12 @@ async def mutate_character(
         created_id = str(created[0]["entity_id"])
         try:
             async with asyncio.timeout(POST_MUTATION_TIMEOUT):
-                copied = await _rpc(
-                    page,
-                    project_id,
-                    "Sc7aEb",
-                    [
-                        source_media_id,
-                        None,
-                        None,
-                        project_id,
-                        None,
-                        None,
-                        None,
-                        [None, None, [created_id, [0]]],
-                        None,
-                        str(uuid4()).upper(),
-                        str(uuid4()).upper(),
-                    ],
-                )
-                if not isinstance(copied, list) or len(cast("list[Any]", copied)) < 2:
-                    raise ValueError("Image binding reply has no media/workflow")
-                media, workflow = cast("list[Any]", copied)[:2]
-                if (
-                    not isinstance(media, list)
-                    or len(cast("list[Any]", media)) < 3
-                    or not isinstance(workflow, list)
-                    or len(cast("list[Any]", workflow)) < 6
-                    or media[1] != project_id
-                    or workflow[4] != project_id
-                    or workflow[5] != created_id
-                    or media[2] != workflow[0]
-                    or not is_uuid(cast("list[Any]", media)[0])
-                    or not is_uuid(cast("list[Any]", workflow)[0])
-                ):
-                    raise ValueError("Image binding reply has unrelated identities")
-                created[0]["workflow_ids"] = [workflow[0]]
-                created[0]["thumbnail_media_id"] = media[0]
+                copied_refs: set[str] = set()
+                for slot, source in enumerate(sources):
+                    workflow, _ = await _copy_image(page, project_id, created_id, source, slot)
+                    copied_refs.add(workflow)
+                if len(copied_refs) != len(sources):
+                    raise ValueError("Character image copies do not have distinct workflows")
                 for attempt in range(6):
                     listed = parse_native_characters(
                         await read_project_payload(page, project_id), project_id
@@ -143,7 +171,8 @@ async def mutate_character(
                     matches = [
                         row
                         for row in listed
-                        if row["entity_id"] == created_id and workflow[0] in row["workflow_ids"]
+                        if row["entity_id"] == created_id
+                        and copied_refs <= set(row["workflow_ids"])
                     ]
                     if matches:
                         if personality is not None:

@@ -22,7 +22,6 @@ from gflow_cli.api.transports.migrated_characters import (
 )
 from gflow_cli.api.transports.migrated_projects import list_projects
 from gflow_cli.api.transports.migrated_resources import (
-    project_media,
     read_project,
     read_project_payload,
     trash_media,
@@ -45,18 +44,6 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                 verified_image = payload.get("image_reference_confirmed", False)
                 if not isinstance(verified_image, bool):
                     raise ValueError("image_reference_confirmed must be a boolean")
-                if verb == "character-create" and payload.get("media_id"):
-                    records = project_media(
-                        await read_project_payload(page, project_id), project_id
-                    )
-                    selected = [
-                        row
-                        for row in records
-                        if row["media_id"] == payload["media_id"] and not row["archived"]
-                    ]
-                    if len(selected) != 1:
-                        raise ValueError("Image media must belong to the selected active project")
-                    workflow_id = selected[0]["workflow_id"]
                 result = await mutate_character(
                     page,
                     project_id,
@@ -67,6 +54,7 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                     workflow_id,
                     image_reference_confirmed=verified_image,
                     source_media_id=payload.get("media_id"),
+                    second_media_id=payload.get("second_media_id"),
                 )
                 return {"status": "ok", "project_id": project_id, **result}
             if verb in {"characters-list", "voice-presets"}:

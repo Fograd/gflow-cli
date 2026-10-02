@@ -407,6 +407,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "voices/read-system-native",
                 "characters/read-native-project",
                 "characters/create-native-image-reference",
+                "characters/second-image-reference",
                 "characters/edit-native-metadata",
                 "characters/delete-native",
                 "callbacks",
@@ -426,7 +427,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "videos/seed",
                 "aspectRatio/auto",
                 "characters/voice-binding",
-                "characters/second-image-reference",
                 "voices/custom",
                 "images/provider-captcha-generation",
                 "captcha-google-refusal-retries",
@@ -957,29 +957,42 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     @app.post(prefix + "/characters")
     async def create_character(payload: dict[str, Any]) -> dict[str, Any]:
         check_unknown(
-            payload, {"email", "projectId", "displayName", "imageReference_1", "personalityNotes"}
+            payload,
+            {
+                "email",
+                "projectId",
+                "displayName",
+                "imageReference_1",
+                "imageReference_2",
+                "personalityNotes",
+            },
         )
         character_fields(payload)
         if "displayName" not in payload:
             raise HTTPException(422, "displayName is required")
-        media_id = uuid_value(payload.get("imageReference_1"), "imageReference_1")
+        media_ids = [uuid_value(payload.get("imageReference_1"), "imageReference_1")]
+        if "imageReference_2" in payload:
+            media_ids.append(uuid_value(payload["imageReference_2"], "imageReference_2"))
         try:
-            asset = store.asset_get(media_id)
+            assets = [store.asset_get(identifier) for identifier in media_ids]
         except KeyError:
             raise HTTPException(
-                422, "Character reference must be a registered native image"
+                422, "Every character reference must be a registered native image"
             ) from None
-        profile = pick_account(payload.get("email"), [media_id])
-        project = uuid_value(payload.get("projectId", asset["project"]), "projectId")
-        if asset["project"] != project or asset["mime"] not in ("image/png", "image/jpeg"):
-            raise HTTPException(422, "Character reference must be an image in the selected project")
+        profile = pick_account(payload.get("email"), media_ids)
+        project = uuid_value(payload.get("projectId", assets[0]["project"]), "projectId")
+        if any(
+            asset["project"] != project or asset["mime"] not in ("image/png", "image/jpeg")
+            for asset in assets
+        ):
+            raise HTTPException(
+                422, "Every character reference must be an image in the selected project"
+            )
         from PIL import Image
 
-        try:
-            image_path = contained_file(asset["path"], cfg.root)
-
-            def verify_image() -> None:
-
+        def verify_images() -> None:
+            for asset in assets:
+                image_path = contained_file(asset["path"], cfg.root)
                 if image_path.stat().st_size > 20 * 1024 * 1024:
                     raise ValueError("Image exceeds limit")
                 with Image.open(image_path) as image:
@@ -987,7 +1000,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                         raise ValueError("Unsupported character image")
                     image.verify()
 
-            await run_in_threadpool(verify_image)
+        try:
+            await run_in_threadpool(verify_images)
         except (ValueError, OSError, Image.DecompressionBombError):
             raise HTTPException(
                 422, "Registered character image bytes are unavailable or invalid"
@@ -998,7 +1012,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             {
                 "project_id": project,
                 "display_name": payload["displayName"],
-                "media_id": media_id,
+                "media_id": media_ids[0],
+                **({"second_media_id": media_ids[1]} if len(media_ids) > 1 else {}),
                 "image_reference_confirmed": True,
                 **(
                     {"personality": payload["personalityNotes"]}

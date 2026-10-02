@@ -55,10 +55,13 @@ def endpoint(character_case: dict[str, Any]) -> None:
             if row.get("mediaGenerationId") in active
             and row["mimeType"] in ("image/png", "image/jpeg")
         ]
-        if not images:
-            pytest.skip("No registered native project image is available")
+        if len(images) < 2:
+            pytest.skip("Two registered native project images are required")
         case.update(
-            controls=controls, image=images[0], name="API verification " + uuid.uuid4().hex[:12]
+            controls=controls,
+            image=images[0],
+            second_image=images[1],
+            name="API verification " + uuid.uuid4().hex[:12],
         )
 
 
@@ -72,6 +75,7 @@ def lifecycle(character_case: dict[str, Any]) -> None:
                 **case["controls"],
                 "displayName": case["name"],
                 "imageReference_1": case["image"],
+                "imageReference_2": case["second_image"],
                 "personalityNotes": "Initial verification notes",
             },
         )
@@ -98,7 +102,7 @@ def verify(character_case: dict[str, Any]) -> None:
         character = response.json()
         assert character["displayName"] == case["name"]
         assert character["personalityNotes"] == "Calm verification character"
-        assert character["workflowIds"]
+        assert len(set(character["workflowIds"])) == 2
         response = client.delete(
             case["url"] + "/characters/" + case["ref"], params=case["controls"]
         )
@@ -114,7 +118,5 @@ def verify(character_case: dict[str, Any]) -> None:
             params={"projectId": case["controls"]["projectId"], "source": "google", "limit": 100},
         )
         media.raise_for_status()
-        assert any(
-            row["mediaGenerationId"] == case["image"] and not row["archived"]
-            for row in media.json()["media"]
-        )
+        active = {row["mediaGenerationId"] for row in media.json()["media"] if not row["archived"]}
+        assert {case["image"], case["second_image"]} <= active

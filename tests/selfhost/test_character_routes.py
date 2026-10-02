@@ -11,6 +11,7 @@ from gflow_cli.selfhost.server import Settings, Store, create_app
 P = "11111111-1111-4111-8111-111111111111"
 E = "22222222-2222-4222-8222-222222222222"
 M = "33333333-3333-4333-8333-333333333333"
+M2 = "44444444-4444-4444-8444-444444444444"
 AUTH = {"Authorization": "Bearer test"}
 
 
@@ -46,6 +47,7 @@ def setup(tmp_path, monkeypatch):
     image = tmp_path / "known.jpg"
     Image.new("RGB", (32, 32)).save(image)
     Store(tmp_path).asset(M, "pro1", P, str(image), "image/jpeg")
+    Store(tmp_path).asset(M2, "pro1", P, str(image), "image/jpeg")
     with TestClient(create_app(cfg, start_workers=False)) as client:
         yield client, calls
 
@@ -173,3 +175,53 @@ def test_unknown_delete_preserves_reference_without_retry(setup, monkeypatch):
     assert response.status_code == 502
     assert response.json()["detail"]["characterRef"] == E
     assert len(calls) == 1
+
+
+def test_create_carries_two_registered_images_atomically(setup):
+    client, calls = setup
+    response = client.post(
+        "/v1/google-flow/characters",
+        headers=AUTH,
+        json={"displayName": "Name", "imageReference_1": M, "imageReference_2": M2},
+    )
+    assert response.status_code == 200
+    payload = json.loads(calls[0][5])
+    assert payload["media_id"] == M
+    assert payload["second_media_id"] == M2
+    assert payload["image_reference_confirmed"] is True
+
+
+def test_unknown_second_reference_never_starts_first_mutation(setup):
+    client, calls = setup
+    response = client.post(
+        "/v1/google-flow/characters",
+        headers=AUTH,
+        json={"displayName": "Name", "imageReference_1": M, "imageReference_2": E},
+    )
+    assert response.status_code == 422
+    assert calls == []
+
+
+@pytest.mark.parametrize("invalid", ["project", "profile", "bytes", "mime"])
+def test_second_image_failure_is_atomic_before_browser(setup, tmp_path, invalid):
+    client, calls = setup
+    store = Store(tmp_path)
+    path = store.asset_get(M)["path"]
+    if invalid == "bytes":
+        bad = tmp_path / "bad.jpg"
+        bad.write_bytes(b"not image data")
+        path = str(bad)
+    store.asset(
+        M2,
+        "pro2" if invalid == "profile" else "pro1",
+        E if invalid == "project" else P,
+        path,
+        "video/mp4" if invalid == "mime" else "image/jpeg",
+    )
+    response = client.post(
+        "/v1/google-flow/characters",
+        headers=AUTH,
+        json={"displayName": "Name", "imageReference_1": M, "imageReference_2": M2},
+    )
+    assert response.status_code == 422
+    assert calls == []

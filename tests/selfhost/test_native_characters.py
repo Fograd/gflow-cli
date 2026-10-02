@@ -211,3 +211,174 @@ async def test_delete_timeout_has_recoverable_identity_without_retry(monkeypatch
         await module.mutate_character(None, P, "delete", E)
     assert error.value.entity_id == E
     assert calls == ["cz8Z4b"]
+
+
+@pytest.mark.asyncio
+async def test_second_reference_is_owned_before_any_creation(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    async def read(*args):
+        return [None, [], [], [], None, []]
+
+    async def rpc(*args):
+        pytest.fail("The entire reference set must validate before C4")
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(
+        module,
+        "project_media",
+        lambda *args: [{"workflow_id": P, "media_id": E, "archived": False}],
+    )
+    monkeypatch.setattr(module, "_rpc", rpc)
+    with pytest.raises(ValueError):
+        await module.mutate_character(
+            None,
+            P,
+            "create",
+            name="Name",
+            workflow_id=P,
+            source_media_id=E,
+            second_media_id=P,
+            image_reference_confirmed=True,
+        )
+
+
+def test_owned_batch_member_maps_to_its_active_workflow():
+    from gflow_cli.api.transports.migrated_characters import active_media_workflow
+
+    records = [{"workflow_id": P, "media_id": P, "batch_media_ids": [P, E], "archived": False}]
+    assert active_media_workflow(records, E) == P
+    records[0]["archived"] = True
+    with pytest.raises(ValueError):
+        active_media_workflow(records, E)
+
+
+@pytest.mark.asyncio
+async def test_second_copy_failure_preserves_created_identity_without_rollback(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    copies = []
+    mutations = []
+
+    async def read(*args):
+        return [None, [], [], [], None, []]
+
+    async def rpc(page, project, verb, args):
+        mutations.append(verb)
+        return [[P, E, None, [1, "Name", []]]]
+
+    async def copy(page, project, entity, source, slot):
+        copies.append(slot)
+        if slot == 1:
+            raise ValueError("Secondary copy refused")
+        return P, E
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(
+        module,
+        "project_media",
+        lambda *args: [
+            {"workflow_id": P, "media_id": E, "batch_media_ids": [E, P], "archived": False}
+        ],
+    )
+    monkeypatch.setattr(module, "_rpc", rpc)
+    monkeypatch.setattr(module, "_copy_image", copy)
+    with pytest.raises(module.CharacterBindingError) as error:
+        await module.mutate_character(
+            None,
+            P,
+            "create",
+            name="Name",
+            source_media_id=E,
+            second_media_id=P,
+            image_reference_confirmed=True,
+        )
+    assert error.value.entity_id == E
+    assert copies == [0, 1]
+    assert mutations == ["C4BZMd"]  # No retry, source archive, or uncertain-state deletion.
+
+
+@pytest.mark.asyncio
+async def test_secondary_copy_replacement_is_not_reported_as_success(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    created = False
+
+    async def read(*args):
+        entities = [[P, E, None, [1, "Name", [[[E]]]]]] if created else []
+        return [None, [], [], [], None, entities]
+
+    async def rpc(*args):
+        nonlocal created
+        created = True
+        return [[P, E, None, [1, "Name", []]]]
+
+    async def copy(page, project, entity, source, slot):
+        return (P if slot == 0 else E), E
+
+    monkeypatch.setattr(module, "POST_MUTATION_TIMEOUT", 0.01)
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(
+        module,
+        "project_media",
+        lambda *args: [
+            {"workflow_id": P, "media_id": E, "batch_media_ids": [E, P], "archived": False}
+        ],
+    )
+    monkeypatch.setattr(module, "_rpc", rpc)
+    monkeypatch.setattr(module, "_copy_image", copy)
+    with pytest.raises(module.CharacterBindingError):
+        await module.mutate_character(
+            None,
+            P,
+            "create",
+            name="Name",
+            source_media_id=E,
+            second_media_id=P,
+            image_reference_confirmed=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_private_worker_keeps_both_reference_ids_and_assertion(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from gflow_cli.selfhost import native_worker as module
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def _checkout_page(self):
+            return object()
+
+        def _checkin_page(self, page):
+            return None
+
+    async def mutate(*args, **kwargs):
+        assert kwargs["source_media_id"] == E
+        assert kwargs["second_media_id"] == P
+        assert kwargs["image_reference_confirmed"] is True
+        return {"character": {"entity_id": E}}
+
+    monkeypatch.setattr(
+        module, "get_settings", lambda: SimpleNamespace(flow_host="flow.google.com")
+    )
+    monkeypatch.setattr(module.auth, "profile_dir", lambda _: tmp_path)
+    monkeypatch.setattr(module, "FlowApiClient", lambda **kwargs: Client())
+    monkeypatch.setattr(module, "mutate_character", mutate)
+    result = await module.execute(
+        "character-create",
+        "profile",
+        {
+            "project_id": P,
+            "media_id": E,
+            "second_media_id": P,
+            "display_name": "Name",
+            "image_reference_confirmed": True,
+        },
+    )
+    assert result["status"] == "ok"
