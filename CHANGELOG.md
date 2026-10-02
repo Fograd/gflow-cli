@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A video's Flow workflow id is recorded in the catalog (#898).** It was written as
+  `NULL` for every clip. As a result, the MCP task result's `flow_workflow_id` was always
+  `null` for a video, and a clip could not be looked up by its workflow id. On
+  flow.google.com the id now comes from the generation record (slot 0, the id Flow polls
+  the clip by); on labs, from the generate reply's `media[0].workflowId`, which is not the
+  operation name already stored as `flow_operation_id`.
+- **Recording a started video twice no longer crashes (#898).** A second start for a
+  media id already in the catalog minted a fresh row id and hit
+  `UNIQUE(profile_name, flow_media_id)` (`DataIntegrityError`). A start for a media id the
+  catalog already holds is now a no-op, so it cannot reset a completed clip to `pending`.
 - **A busy catalog no longer turns a successful generation into a failed one (#900).**
   When another gflow process held the local database's write lock past the 5 s
   `busy_timeout`, recording a finished clip raised a raw `sqlite3.OperationalError`. That
