@@ -28,9 +28,9 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gflow_cli.api.client import _unwrap_trpc  # noqa: E402  # pyright: ignore[reportPrivateUsage]
-
 from _spike_common import build_client, default_out_path, resolve_profile_dir, step  # noqa: E402, isort: skip
+
+from gflow_cli.api.client import _unwrap_trpc  # noqa: E402  # pyright: ignore[reportPrivateUsage]
 
 
 async def _main(profile: str, project: str, media: str, stored: str) -> int:

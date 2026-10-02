@@ -791,11 +791,14 @@ class OperationRecorder:
                 ),
             )
 
-        # Reuse a known media id's row, as record_completed_video does: upsert_asset
-        # conflicts on `id`, and a fresh id for a recorded media id violates
-        # UNIQUE(profile_name, flow_media_id) (#898).
-        existing = repo.get_asset_by_flow_media_id(profile_name, started.media_id)
-        asset_id = existing.id if existing is not None else _new_id()
+        # A start for a media id the catalog already holds adds nothing: the generation
+        # is recorded. Re-writing the row would reset a completed clip to "pending" and
+        # drop its metadata, and a second STARTED operation would never be resolved.
+        # Before #898 this raised DataIntegrityError (a fresh id for a recorded media id
+        # violates UNIQUE(profile_name, flow_media_id)).
+        if repo.get_asset_by_flow_media_id(profile_name, started.media_id) is not None:
+            return
+        asset_id = _new_id()
         repo.upsert_asset(
             AssetRecord(
                 id=asset_id,

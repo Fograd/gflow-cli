@@ -16,14 +16,18 @@ have been deprecated and disabled", `scripts/dev/spike_video_workflow_id.py`, 20
 so it cannot be cross-checked live that way. The 2026-09-05 wire spike documents the record
 as `[<workflow id>, <project id>, <media id>, "CAE", …]` — the same pairing as the labs
 listing's `workflowId` + `workflowStepId: "CAE"` — and the driver polls the clip to a
-terminal state by that id. Labs stores `operations[0].operation.name` (equal to the media
-name in every capture) as `flow_operation_id`: not a workflow id, so labs records none.
+terminal state by that id. Labs stores `operations[0].operation.name` as
+`flow_operation_id`, which is not a workflow id; the labs reply's own workflow id is
+`media[0].workflowId` (with a matching `workflows[0]` entry) in every committed capture
+(`samples/captured/02`, `08`, `09`; 08 and 09 redact both as `<WORKFLOW_ID>`) — first read here as "unobserved", corrected by the
+council on #942.
 
 **Decisions.**
 - Carry the id by name: `VideoStarted.workflow_id` / `VideoResult.workflow_id`, set by the
   migrated composer; the recorder persists it and never clobbers it with `None`.
-- Item 4: reuse a known media id's row in `record_started_video`, the pattern
-  `record_completed_video` already uses. **Not** a conflict-target change in
+- Item 4: a start for a media id the catalog already holds is a no-op (council on #942:
+  reusing the row still rewrote it — status back to `pending`, metadata dropped — and left
+  a second STARTED operation that is never resolved). **Not** a conflict-target change in
   `upsert_asset`: callers link operations by the id they pass, and the image paths rely on
   a repeated media id raising so `escalate_asset_collision` can name an attribution
   collision. Recorded at the SQL.

@@ -512,10 +512,9 @@ class VideoStarted:
     media_id: str
     project_id: str | None = None
     flow_operation_id: str | None = None
-    #: Flow's workflow id for the clip, when the transport reads one (#898). On
-    #: flow.google.com it is the generation record's slot 0; the labs reply's
-    #: ``operations[0].operation.name`` (``flow_operation_id``) is a different id, and
-    #: whether that reply names a workflow is unobserved -- so labs leaves this None.
+    #: Flow's workflow id for the clip (#898). On flow.google.com it is the generation
+    #: record's slot 0; on labs it is the generate reply's ``media[0].workflowId`` --
+    #: not ``operations[0].operation.name`` (``flow_operation_id``), a different id.
     workflow_id: str | None = None
 
 
@@ -560,6 +559,20 @@ def operation_name_from_generate_response(response_json: dict[str, Any]) -> str 
         return None
     name_val: str | None = cast("str | None", operation.get("name"))
     return name_val if name_val is not None else None
+
+
+def workflow_id_from_generate_response(response_json: dict[str, Any]) -> str | None:
+    """Return ``media[0].workflowId`` from a batchAsyncGenerateVideo* response (#898).
+
+    Present in every committed capture (02 T2V, 08 I2V, 09 R2V), alongside a
+    ``workflows[0]`` entry whose ``metadata.primaryMediaId`` is the media name. ``None``
+    when absent: the id is catalog metadata, never a reason to fail a generation.
+    """
+    media = response_json.get("media")
+    if not isinstance(media, list) or not media or not isinstance(media[0], dict):
+        return None
+    value = cast(_StrAnyDict, media[0]).get("workflowId")
+    return value if isinstance(value, str) and value else None
 
 
 def media_name_from_generate_response(response_json: dict[str, Any]) -> str:
