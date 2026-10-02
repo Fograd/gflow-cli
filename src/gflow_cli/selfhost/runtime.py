@@ -397,7 +397,21 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                 "localArtifactId": artifact,
             }
         )
-    envelope = {"email": cfg.accounts[profile]["email"], "projectId": project, "media": media_items}
+    envelope: dict[str, Any] = {
+        "email": cfg.accounts[profile]["email"],
+        "projectId": project,
+        "media": media_items,
+    }
+    if kind == "images" and len(media_items) != payload.get("count", 1):
+        envelope["error"] = {
+            "code": "image_output_count_mismatch",
+            "expectedCount": payload.get("count", 1),
+            "receivedCount": len(media_items),
+            "retryable": False,
+            "detail": (
+                "Preserved returned images; inspect the job before submitting another generation."
+            ),
+        }
     if result.get("captchaProvider"):
         envelope["captchaProvider"] = result["captchaProvider"]
     return envelope

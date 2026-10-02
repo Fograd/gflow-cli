@@ -207,3 +207,7 @@ uv run ruff format --check src/gflow_cli/selfhost tests/selfhost
 uv run pyright src/gflow_cli/selfhost
 uv run python -m pytest -q tests/selfhost
 ```
+
+Non-empty image output counts must match the requested count. A mismatch produces a failed job with `image_output_count_mismatch`, `expectedCount`, `receivedCount` and `retryable:false`; every returned image remains in `media` and its asset record. Inspect those outputs before any new generation. See [the bounded reliability test](STRESS_TEST.md).
+
+Empty or malformed image results fail validation instead of claiming completion.

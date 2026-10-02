@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- REST image jobs no longer claim completion when the returned count differs from the request. Mismatches preserve outputs, report expected/received counts and never automatically resubmit. The ten-image pilot and its limits are documented.
+
 ### Added
 
 - Expanded the self-hosted API with bounded synchronous waiting, async polling,

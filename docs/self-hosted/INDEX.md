@@ -11,6 +11,7 @@ This fork adds an HTTP API and native image/video export adapters to upstream gf
 | [CAPTCHA configuration](CAPTCHA.md) | Private provider keys, supplied tokens, image-only limits and evidence |
 | [Migration guide](MIGRATION.md) | Tee pipeline integration, opaque references, verification, cutover and rollback |
 | [Local concatenation](CONCATENATE.md) | Local FFmpeg behaviour, trim rules, quality and security boundaries |
+| [Bounded reliability test](STRESS_TEST.md) | Ten-image pilot, partial-batch finding and CAPTCHA evidence limits |
 | [Verification ledger](VERIFICATION.md) | What was actually tested live/offline and which profiles/features remain unverified |
 | [Deployment sample](../../deploy/selfhost/README.md) | Service unit and operator environment file layout |
 

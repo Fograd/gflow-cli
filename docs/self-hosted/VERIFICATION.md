@@ -34,3 +34,7 @@ The expanded service was restarted with no active jobs. Authenticated capability
 The main-world and early-hook CAPTCHA probes were aborted before Google submission and still returned no action metadata. Provider generation therefore returns501 before queueing; key configuration remains usable. The external-token acceptance BDD is explicitly skipped pending measured metadata. Final focused API/transport/MCP verification:157passed.
 
 Final complete offline regression (with corrected marker/PATH setup): **4,969passed,47skipped;90.36%coverage** in208.80seconds. Whole-tree Ruff format/lint and strict Pyright passed; documentation links, repository hygiene, website privacy/mirror and council-memory checks passed. Duplication proxy found only pre-existing experimental/CLI-MCP mirrors.
+
+A bounded ten-image reliability pilot returned nine images across four submissions, with no explicit CAPTCHA refusal observed. One four-image batch returned three; a diagnostic repeat returned four. The test found and corrected REST partial-count completion handling. See [the full evidence and limits](STRESS_TEST.md).
+
+Post-stress reporting-fix regression:4972passed,47skipped;90.39%coverage.94selfhost tests passed, including short/exact/excess result counts and preserved assets. Whole-tree lint/format and strict types passed.
