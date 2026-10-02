@@ -1,0 +1,20 @@
+[Unit]
+Description=Self-hosted Google Flow REST API
+After=gflow-display.service
+Requires=gflow-display.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/workspace/gflow-host/source
+EnvironmentFile=%h/workspace/gflow-host/environment
+EnvironmentFile=%h/workspace/gflow-host/selfhost/environment
+EnvironmentFile=%h/.config/homelab/secrets.env
+ExecStart=%h/workspace/gflow-host/source/.venv/bin/python -m gflow_cli.selfhost
+UMask=0077
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

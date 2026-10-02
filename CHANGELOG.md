@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Self-hosted authenticated REST service with durable jobs, image references,
+  native upscale, account scheduling, idempotency and protected downloads.
+- System voice lookup and local ffmpeg video concatenation. The documented
+  useapi parity inventory marks unsupported controls explicitly.
+- Native image 2K/4K upscale on the migrated Flow composer, integrated from
+  upstream PR #922 with request correlation and bounded strict base64 decoding.
+  Pro accounts retain Google's native 4K restriction.
+- Video export CLI and MCP twins for 1080p, original 720p, and animated 270p GIF,
+  integrated from upstream PR #922. Live video verification requires an existing clip.
+- MCP image upscale tool sharing the same native transport as the CLI.
+
 ## [0.82.1] — 2026-10-02
 
 ### Fixed

@@ -31,6 +31,12 @@
 >
 > 🌐 **Headed browser today.** gflow drives Flow through a persistent Playwright Chromium profile, because Google's auth and reCAPTCHA gates require it. The [Architecture](#architecture--current-limitations) section shows where you can help.
 
+## Self-hosted fork
+
+This fork adds a single-user authenticated HTTP API and integrates the migrated image/video export work from [upstream PR 922](https://github.com/ffroliva/gflow-cli/pull/922), with additional validation and regression tests. Native 2K image upscaling has been verified on a Pro account through the CLI, MCP and HTTP adapter.
+
+Read the [API guide](docs/self-hosted/API.md), [deployment example](deploy/selfhost/README.md) and [Google Flow compatibility inventory](docs/self-hosted/PARITY.md). The compatibility inventory distinguishes working routes, unverified adapters and unsupported controls. This fork does not yet implement every useapi feature.
+
 ## Why gflow-cli?
 
 You have a Google account with Flow access, you have Veo credits, and you run real batch work. gflow-cli gives you:
