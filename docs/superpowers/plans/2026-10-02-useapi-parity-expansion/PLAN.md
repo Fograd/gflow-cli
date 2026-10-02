@@ -31,3 +31,14 @@ Before publication verify exact Host/Origin, process/page CSRF header validation
 ## Latest stable publication gate
 
 5,085 passed / 47 skipped, 90.44% coverage in 223.54 seconds; Ruff checked 570 files clean, strict Pyright reported zero errors. Hygiene/docs/privacy/website/council and staged private-identifier/real-key scans passed. Native HTTP catalog BDD: 1 passed in 33.03 seconds and character CRUD BDD: 1 passed in 91.94 seconds cover documented narrow flows. Actual CapSolver trial solved/submitted once but Google rejected; public provider HTTP 501 guard remains. No complete parity claim. Second-image reference work is a separate spike held outside this verified publication snapshot.
+
+## Second-reference completion
+
+- [x] Measured native portrait/body slots and two-reference copy; both originals preserved.
+- [x] Verified adapter BDD: 1 passed in 34.11 seconds; deployed HTTP lifecycle BDD: 1 passed in 97.82 seconds; owned test entity cleaned up.
+- [x] Validated both registered image bytes/account/project and active native workflows before entity creation; retained shared 45 second post-create deadline and partial identity.
+- [x] Ran stable offline gate: 5,098 passed, 47 skipped, 15 warnings; 90.56% coverage in 219.93 seconds. Strict Pyright zero errors; Ruff 571 files clean; no new duplication findings.
+- [x] Updated API/operations/parity/evidence guides and reviewed the implemented scope. Six-axis CLI checks not applicable: REST/worker-only extension.
+- [x] Staged hygiene checked 1,310 files; staged real-key/private-identifier scan clean. Published second-reference snapshot acd0d69b15 to both develop and feature/self-hosted-flow-api; remote GitHub heads verified.
+
+Voice assignment, custom voices, generation grounding and remaining video controls are still tracked gaps; two-reference support does not imply full useapi parity.

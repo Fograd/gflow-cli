@@ -33,6 +33,6 @@ Pre-registered outcome readings: two distinct refs remain = append proven; first
 - [x] Partial outcome and replacement-refusal tests pass; no mutation retry added.
 - [x] Live adapter BDD passed1 in34.11s; all owned probes cleaned up.
 - [x] Focused native tests, Ruff and strict typing pass.
-- [ ] Root actual HTTP BDD and whole-tree publication gates.
+- [x] Root HTTP BDD passed in 97.82s and offline gate passed 5,098 tests at 90.56% coverage. Post-stage hygiene checked 1,310 files and actual saved-key/private-identifier scan was clean. Published acd0d69b15 to both fork branches; remote heads verified.
 
 No CLI/MCP command was added; this extension is private native-worker and REST.
