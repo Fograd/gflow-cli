@@ -68,8 +68,9 @@ cost a real run to learn; each is now a unit test in `tests/api/transports/`.
 `transport.generate_images` / upscale / extend ever run, so transport-level
 `raise_if_migrated` guards never cover it. On a moved account that page is the
 `flow.google.com` grid (client-side handoff), which loads no `recaptcha/enterprise.js`,
-so `discover_site_key` raised `RecaptchaError` — a `RuntimeError` unmapped in
-`EXIT_CODE_MAP` — as exit 1 "unexpected" instead of exit 36. The guard now runs at the
+so `discover_site_key` raised `RecaptchaError` — then a `RuntimeError` unmapped in
+`EXIT_CODE_MAP` (a typed `GFlowError` since #915) — as exit 1 "unexpected" instead of
+exit 36. The guard now runs at the
 mint too (`client.py`, `at="mint_recaptcha_token"`); `git grep raise_if_migrated` is
 the current list of sites. Since #891 that mint guard covers only callers that really send
 the token (HTTP image transports, upscale, extend — #914); UI images no longer mint. Reviewing anything that adds a pre-transport step: ask
