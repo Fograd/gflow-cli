@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82.1] — 2026-10-02
+
 ### Fixed
 
 - **A video's Flow workflow id is recorded in the catalog (#898).** It was written as
@@ -36,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   own `type` (`…/errors/recaptcha-mint`) and a `retryable` flag set from a live measurement:
   a mint that lost a race with a navigation, or ran on a Flow page before Flow injected its
   reCAPTCHA script, is retryable (the settled page mints); a mint on a page that is not a
-  web page (`about:blank`) is not (it fails the same way every time). It still exits 1 —
+  web page (`about:blank`) is not (it fails the same way every time); an empty token, never
+  observed, keeps the class default (not retryable). It still exits 1 —
   branch on the `type`. The site-key message no longer blames "the Flow editor page" or "the
   script tag layout", which was false on the `about:blank` page where it was seen (#891).
 
@@ -5817,7 +5820,8 @@ shell-script template that branches on these codes.
 
 First skeleton. Not functional end-to-end yet.
 
-[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.82.0...HEAD
+[Unreleased]: https://github.com/ffroliva/gflow-cli/compare/v0.82.1...HEAD
+[0.82.1]: https://github.com/ffroliva/gflow-cli/compare/v0.82.0...v0.82.1
 [0.82.0]: https://github.com/ffroliva/gflow-cli/compare/v0.81.0...v0.82.0
 [0.81.0]: https://github.com/ffroliva/gflow-cli/compare/v0.80.0...v0.81.0
 [0.80.0]: https://github.com/ffroliva/gflow-cli/compare/v0.79.1...v0.80.0
