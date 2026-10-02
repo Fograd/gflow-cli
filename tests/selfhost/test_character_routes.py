@@ -72,7 +72,8 @@ def test_create_maps_registered_image_before_native_worker(setup):
     [
         ({"displayName": "Name", "imageReference_1": E}, 422),
         ({"displayName": "", "imageReference_1": M}, 422),
-        ({"displayName": "Name", "imageReference_1": M, "voice": "Charon"}, 501),
+        ({"displayName": "Name", "imageReference_1": M, "voice": "custom"}, 422),
+        ({"displayName": "Name", "imageReference_1": M, "voice": ""}, 422),
         ({"displayName": "Name", "imageReference_1": M, "personalityNotes": "x" * 2001}, 422),
     ],
 )
@@ -225,3 +226,19 @@ def test_second_image_failure_is_atomic_before_browser(setup, tmp_path, invalid)
     )
     assert response.status_code == 422
     assert calls == []
+
+
+def test_create_and_update_voice_forward_literal_canonical_preset(setup):
+    client, calls = setup
+    response = client.post(
+        "/v1/google-flow/characters",
+        headers=AUTH,
+        json={"displayName": "Name", "imageReference_1": M, "voice": "charon"},
+    )
+    assert response.status_code == 200
+    assert json.loads(calls[-1][-1])["voice"] == "Charon"
+    response = client.patch(
+        "/v1/google-flow/characters/" + E, headers=AUTH, json={"voice": "Charon"}
+    )
+    assert response.status_code == 200
+    assert json.loads(calls[-1][-1])["voice"] == "Charon"

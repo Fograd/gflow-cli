@@ -41,6 +41,7 @@ from gflow_cli.errors import (
     GFlowError,
     MediaAttributionError,
 )
+from gflow_cli.image_recovery import ImagePartialDownloadError, download_images
 from gflow_cli.storage import cloud_info_from_path
 
 if TYPE_CHECKING:
@@ -595,14 +596,22 @@ async def run_one_image_prompt(
 
     saved: list[Path] = []
     try:
-        for img_idx, img in enumerate(images):
-            target = output_dir / f"{stem}_{img_idx}.png"
-            saved.append(await client.download_image(img, target))
+        saved = await download_images(
+            client,
+            list(images),
+            [output_dir / f"{stem}_{index}.png" for index in range(len(images))],
+        )
     except Exception as exc:  # noqa: BLE001 - one row's transfer must not end the run
         # The images exist in Flow; only the local copy failed. Report the row as failed
         # but keep what Flow generated, so a `batch:N` child can still reference it.
         logger.warning("batch.download_failed", index=idx, error_class=type(exc).__name__)
         record_failure(exc)
+        if isinstance(exc, ImagePartialDownloadError):
+            saved = [
+                Path(record["local_path"])
+                for record in exc.recovery["images"]
+                if "local_path" in record
+            ]
         return BatchOutcome(
             index=idx,
             prompt=item,
@@ -1084,11 +1093,12 @@ async def _download_item_images(
 ) -> list[Path]:
     """Download all images for one ok BatchSubmissionResult; return saved paths."""
     stem = item.output_filename or f"prompt_{item.index}"
-    saved: list[Path] = []
-    for img_idx, img in enumerate(result.images):
-        target = output_dir / f"{stem}_{img_idx}.png"
-        path = await client.download_image(img, target)
-        saved.append(path)
+    saved = await download_images(
+        client,
+        list(result.images),
+        [output_dir / f"{stem}_{index}.png" for index in range(len(result.images))],
+    )
+    for img_idx, path in enumerate(saved):
         try:
             sha = hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
         except (OSError, TypeError):
@@ -1175,7 +1185,9 @@ async def _process_ok_row(
             saved=saved,
         )
 
-    return BatchOutcome(index=item.index, prompt=item, status="ok", saved_paths=saved)
+    return BatchOutcome(
+        index=item.index, prompt=item, status="ok", saved_paths=saved, images=list(result.images)
+    )
 
 
 async def _download_results(
@@ -1250,6 +1262,24 @@ async def _download_results(
                 profile_dir=profile_dir,
                 recorder=recorder,
             )
+        except ImagePartialDownloadError as exc:
+            outcome = BatchOutcome(
+                index=item.index,
+                prompt=item,
+                status="fail",
+                images=list(result.images),
+                saved_paths=[
+                    Path(record["local_path"])
+                    for record in exc.recovery["images"]
+                    if "local_path" in record
+                ],
+                error=str(exc),
+                exit_code=resolve_exit_code(exc),
+            )
+            outcomes.append(outcome)
+            if not continue_on_error:
+                raise
+            continue
         except MediaAttributionError as exc:
             if not continue_on_error:
                 raise

@@ -23,6 +23,7 @@ from gflow_cli.data.redaction import redact_error_detail
 from gflow_cli.data.repository import DataRepository
 from gflow_cli.data.store import DataStore
 from gflow_cli.errors import DataIntegrityError, DataStoreError, GFlowError
+from gflow_cli.image_recovery import ImageJournal, download_images
 from gflow_cli.observability import exception_message_hash
 from gflow_cli.paths import image_output_path
 from gflow_cli.storage import cloud_info_from_path
@@ -113,6 +114,7 @@ class FlowWorker:
             operation_id: str | None = None,
             media_ids: tuple[str, ...] = (),
             workflow_ids: tuple[str, ...] = (),
+            image_journal: ImageJournal | None = None,
         ) -> None:
             # Observer-exception policy (C1 deferred decision): a checkpoint-persist
             # failure MUST NOT abort a generation already in flight — that would
@@ -128,6 +130,7 @@ class FlowWorker:
                     operation_id=operation_id,
                     media_ids=media_ids,
                     workflow_ids=workflow_ids,
+                    image_journal=image_journal,
                 )
             except Exception as exc:
                 logger.warning(
@@ -242,7 +245,18 @@ class FlowWorker:
                         output_file_val = task.payload.get("output_file")
                         output_file = Path(output_file_val) if output_file_val else None
 
-                        saved_paths: list[Path] = []
+                        started_media_ids.extend(image.media_name for image in images)
+
+                        def image_checkpoint(journal: ImageJournal) -> None:
+                            save_checkpoint(
+                                "remote_started",
+                                may_have_spent=True,
+                                media_ids=tuple(image.media_name for image in images),
+                                workflow_ids=tuple(image.workflow_id for image in images),
+                                image_journal=journal,
+                            )
+
+                        targets: list[Path] = []
                         for i, img in enumerate(images, start=1):
                             if output_file is not None:
                                 if len(images) == 1:
@@ -257,8 +271,10 @@ class FlowWorker:
                                 target = image_output_path(
                                     settings.output_dir, job_id=img.media_name, index=i
                                 )
-                            saved = await client.download_image(img, target)
-                            saved_paths.append(saved)
+                            targets.append(target)
+                        saved_paths = await download_images(
+                            client, images, targets, on_checkpoint=image_checkpoint
+                        )
 
                         try:
                             recorder.record_generated_images(

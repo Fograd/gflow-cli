@@ -47,7 +47,7 @@ def _minimal_config(**overrides: Any) -> dict[str, Any]:
 
 def _fake_generated_image(seed: int = 42) -> GeneratedImage:
     return GeneratedImage(
-        media_name=f"projects/p/assets/asset-{seed}",
+        media_name=f"asset-{seed}",
         workflow_id=f"wf-{seed}",
         seed=seed,
         prompt="any",

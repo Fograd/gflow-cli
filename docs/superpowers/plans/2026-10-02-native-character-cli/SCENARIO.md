@@ -1,0 +1,5 @@
+# Native character cross-surface scenarios
+
+D1/D10: hold SDK profile lease, no second browser/checkin on every exit. D2: metadata only/no CAPTCHA. D3: reuse captured native RPCs, actual BDD. D4/D9: copy2/initialnotes/create/update/delete acknowledgement uncertain; preserve validated ref or unknown create state, never replay. D5/D6: entire reference/profile/project/kind/hash validation before mutation, duplicate and archived refuse. D7: only public DTOs/stable IDs, no URLs/token/cookies in errors. D8: paths with spaces/Unicode, no fcntl/selfhost imports. D11: UUID/name1..200/notes0..2000/distinctrefs and no-op update. D12: nonretryable typed exit40 and problem extensions. D13: direct MCP uses same service, no unimplemented queued semantics and explicit confirmation for deletion.
+
+Critical tests: failedsecondref causes zero creates; successful firstcreate ref retained aftercopy failure; updates/deletes unknown not auto retried; native list never retired labs; every checked-out page returned. Browser-bound BDD must drive actual CLI and MCP with two owned image refs, edit/read/delete and preserved originals.

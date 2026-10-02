@@ -3240,6 +3240,84 @@ class FlowApiClient:
 
     # --- Character entity API (issue #145) -----------------------------------
 
+    def _uses_native_characters(self) -> bool:
+        settings = getattr(self, "settings", None)
+        return getattr(settings, "flow_host", "auto") == "flow.google.com" or (
+            getattr(settings, "flow_host", "auto") != "labs.google"
+            and flow_host_kind(getattr(self._page, "url", None)) == "migrated"
+        )
+
+    async def create_character_from_images(
+        self,
+        *,
+        project_id: str,
+        display_name: str,
+        media_id: str,
+        second_media_id: str | None = None,
+        personality: str | None = None,
+        image_reference_confirmed: bool = False,
+        voice: str | None = None,
+    ) -> Character:
+        """Copy existing owned images into a native character, without generation.
+
+        Caller verifies native image identity/decoded bytes before confirming.
+        CLI/MCP use catalog integrity; REST verifies its managed registry.
+        Current active ownership of every media is independently checked before create.
+        """
+        from gflow_cli.api.character_validation import (
+            normalize_preset_voice,
+            validate_create_inputs,
+        )
+        from gflow_cli.api.native_characters import mutate_native, to_character
+
+        validate_create_inputs(
+            project_id, display_name, media_id, second_media_id, personality, voice
+        )
+        if image_reference_confirmed is not True:
+            raise ConfigurationError(
+                detail="Creation requires caller-verified decoded image references"
+            )
+        result = await mutate_native(
+            self,
+            project_id,
+            "create",
+            name=display_name,
+            personality=personality,
+            voice=normalize_preset_voice(voice),
+            source_media_id=media_id,
+            second_media_id=second_media_id,
+            image_reference_confirmed=True,
+        )
+        return to_character(result["character"])
+
+    async def update_character(
+        self,
+        *,
+        project_id: str,
+        entity_id: str,
+        display_name: str | None = None,
+        personality: str | None = None,
+        voice: str | None = None,
+    ) -> Character:
+        """Update requested native metadata; unconfirmed writes never retry."""
+        from gflow_cli.api.character_validation import (
+            normalize_preset_voice,
+            validate_update_inputs,
+        )
+        from gflow_cli.api.native_characters import mutate_native, to_character
+
+        validate_update_inputs(project_id, entity_id, display_name, personality, voice)
+        result = await mutate_native(
+            self,
+            project_id,
+            "update",
+            entity_id,
+            name=display_name,
+            personality=personality,
+            voice=normalize_preset_voice(voice),
+        )
+        return to_character(result["character"])
+
     async def create_entity(self, project_id: str) -> str:
         """Mint a fresh CHARACTER entity for *project_id*. Returns the new entityId.
 
@@ -3270,12 +3348,32 @@ class FlowApiClient:
         Maps to ``GET .../trpc/flow.projectInitialData?input=…``.
         Session-cookie auth.  FREE — no reCAPTCHA, no credit.
         """
+        if self._uses_native_characters():
+            from gflow_cli.api.native_characters import list_native
+
+            return await list_native(self, project_id)
         trpc_input = json.dumps({"json": {"projectId": project_id}}, separators=(",", ":"))
         url = f"{routes.PROJECT_INITIAL_DATA_URL}?input={quote(trpc_input, safe='')}"
         data = await self._get_json(url, route_name="projectInitialData")
         chars = parse_characters(_unwrap_trpc(data))
         logger.debug("character.list_fetched", project_id=project_id, count=len(chars))
         return chars
+
+    async def list_native_projects(self, cursor: str | None = None) -> dict[str, Any]:
+        """Read one account project page; returned_count is not account history total."""
+        from gflow_cli.api.native_catalogs import projects_snapshot
+
+        return await projects_snapshot(self, cursor)
+
+    async def list_native_media(self, project_id: str) -> dict[str, Any]:
+        """Read stable asset IDs/kinds/dimensions; completeness and origin remain unknown.
+
+        No signed URLs, captions or invented prompts. This explicit snapshot must not
+        drive absence-based ghost marking in the historical catalog-sync service.
+        """
+        from gflow_cli.api.native_catalogs import media_snapshot
+
+        return await media_snapshot(self, project_id)
 
     async def fetch_project_listing(self, project_id: str) -> JsonObject:
         """Fetch the raw ``flow.projectInitialData`` listing for *project_id*.
@@ -3362,6 +3460,8 @@ class FlowApiClient:
         if entity_id is None and name is None:
             msg = "Provide either entity_id or name"
             raise ValueError(msg)
+        if entity_id is not None and name is not None:
+            raise ValueError("Provide exactly one of entity_id or name")
         chars = await self.list_characters(project_id)
         if entity_id is not None:
             match = [c for c in chars if c.entity_id == entity_id]
@@ -3453,6 +3553,38 @@ class FlowApiClient:
         if not entity_ids:
             msg = "entity_ids must be non-empty"
             raise ValueError(msg)
+        if self._uses_native_characters():
+            from gflow_cli.api.character_validation import validate_character_identifiers
+            from gflow_cli.api.native_characters import mutate_native
+            from gflow_cli.errors import CharacterBatchPartialError, CharacterMutationUnknownError
+
+            for entity_id in entity_ids:
+                validate_character_identifiers(project_id, entity_id)
+            if len(set(entity_ids)) != len(entity_ids):
+                raise ConfigurationError(detail="Character identifiers must be distinct")
+            owned = {char.entity_id for char in await self.list_characters(project_id)}
+            if not set(entity_ids) <= owned:
+                raise ConfigurationError(
+                    detail="Every character must belong to the selected project"
+                )
+            completed: list[str] = []
+            for entity_id in entity_ids:
+                try:
+                    await mutate_native(self, project_id, "delete", entity_id)
+                except CharacterMutationUnknownError as exc:
+                    exc.completed_character_refs = completed.copy()
+                    raise
+                except ConfigurationError as exc:
+                    if not completed:
+                        raise
+                    raise CharacterBatchPartialError(
+                        project_id=project_id,
+                        operation="delete",
+                        character_ref=entity_id,
+                        completed_character_refs=completed,
+                    ) from exc
+                completed.append(entity_id)
+            return
         body = {"projectId": project_id, "entityIds": list(entity_ids)}
         await self._post_json(
             routes.BATCH_DELETE_ASSETS_URL,

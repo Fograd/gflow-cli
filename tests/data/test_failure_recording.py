@@ -355,7 +355,15 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
     for cls in _subclasses(GFlowError):
         if cls.__module__ != errors_mod.__name__:
             continue
-        error_type, _ = _classify_failure(cls("x"))
+        if issubclass(cls, errors_mod.CharacterMutationUnknownError):
+            instance = cls(
+                project_id="11111111-1111-4111-8111-111111111111",
+                operation="delete",
+                character_ref="22222222-2222-4222-8222-222222222222",
+            )
+        else:
+            instance = cls("x")
+        error_type, _ = _classify_failure(instance)
         assert error_type, f"{cls.__name__} produced an empty error_type"
         prior = slugs.get(error_type)
         # Parent/child pairs sharing a URI would collapse — only identical

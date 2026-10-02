@@ -18,12 +18,15 @@ from gflow_cli._cli_helpers import (
 )
 from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
+from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.cli_data import _db_path, _emit_projects_table
+from gflow_cli.config import get_settings
 from gflow_cli.data.models import ProjectRecord
 from gflow_cli.data.queries import list_projects
 from gflow_cli.data.repository import DataRepository
 from gflow_cli.data.store import DataStore
 from gflow_cli.profile_store import account_locale_for
+from gflow_cli.project_output import local_project_payload
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -42,9 +45,46 @@ def project() -> None:
 @click.option(
     "--limit", default=50, show_default=True, type=int, help="Maximum projects to return."
 )
+@click.option(
+    "--source", type=click.Choice(["local", "google"]), default="local", show_default=True
+)
+@click.option("--cursor", default=None, help="Opaque Google project page cursor.")
 @click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON output.")
-def list_subcommand(profile: str | None, limit: int, as_json: bool) -> None:
-    """List Flow projects recorded in the local catalog."""
+@click.pass_context
+def list_subcommand(
+    ctx: click.Context,
+    profile: str | None,
+    limit: int,
+    source: str,
+    cursor: str | None,
+    as_json: bool,
+) -> None:
+    """List local projects or an explicit read-only Google account page."""
+    if source == "google":
+        if ctx.get_parameter_source("limit") != click.core.ParameterSource.DEFAULT:
+            raise click.BadParameter("Google pages have a fixed size of 21; omit --limit")
+        if cursor is not None and (not cursor or len(cursor) > 4096):
+            raise click.BadParameter("Google cursor must contain 1–4096 characters")
+        resolved = _resolve_profile(profile)
+
+        async def act() -> None:
+            settings = get_settings()
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                snapshot = await client.list_native_projects(cursor=cursor)
+            if as_json:
+                json_output.emit({"status": "ok", **snapshot})
+            else:
+                for row in snapshot["projects"]:
+                    console.print(f"{row['project_id']}  {row['name']}", markup=False)
+                console.print(f"Next cursor: {snapshot['next_cursor'] or '(none)'}", markup=False)
+                console.print("Snapshot completeness: unknown")
+
+        run_with_handlers(act, cli_command="project list", as_json=as_json)
+        return
+    if cursor is not None:
+        raise click.BadParameter("--cursor requires --source google")
     db_path = _db_path()
     resolved_profile = _resolve_profile(profile) if profile else None
     rows = list_projects(
@@ -57,28 +97,39 @@ def list_subcommand(profile: str | None, limit: int, as_json: bool) -> None:
         json_output.emit(
             {
                 "status": "ok",
-                "projects": [
-                    {
-                        "project_id": r.project_id,
-                        "title": r.title,
-                        "profile": r.profile,
-                        "created_at": r.created_at.isoformat(),
-                        "image_count": r.image_count,
-                        "video_count": r.video_count,
-                        # #587: account-correct, from the locale cached per
-                        # profile. Unknown locale => bare URL, never a guessed
-                        # `en` — that guess was the original defect (#580).
-                        "url": routes.project_editor_url_or_none(
-                            account_locale_for(r.profile), r.project_id
-                        ),
-                    }
-                    for r in rows
-                ],
+                "projects": [local_project_payload(row) for row in rows],
                 "total": len(rows),
             }
         )
     else:
         _emit_projects_table(rows)
+
+
+@project.command("media")
+@click.option("--project", "project_id", required=True, callback=_validate_project_id)
+@click.option("--source", type=click.Choice(["google"]), default="google", show_default=True)
+@click.option("--profile", default=None, help="Profile owning the native project.")
+@click.option("--json", "as_json", is_flag=True, help="Emit a read-only native timeline snapshot.")
+def media_subcommand(project_id: str, source: str, profile: str | None, as_json: bool) -> None:
+    """Read native project media; does not sync or remove catalog entries."""
+    if not is_uuid(project_id):
+        raise click.BadParameter("Native project identifier must be a UUID")
+    resolved = _resolve_profile(profile)
+
+    async def act() -> None:
+        settings = get_settings()
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            snapshot = await client.list_native_media(project_id)
+        if as_json:
+            json_output.emit({"status": "ok", **snapshot})
+        else:
+            for row in snapshot["media"]:
+                console.print(f"{row['media_id']}  kind={row['kind'] or 'unknown'}")
+            console.print("Snapshot completeness: unknown; no catalog changes")
+
+    run_with_handlers(act, cli_command="project media", as_json=as_json)
 
 
 @project.command("show")

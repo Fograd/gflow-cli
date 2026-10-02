@@ -4,6 +4,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.errors import DataIntegrityError, QueueSchemaError, is_retryable
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from gflow_cli.data.store import DataStore
+    from gflow_cli.image_recovery import ImageJournal
 
 # Version of the persisted checkpoint document (its own small versioned dict,
 # deliberately NOT merged with the api.dto GenerationCheckpoint DTO).
@@ -38,6 +40,7 @@ def make_checkpoint_document(
     operation_id: str | None = None,
     media_ids: Sequence[str] = (),
     workflow_ids: Sequence[str] = (),
+    image_journal: ImageJournal | None = None,
 ) -> dict[str, Any]:
     """Build a versioned, redacted checkpoint document for a queue task.
 
@@ -46,7 +49,7 @@ def make_checkpoint_document(
     and observed Flow handles. It MUST NEVER carry prompt text, credentials,
     cookies, or signed URLs — the shape here is the allow-list.
     """
-    return {
+    document: dict[str, Any] = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "claimant": claimant,
         "phase": phase,
@@ -56,6 +59,15 @@ def make_checkpoint_document(
         "media_ids": list(media_ids),
         "workflow_ids": list(workflow_ids),
     }
+    if image_journal is not None:
+        from gflow_cli.image_recovery import read_journal
+
+        document["imageRecovery"] = read_journal(image_journal.root, image_journal.invocation)
+        document["imageJournal"] = {
+            "directory": str(image_journal.root),
+            "invocation": image_journal.invocation,
+        }
+    return document
 
 
 @dataclass(frozen=True)
@@ -247,6 +259,7 @@ class QueueRepository:
         operation_id: str | None = None,
         media_ids: Sequence[str] = (),
         workflow_ids: Sequence[str] = (),
+        image_journal: ImageJournal | None = None,
     ) -> None:
         """Build (via :func:`make_checkpoint_document` — the redaction allow-list)
         and persist a checkpoint. This is the writer callers SHOULD use: routing
@@ -263,6 +276,7 @@ class QueueRepository:
                 operation_id=operation_id,
                 media_ids=media_ids,
                 workflow_ids=workflow_ids,
+                image_journal=image_journal,
             ),
         )
 
@@ -360,7 +374,26 @@ def mark_interrupted(
     one place.
     """
     status = classify_interrupted(checkpoint)
-    repo.update_task_status(task_id, status=status, error=_recovery_error(status, reason))
+    error = _recovery_error(status, reason)
+    if checkpoint and "imageJournal" in checkpoint:
+        from gflow_cli.image_recovery import read_journal
+
+        reference = checkpoint["imageJournal"]
+        if isinstance(reference, dict):
+            reference = cast(dict[str, Any], reference)
+            directory, invocation = reference.get("directory"), reference.get("invocation")
+            if (
+                isinstance(directory, str)
+                and len(directory) <= 4096
+                and isinstance(invocation, str)
+            ):
+                recovered = read_journal(Path(directory), invocation)
+                if recovered:
+                    error["imageRecovery"] = recovered
+    media_ids = (checkpoint or {}).get("media_ids", [])
+    repo.update_task_status(
+        task_id, status=status, error=error, flow_media_id=media_ids[0] if media_ids else None
+    )
     return status
 
 

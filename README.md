@@ -228,3 +228,13 @@ No sponsors yet. <a href="https://github.com/sponsors/ffroliva/sponsorships?freq
 </picture>
 
 If `gflow-cli` saves you time, please ⭐ the repo. It is the cheapest way to support the project.
+
+### Reuse existing images as a Flow character
+
+For free native image-copy creation and name/notes/system preset assignment,
+use `gflow character create-from-images` and `gflow character update`.
+The same operations are available through the SDK and MCP; deletion requires
+explicit confirmation. References need verified local catalog copies in the
+selected profile/project. See the [character guide](docs/CHARACTER.md#native-characters-from-existing-images-flow-october-2026)
+and [MCP tool reference](docs/MCP.md#native-existing-image-character-tools) for
+examples, validation and recovery from partial mutations.

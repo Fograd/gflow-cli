@@ -247,7 +247,7 @@ async def test_video_export_does_not_replace_source(tmp_path, monkeypatch):
     )
     claimed = store.claim("pro1")
 
-    async def fake_run(args, timeout):
+    async def fake_run(args, timeout, **kwargs):
         assert args[2:5] == ["gflow_cli.cli", "video", "upscale"]
         assert args[args.index("--scale") + 1] == "270p"
         path = tmp_path / "output" / job["jobId"] / "export.gif"

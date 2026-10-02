@@ -9,13 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Native character SDK list/show/delete now use the measured migrated catalog for native profiles. Mutations have a nonretryable unknown-result error (exit 40), preserving safe draft/partial-delete identifiers for inspection.
+
 - Restored native image `--seed` for CLI t2i/i2i and retained the existing MCP seed through direct/queued execution. Returned Google seeds are checked; unsupported hosts and multi-prompt requests fail before submission. Corrected CLI handling was live-verified with one seed42 image and a valid1024×1024 download.
 
 ### Fixed
 
+- Callback delivery closes streamed responses without buffering their bodies. Native human output preserves literal metadata, and fresh base installations include the image-validation runtime dependency.
+
+- Image downloads retain returned native handles and earlier completed files when a later transfer or checkpoint fails. Private journals support CLI, REST, queued MCP and batch recovery after interruption; generated jobs are never automatically replayed.
+
 - REST image jobs no longer claim completion when the returned count differs from the request. Mismatches preserve outputs, report expected/received counts and never automatically resubmit. The ten-image pilot and its limits are documented.
 
 ### Added
+
+- Credit-free native character creation from one/two existing verified PNG/JPEG references, metadata updates and system preset voice assignment, with explicit CLI and MCP adapters. Voice metadata is separate from rendered audio and generation grounding.
+- Explicit native project pages and project media snapshots through SDK, CLI and MCP. Snapshot completeness remains unknown; historical local catalog synchronization is unchanged.
+- Per-surface compatibility and image-recovery documentation for the self-hosted fork.
 
 - Expanded the self-hosted API with bounded synchronous waiting, async polling,
   native image seeds, private CAPTCHA provider configuration and supplied-token

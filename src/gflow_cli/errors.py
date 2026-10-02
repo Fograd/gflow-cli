@@ -21,6 +21,8 @@ __all__ = [
     "BrowserEngineUnavailableError",
     "ChainManifestError",
     "ChainPartialError",
+    "CharacterMutationUnknownError",
+    "CharacterBatchPartialError",
     "ConfigurationError",
     "ContentPolicyError",
     "DataIntegrityError",
@@ -75,6 +77,11 @@ class ProblemDetails(TypedDict, total=False):
     instance: str  # optional — `gflow:error:<correlation_id>`
     remediation_hint: str  # gflow extension
     route: str  # gflow extension — sanitized route name, NOT full URL
+    character_ref: str
+    project_id: str
+    operation: str
+    failed_before_mutation: bool
+    completed_character_refs: list[str]
     incident: dict[str, str]  # gflow extension — remote-safe {id, capture_status} ONLY
 
 
@@ -159,6 +166,55 @@ class GFlowError(Exception):
                 "id": self.incident_ref.id,
                 "capture_status": self.incident_ref.capture_status,
             }
+        return out
+
+
+class CharacterMutationUnknownError(GFlowError):
+    """A native character mutation may have succeeded; inspect before retrying."""
+
+    problem_type = "https://gflow-cli.dev/errors/character-mutation-unknown"
+    title = "Character mutation outcome unknown"
+    _default_remediation = (
+        "Inspect this project in Flow before retrying; no automatic retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        operation: str,
+        character_ref: str | None = None,
+        completed_character_refs: list[str] | None = None,
+    ) -> None:
+        super().__init__(route="character." + operation, retryable=False)
+        self.project_id = project_id
+        self.operation = operation
+        self.character_ref = character_ref
+        self.completed_character_refs = list(completed_character_refs or [])
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(project_id=self.project_id, operation=self.operation)
+        if self.character_ref is not None:
+            out["character_ref"] = self.character_ref
+        if self.completed_character_refs:
+            out["completed_character_refs"] = self.completed_character_refs
+        return out
+
+
+class CharacterBatchPartialError(CharacterMutationUnknownError):
+    """Some deletes are confirmed; the next target was refused before its write."""
+
+    problem_type = "https://gflow-cli.dev/errors/character-batch-partial"
+    title = "Character batch partially completed"
+    _default_remediation = (
+        "The completed character references were deleted. The failed reference was "
+        "refused before mutation; inspect current ownership before acting on remaining targets."
+    )
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out["failed_before_mutation"] = True
         return out
 
 
@@ -1485,6 +1541,8 @@ EXIT_CODE_MAP: dict[type[GFlowError], int] = {
     # but not all. Direct GFlowError subclass; exit 34 lets scripts distinguish
     # "partially synced, just re-run" from generic error (1).
     SyncPartialError: 34,
+    CharacterBatchPartialError: 40,
+    CharacterMutationUnknownError: 40,
     ConfigurationError: 11,
     AuthExpiredError: 3,
     RateLimitError: 4,

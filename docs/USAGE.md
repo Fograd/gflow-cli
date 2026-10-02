@@ -2084,6 +2084,7 @@ shell scripts can branch on the failure mode without parsing stderr.
 | `34` | `SyncPartialError`    | `gflow data sync` failed on some projects but succeeded on others — completed writes stay committed | Retryable: re-run the same command; it resumes with what is still nameless (see [`gflow data sync`](#gflow-data-sync)) |
 | `35` | `ExtendUnavailableError` | No Veo extend model is orderable for this account and aspect — the extend family is tier-gated and there is no square variant. **Never auto-retry**: a tier gate does not clear on its own. |
 | `36` | `FlowHostMigratedError` | Flow served the project from `flow.google.com` and the request could not be represented by the migrated composer, or `GFLOW_CLI_FLOW_HOST=labs.google` disabled it. Supported today: `video t2v`; local-file video i2v/r2v; `image t2i`; local-file `image i2i`; and `gflow run --config` rows referencing an earlier row (`batch:N`) or a local file. Image UUID/entity/instruction/Imagen-4 forms and `image batch` remain unsupported. Not selector drift (23) | **Not retryable.** Use one of the supported forms, or the REST surface (`gflow project list`, `gflow data …`); follow #639 for the remaining matrix |
+| `40` | `CharacterMutationUnknownError` / `CharacterBatchPartialError` | Unconfirmed native mutation, or a sequential SDK delete that completed earlier identities before a later preflight refusal; preserves operation/project, known identity and completed references | **Not retryable.** Inspect exact completed/failed identities; `failed_before_mutation: true` means the refused later identity was not written |
 | `37` | `InsufficientCreditsError` | The account's balance is short **for the model it asked for**, so Flow **replaced** the submit control with its `Insufficient credits warning` instead of disabling it. Short, not necessarily empty: measured 2026-09-07, an account holding **50** credits requesting `--model veo-quality` (**100**) rendered the warning. Explicitly **not** selector drift (23): reporting it as drift told users to file a frontend bug over a credit shortfall | Check the balance with `gflow credits user`, then pick a cheaper `--model` (`veo-lite` costs 10), top up, or wait for the allowance to reset. Nothing was submitted, so no credit was spent. `gflow image` draws on a separate daily quota and may still work |
 | `38` | `FlowAccountChooserError` | The post-migration hop landed on Google's account chooser and the profile's recorded account (`.gflow_account`) could not be selected automatically (row absent, click-through did not return to the editor, or `--account` mismatch) | **Not retryable**: run `gflow auth login --profile <name>` and complete the chooser manually, while signed in as the recorded account (re-run `gflow auth login` if the chooser offers a different session) |
 | `39` | `FlowAccessUnavailableError` | Flow loaded and routed to its own "you don't have access" screen (`<flow-pinhole-unavailable-screen>`): this Google account has no Flow entitlement. Detected by component, not by URL — the hop is client-side (`flow.google.com/` answers 200) and the path varies (`/unavailable`, `/u/8/unavailable`). Explicitly **not** auth expiry (3/8) and **not** selector drift (23): nothing expired and nothing drifted | **Not retryable, and signing in again cannot change it.** Flow needs an age-verified account in a supported region on a Google AI Plus/Pro/Ultra or qualifying Workspace plan — check which applies at [Google's eligibility page](https://support.google.com/flow/answer/16353333) and open https://flow.google.com in a browser on this account to confirm |
@@ -2222,3 +2223,72 @@ async with FlowApiClient(profile_dir=profile_dir) as client:
 - [AUTHENTICATION](AUTHENTICATION.md) — auth flow + multi-account
 - [ARCHITECTURE](ARCHITECTURE.md) — internal structure (for contributors)
 - [PLAN](../PLAN.md) — what ships in which phase
+
+## Native characters from existing images (Flow, October 2026)
+
+`character create-from-images` copies one or two existing native images into a
+new project character. It spends no generation credits. The first reference is
+the portrait slot; the optional second is the body slot. Both must belong to the
+selected profile/project and have an integrity-verified local PNG/JPEG copy in
+`gflow`'s data catalog. An arbitrary uploaded UUID without that catalog record
+fails before mutation. Native ownership and active batch membership are checked
+again before creating the entity; the source images remain intact.
+
+```sh
+gflow character create-from-images --project "$PROJECT_ID" --profile pro1 \
+  --name "Example subject" --image-reference-1 "$PORTRAIT_MEDIA_ID" \
+  --image-reference-2 "$BODY_MEDIA_ID" --personality "Calm, curious" \
+  --voice Charon --json
+gflow character list --project "$PROJECT_ID" --profile pro1 --json
+gflow character show --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" --json
+gflow character update --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" \
+  --name "Updated subject" --personality "" --voice Aoede --json
+gflow character rm --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" --yes --json
+```
+
+`update` changes name, personality notes, a system preset voice, or any combination.
+An empty personality string clears notes; a fresh native DTO may report `personality: null` for cleared notes. Names are 1–200 characters; notes are at
+most 2,000 characters. Voice names are case-insensitive and canonicalized; empty
+or custom voice identifiers fail validation. Preset assignment stores metadata;
+this does not prove rendered speech or support custom voice creation.
+
+The older `character create --face-prompt ... --body-prompt ...` command retains
+its generated-portrait workflow. Existing-image creation is a separate command.
+`character voices` displays the bundled preset catalog; it does not fetch a
+native account catalog.
+
+These native mutations execute directly and are not queued or replayed. If
+Google acknowledges creation but a later copy/update fails, CLI exit **40** and
+the structured problem preserve `character_ref` when known, `project_id`, and
+`operation`, with `retryable: false`. Inspect the project and known identity before
+issuing another creation. A timeout without an acknowledged identity can still
+have changed Google state. Deletion permanently removes the selected character;
+use `--yes` only after selecting its identity. It leaves the original image assets
+in the project.
+
+## Native project and media inventory
+
+Local project listing remains the default. To read the Google account catalog,
+use `gflow project list --source google --profile pro1 --json`; pass the returned
+opaque `next_cursor` through `--cursor` for another page. Google pages are fixed
+at 21 rows; supplying `--limit` is rejected. Cursors must contain 1–4,096
+characters and are forwarded without decoding. Local listing accepts its
+existing limit and MCP offset pagination; local listing rejects Google cursors.
+
+`gflow project media --project "$PROJECT_ID" --source google --profile pro1 --json`
+reads the selected native project asset snapshot. It returns stable media/project/
+workflow identifiers, measured `image`/`video` kinds and available dimensions;
+unknown kinds remain `unknown`. It excludes captions and signed URLs. This is a
+read-only snapshot with `complete: null`; it does not sync the local catalog or
+infer deletion from absent entries.
+
+MCP mirrors are `gflow_list_projects(source="google", cursor=..., profile=...)`
+and `gflow_project_media(project=..., source="google", profile=...)`. Omit MCP
+`limit` and use its default `offset=0` for Google pages; supplied limits or
+nonzero offsets fail before profile/browser access. Both native tools execute
+read-only under the profile lock and remain available in no-spend mode.
+
+If an image download fails after Google generated outputs, inspect structured
+`imageRecovery` handles and completed paths before resubmitting. See
+[image recovery](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_RECOVERY.md) for CLI, batch, queued MCP and REST
+journals and restart behavior.

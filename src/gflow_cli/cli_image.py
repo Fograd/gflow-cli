@@ -1215,20 +1215,22 @@ async def _download_images(
     output_file: Path | None = None,
 ) -> list[Path]:
     """Download each generated image to its resolved target path."""
-    saved_paths: list[Path] = []
+    from gflow_cli.image_recovery import download_images
+
+    targets: list[Path] = []
     for i, img in enumerate(images, start=1):
         if output_file is not None:
-            if len(images) == 1:
-                target = output_file
-            else:
-                target = output_file.parent / f"{output_file.stem}_{i}{output_file.suffix}"
+            target = (
+                output_file
+                if len(images) == 1
+                else output_file.parent / f"{output_file.stem}_{i}{output_file.suffix}"
+            )
         elif out is not None:
             target = out / f"{img.media_name}_{i}.png"
         else:
             target = image_output_path(output_root, job_id=img.media_name, index=i)
-        saved = await client.download_image(img, target)
-        saved_paths.append(saved)
-    return saved_paths
+        targets.append(target)
+    return await download_images(client, images, targets)
 
 
 async def _generate_verify_download(

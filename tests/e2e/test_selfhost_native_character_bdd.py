@@ -77,6 +77,7 @@ def lifecycle(character_case: dict[str, Any]) -> None:
                 "imageReference_1": case["image"],
                 "imageReference_2": case["second_image"],
                 "personalityNotes": "Initial verification notes",
+                "voice": "Charon",
             },
         )
         if response.status_code == 502:
@@ -86,9 +87,14 @@ def lifecycle(character_case: dict[str, Any]) -> None:
         response.raise_for_status()
         case["ref"] = response.json()["character"]["ref"]
         assert response.json()["character"]["personalityNotes"] == "Initial verification notes"
+        assert response.json()["character"]["voice"] == "Charon"
         response = client.patch(
             case["url"] + "/characters/" + case["ref"],
-            json={**case["controls"], "personalityNotes": "Calm verification character"},
+            json={
+                **case["controls"],
+                "personalityNotes": "Calm verification character",
+                "voice": "Aoede",
+            },
         )
         response.raise_for_status()
 
@@ -102,7 +108,20 @@ def verify(character_case: dict[str, Any]) -> None:
         character = response.json()
         assert character["displayName"] == case["name"]
         assert character["personalityNotes"] == "Calm verification character"
+        assert character["voice"] == "Aoede"
         assert len(set(character["workflowIds"])) == 2
+        before_workflows = character["workflowIds"]
+        cleared = client.patch(
+            case["url"] + "/characters/" + case["ref"],
+            json={**case["controls"], "personalityNotes": ""},
+        )
+        cleared.raise_for_status()
+        response = client.get(case["url"] + "/characters/" + case["ref"], params=case["controls"])
+        response.raise_for_status()
+        character = response.json()
+        assert character["personalityNotes"] in (None, "")
+        assert character["voice"] == "Aoede"
+        assert character["workflowIds"] == before_workflows
         response = client.delete(
             case["url"] + "/characters/" + case["ref"], params=case["controls"]
         )

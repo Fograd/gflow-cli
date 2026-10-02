@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from gflow_cli.api.character import VOICE_NAMES
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 
 
@@ -44,12 +45,24 @@ def parse_native_characters(payload: Any, project_id: str) -> list[dict[str, Any
                     if not is_uuid(workflow):
                         raise ValueError("Invalid character reference")
                     refs.append(str(workflow))
+        voice = None
+        preset_id = None
+        audio: Any = info[1] if len(info) > 1 else None
+        if isinstance(audio, list) and len(cast("list[Any]", audio)) == 1:
+            reference: Any = cast("list[Any]", audio)[0]
+            if isinstance(reference, list) and len(cast("list[Any]", reference)) == 2:
+                candidate_id: Any = cast("list[Any]", reference)[1]
+                if reference[0] is None and isinstance(candidate_id, str):
+                    voice = next((v for v in VOICE_NAMES if v.lower() == candidate_id), None)
+                    preset_id = candidate_id if voice else None
         result.append(
             {
                 "entity_id": row[1],
                 "project_id": project_id,
                 "display_name": meta[1] if isinstance(meta[1], str) else "",
                 "workflow_ids": refs,
+                "voice": voice,
+                "preset_voice_id": preset_id,
                 "personality": info[2] if len(info) > 2 and isinstance(info[2], str) else None,
                 "thumbnail_media_id": row[4] if len(row) > 4 and is_uuid(row[4]) else None,
             }

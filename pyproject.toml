@@ -54,6 +54,9 @@ classifiers = [
 
 dependencies = [
     "click>=8.1.0",
+    # Native existing-image character services decode and verify PNG/JPEG bytes.
+    # CLI imports that shared service, so this must exist in a base wheel install.
+    "pillow>=12.3.0",
     "httpx>=0.27.0",
     # Upper bound is mandatory, not cosmetic. playwright is not an ordinary
     # library here: it ships the browser driver, and 100% of gflow's product
@@ -130,13 +133,11 @@ s3 = [
     "s3fs>=2024.2.0",
 ]
 # Video-chain extra — everything `gflow video chain` imports. PyAV decodes the
-# previous clip (no system ffmpeg needed) and Pillow writes the seed JPEG; both
-# are imported at module level by media.py, so both belong here. Shipping `av`
-# alone made the documented install command produce a CLI that could not run
-# `video chain` at all (#813).
+# previous clip (no system ffmpeg needed); Pillow writes the seed JPEG and is
+# now a core dependency for native character image verification. Shipping `av`
+# alone without Pillow historically broke `video chain` (#813).
 chain = [
     "av>=12",
-    "pillow>=12.3.0",
 ]
 # Patchright engine extra — opt-in, drop-in patched Playwright (Chromium) that
 # avoids the Runtime.enable CDP leak on the headed path. Selected via

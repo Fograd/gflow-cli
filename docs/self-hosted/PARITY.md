@@ -124,7 +124,7 @@ Every endpoint above is accounted for. These groups explain why a gap remains an
 | Account cookie import and session refresh | Existing fork uses operator-verified Chrome profiles. Cookie presence alone does not prove usable Flow access. | Local profile registration/unregistration and attestation are implemented; useapi cookie-table import still needs a separate private import/validation path. Never return credential values. |
 | Full project/media inventories | Local catalogues remain default; native account discovery reads 21-item pages and selected-project timeline reads are available. useapi project listing aggregates history counts and media listing merges attached media, still different. | Native UpteDb paging is measured (21+21 disjoint); retain opaque cursor and verify REST wiring. Measure history counts/attached-media merging separately; do not infer uploaded status from an absent prompt. |
 | Native media deletion | Local cache deletion and reversible native whole-batch archive now exist. useapi individual/already-gone semantics differ. | Retain whole-batch ownership validation and measured archive acknowledgement; add individual/already-gone compatibility only after capture. Synthetic upload/list/archive is live verified without generation credits. |
-| Native character CRUD | Project-scoped summary/detail and metadata patch/delete are implemented; one/two-reference POST has native create/copy and deployed HTTP lifecycle proof. Initial notes are now validated and applied after reference copy; voice assignment and account-wide useapi semantics remain gaps. Upstream list/show use a retired labs listing. Its create command generates references instead of binding the existing1–2image references required by useapi. | Capture migrated character list/create/patch/delete and bind supplied owned references with optional voice. Keep local metadata separate from Google-side records. |
+| Native character CRUD | Project-scoped summary/detail and metadata patch/delete are implemented; one/two-reference POST has native create/copy and deployed HTTP lifecycle proof. Initial notes are now validated and applied after reference copy; system preset assignment is now measured; account-wide useapi semantics remain gaps. The SDK/CLI/MCP now share native existing-image creation/list/detail/update/removal; the older create command separately generates portraits. | Capture migrated character list/create/patch/delete and bind supplied owned references with optional voice. Keep local metadata separate from Google-side records. |
 | Character generation binding | The migrated picker has measured entity chips and accepted submissions, but null submit payloads break the observer. | Add project-keyed status fallback and durable accepted-output checkpoints before enabling the guarded path. Do not equate a timeout with Google rejection. |
 | Custom voice CRUD | Both bundled and dynamic native system presets (30 measured) are available; custom TTS generation, signed playback and delete remain separate operations. | Capture custom voice creation/list/detail/delete, validate preset/dialog/performance limits and prove real token consumption where captcha is required. |
 | Native seed verification | Image overrides now target native ogiZ0b seed slots; aborted browser capture verifies the outgoing value. | Live REST two-image batch returned the requested consecutive seeds and decoded images; retain ledger evidence. Video seed remains unported. |
@@ -142,10 +142,10 @@ Captures remain private because browser requests contain cookies, tokens and use
 
 Current native read expansion also exposes GETcharacters project summaries and catalog=google dynamic system voices. Native detail/metadata PATCH/DELETE are present, while one/two-reference POST is implemented and live verified; they do not enable full reference/voice CRUD, generation grounding or custom voices. Live adapter wiring and worker evidence are separate in VERIFICATION.md.
 
-Limited deployed HTTP character CRUD is live verified: one copied owned image, initial/PATCH notes, detail persistence, deletion/404 and preserved original source. Second reference is now live verified in portrait/body slots; voice assignment and generation binding remain separate gaps.
+Limited deployed HTTP character CRUD is live verified: one copied owned image, initial/PATCH notes, detail persistence, deletion/404 and preserved original source. Second reference is now live verified in portrait/body slots; system preset assignment is now measured, while generation binding remains a separate gap.
 
 
-Native voice binding remains an implementation gap, not a measured Google absence.
+Native system preset assignment is measured and implemented. Rendering speech and grounding a character entity in generation remain separate unverified gaps.
 Two guarded empty-dialogue preset probes did not commit a voice: an unverified
 preview-pane button candidate left the picker open and the modal backdrop blocked
 the header Done transition. No native voice metadata update was captured. Unknown
@@ -153,3 +153,17 @@ writes were aborted, no TTS generation was submitted, and both owned fixtures we
 removed. System preset lookup is already implemented; custom saved-voice CRUD,
 preset assignment and rendered voice application require separate contracts and
 proof. See [the redacted spike](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).
+
+## Portable native SDK/CLI/MCP expansion
+
+The current native SDK supports existing-image character create/list/detail/
+update/delete and explicit native project/media snapshots. CLI and registered
+MCP adapter mirrors are live verified separately: two existing references,
+initial notes/Charon, notes clear, renamed/new notes/Aoede, readback and exact
+identity removal; project page IDs and mixed media kinds match across both
+surfaces. Three adapter scenarios passed in 265.40s. The strengthened SDK native
+inventory BDD passed separately in 11.42s with 21+21 disjoint native pages and
+unknown completeness. These are direct bounded native operations, without
+queued mutation replay or full local catalog synchronization. Dynamic native
+voice listing remains REST-only; bundled CLI/MCP voice listing is retained.
+Character generation grounding, rendered speech and custom voices remain gaps.

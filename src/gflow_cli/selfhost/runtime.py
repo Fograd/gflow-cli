@@ -52,7 +52,9 @@ def contained_file(path: str, root: Path) -> Path:
     return candidate
 
 
-async def subprocess_run(args: list[str], timeout: int) -> tuple[int, bytes]:
+async def subprocess_run(
+    args: list[str], timeout: int, *, image_recovery_id: str | None = None
+) -> tuple[int, bytes]:
     env = {
         key: value
         for key, value in os.environ.items()
@@ -64,6 +66,9 @@ async def subprocess_run(args: list[str], timeout: int) -> tuple[int, bytes]:
             "GFLOW_2CAPTCHA_KEY",
         )
     }
+    env.pop("GFLOW_IMAGE_RECOVERY_ID", None)
+    if image_recovery_id is not None:
+        env["GFLOW_IMAGE_RECOVERY_ID"] = str(uuid.UUID(image_recovery_id))
     env["GFLOW_CLI_DEBUG_TRACEBACK"] = "0"
     process = await asyncio.create_subprocess_exec(
         *args,
@@ -292,11 +297,34 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             str(request_path),
         ]
     try:
-        code, raw = await subprocess_run(args, cfg.timeout)
+        if kind == "images":
+            code, raw = await subprocess_run(args, cfg.timeout, image_recovery_id=job["id"])
+        else:
+            code, raw = await subprocess_run(args, cfg.timeout)
     finally:
+        if kind == "images":
+            store.image_recovery(job)
         if request_path:
             request_path.unlink(missing_ok=True)
     if code:
+        if kind == "images" and len(raw) <= 65536:
+            # Import only allow-listed recovery handles/contained paths; never raw errors.
+            try:
+                failure = parse_json_output(raw)
+                records = failure.get("error", {}).get("imageRecovery", {}).get("images", [])
+                if isinstance(records, list) and 1 <= len(cast(list[Any], records)) <= 4:
+                    safe: list[dict[str, Any]] = []
+                    for record in cast(list[Any], records):
+                        if not isinstance(record, dict):
+                            continue
+                        item = cast(dict[str, Any], record)
+                        entry: dict[str, Any] = {"media_name": item.get("media_name")}
+                        if "local_path" in item:
+                            entry["local_path"] = item["local_path"]
+                        safe.append(entry)
+                    store.image_recovery(job, {"images": safe})
+            except (ValueError, TypeError, AttributeError, KeyError):
+                pass
         # Keep potentially sensitive CLI output local.
         return {
             "error": {
@@ -359,6 +387,28 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             "mediaGenerationId": {"mediaGenerationId": media},
         }
     media_items: list[dict[str, Any]] = []
+    known: list[str] = []
+    recovered: list[dict[str, Any]] = []
+    if kind == "images":
+        previous = store.get(job["id"])
+        known.extend(previous.get("knownMediaGenerationIds", []))
+        recovered = previous.get("media", [])
+        for item in items:
+            try:
+                identifier = str(uuid.UUID(item["media_name"]))
+                if identifier not in known:
+                    known.append(identifier)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+        store.checkpoint(
+            job["id"],
+            {
+                "knownMediaGenerationIds": known,
+                "media": recovered,
+                "generatedCount": len(known),
+                "completedCount": len(recovered),
+            },
+        )
     for item in items:
         path = contained_file(item["local_path"], out)
         if path.stat().st_size > MAX_ASSET:
@@ -379,6 +429,18 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                 },
             }
         )
+        if kind == "images":
+            completed = {entry["mediaGenerationId"]: entry for entry in recovered}
+            completed.update({entry["mediaGenerationId"]: entry for entry in media_items})
+            store.checkpoint(
+                job["id"],
+                {
+                    "knownMediaGenerationIds": known,
+                    "media": list(completed.values()),
+                    "generatedCount": len(known),
+                    "completedCount": len(completed),
+                },
+            )
     if kind.startswith("videos"):
         path = contained_file(result.get("local_path") or str(out / "video.mp4"), out)
         media = str(uuid.UUID(result.get("media_id") or payload.get("mediaGenerationId")))
@@ -473,13 +535,16 @@ async def deliver_callbacks(cfg: Settings, store: Store) -> None:
             async with httpx.AsyncClient(
                 timeout=10, follow_redirects=False, trust_env=False
             ) as client:
-                response = await client.post(
+                # Callback acknowledgment needs headers/status only. Never buffer
+                # an unbounded recipient response; the context closes every stream.
+                async with client.stream(
+                    "POST",
                     pinned,
                     headers={"Host": host},
                     json=json.loads(pending["payload"]),
                     extensions={"sni_hostname": host},
-                )
-            success = 200 <= response.status_code < 300
+                ) as response:
+                    success = 200 <= response.status_code < 300
         except Exception:
             pass
         with store.connection() as conn:

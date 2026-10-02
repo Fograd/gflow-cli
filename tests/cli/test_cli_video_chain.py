@@ -815,7 +815,7 @@ def test_media_imports_av_at_module_level(monkeypatch: pytest.MonkeyPatch) -> No
         importlib.import_module("gflow_cli.media")
 
 
-def test_chain_extra_declares_pillow_alongside_av() -> None:
+def test_chain_install_includes_pillow_alongside_av() -> None:
     """``gflow-cli[chain]`` must install everything ``media.py`` imports.
 
     The extra shipped ``av`` alone while media.py imported ``PIL``
@@ -824,14 +824,15 @@ def test_chain_extra_declares_pillow_alongside_av() -> None:
     """
     data: Any = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     extra: list[str] = data["project"]["optional-dependencies"]["chain"]
-    requirements = {Requirement(raw).name.lower(): Requirement(raw) for raw in extra}
-
-    assert "av" in requirements, f"the chain extra must keep av: {extra}"
+    core: list[str] = data["project"]["dependencies"]
+    requirements = {Requirement(raw).name.lower(): Requirement(raw) for raw in core + extra}
+    extra_names = {Requirement(raw).name.lower() for raw in extra}
+    assert "av" in extra_names, f"the chain extra must keep av: {extra}"
     assert "pillow" in requirements, (
         "media.py imports PIL at module level, so `gflow-cli[chain]` must install "
-        f"pillow; the extra declares only {sorted(requirements)} (#813)"
+        f"pillow; the effective install declares only {sorted(requirements)} (#813)"
     )
     operators = {spec.operator for spec in requirements["pillow"].specifier}
     assert operators & {">=", "==", "~="}, (
-        f"pillow needs a lower bound in the chain extra (got {str(requirements['pillow'])!r})"
+        f"pillow needs a lower bound in chain installation (got {str(requirements['pillow'])!r})"
     )

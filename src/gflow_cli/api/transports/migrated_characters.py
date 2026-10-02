@@ -6,7 +6,8 @@ import asyncio
 from typing import Any, cast
 from uuid import uuid4
 
-from gflow_cli.api.transports.migrated_catalog import parse_native_characters
+from gflow_cli.api.character import VOICE_NAMES
+from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
 from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
 from gflow_cli.api.transports.migrated_rpc import native_rpc
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
@@ -30,30 +31,64 @@ class CharacterDeletionError(ValueError):
         super().__init__("Character deletion outcome unknown; inspect before retrying")
 
 
+class CharacterCreationError(ValueError):
+    """Create was sent but acknowledgement is uncertain; never create again blindly."""
+
+    entity_id = ""
+
+
+class CharacterUpdateError(ValueError):
+    """Metadata update may have applied; retain the known character identifier."""
+
+    def __init__(self, entity_id: str) -> None:
+        self.entity_id = entity_id
+        super().__init__("Character update outcome unknown; inspect before retrying")
+
+
 async def _rpc(page: Any, project_id: str, rpc: str, args: list[Any]) -> Any:
     return await native_rpc(page, rpc, args, "/project/" + project_id)
 
 
 def update_payload(
-    project_id: str, entity_id: str, name: object = None, personality: object = None
+    project_id: str,
+    entity_id: str,
+    name: object = None,
+    personality: object = None,
+    voice: object = None,
 ) -> list[Any]:
     if not is_uuid(project_id) or not is_uuid(entity_id):
         raise ValueError("Character identifiers must be UUIDs")
-    if name is None and personality is None:
+    if name is None and personality is None and voice is None:
         raise ValueError("At least one character metadata field is required")
     if name is not None and (not isinstance(name, str) or not 1 <= len(name) <= 200):
         raise ValueError("Character name must contain 1 to 200 characters")
     if personality is not None and (not isinstance(personality, str) or len(personality) > 4000):
         raise ValueError("Personality must be a string of at most 4000 characters")
+    if voice is not None:
+        voice = normalize_voice(voice)
     paths: list[str] = []
     if name is not None:
         paths.append("entity_info.display_name")
     if personality is not None:
         paths.append("entity_info.character_info.personality_notes")
     info: list[Any] = [1, name]
-    if personality is not None:
-        info.append([None, None, personality])
+    if voice is not None:
+        paths.append("entity_info.character_info.audio_references")
+    if personality is not None or voice is not None:
+        character_info: list[Any] = [None, [[None, str(voice).lower()]] if voice else None]
+        if personality is not None:
+            character_info.append(personality)
+        info.append(character_info)
     return [[project_id, entity_id, None, info], [paths]]
+
+
+def normalize_voice(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Voice must be a system preset name; clearing is unverified")
+    canonical = next((name for name in VOICE_NAMES if name.lower() == value.lower()), None)
+    if canonical is None:
+        raise ValueError("Voice must be a known system preset; clearing is unverified")
+    return canonical
 
 
 def active_media_workflow(records: list[dict[str, Any]], media_id: object) -> str:
@@ -124,8 +159,17 @@ async def mutate_character(
     image_reference_confirmed: bool = False,
     source_media_id: object = None,
     second_media_id: object = None,
+    voice: object = None,
 ) -> dict[str, Any]:
+    if voice is not None:
+        voice = normalize_voice(voice)
+    if operation in {"create", "update"}:
+        update_payload(
+            project_id, project_id if operation == "create" else entity_id, name, personality, voice
+        )
     payload = await read_project_payload(page, project_id)
+    if voice is not None and voice not in {row["voice"] for row in parse_native_voices(payload)}:
+        raise ValueError("Voice is not present in the current native system preset catalog")
     owned = parse_native_characters(payload, project_id)
     if operation != "create" and entity_id not in {row["entity_id"] for row in owned}:
         raise ValueError("Character must belong to the selected project")
@@ -151,10 +195,15 @@ async def mutate_character(
         if second_media_id is not None:
             active_media_workflow(records, second_media_id)
             sources.append(second_media_id)
-        data = await _rpc(page, project_id, "C4BZMd", [[project_id, None, None, [1, name, []]]])
-        created = parse_native_characters([None, [], [], [], None, data], project_id)
-        if len(created) != 1:
-            raise ValueError("Character creation was not acknowledged")
+        try:
+            data = await _rpc(page, project_id, "C4BZMd", [[project_id, None, None, [1, name, []]]])
+            created = parse_native_characters([None, [], [], [], None, data], project_id)
+            if len(created) != 1:
+                raise ValueError("Character creation was not acknowledged")
+        except Exception as exc:
+            raise CharacterCreationError(
+                "Creation outcome unknown; inspect before retrying"
+            ) from exc
         created_id = str(created[0]["entity_id"])
         try:
             async with asyncio.timeout(POST_MUTATION_TIMEOUT):
@@ -175,9 +224,14 @@ async def mutate_character(
                         and copied_refs <= set(row["workflow_ids"])
                     ]
                     if matches:
-                        if personality is not None:
+                        if personality is not None or voice is not None:
                             return await mutate_character(
-                                page, project_id, "update", created_id, personality=personality
+                                page,
+                                project_id,
+                                "update",
+                                created_id,
+                                personality=personality,
+                                voice=voice,
                             )
                         return {"character": matches[0]}
                     if attempt < 5:
@@ -186,8 +240,15 @@ async def mutate_character(
         except Exception as exc:
             raise CharacterBindingError(created_id) from exc
     elif operation == "update":
-        args = update_payload(project_id, entity_id, name, personality)
-        data = await _rpc(page, project_id, "rzMKMb", args)
+        args = update_payload(project_id, entity_id, name, personality, voice)
+        try:
+            async with asyncio.timeout(POST_MUTATION_TIMEOUT):
+                data = await _rpc(page, project_id, "rzMKMb", args)
+                return await _ack_update(
+                    page, project_id, entity_id, data, name, personality, voice
+                )
+        except Exception as exc:
+            raise CharacterUpdateError(entity_id) from exc
     elif operation == "delete":
         try:
             async with asyncio.timeout(POST_MUTATION_TIMEOUT):
@@ -208,11 +269,46 @@ async def mutate_character(
         return {"deleted": [entity_id]}
     else:
         raise ValueError("Unsupported character metadata operation")
-    rows = parse_native_characters([None, [], [], [], None, data], project_id)
-    if len(rows) != 1 or (operation == "update" and rows[0]["entity_id"] != entity_id):
-        raise ValueError("Character mutation acknowledgement has an unrelated identity")
-    if name is not None and rows[0]["display_name"] != name:
-        raise ValueError("Character name update was not acknowledged")
-    if personality is not None and rows[0]["personality"] != personality:
-        raise ValueError("Character personality update was not acknowledged")
-    return {"character": rows[0]}
+
+
+async def _ack_update(
+    page: Any,
+    project_id: str,
+    entity_id: str,
+    data: Any,
+    name: object,
+    personality: object,
+    voice: object,
+) -> dict[str, Any]:
+    try:
+        rows = parse_native_characters([None, [], [], [], None, data], project_id)
+        if len(rows) != 1 or rows[0]["entity_id"] != entity_id:
+            raise ValueError("Character mutation acknowledgement has an unrelated identity")
+        if name is not None and rows[0]["display_name"] != name:
+            raise ValueError("Character name update was not acknowledged")
+        if personality is not None and (rows[0]["personality"] or "") != personality:
+            raise ValueError("Character personality update was not acknowledged")
+        if voice is not None and rows[0]["voice"] != voice:
+            raise ValueError("Character preset assignment was not acknowledged")
+        if voice is not None or personality == "":
+            consecutive = 0
+            for attempt in range(6):
+                fresh = parse_native_characters(
+                    await read_project_payload(page, project_id), project_id
+                )
+                matches = [
+                    row
+                    for row in fresh
+                    if row["entity_id"] == entity_id
+                    and (voice is None or row["voice"] == voice)
+                    and (personality != "" or (row["personality"] or "") == "")
+                ]
+                consecutive = consecutive + 1 if matches else 0
+                if matches and consecutive >= (2 if personality == "" else 1):
+                    return {"character": matches[0]}
+                if attempt < 5:
+                    await asyncio.sleep(1)
+            raise ValueError("Character metadata update not yet visible")
+        return {"character": rows[0]}
+    except Exception as exc:
+        raise CharacterUpdateError(entity_id) from exc

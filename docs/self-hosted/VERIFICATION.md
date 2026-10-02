@@ -1,6 +1,6 @@
 # Self-hosted fork verification
 
-Measured on 2026-10-02 using one authenticated Google AI Pro profile served by `flow.google.com`. Current snapshot: one/two-reference character creation and initial notes are live verified; voice assignment remains unsupported. Latest offline gate is 5,098 passed, 47 skipped and 90.56% coverage. Earlier gate results below describe their recorded historical snapshots.
+Measured on 2026-10-02 using one authenticated Google AI Pro profile served by `flow.google.com`. Current snapshot: one/two-reference character creation, initial notes and system preset assignment are live verified through the native adapter. CLI/MCP live surface verification is recorded separately below. Latest offline gate is 5,220 passed, 47 skipped and 90.71% code coverage. Earlier gate results below describe their recorded historical snapshots.
 
 | Surface | Evidence | Result |
 |---|---|---|
@@ -49,9 +49,9 @@ Native account project paging was measured through UpteDb: two pages of 21 entri
 
 Deployed native HTTP catalog BDD: **1 passed in 33.03 seconds**, with no generation or solving. It verified two disjoint native account project pages, project-scoped character summaries and dynamic system voices. Earlier observations measured 42 distinct projects across two pages and 30 system voices. Character lifecycle proof and the latest stable full regression were subsequently completed below.
 
-Native character adapter proof passed without generation: create draft, copy an existing owned image into it, observe visible project catalog, update name/personality and delete. The source stayed active and copied workflow differed; probe characters were cleaned up. The deployed HTTP CRUD BDD later passed as recorded below. Initial personality-on-create is implemented through a validated post-copy update; the subsequent two-reference proof below supersedes this one-reference snapshot; voice assignment remains unsupported. Initial-personality HTTP CRUD is live verified.
+Native character adapter proof passed without generation: create draft, copy an existing owned image into it, observe visible project catalog, update name/personality and delete. The source stayed active and copied workflow differed; probe characters were cleaned up. The deployed HTTP CRUD BDD later passed as recorded below. Initial personality-on-create is implemented through a validated post-copy update; the subsequent two-reference proof below supersedes this one-reference snapshot; voice assignment was unsupported in that historical snapshot; the later preset-assignment proof supersedes this limitation. Initial-personality HTTP CRUD is live verified.
 
-Deployed HTTP character CRUD BDD: **1 passed in 91.94 seconds**, without generation or solving. It created a character by copying an existing owned image with initial notes, PATCHed notes, GET-verified stored references/notes, DELETEd it, confirmed HTTP 404 and verified the source image remained active. All test entities were cleaned up. This proves the one-image metadata flow. The later two-reference proof below expands it; voice assignment remains unsupported.
+Deployed HTTP character CRUD BDD: **1 passed in 91.94 seconds**, without generation or solving. It created a character by copying an existing owned image with initial notes, PATCHed notes, GET-verified stored references/notes, DELETEd it, confirmed HTTP 404 and verified the source image remained active. All test entities were cleaned up. This proves the one-image metadata flow. The later two-reference proof below expands it; voice assignment was unsupported in that historical snapshot; the later preset-assignment proof supersedes this limitation.
 
 Previous one-reference publication gate: **5,085 passed, 47 skipped; 90.44% coverage**, in 223.54 seconds. Ruff checked 570 files cleanly and strict Pyright reported zero errors. Tracked repository hygiene, documentation links, privacy/mirror and council checks passed; staged private-identifier and actual CapSolver-key scans were clean. This gate covers the published implemented scope, not complete useapi parity. At that recorded snapshot, second-reference work was still a spike; the later completed gate below supersedes that limit.
 
@@ -69,3 +69,120 @@ metadata update was observed. Unknown `WuwhI` requests were aborted without
 classifying their purpose. This result is **inconclusive for Google voice support**
 and does not enable REST assignment/custom voices. Read
 [the redacted transition evidence](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).
+
+## Native preset assignment (current expansion)
+
+The native adapter BDD passed **1 test in 65.12 seconds**, without generation or
+solving: two copied existing references, initial notes and Charon assignment,
+Aoede update, fresh metadata reads and owned-character cleanup. Both original
+source images remained active. This verifies persisted system preset assignment,
+without a rendered speech or generation-binding claim. CLI/MCP use the same
+native SDK/service but need their separate surface proof.
+
+## CLI/MCP first lifecycle run (diagnostic result)
+
+The new actual CLI subprocess and registered MCP tool scenarios created two
+existing-reference characters with initial notes and Charon successfully. Their
+notes-clear updates then returned typed unknown mutation outcomes, so the full
+run was **2 failed in 140.73 seconds**. Both owned entities were removed in test
+teardown. This diagnostic exposed a native clear acknowledgement/persistence
+mismatch; it is not a successful surface lifecycle proof. The native owner is
+repairing and remeasuring it before a complete rerun. No generation or solver
+was invoked.
+
+## Native notes-clear repair
+
+The native owner repaired the clear-field wire representation and fresh-read
+normalization: empty personality is represented as absent/`None` in the returned
+DTO. The adapter BDD passed **1 test in 69.90 seconds**: notes cleared while the
+name, Charon preset and two copied references remained intact, followed by owned
+entity cleanup. This supersedes the native limitation exposed by the first
+CLI/MCP run; the separate surface lifecycle rerun is in progress.
+
+## Actual CLI/MCP native surface proof
+
+The surface rerun passed **3 tests in 265.40 seconds** (2 warnings). The tests
+invoked the actual CLI subprocess and registered MCP adapter independently,
+using existing, active, locally verified native references:
+
+- Each character surface created two copied references with initial notes and
+  Charon, listed/read the entity, cleared notes, renamed/set new notes and Aoede,
+  read persisted metadata, then removed its exact owned identity.
+- CLI/MCP native project inventory returned matching IDs across two disjoint
+  pages using the opaque cursor. Their media snapshots agreed on native image/
+  video identities and kinds, reported `complete: null`, and omitted signed URLs.
+
+All owned character fixtures were cleaned. No generation or solver was invoked.
+The first notes-clear failure above is superseded by this successful surface
+rerun. The SDK inventory scenario was deselected by its different cost tag in this
+combined run. Its explicit strengthened rerun then passed **1 test in 11.42
+seconds** (2 warnings), requiring 21 + 21 disjoint project rows, a nonempty
+opaque cursor, mixed native image/video kinds and dimensions, unknown
+completeness and omitted signed URLs. This is a separate SDK proof.
+
+## Deployed HTTP preset and notes-clear proof
+
+After restarting the API and MCP services on the current source, the deployed
+HTTP character lifecycle BDD passed **1 test in 123.99 seconds**: create two
+copied references with initial notes/Charon, PATCH Aoede/new notes, GET persisted
+metadata, clear notes, GET confirm preserved Aoede/two references, DELETE/404,
+and confirm both original sources remain active. The owned fixture was cleaned.
+No generation or solver was invoked. This expands the earlier HTTP proof with
+preset assignment and repaired notes clearing.
+
+## Base wheel runtime dependency regression
+
+A fresh base wheel installation initially failed before any command parsed:
+CLI imports the shared native character service, whose image verification needs
+Pillow; Pillow had previously been optional. The dependency was promoted to core
+and the lock regenerated. The actual fresh built/installed wheel documentation
+integration then passed **2 tests in 3.08 seconds** with no checkout fallback.
+The effective base-plus-chain dependency test retains bounded Pillow and PyAV
+requirements; all **26 chain tests passed in 0.69 seconds**. `uv lock --check`
+passed. This verifies a real base installation rather than relying on a developer
+machine's optional dependencies.
+
+
+## Publication gate — 2026-10-03
+
+Final complete offline regression: **5,220 passed, 47 skipped, 15 warnings;
+90.71% code coverage**, in **218.95 seconds**. Coverage measures exercised code;
+it is not Google generation success or useapi feature parity. Whole-tree Ruff
+checks and formatting (588 files), strict Pyright (zero errors), repository
+hygiene, documentation links, published privacy/mirror/navigation and council
+memory checks passed. The duplication proxy reports two unchanged experimental
+transport blocks; the touched local CLI/MCP project duplicate was extracted.
+
+Fresh built/installed wheel verification passed **2 tests in 3.08 seconds**;
+Pillow is now a declared core dependency for native image-reference validation.
+The chain dependency suite passed 26 tests and the lock check passed. A
+header-valid truncated JPEG is rejected before browser allocation: verification
+now checks both file integrity and actual pixel decoding. Two existing private
+catalog references also passed this local check without accessing Flow.
+
+Independent review found and corrected a populated human project-list key
+mismatch, character Rich rendering of literal user metadata, and loss of known
+deletions when a later batch target is refused before mutation. Exit 40 preserves
+unknown mutation identities or known completed references with the distinct
+partial-batch problem type; no mutation replay was added. Image recovery spans
+CLI, REST, queued MCP and batch failures/restart, preserving known handles and
+completed files. Callback responses are streamed and closed without reading
+their bodies; the existing DNS pinning, HTTPS, allowlist and attempt limits remain.
+
+Manual six-axis surface review:
+
+| Axis | Result |
+|---|---|
+| Execution paths | Native metadata/inventory use shared SDK services through direct CLI/MCP; CRUD has no replayable queue. Image recovery covers direct, REST, queued and batch callers. |
+| MCP truth | Native create/update/remove and project/media parameters match their CLI mirrors; explicit deletion confirmation and unknown completeness are documented. |
+| Agent surfaces | README, AGENTS, llms, index and both shipped gflow skills describe the new commands and the older portrait-generation exception. |
+| Errors | Exit 40 distinguishes unknown writes from confirmed partial deletion. First preflight refusal remains configuration error; recovery errors are nonretryable. |
+| Declarative surfaces | No new operator setting for native metadata/inventory; the recovery invocation variable is internal. Runtime dependencies and lock are consistent. |
+| Docs/mirror | CLI/MCP usage, character guide, API, surface matrix and compatibility inventory updated; deployment-specific guides stay in fork documentation. |
+
+Only pro1 was used. All owned character fixtures were cleaned up, both source
+images remained active, and this expansion submitted no image/video/TTS
+generation or solver task. Full useapi parity remains open in the compatibility
+inventory; accepted CapSolver generation is still guarded.
+
+Authenticated deployed REST capability discovery passed (401 without bearer,200 with bearer). The restarted Streamable HTTP MCP service exposed22tools, including native create/update/remove and project/media tools, through actual protocol initialization/listing. No generation tool was called during registration verification.

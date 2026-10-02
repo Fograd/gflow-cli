@@ -382,3 +382,208 @@ async def test_private_worker_keeps_both_reference_ids_and_assertion(monkeypatch
         },
     )
     assert result["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_create_ack_loss_is_unknown_not_replayable(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    monkeypatch.setattr(
+        module,
+        "read_project_payload",
+        pytest.importorskip("unittest.mock").AsyncMock(return_value=[None, [], [], [], None, []]),
+    )
+    monkeypatch.setattr(
+        module, "project_media", lambda *a: [{"workflow_id": P, "media_id": E, "archived": False}]
+    )
+    rpc = pytest.importorskip("unittest.mock").AsyncMock(side_effect=ValueError("Lost ack"))
+    monkeypatch.setattr(module, "_rpc", rpc)
+    with pytest.raises(module.CharacterCreationError):
+        await module.mutate_character(
+            None, P, "create", name="Name", source_media_id=E, image_reference_confirmed=True
+        )
+    assert rpc.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_update_ack_loss_retains_ref(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    mock = pytest.importorskip("unittest.mock")
+    monkeypatch.setattr(
+        module,
+        "read_project_payload",
+        mock.AsyncMock(return_value=[None, [], [], [], None, [[P, E, None, [1, "Name", []]]]]),
+    )
+    rpc = mock.AsyncMock(return_value=[[P, E, None, [1, "Wrong", []]]])
+    monkeypatch.setattr(module, "_rpc", rpc)
+    with pytest.raises(module.CharacterUpdateError) as caught:
+        await module.mutate_character(None, P, "update", E, name="Requested")
+    assert caught.value.entity_id == E
+    assert rpc.await_count == 1
+
+
+def test_voice_update_measured_mask_and_lowercase():
+    assert update_payload(P, E, voice="Charon") == [
+        [P, E, None, [1, None, [None, [[None, "charon"]]]]],
+        [["entity_info.character_info.audio_references"]],
+    ]
+
+
+@pytest.mark.parametrize("voice", ["", "missing", False, []])
+def test_voice_update_rejects_clear_unknown_and_wrong_type(voice):
+    with pytest.raises(ValueError):
+        update_payload(P, E, voice=voice)
+
+
+def test_audio_parser_exposes_only_measured_system_identity():
+    payload = [
+        None,
+        [],
+        [],
+        [],
+        None,
+        [[P, E, None, [1, "Name", [[], [[None, "charon"]], "Calm"]]]],
+    ]
+    row = parse_native_characters(payload, P)[0]
+    assert row["voice"] == "Charon"
+    assert row["preset_voice_id"] == "charon"
+    payload[5][0][3][2][1] = [["unmeasured-custom-shape"]]
+    assert parse_native_characters(payload, P)[0]["voice"] is None
+
+
+def voice_project(audio=None):
+    details = [None] * 11
+    details[10] = [
+        [
+            "Charon",
+            "Description",
+            True,
+            "https://gstatic.com/aitestkitchen/voices/samples/Charon.wav",
+        ]
+    ]
+    return [
+        None,
+        [],
+        [],
+        [["preset", 3, "Charon", details]],
+        None,
+        [[P, E, None, [1, "Name", [[[P]], audio, "Calm"]]]],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_voice_update_ack_and_stale_read_poll_preserve_metadata(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    reads = iter([voice_project(), voice_project(), voice_project([[None, "charon"]])])
+    calls = []
+
+    async def read(*args):
+        return next(reads)
+
+    async def rpc(page, project, verb, args):
+        calls.append(verb)
+        assert args == update_payload(P, E, voice="Charon")
+        return voice_project([[None, "charon"]])[5]
+
+    async def sleep(*args):
+        pass
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(module, "_rpc", rpc)
+    monkeypatch.setattr(module.asyncio, "sleep", sleep)
+    result = await module.mutate_character(None, P, "update", E, voice="Charon")
+    assert result["character"]["voice"] == "Charon"
+    assert result["character"]["workflow_ids"] == [P]
+    assert result["character"]["personality"] == "Calm"
+    assert result["character"]["display_name"] == "Name"
+    assert calls == ["rzMKMb"]
+
+
+@pytest.mark.asyncio
+async def test_voice_update_wrong_ack_identity_never_replays(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    calls = []
+
+    async def read(*args):
+        return voice_project()
+
+    async def rpc(*args):
+        calls.append("write")
+        rows = voice_project([[None, "charon"]])[5]
+        rows[0][1] = P
+        return rows
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(module, "_rpc", rpc)
+    with pytest.raises(module.CharacterUpdateError) as error:
+        await module.mutate_character(None, P, "update", E, voice="Charon")
+    assert error.value.entity_id == E
+    assert calls == ["write"]
+
+
+@pytest.mark.asyncio
+async def test_voice_absent_from_actual_catalog_prevents_all_mutation(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    async def read(*args):
+        return voice_project()
+
+    async def rpc(*args):
+        pytest.fail("Catalog validation precedes mutation")
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(module, "_rpc", rpc)
+    with pytest.raises(ValueError, match="current native"):
+        await module.mutate_character(None, P, "update", E, voice="Aoede")
+
+
+@pytest.mark.asyncio
+async def test_voice_rpc_timeout_preserves_identity_without_replay(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    calls = []
+
+    async def read(*args):
+        return voice_project()
+
+    async def rpc(*args):
+        calls.append("write")
+        await module.asyncio.Event().wait()
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(module, "_rpc", rpc)
+    monkeypatch.setattr(module, "POST_MUTATION_TIMEOUT", 0.01)
+    with pytest.raises(module.CharacterUpdateError) as error:
+        await module.mutate_character(None, P, "update", E, voice="Charon")
+    assert error.value.entity_id == E
+    assert calls == ["write"]
+
+
+@pytest.mark.asyncio
+async def test_empty_notes_null_ack_and_stale_visibility_are_success(monkeypatch):
+    from gflow_cli.api.transports import migrated_characters as module
+
+    cleared = voice_project()
+    cleared[5][0][3][2] = [[[P]]]
+    reads = iter([voice_project(), cleared, voice_project(), cleared, cleared])
+    calls = []
+
+    async def read(*args):
+        return next(reads)
+
+    async def rpc(*args):
+        calls.append("write")
+        return cleared[5]
+
+    async def sleep(*args):
+        pass
+
+    monkeypatch.setattr(module, "read_project_payload", read)
+    monkeypatch.setattr(module, "_rpc", rpc)
+    monkeypatch.setattr(module.asyncio, "sleep", sleep)
+    result = await module.mutate_character(None, P, "update", E, personality="")
+    assert result["character"]["personality"] is None
+    assert calls == ["write"]

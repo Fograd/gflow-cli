@@ -42,6 +42,9 @@ from gflow_cli.mcp import tools as mcp_tools
 # CLI leaf → MCP tool that covers it. One tool may cover several leaves when a
 # parameter selects the behaviour (e.g. gflow_generate_video's ``mode``).
 CLI_TO_MCP: dict[str, str] = {
+    "character create-from-images": "gflow_character_create_from_images",
+    "character update": "gflow_character_update",
+    "character rm": "gflow_character_rm",
     "character list": "gflow_character_list",
     "character voices": "gflow_character_voices",
     "character show": "gflow_character_show",
@@ -63,6 +66,7 @@ CLI_TO_MCP: dict[str, str] = {
     "image upscale": "gflow_upscale_image",
     "video upscale": "gflow_upscale_video",
     "project list": "gflow_list_projects",
+    "project media": "gflow_project_media",
     "instructions list": "gflow_instructions_list",
     "instructions add": "gflow_instructions_add",
     "instructions enable": "gflow_instructions_set_enabled",  # enabled=True
@@ -114,13 +118,6 @@ _MCP_EXEMPT: dict[str, str] = {
         "The port is an adapter over services/character_create.py; what needs "
         "deciding is worker-enqueue vs inline (#481) and whether it should honour "
         "GFLOW_MCP_NO_SPEND"
-    ),
-    "character rm": (
-        "irreversible deletion of a user-owned Flow entity — deliberately CLI-only, "
-        "same rule as `data prune`/`data errors prune`. The CLI gates it behind a "
-        "confirmation prompt that has no MCP equivalent, so an agent cannot take "
-        "informed consent on the user's behalf (the #481 shape). Note it is FREE, "
-        "so cost is NOT the reason — irreversibility is"
     ),
     # Deferred with a named shape, not a policy exclusion (#861). The consumer that
     # filed #861 IS an agent, so "agents do not need it" would be false. What is true is
@@ -231,6 +228,8 @@ _CLI_ONLY_PARAMS: frozenset[str] = frozenset(
 #: Keep this small -- a rename with no reason is drift, not translation.
 _PARAM_ALIASES: dict[str, str] = {
     "project_id": "project",
+    "name": "display_name",  # metadata commands; selector tools retain raw name
+    "assume_yes": "confirm_delete",  # explicit deletion authorization
     "refs": "reference_images",
     "tool_specs": "tools",
     "image": "initial_frame",

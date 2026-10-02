@@ -14,6 +14,7 @@ from gflow_cli.api.image import Aspect, GenerateImageRequest, Model
 from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
 from gflow_cli.config import get_settings
 from gflow_cli.errors import WafRejectionError, WireFormatError
+from gflow_cli.image_recovery import create_journal, download_images
 from gflow_cli.selfhost.captcha import CaptchaStats, ProviderKeys, Solver, SolverError
 
 
@@ -90,14 +91,15 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
                 project_id=project, req=request, count=payload["count"]
             )
             generating = False
+            create_journal(out, images)
             if payload.get("seed") is not None:
                 actual = sorted(image.seed for image in images)
                 expected = list(range(payload["seed"], payload["seed"] + payload["count"]))
                 if actual != expected:
                     raise WireFormatError(detail="Google returned different seeds than requested")
-            paths: list[Path] = []
-            for image in images:
-                paths.append(await client.download_image(image, out / (image.media_name + ".png")))
+            paths = await download_images(
+                client, images, [out / (image.media_name + ".png") for image in images]
+            )
             result = json_output.image_result(
                 command="selfhost images",
                 project_id=project,

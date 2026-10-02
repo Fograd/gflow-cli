@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 import structlog
 from rich.console import Console
+from rich.markup import escape
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _make_provider_dir, _resolve_profile, run_with_handlers
@@ -19,7 +20,18 @@ from gflow_cli.api.character import (
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.config import get_settings
 from gflow_cli.data.recorder import OperationRecorder
+from gflow_cli.errors import ConfigurationError
 from gflow_cli.services.character_create import character_create
+from gflow_cli.services.native_characters import (
+    create_character_from_images as native_create_character_from_images,
+)
+from gflow_cli.services.native_characters import (
+    update_character as native_update_character,
+)
+from gflow_cli.services.native_characters import (
+    validate_create_inputs,
+    validate_update_inputs,
+)
 
 console = Console()
 log = structlog.get_logger(__name__)
@@ -419,6 +431,108 @@ async def _run_rm(
 
 
 # ---------------------------------------------------------------------------
+# Native existing-image creation and metadata updates (no portrait generation)
+# ---------------------------------------------------------------------------
+
+
+@character.command("create-from-images")
+@click.option("--project", "project_id", required=True, help="Owning Flow project UUID.")
+@click.option("--name", required=True, help="Character display name (1–200 characters).")
+@click.option(
+    "--image-reference-1", required=True, help="Existing owned image media UUID (portrait)."
+)
+@click.option(
+    "--image-reference-2", default=None, help="Optional existing owned image UUID (body)."
+)
+@click.option("--personality", default=None, help="Optional notes, at most 2000 characters.")
+@click.option("--voice", default=None, help="Optional system preset voice; case-insensitive.")
+@click.option("--profile", default=None, help="Saved profile name.")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON output.")
+def create_from_images(
+    project_id: str,
+    name: str,
+    image_reference_1: str,
+    image_reference_2: str | None,
+    personality: str | None,
+    voice: str | None,
+    profile: str | None,
+    as_json: bool,
+) -> None:
+    """Copy existing project images into a saved character, without generating portraits.
+
+    Inspect an unconfirmed mutation before retrying. Original images are preserved;
+    this command is separate from the existing billed create saga.
+    """
+    voice = _normalize_voice(voice)
+    try:
+        validate_create_inputs(
+            project_id, name, image_reference_1, image_reference_2, personality, voice
+        )
+    except ConfigurationError as exc:
+        raise click.BadParameter(exc.detail) from None
+    resolved = _resolve_profile(profile)
+
+    async def execute() -> None:
+        result = await native_create_character_from_images(
+            profile=resolved,
+            project_id=project_id,
+            display_name=name,
+            image_reference_1=image_reference_1,
+            image_reference_2=image_reference_2,
+            personality=personality,
+            voice=voice,
+        )
+        if as_json:
+            json_output.emit({"status": "ok", "character": _char_to_dict(result)})
+        else:
+            _render_character_detail(result)
+
+    run_with_handlers(execute, cli_command="character create-from-images", as_json=as_json)
+
+
+@character.command("update")
+@click.option("--project", "project_id", required=True, help="Owning Flow project UUID.")
+@click.option("--id", "entity_id", required=True, help="Owned character UUID.")
+@click.option("--name", default=None, help="New display name (1–200 characters).")
+@click.option("--personality", default=None, help="New notes; empty string clears them.")
+@click.option("--voice", default=None, help="Optional system preset voice; case-insensitive.")
+@click.option("--profile", default=None, help="Saved profile name.")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON output.")
+def update(
+    project_id: str,
+    entity_id: str,
+    name: str | None,
+    personality: str | None,
+    voice: str | None,
+    profile: str | None,
+    as_json: bool,
+) -> None:
+    """Update name, notes or a preset voice on an owned character, without generation."""
+    voice = _normalize_voice(voice)
+    try:
+        validate_update_inputs(project_id, entity_id, name, personality, voice)
+    except ConfigurationError as exc:
+        raise click.BadParameter(exc.detail) from None
+    resolved = _resolve_profile(profile)
+
+    async def execute() -> None:
+        result = await native_update_character(
+            profile=resolved,
+            project_id=project_id,
+            entity_id=entity_id,
+            display_name=name,
+            personality=personality,
+            voice=voice,
+        )
+        if as_json:
+            json_output.emit({"status": "ok", "character": _char_to_dict(result)})
+        else:
+            _render_character_detail(result)
+
+    run_with_handlers(execute, cli_command="character update", as_json=as_json)
+
+
+# ---------------------------------------------------------------------------
 # voices
 # ---------------------------------------------------------------------------
 
@@ -465,19 +579,19 @@ def _render_character_line(c: Character) -> None:
     wf_count = len(c.workflow_ids)
     voice_str = c.voice or "-"
     console.print(
-        f"[bold]{c.display_name}[/bold]  "
+        f"[bold]{escape(c.display_name)}[/bold]  "
         f"[dim]{c.entity_id}[/dim]  "
-        f"voice={voice_str}  "
+        f"voice={escape(voice_str)}  "
         f"refs={wf_count}"
     )
 
 
 def _render_character_detail(c: Character) -> None:
-    console.print(f"[bold green]Character:[/bold green] [bold]{c.display_name}[/bold]")
-    console.print(f"  entity_id:  {c.entity_id}")
-    console.print(f"  project_id: {c.project_id}")
-    console.print(f"  voice:      {c.voice or '-'}")
-    console.print(f"  personality:{c.personality or '-'}")
+    console.print(f"[bold green]Character:[/bold green] [bold]{escape(c.display_name)}[/bold]")
+    console.print(f"  entity_id:  {c.entity_id}", markup=False)
+    console.print(f"  project_id: {c.project_id}", markup=False)
+    console.print(f"  voice:      {c.voice or '-'}", markup=False)
+    console.print(f"  personality:{c.personality or '-'}", markup=False)
     console.print(f"  refs ({len(c.workflow_ids)}):")
     for wf in c.workflow_ids:
-        console.print(f"    {wf}")
+        console.print(f"    {wf}", markup=False)

@@ -33,10 +33,10 @@ import structlog
 
 from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
-from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import AgentInstruction, GenerateImageRequest
 from gflow_cli.api.image_upscale import TargetResolution
+from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
 from gflow_cli.auth import verification
 from gflow_cli.cli_image import lookup_project_in_catalog
@@ -51,12 +51,24 @@ from gflow_cli.mcp.server import server
 from gflow_cli.profile_store import (
     NoDefaultProfileError,
     NoProfilesError,
-    account_locale_for,
     resolve_profile,
 )
+from gflow_cli.project_output import local_project_payload
 from gflow_cli.services.credits import inspect_all_profiles as inspect_all_credit_profiles
 from gflow_cli.services.credits import inspect_profile as inspect_credit_profile
 from gflow_cli.services.media_recovery import download_media
+from gflow_cli.services.native_characters import (
+    create_character_from_images as native_create_character_from_images,
+)
+from gflow_cli.services.native_characters import (
+    normalize_preset_voice,
+    validate_character_selector,
+    validate_create_inputs,
+    validate_update_inputs,
+)
+from gflow_cli.services.native_characters import (
+    update_character as native_update_character,
+)
 from gflow_cli.worker import codec
 from gflow_cli.worker.daemon import FlowWorker
 from gflow_cli.worker.queue import QueueRepository
@@ -1324,6 +1336,148 @@ def _character_to_dict(char: Any) -> dict[str, Any]:
 
 
 @server.tool(
+    name="gflow_character_create_from_images",
+    description=(
+        "Create a native Flow character by copying one or two existing owned image IDs. "
+        "Portrait/body slots are 0/1; originals remain active. No portrait generation or credits. "
+        "Direct bounded operation, not queued; inspect partial identity before retrying."
+    ),
+)
+@_guarded
+async def gflow_character_create_from_images(
+    project: str,
+    display_name: str,
+    image_reference_1: str,
+    image_reference_2: str | None = None,
+    personality: str | None = None,
+    voice: str | None = None,
+    profile: str = _DEFAULT_PROFILE,
+) -> dict[str, Any]:
+    """Copy owned images into a native character without generating a portrait.
+
+    Args:
+        project: Owning project UUID.
+        display_name: Character name, 1–200 characters.
+        image_reference_1: Existing owned image media UUID (portrait).
+        image_reference_2: Optional existing owned image media UUID (body).
+        personality: Optional notes, at most 2000 characters.
+        voice: Optional system preset; case-insensitive, no custom synthesis.
+        profile: Saved profile name.
+    """
+    voice = normalize_preset_voice(voice)
+    validate_create_inputs(
+        project, display_name, image_reference_1, image_reference_2, personality, voice
+    )
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    async with _profile_lock(resolved):
+        char = await native_create_character_from_images(
+            profile=resolved,
+            project_id=project,
+            display_name=display_name,
+            image_reference_1=image_reference_1,
+            image_reference_2=image_reference_2,
+            personality=personality,
+            voice=voice,
+        )
+    return {"status": "ok", "project": project, "character": _character_to_dict(char)}
+
+
+@server.tool(
+    name="gflow_character_update",
+    description=(
+        "Change native character name, notes or system preset metadata without generation. "
+        "No credits; empty personality clears notes. Direct bounded operation, not queued; "
+        "an unknown outcome is non-retryable and must be inspected."
+    ),
+)
+@_guarded
+async def gflow_character_update(
+    project: str,
+    entity_id: str,
+    display_name: str | None = None,
+    personality: str | None = None,
+    voice: str | None = None,
+    profile: str = _DEFAULT_PROFILE,
+) -> dict[str, Any]:
+    """Update an existing owned native character.
+
+    Args:
+        project: Owning project UUID.
+        entity_id: Existing owned character UUID.
+        display_name: Optional new name, 1–200 characters.
+        personality: Optional new notes, at most 2000 characters; empty clears.
+        voice: Optional system preset; case-insensitive, no custom synthesis.
+        profile: Saved profile name.
+    """
+    voice = normalize_preset_voice(voice)
+    validate_update_inputs(project, entity_id, display_name, personality, voice)
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    async with _profile_lock(resolved):
+        char = await native_update_character(
+            profile=resolved,
+            project_id=project,
+            entity_id=entity_id,
+            display_name=display_name,
+            personality=personality,
+            voice=voice,
+        )
+    return {"status": "ok", "project": project, "character": _character_to_dict(char)}
+
+
+@server.tool(
+    name="gflow_character_rm",
+    description=(
+        "Permanently remove an owned Flow character. Requires explicit confirm_delete=true. "
+        "Pre-reads ownership/name before deleting. No credits, direct operation, no replay; "
+        "inspect an unconfirmed outcome before any explicit retry."
+    ),
+)
+@_guarded
+async def gflow_character_rm(
+    project: str,
+    entity_id: str | None = None,
+    name: str | None = None,
+    confirm_delete: bool = False,
+    profile: str = _DEFAULT_PROFILE,
+) -> dict[str, Any]:
+    """Remove one character only after an explicit deletion confirmation.
+
+    Args:
+        project: Owning project UUID.
+        entity_id: Existing owned character UUID; mutually exclusive with name.
+        name: Exact display name; ambiguous names are refused.
+        confirm_delete: Must be true to authorize permanent deletion.
+        profile: Saved profile name.
+    """
+    if confirm_delete is not True:
+        return _bad_param(
+            "Deletion confirmation required", "Set confirm_delete=true to remove this character."
+        )
+    validate_character_selector(project, entity_id, name)
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with (
+        _profile_lock(resolved),
+        FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client,
+    ):
+        char = await client.get_character(project, entity_id=entity_id, name=name)
+        await client.delete_characters(project, [char.entity_id])
+    return {
+        "status": "ok",
+        "project": project,
+        "deleted": {"entity_id": char.entity_id, "display_name": char.display_name},
+    }
+
+
+@server.tool(
     name="gflow_character_list",
     description=(
         "List the saved Flow CHARACTER entities in a project, with their entity ids. "
@@ -1700,28 +1854,58 @@ async def gflow_upscale_video(
 @server.tool(
     name="gflow_list_projects",
     description=(
-        "List all projects in the local gflow catalog. "
-        "Returns project IDs, names, and creation dates from the SQLite database."
+        "List local catalog projects by default, or source=google for a native account page. "
+        "Google pages use an opaque cursor and fixed size 21; completeness remains unknown."
     ),
 )
 @_guarded
 async def gflow_list_projects(
     profile: str = _DEFAULT_PROFILE,
-    limit: int = 50,
+    limit: int | None = None,
     offset: int = 0,
+    source: str = "local",
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """List projects from the local SQLite catalog.
+    """List local SQLite rows or an explicitly selected native Google page.
 
     Args:
         profile: gflow-cli profile name to filter by.
-        limit: Maximum number of projects to return per page.
+        source: local catalog (default) or live google account snapshot.
+        cursor: Opaque next_cursor from a Google page; at most 4096 characters.
+        limit: Local page size, default 50; omit for Google pages.
         offset: Number of rows to skip — pass the previous page's
             ``next_offset`` to fetch the next page (#498).
 
     Returns:
-        Dict with 'projects' list and honest pagination info: ``count``
-        (rows in this page), ``offset``, ``has_more``, ``next_offset``.
+        Local: projects/count/offset/has_more/next_offset. Google: projects,
+        next_cursor, returned_count, scope and complete=None. Google snapshots
+        neither update local catalog entries nor infer missing-project deletion.
     """
+    if source not in {"local", "google"}:
+        return _bad_param("Invalid native catalog controls", "source must be local or google")
+    if source == "google":
+        if limit is not None or offset != 0:
+            return _bad_param(
+                "Invalid native catalog controls",
+                "Google pages are fixed at 21; omit limit and offset",
+            )
+        if cursor is not None and (not cursor or len(cursor) > 4096):
+            return _bad_param(
+                "Invalid native catalog controls", "Google cursor must contain 1–4096 characters"
+            )
+        resolved = _resolve_and_validate_profile(profile)
+        if isinstance(resolved, dict):
+            return resolved
+        settings = get_settings()
+        async with _profile_lock(resolved):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                snapshot = await client.list_native_projects(cursor=cursor)
+        return {"status": "ok", **snapshot}
+    if cursor is not None:
+        return _bad_param("Invalid native catalog controls", "cursor requires source=google")
+    limit = 50 if limit is None else limit
     log.info("mcp.tool.list_projects", profile=profile, limit=limit)
 
     settings = get_settings()
@@ -1748,27 +1932,43 @@ async def gflow_list_projects(
     has_more = len(fetched) > limit
     return {
         "status": "ok",
-        "projects": [
-            {
-                "project_id": r.project_id,
-                "title": r.title,
-                "profile": r.profile,
-                "created_at": r.created_at.isoformat(),
-                "image_count": r.image_count,
-                "video_count": r.video_count,
-                # #587: account-correct editor link from the locale cached per
-                # profile. Bare URL when unknown — never a guessed `en`.
-                "url": routes.project_editor_url_or_none(
-                    account_locale_for(r.profile), r.project_id
-                ),
-            }
-            for r in rows
-        ],
+        "projects": [local_project_payload(row) for row in rows],
         "count": len(rows),
         "offset": offset,
         "has_more": has_more,
         "next_offset": offset + limit if has_more else None,
     }
+
+
+@server.tool(
+    name="gflow_project_media",
+    description="Read native project media; never syncs or deletes local catalog assets.",
+)
+@_guarded
+async def gflow_project_media(
+    project: str, source: str = "google", profile: str = _DEFAULT_PROFILE
+) -> dict[str, Any]:
+    """Read mixed native media; unknown kinds/completeness remain explicit.
+
+    Args:
+        project: Native project UUID.
+        source: Only google is supported for this read-only snapshot.
+        profile: Profile owning the selected project.
+    """
+    if source != "google":
+        return _bad_param("Invalid native catalog controls", "project media source must be google")
+    if not is_uuid(project):
+        return _bad_param("Invalid native project", "Native project identifier must be a UUID")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            snapshot = await client.list_native_media(project)
+    return {"status": "ok", **snapshot}
 
 
 @server.tool(
@@ -2262,6 +2462,7 @@ __all__ = [
     "gflow_generate_video",
     "gflow_list_tools",
     "gflow_list_projects",
+    "gflow_project_media",
     "gflow_download_media",
     "gflow_upscale_image",
     "gflow_upscale_video",

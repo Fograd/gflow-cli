@@ -295,3 +295,34 @@ Documented errors agents commonly make — negative examples for the SkillOpt tr
 ## Disclaimer
 
 gflow-cli is **not affiliated with Google**. Reverse-engineered; may break when Google changes Flow's private API. Read the [DISCLAIMER](https://github.com/ffroliva/gflow-cli/blob/main/DISCLAIMER.md) before deploying in any sensitive setting.
+
+### Native existing-image character metadata
+
+Use `gflow character create-from-images --project <UUID> --name <name>
+--image-reference-1 <media-UUID> [--image-reference-2 <media-UUID>]
+[--personality <notes>] [--voice <system-preset>] --profile <profile> --json`
+when images already exist. Both images must be owned native images in that
+project with integrity-verified local PNG/JPEG catalog copies. This copies into
+portrait/body slots and spends no generation credits. Keep generated-portrait
+`character create --face-prompt ...` separate.
+
+Use `character update --project <UUID> --id <UUID> [--name <name>]
+[--personality <notes>] [--voice <preset>] --json` for free metadata changes.
+Empty notes clear personality. MCP twins are `gflow_character_create_from_images`
+and `gflow_character_update`; native list/show use their existing twins. MCP
+removal is `gflow_character_rm` and requires explicit `confirm_delete: true`;
+CLI removal requires `--yes` for unattended use. Deletion affects the character,
+not original source images. System preset assignment is metadata, not a rendered
+speech proof or custom voice feature. Mutations run directly, never as a queued
+replay. CLI exit 40 / MCP nonretryable typed problems preserve known partial
+identities; inspect before creating again.
+
+### Native read-only inventory
+
+`gflow project list` defaults to the local catalog. Explicit `--source google`
+reads one native account page (fixed 21 rows; omit --limit), with `--cursor`
+forwarding the returned opaque cursor. `gflow project media --project <UUID>
+--source google --json` reads mixed native media identifiers/kinds/dimensions.
+Both return unknown completeness and perform no local sync or absence deletion.
+MCP twins are `gflow_list_projects(source="google", cursor=...)` (omit limit,
+use offset 0) and `gflow_project_media(project=<UUID>)`. No generation/solver calls.

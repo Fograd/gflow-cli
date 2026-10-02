@@ -638,6 +638,12 @@ def test_all_domain_errors_provide_remediation_hint() -> None:
     assert len(domain_classes) >= 30
 
     for exc_cls in domain_classes:
+        from gflow_cli.errors import CharacterMutationUnknownError
+
+        if issubclass(exc_cls, CharacterMutationUnknownError):
+            exc = exc_cls(project_id="11111111-1111-4111-8111-111111111111", operation="delete")
+            assert exc.to_problem_details().get("remediation_hint")
+            continue
         try:
             exc = exc_cls()
         except TypeError:

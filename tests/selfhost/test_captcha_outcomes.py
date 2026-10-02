@@ -62,7 +62,11 @@ async def run_failure(monkeypatch, tmp_path, error, *, download=False):
             override.used = True
             if not download:
                 raise error
-            return [SimpleNamespace(media_name="test", seed=42)]
+            return [
+                SimpleNamespace(
+                    workflow_id="workflow", dimensions=(8, 8), media_name="test", seed=42
+                )
+            ]
 
         async def download_image(self, *args):
             raise error

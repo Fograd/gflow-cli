@@ -119,7 +119,7 @@ async def test_i2v_cli_uses_owned_files_and_one_output(tmp_path, monkeypatch):
         None,
     )
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         assert args[3:5] == ["video", "i2v"]
         assert args[args.index("--initial-frame") + 1] == str(start)
         assert args[args.index("--end-frame") + 1] == str(end)
@@ -153,7 +153,7 @@ async def test_multi_video_crash_keeps_completed_checkpoint(tmp_path, monkeypatc
     )
     calls = 0
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         nonlocal calls
         calls += 1
         assert args[args.index("--count") + 1] == "1"
@@ -359,7 +359,7 @@ async def test_native_video_upload_and_archive_worker_contract(tmp_path, monkeyp
     media_id = str(uuid.uuid4())
     seen = []
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         seen.append(args)
         if args[3] == "upload-video":
             return 0, json.dumps({"status": "ok", "media_id": media_id}).encode()
@@ -407,7 +407,7 @@ def test_native_media_read_has_useapi_ids_and_local_scope_is_default(tmp_path, m
     media_id = str(uuid.uuid4())
     calls = []
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         calls.append(args)
         return 0, json.dumps(
             {
@@ -457,7 +457,7 @@ async def test_native_video_rights_required_has_safe_remedy(tmp_path, monkeypatc
     path = tmp_path / "video.mp4"
     path.write_bytes(b"fixture")
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         assert json.loads(args[5])["rights_confirmed"] is False
         return 0, json.dumps(
             {"status": "error", "code": "upload_rights_required", "detail": "untrusted detail"}

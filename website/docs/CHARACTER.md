@@ -571,3 +571,56 @@ The following are explicitly **out of the shipped scope** and tracked for future
 - **Saga code-quality refactor (non-blocking; Sonar duplication/complexity).** Extract a `_run_slot` helper for
   the duplicated face/body blocks in the create saga, and return a small DTO from `generate_character_image`
   instead of a 3-tuple cast.
+
+## Native characters from existing images (Flow, October 2026)
+
+`character create-from-images` copies one or two existing native images into a
+new project character. It spends no generation credits. The first reference is
+the portrait slot; the optional second is the body slot. Both must belong to the
+selected profile/project and have an integrity-verified local PNG/JPEG copy in
+`gflow`'s data catalog. An arbitrary uploaded UUID without that catalog record
+fails before mutation. Native ownership and active batch membership are checked
+again before creating the entity; the source images remain intact.
+
+```sh
+gflow character create-from-images --project "$PROJECT_ID" --profile pro1 \
+  --name "Example subject" --image-reference-1 "$PORTRAIT_MEDIA_ID" \
+  --image-reference-2 "$BODY_MEDIA_ID" --personality "Calm, curious" \
+  --voice Charon --json
+gflow character list --project "$PROJECT_ID" --profile pro1 --json
+gflow character show --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" --json
+gflow character update --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" \
+  --name "Updated subject" --personality "" --voice Aoede --json
+gflow character rm --project "$PROJECT_ID" --profile pro1 --id "$CHARACTER_ID" --yes --json
+```
+
+`update` changes name, personality notes, a system preset voice, or any combination.
+An empty personality string clears notes; a fresh native DTO may report `personality: null` for cleared notes. Names are 1–200 characters; notes are at
+most 2,000 characters. Voice names are case-insensitive and canonicalized; empty
+or custom voice identifiers fail validation. Preset assignment stores metadata;
+this does not prove rendered speech or support custom voice creation.
+
+The older `character create --face-prompt ... --body-prompt ...` command retains
+its generated-portrait workflow. Existing-image creation is a separate command.
+`character voices` displays the bundled preset catalog; it does not fetch a
+native account catalog.
+
+These native mutations execute directly and are not queued or replayed. If
+Google acknowledges creation but a later copy/update fails, CLI exit **40** and
+the structured problem preserve `character_ref` when known, `project_id`, and
+`operation`, with `retryable: false`. Inspect the project and known identity before
+issuing another creation. A timeout without an acknowledged identity can still
+have changed Google state. Deletion permanently removes the selected character;
+use `--yes` only after selecting its identity. It leaves the original image assets
+in the project.
+
+The current existing-image CLI and registered MCP adapter lifecycle is live
+verified: two reference copies, initial notes/Charon, notes clear, renamed/new
+notes/Aoede, fresh reads and exact-identity deletion. These two scenarios were
+part of the **3-test, 265.40-second** surface proof recorded in the
+[verification ledger](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/VERIFICATION.md#actual-climcp-native-surface-proof).
+No generation or solver was invoked.
+
+Native reference verification uses Pillow, installed automatically with the base
+package. Existing-image character commands do not require the optional video
+chain extra.

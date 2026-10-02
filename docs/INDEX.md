@@ -198,3 +198,6 @@ Slash commands for Claude Code, stored in `.claude/commands/gflow/`. All prefixe
 - Every new behaviour or env var needs a row in this index AND a section in the relevant `docs/*.md`.
 - Cross-link generously. Use markdown link syntax with an anchor wherever a reader might need to jump deeper — they should never get stuck.
 - Keep file size sane. If `docs/USAGE.md` grows past ~600 lines, split into `docs/USAGE/<topic>.md`.
+
+- [Surface coverage matrix](self-hosted/SURFACE_MATRIX.md): REST, SDK, CLI, MCP and queued feature scopes.
+- [Image download recovery](self-hosted/IMAGE_RECOVERY.md): preserve native handles and completed downloads after failure without resubmitting generation.

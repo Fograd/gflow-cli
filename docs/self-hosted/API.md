@@ -54,7 +54,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `GET /voices`, `/voices/{ref}` | Bundled presets by default; catalog=google reads native system presets; case-insensitive lookup |
 | `GET /characters`, `/characters/{ref}` | Native project summaries/detail |
 | `PATCH/DELETE /characters/{ref}` | Native metadata changes/removal; inspect unconfirmed outcomes before retry |
-| `POST /characters` | Native one/two-image creation with initial notes; voice assignment unsupported |
+| `POST /characters` | Native one/two-image creation with initial notes and system preset assignment |
 | `POST /videos` | Text, start/end image or image-ingredient video adapter, explicitly enabled; not verified with paid live generation in this deployment |
 | `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
@@ -159,7 +159,7 @@ unverified. `captchaOrder` and `captchaRetry` return501 before queueing because 
 native action remains unmeasured. Provider keys alone do not enable generation.
 
 Still unsupported: automatic image aspect, inline grounding/entity/audio controls,
-full character reference/voice creation and generation binding, custom voices, exact useapi deletion/full library sync,
+character generation binding, custom voice creation, exact useapi deletion/full library sync,
 video extension/V2V and video CAPTCHA overrides. Unknown controls return501.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
@@ -266,7 +266,7 @@ read.raise_for_status()
 # DELETE uses the same explicit account/project query controls when removal is intended.
 ```
 
-These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for one/two-image flows; voice assignment remains unsupported.
+These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for one/two-image flows; system preset voice assignment is now measured; rendered speech and custom voices remain unverified or unimplemented.
 
 For two references, add `imageReference_2` to the create request. Both must belong to the same account/project and pass validation before mutation. Portrait is slot 0 and body is slot 1. Copying both references and applying notes uses the same 45 second post-create deadline, with partial identity preserved on an unconfirmed outcome.
 
@@ -283,3 +283,20 @@ button candidate was unverified, the dialog stayed open and blocked the header
 commit. This is not evidence that Google lacks voice assignment. No TTS was
 generated and both owned test characters were removed. See the
 [redacted transition evidence](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).
+
+### Native system preset assignment
+
+`POST /characters` and `PATCH /characters/{ref}` accept `voice` as a case-insensitive
+system preset name, for example `Charon` or `Aoede`. An empty or unknown name is
+rejected before mutation. A voice-only PATCH is permitted. Create applies preset
+metadata after copying references within the shared mutation deadline; a partial
+failure preserves an acknowledged character reference. The native live BDD and deployed HTTP lifecycle
+verified Charon on creation, Aoede after update and notes clearing with
+preserved preset/two references, with both sources intact.
+This is assignment metadata, without a rendered speech or character-generation
+binding proof. Custom/user voice CRUD remains unsupported.
+
+For CLI/MCP native project inventory and character mirrors, see the
+[surface matrix](SURFACE_MATRIX.md). For preserved outputs after a failed download,
+see [image recovery](IMAGE_RECOVERY.md): inspect known native IDs/completed files
+before deciding on another generation submission.

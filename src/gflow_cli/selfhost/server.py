@@ -405,6 +405,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "jobs",
                 "voices/read-system",
                 "voices/read-system-native",
+                "characters/voice-binding",
                 "characters/read-native-project",
                 "characters/create-native-image-reference",
                 "characters/second-image-reference",
@@ -426,7 +427,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "notImplemented": [
                 "videos/seed",
                 "aspectRatio/auto",
-                "characters/voice-binding",
                 "voices/custom",
                 "images/provider-captcha-generation",
                 "captcha-google-refusal-retries",
@@ -880,6 +880,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             item["thumbnailMediaId"] = row["thumbnail_media_id"]
         if detail:
             item["personalityNotes"] = row.get("personality") or ""
+        if row.get("voice"):
+            item["voice"] = row["voice"]
         return item
 
     def character_project(controls: dict[str, Any]) -> tuple[str, str]:
@@ -897,6 +899,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             not isinstance(name, str) or not 1 <= len(name) <= 200 or not name.strip()
         ):
             raise HTTPException(422, "displayName requires 1 to 200 characters")
+        if "voice" in payload:
+            from gflow_cli.api.transports.migrated_characters import normalize_voice
+
+            try:
+                payload["voice"] = normalize_voice(payload["voice"])
+            except ValueError:
+                raise HTTPException(
+                    422, "voice requires a known system preset; clearing is unverified"
+                ) from None
         notes = payload.get("personalityNotes")
         if "personalityNotes" in payload and (not isinstance(notes, str) or len(notes) > 2000):
             raise HTTPException(422, "personalityNotes requires at most 2000 characters")
@@ -926,7 +937,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             partial_code = result.get("code")
             if (
                 partial_code
-                in ("character_binding_outcome_unknown", "character_delete_outcome_unknown")
+                in (
+                    "character_binding_outcome_unknown",
+                    "character_delete_outcome_unknown",
+                    "character_update_outcome_unknown",
+                )
                 and result.get("project_id") == data["project_id"]
             ):
                 identity_key = (
@@ -946,6 +961,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 ):
                     detail.update(code=partial_code, projectId=data["project_id"])
                     detail[identity_key] = validated_ref
+            if (
+                partial_code == "character_create_outcome_unknown"
+                and result.get("project_id") == data["project_id"]
+            ):
+                detail.update(code=partial_code, projectId=data["project_id"])
             raise HTTPException(502, detail)
         if verb == "character-delete":
             return {"deleted": result["deleted"], "scope": "native Google project character"}
@@ -965,6 +985,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "imageReference_1",
                 "imageReference_2",
                 "personalityNotes",
+                "voice",
             },
         )
         character_fields(payload)
@@ -1015,6 +1036,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "media_id": media_ids[0],
                 **({"second_media_id": media_ids[1]} if len(media_ids) > 1 else {}),
                 "image_reference_confirmed": True,
+                **({"voice": payload["voice"]} if "voice" in payload else {}),
                 **(
                     {"personality": payload["personalityNotes"]}
                     if "personalityNotes" in payload
@@ -1025,9 +1047,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.patch(prefix + "/characters/{ref}")
     async def patch_character(ref: str, payload: dict[str, Any]) -> dict[str, Any]:
-        check_unknown(payload, {"email", "projectId", "displayName", "personalityNotes"})
+        check_unknown(payload, {"email", "projectId", "displayName", "personalityNotes", "voice"})
         character_fields(payload)
-        if not ({"displayName", "personalityNotes"} & payload.keys()):
+        if not ({"displayName", "personalityNotes", "voice"} & payload.keys()):
             raise HTTPException(422, "At least one character metadata field is required")
         profile, project = character_project(payload)
         return await character_mutation(
@@ -1037,6 +1059,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "project_id": project,
                 "entity_id": uuid_value(ref, "ref"),
                 **({"display_name": payload["displayName"]} if "displayName" in payload else {}),
+                **({"voice": payload["voice"]} if "voice" in payload else {}),
                 **(
                     {"personality": payload["personalityNotes"]}
                     if "personalityNotes" in payload

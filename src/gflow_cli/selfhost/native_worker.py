@@ -17,7 +17,9 @@ from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
 from gflow_cli.api.transports.migrated_characters import (
     CharacterBindingError,
+    CharacterCreationError,
     CharacterDeletionError,
+    CharacterUpdateError,
     mutate_character,
 )
 from gflow_cli.api.transports.migrated_projects import list_projects
@@ -55,6 +57,7 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                     image_reference_confirmed=verified_image,
                     source_media_id=payload.get("media_id"),
                     second_media_id=payload.get("second_media_id"),
+                    voice=payload.get("voice"),
                 )
                 return {"status": "ok", "project_id": project_id, **result}
             if verb in {"characters-list", "voice-presets"}:
@@ -119,6 +122,21 @@ def main() -> None:
             "createdCharacterRef": exc.entity_id,
             "project_id": cast("dict[str, Any]", data).get("project_id"),
             "detail": "Character created but image binding failed; inspect before retrying",
+        }
+    except CharacterCreationError:
+        result = {
+            "status": "error",
+            "code": "character_create_outcome_unknown",
+            "project_id": cast("dict[str, Any]", data).get("project_id"),
+            "detail": "Creation outcome unknown; inspect before retrying",
+        }
+    except CharacterUpdateError as exc:
+        result = {
+            "status": "error",
+            "code": "character_update_outcome_unknown",
+            "characterRef": exc.entity_id,
+            "project_id": cast("dict[str, Any]", data).get("project_id"),
+            "detail": "Metadata update outcome unknown; inspect before retrying",
         }
     except CharacterDeletionError as exc:
         result = {

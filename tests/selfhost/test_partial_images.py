@@ -32,7 +32,7 @@ async def test_image_result_count_matches_request_and_preserves_outputs(
     calls = []
     ids = []
 
-    async def run(args, timeout):
+    async def run(args, timeout, **kwargs):
         calls.append(args)
         assert args[args.index("--count") + 1] == "4"
         out = tmp_path / "output" / job["jobId"]

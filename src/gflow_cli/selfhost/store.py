@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import json
 import math
+import mimetypes
 import sqlite3
 import time
 import uuid
@@ -179,8 +180,10 @@ class Store:
 
     def recover(self) -> None:
         with self.connection() as conn:
-            rows = conn.execute("SELECT id FROM jobs WHERE state='running'").fetchall()
+            rows = conn.execute("SELECT * FROM jobs WHERE state='running'").fetchall()
         for row in rows:
+            if row["kind"] == "images":
+                self.image_recovery(dict(row))
             self.finish(
                 row["id"],
                 "interrupted",
@@ -191,6 +194,63 @@ class Store:
                         "detail": "Daemon stopped during execution. "
                         "Inspect Flow before submitting again.",
                     }
+                },
+            )
+
+    def image_recovery(self, job: dict[str, Any], fallback: dict[str, Any] | None = None) -> None:
+        """Recover already-generated handles, without repeating any Google operation."""
+        from gflow_cli.image_recovery import read_journal
+
+        output_root = self.root / "output" / job["id"]
+        snapshot = fallback or read_journal(output_root, job["id"])
+        if not snapshot:
+            return
+        payload = json.loads(job["payload"])
+        known: list[str] = []
+        media: list[dict[str, Any]] = []
+        entries = snapshot.get("images", [])
+        if not isinstance(entries, list) or not 1 <= len(cast(list[Any], entries)) <= 4:
+            return
+        for item in cast(list[dict[str, Any]], entries):
+            try:
+                identifier = str(uuid.UUID(item["media_name"]))
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+            known.append(identifier)
+            if "local_path" not in item:
+                continue
+            local_path = item["local_path"]
+            if not isinstance(local_path, str) or len(local_path) > 4096:
+                continue
+            path = Path(local_path)
+            if path.is_symlink() or not path.resolve().is_relative_to(output_root.resolve()):
+                continue
+            try:
+                if not path.is_file() or not 0 < path.stat().st_size <= 250 * 1024 * 1024:
+                    continue
+            except OSError:
+                continue
+            mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            if mime not in ("image/png", "image/jpeg", "image/webp"):
+                continue
+            self.asset(identifier, job["profile"], payload["project"], str(path), mime)
+            media.append(
+                {
+                    "mediaGenerationId": identifier,
+                    "image": {
+                        "generatedImage": {"seed": item.get("seed"), **item.get("dimensions", {})}
+                    },
+                    "downloadPath": f"/v1/google-flow/assets/{identifier}/download",
+                }
+            )
+        if known:
+            self.checkpoint(
+                job["id"],
+                {
+                    "knownMediaGenerationIds": known,
+                    "media": media,
+                    "generatedCount": len(known),
+                    "completedCount": len(media),
                 },
             )
 

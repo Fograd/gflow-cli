@@ -56,7 +56,13 @@ class FakeFlowApiClient:
         self.generate_images_batch = AsyncMock()
         self.generate_video = AsyncMock()
         self.create_project = AsyncMock()
-        self.download_image = AsyncMock(return_value=Path("/tmp/fake.png"))
+
+        async def downloaded(image, target):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"fixture-image")
+            return target
+
+        self.download_image = AsyncMock(side_effect=downloaded)
 
     async def __aenter__(self):
         return self
@@ -1045,3 +1051,84 @@ async def test_a_mint_failure_reaches_an_mcp_caller_as_problem_details(
     assert not error["detail"].startswith("sha256:")
     assert "Execution context was destroyed" in error["detail"]
     assert error["retryable"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_second_image_transfer_preserves_handles_paths_without_regeneration(
+    temp_db, tmp_path, cancel
+):
+    repo = QueueRepository(temp_db)
+    task = repo.enqueue_task(
+        task_id="image-transfer-partial",
+        profile_name="default",
+        task_type="t2i",
+        payload={"prompt": "fixture", "count": 2, "output_file": str(tmp_path / "image.png")},
+    )
+    client = FakeFlowApiClient()
+    client.create_project.return_value = MagicMock(project_id="project-transfer", title="Fixture")
+    images = [
+        FakeGeneratedImage(media_name="first-image"),
+        FakeGeneratedImage(media_name="second-image"),
+    ]
+    client.generate_images_batch.return_value = images
+
+    async def transfer(image, path):
+        if image is images[1]:
+            raise asyncio.CancelledError() if cancel else RuntimeError("private signed URL")
+        path.write_bytes(b"first")
+        return path
+
+    client.download_image.side_effect = transfer
+    worker = FlowWorker("default", str(temp_db.path))
+    with patch("gflow_cli.worker.daemon.FlowApiClient", return_value=client):
+        if cancel:
+            with pytest.raises(asyncio.CancelledError):
+                await worker.process_task(task)
+        else:
+            await worker.process_task(task)
+    result = repo.get_task(task.task_id)
+    assert result.flow_media_id == "first-image"
+    assert result.checkpoint["media_ids"] == ["first-image", "second-image"]
+    assert result.error["imageRecovery"]["images"][0]["local_path"] == str(tmp_path / "image_1.png")
+    assert result.status == ("indeterminate" if cancel else "failed")
+    client.generate_images_batch.assert_called_once()
+    assert repo.claim_next_pending("default", claimant="retry") is None
+    worker.close()
+
+
+def test_restart_reads_newer_journal_without_submitting(temp_db, tmp_path):
+    from gflow_cli.image_recovery import ImageJournal
+    from gflow_cli.worker.queue import recover_processing
+
+    repo = QueueRepository(temp_db)
+    task = repo.enqueue_task(
+        task_id="crashed-image-transfer",
+        profile_name="default",
+        task_type="t2i",
+        payload={"prompt": "fixture", "count": 2},
+    )
+    repo.claim_task(task.task_id, claimant="crashed")
+    output = [
+        FakeGeneratedImage(media_name="first-image"),
+        FakeGeneratedImage(media_name="second-image"),
+    ]
+    journal = ImageJournal(tmp_path, output)
+    repo.update_checkpoint(
+        task.task_id,
+        claimant="crashed",
+        phase="remote_started",
+        may_have_spent=True,
+        media_ids=tuple(image.media_name for image in output),
+        image_journal=journal,
+    )
+    # Crash window: journal fsync completed before the next DB checkpoint.
+    path = tmp_path / "first.jpg"
+    path.write_bytes(b"first")
+    journal.complete(0, path)
+    counts = recover_processing(repo, "default", client=MagicMock())
+    assert counts["indeterminate"] == 1
+    result = repo.get_task(task.task_id)
+    assert result.flow_media_id == "first-image"
+    assert result.error["imageRecovery"]["images"][0]["local_path"] == str(path)
+    assert repo.claim_next_pending("default", claimant="retry") is None

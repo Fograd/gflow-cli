@@ -496,3 +496,62 @@ commands from §6.1, and `gflow --version`. **Redact** account identifiers, cook
 values, and signed media URLs before pasting anything into an issue. If you have an
 incident bundle, say so — but do not paste it: it contains prompts and can contain
 identity-bearing attributes.
+
+## Native existing-image character tools
+
+The following tools share the SDK native character service with the CLI. They
+run directly under the selected profile lock, without queued mutation replay.
+They are free metadata/image-copy operations and remain available with
+`GFLOW_MCP_NO_SPEND=1`.
+
+| Tool | Required fields | Optional fields |
+|---|---|---|
+| `gflow_character_create_from_images` | `project`, `display_name`, `image_reference_1` | `image_reference_2`, `personality`, `voice`, `profile` |
+| `gflow_character_update` | `project`, `entity_id` | `display_name`, `personality`, `voice`, `profile` |
+| `gflow_character_rm` | `project`, exactly one of `entity_id` / `name`, `confirm_delete: true` | `profile` |
+
+Creation requires catalogued, integrity-verified local PNG/JPEG copies of owned
+native images in the same profile/project. Two references fill portrait and body
+slots. Notes may be cleared with `personality: ""` (fresh reads may return `null`); system preset voice names are
+case-insensitive. Existing `gflow_character_list` and `gflow_character_show` read
+the native project character catalog through the SDK. Results expose stable
+identifiers and metadata, without signed CDN URLs.
+
+Removal pre-reads the selected entity and deletes that exact identity. Missing
+`confirm_delete: true` is rejected before profile/browser access. Partial or
+unknown mutation failures return the typed problem with `retryable: false`, the
+operation/project and acknowledged character identity when available. Do not
+blindly repeat creation after that result. See [the character guide](CHARACTER.md)
+for validation, source preservation and failure recovery. The generated-portrait
+CLI `character create` command still has no MCP twin.
+
+## Native project and media inventory
+
+Local project listing remains the default. To read the Google account catalog,
+use `gflow project list --source google --profile pro1 --json`; pass the returned
+opaque `next_cursor` through `--cursor` for another page. Google pages are fixed
+at 21 rows; supplying `--limit` is rejected. Cursors must contain 1–4,096
+characters and are forwarded without decoding. Local listing accepts its
+existing limit and MCP offset pagination; local listing rejects Google cursors.
+
+`gflow project media --project "$PROJECT_ID" --source google --profile pro1 --json`
+reads the selected native project asset snapshot. It returns stable media/project/
+workflow identifiers, measured `image`/`video` kinds and available dimensions;
+unknown kinds remain `unknown`. It excludes captions and signed URLs. This is a
+read-only snapshot with `complete: null`; it does not sync the local catalog or
+infer deletion from absent entries.
+
+MCP mirrors are `gflow_list_projects(source="google", cursor=..., profile=...)`
+and `gflow_project_media(project=..., source="google", profile=...)`. Omit MCP
+`limit` and use its default `offset=0` for Google pages; supplied limits or
+nonzero offsets fail before profile/browser access. Both native tools execute
+read-only under the profile lock and remain available in no-spend mode.
+
+For SDK sequential native deletion, a later ownership/preflight refusal after an
+earlier successful deletion is a distinct `CharacterBatchPartialError` (CLI exit
+40), not an unknown Google acknowledgement. Its problem retains
+`completed_character_refs`, the failed `character_ref`, and
+`failed_before_mutation: true`. The refused later identity was not written; the
+whole batch must not be replayed. A refusal before any deletion remains an
+ordinary configuration error. Single-identity MCP removal normally does not
+create this multi-item case, but typed errors retain these fields consistently.
