@@ -29,7 +29,7 @@ name in every capture) as `flow_operation_id`: not a workflow id, so labs record
   collision. Recorded at the SQL.
 - The two #912-council follow-ups (`MediaDownloadError` retryable; HTTP-error signed URL
   7 → 6) each change a public contract and serve two callers with opposite needs (the
-  generation download vs the `gflow_download_media` recovery). Filed separately for a
+  generation download vs the `gflow_download_media` recovery). Filed as #941 for a
   deliberate decision, not folded in here.
 
 ## Tasks
