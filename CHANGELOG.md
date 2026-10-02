@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A busy catalog no longer turns a successful generation into a failed one (#900).**
+  When another gflow process held the local database's write lock past the 5 s
+  `busy_timeout`, recording a finished clip raised a raw `sqlite3.OperationalError`. That
+  missed every handler that downgrades a recording failure to a warning, so `gflow video`
+  exited 1 ("unexpected error") for a clip that existed and was paid for, and tried to
+  record it as failed. Catalog transactions now raise `DataStoreError`, so the run succeeds
+  and logs a `data.persistence_failed_after_success` warning naming the media id. Outside a successful generation the same
+  failure exits 16 instead of 1.
 - **A reCAPTCHA mint failure is a typed error with Problem Details (#915).** It was a bare
   `RuntimeError`: `gflow image upscale` and `gflow video extend` (and image generation on
   the experimental HTTP transports) exited 1 with an "unexpected" message and no

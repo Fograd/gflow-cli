@@ -2048,6 +2048,10 @@ shell scripts can branch on the failure mode without parsing stderr.
 **Exit code 16 — data store / migration error.** Fires when:
 
 - The database file cannot be opened (filesystem permission or path issues).
+- A write could not take the database lock within 5 s (`database is locked` — another
+  gflow process was writing). After a **successful** generation this is only a warning
+  (`data.persistence_failed_after_success`, naming the media id): the file is saved and
+  the run succeeds, it is just not recorded in the catalog (#900).
 - A migration fails or the migration checksum drifts from what the installed version expects.
 - The database has a **newer schema** than the installed gflow-cli (i.e. you downgraded after a migration already ran).
 
