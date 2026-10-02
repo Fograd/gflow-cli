@@ -31,6 +31,7 @@ matched with a Python-side ``filter(has_text=re.compile(...))`` instead.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import mimetypes
 import re
@@ -45,6 +46,7 @@ from uuid import uuid4
 import structlog
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from gflow_cli.api._engine import mint_evaluate_kwargs
 from gflow_cli.api.dto import GeneratedImage, ProjectInfo
 from gflow_cli.api.image import Aspect as ImageAspect
 from gflow_cli.api.image import ImageRef
@@ -63,6 +65,11 @@ from gflow_cli.api.transports.batchexecute import (
     image_records,
     parse_frames,
     rpc_errors,
+)
+from gflow_cli.api.transports.migrated_image_overrides import (
+    CAPTCHA_METADATA_JS,
+    CLEANUP_CAPTCHA_JS,
+    active_overrides,
 )
 from gflow_cli.api.video import (
     I2V_DEFAULT_MODEL,
@@ -942,6 +949,8 @@ async def _guard_image_submit(
     request: Any,
     reference_ids: tuple[str, ...],
     model: ImageModel | None,
+    *,
+    page: Any = None,
 ) -> str | None:
     """Abort an ``ogiZ0b`` submit that does not carry its references, before Flow acts.
 
@@ -953,7 +962,17 @@ async def _guard_image_submit(
     if problem is not None:
         await route.abort()
         return problem
-    await route.continue_()
+    override = active_overrides.get()
+    if override is not None:
+        try:
+            rewritten = await override.apply(page, request.post_data or "")
+        except Exception as exc:
+            log.warning("migrated.image_override_failed", error_class=type(exc).__name__)
+            await route.abort()
+            return "migrated host: image overrides could not be safely applied"
+        await route.continue_(post_data=rewritten)
+    else:
+        await route.continue_()
     return None
 
 
@@ -3019,7 +3038,9 @@ class MigratedComposer:
             return _rpcid(url) == IMAGE_SUBMIT_RPC
 
         async def guard(route: Any, raw_request: Any) -> None:
-            problem = await _guard_image_submit(route, raw_request, reference_ids, request.model)
+            problem = await _guard_image_submit(
+                route, raw_request, reference_ids, request.model, page=page
+            )
             log.info(
                 "migrated.image_submit_guarded",
                 outcome="aborted" if problem else "passed",
@@ -3030,10 +3051,18 @@ class MigratedComposer:
                     WireFormatError(detail=problem, route=f"batchexecute:{IMAGE_SUBMIT_RPC}")
                 )
 
+        override = active_overrides.get()
+        capture_metadata = (
+            override is not None and override.token is not None and override.metadata_required
+        )
+        if capture_metadata and not await cast(Any, page.evaluate)(
+            CAPTCHA_METADATA_JS, **mint_evaluate_kwargs()
+        ):
+            raise WireFormatError(detail="Page CAPTCHA metadata could not be captured")
         page.on("request", on_request)
         page.on("response", on_response)
         try:
-            if reference_ids:
+            if reference_ids or active_overrides.get() is not None:
                 await page.route(is_image_submit, guard)
             enable_deadline = time.monotonic() + SUBMIT_ENABLE_BUDGET_S
             while not await submit.is_enabled():
@@ -3066,9 +3095,12 @@ class MigratedComposer:
             # reported a different, correct error. Not a no-op — do not delete.
             if result.done() and not result.cancelled():
                 result.exception()
+            if capture_metadata:
+                with contextlib.suppress(Exception):
+                    await cast(Any, page.evaluate)(CLEANUP_CAPTCHA_JS, **mint_evaluate_kwargs())
             page.remove_listener("request", on_request)
             page.remove_listener("response", on_response)
-            if reference_ids:
+            if reference_ids or active_overrides.get() is not None:
                 try:
                     await page.unroute(is_image_submit, guard)
                 except Exception as exc:  # noqa: BLE001 - must not mask the real outcome

@@ -56,7 +56,13 @@ async def subprocess_run(args: list[str], timeout: int) -> tuple[int, bytes]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if key not in ("GFLOW_DAEMON_TOKEN", "GFLOW_SELFHOST_ACCOUNTS")
+        if key
+        not in (
+            "GFLOW_DAEMON_TOKEN",
+            "GFLOW_SELFHOST_ACCOUNTS",
+            "GFLOW_CAPSOLVER_KEY",
+            "GFLOW_2CAPTCHA_KEY",
+        )
     }
     env["GFLOW_CLI_DEBUG_TRACEBACK"] = "0"
     process = await asyncio.create_subprocess_exec(
@@ -85,8 +91,51 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
     payload = json.loads(job["payload"])
     profile = job["profile"]
     project = payload["project"]
-    out = cfg.root / "output" / job["id"]
+    out = Path(job.get("_output") or cfg.root / "output" / job["id"])
     out.mkdir(parents=True, exist_ok=True)
+    if job["kind"] == "videos" and payload.get("count", 1) > 1:
+        accumulated: dict[str, Any] = {
+            "email": cfg.accounts[profile]["email"],
+            "projectId": project,
+            "media": [],
+            "completedCount": 0,
+            "requestedCount": payload["count"],
+        }
+        for index in range(payload["count"]):
+            one = {**payload, "count": 1}
+            child = {**job, "payload": json.dumps(one), "_output": str(out / f"part-{index + 1}")}
+            single = await execute(cfg, store, child)
+            if "error" in single:
+                return {**accumulated, "error": single["error"]}
+            accumulated["media"].extend(single["media"])
+            accumulated["completedCount"] += 1
+            store.checkpoint(job["id"], accumulated)
+        return accumulated
+    if job["kind"] == "assets/archive":
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "media-delete",
+                profile,
+                json.dumps({"project_id": project, "media_ids": payload["mediaGenerationIds"]}),
+            ],
+            cfg.timeout,
+        )
+        if code:
+            return {"error": {"code": "native_archive_failed", "retryable": False}}
+        result = parse_json_output(raw)
+        if result.get("status") != "ok":
+            raise ValueError("Native archive did not report success")
+        return {
+            "deleted": result["deleted"],
+            "operation": "archive",
+            "scope": "google-project-library",
+            "googleLibraryModified": True,
+            "localCacheModified": False,
+            "projectId": project,
+        }
     if job["kind"] == "videos/concatenate":
         from gflow_cli.selfhost.concatenate import Clip
         from gflow_cli.selfhost.concatenate import execute as concatenate_execute
@@ -117,6 +166,7 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
     common = ["--profile", profile, "--project", project]
     kind = job["kind"]
     items: list[dict[str, Any]]
+    refs: list[str] = []
     if kind == "images":
         refs = [payload[f"reference_{i}"] for i in range(1, 11) if payload.get(f"reference_{i}")]
         args = cli + [
@@ -148,6 +198,21 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             "--out",
             str(out),
         ]
+    elif kind == "assets" and payload["mime"] == "video/mp4":
+        args = [
+            sys.executable,
+            "-m",
+            "gflow_cli.selfhost.native_worker",
+            "upload-video",
+            profile,
+            json.dumps(
+                {
+                    "project_id": project,
+                    "path": str(contained_file(payload["input"], cfg.root)),
+                    "rights_confirmed": payload.get("rightsConfirmed", False),
+                }
+            ),
+        ]
     elif kind == "assets":
         args = [
             sys.executable,
@@ -158,9 +223,15 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             str(contained_file(payload["input"], cfg.root)),
         ]
     elif kind == "videos":
+        refs = [
+            payload[f"referenceImage_{i}"]
+            for i in range(1, 8)
+            if payload.get(f"referenceImage_{i}")
+        ]
+        mode = "i2v" if payload.get("startImage") else "r2v" if refs else "t2v"
         args = cli + [
             "video",
-            "t2v",
+            mode,
             *common,
             "--json",
             "--out-dir",
@@ -174,6 +245,15 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             args.extend(["--model", VIDEO_ALIASES[payload["model"]]])
         if payload.get("duration"):
             args.extend(["--duration", str(payload["duration"])])
+        if payload.get("resolution"):
+            args.extend(["--resolution", payload["resolution"]])
+        for key, flag in (("startImage", "--initial-frame"), ("endImage", "--end-frame")):
+            if payload.get(key):
+                args.extend(
+                    [flag, str(contained_file(store.asset_get(payload[key])["path"], cfg.root))]
+                )
+        for ref in refs:
+            args.extend(["--ref", str(contained_file(store.asset_get(ref)["path"], cfg.root))])
         args.extend(["--", payload["prompt"]])
     elif kind in ("videos/upscale", "videos/gif"):
         args = cli + [
@@ -188,7 +268,34 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         ]
     else:
         raise ValueError("Unknown queued operation")
-    code, raw = await subprocess_run(args, cfg.timeout)
+    request_path: Path | None = None
+    if kind == "images" and any(
+        key in payload for key in ("seed", "captchaSecret", "captchaOrder", "captchaRetry")
+    ):
+        request_path = out / "request.json"
+        worker_payload = {
+            **payload,
+            "model": MODEL_ALIASES[payload["model"]],
+            "refPaths": [
+                str(contained_file(store.asset_get(ref)["path"], cfg.root)) for ref in refs
+            ],
+        }
+        with request_path.open("w", encoding="utf-8") as file:
+            request_path.chmod(0o600)
+            json.dump(worker_payload, file)
+        args = [
+            sys.executable,
+            "-m",
+            "gflow_cli.selfhost.image_worker",
+            profile,
+            project,
+            str(request_path),
+        ]
+    try:
+        code, raw = await subprocess_run(args, cfg.timeout)
+    finally:
+        if request_path:
+            request_path.unlink(missing_ok=True)
     if code:
         # Keep potentially sensitive CLI output local.
         return {
@@ -221,6 +328,22 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         result = {"project_id": project}
     else:
         result = parse_json_output(raw)
+        if (
+            kind == "assets"
+            and payload["mime"] == "video/mp4"
+            and result.get("code") == "upload_rights_required"
+        ):
+            return {
+                "error": {
+                    "code": "upload_rights_required",
+                    "retryable": False,
+                    "detail": (
+                        "Google requires upload rights confirmation. If you own the rights, "
+                        "submit a new request with X-Flow-Rights-Confirmed: true; "
+                        "otherwise confirm in the browser."
+                    ),
+                }
+            }
         if result.get("status") not in ("ok", "completed"):
             raise ValueError("CLI reported an unsuccessful result")
         items = result.get("images", [])
@@ -249,6 +372,7 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                 "image": {
                     "generatedImage": {
                         "encodedImage": base64.b64encode(path.read_bytes()).decode(),
+                        "seed": item.get("seed"),
                         "width": item.get("dimensions", {}).get("width"),
                         "height": item.get("dimensions", {}).get("height"),
                     }
@@ -273,11 +397,17 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                 "localArtifactId": artifact,
             }
         )
-    return {"email": cfg.accounts[profile]["email"], "projectId": project, "media": media_items}
+    envelope = {"email": cfg.accounts[profile]["email"], "projectId": project, "media": media_items}
+    if result.get("captchaProvider"):
+        envelope["captchaProvider"] = result["captchaProvider"]
+    return envelope
 
 
 async def worker(cfg: Settings, store: Store, profile: str) -> None:
     while True:
+        if profile not in cfg.accounts:
+            await asyncio.sleep(0.5)
+            continue
         job = store.claim(profile)
         if job is None:
             await asyncio.sleep(0.5)

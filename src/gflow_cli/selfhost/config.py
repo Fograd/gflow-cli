@@ -34,6 +34,7 @@ class Settings:
     callbacks: tuple[str, ...] = ()
     timeout: int = 900
     allow_video: bool = False
+    sync_wait: float = 85
 
     @classmethod
     def environment(cls) -> Settings:
@@ -58,6 +59,9 @@ class Settings:
             accounts[profile] = cast(dict[str, str], account)
         home = Path(os.environ.get("GFLOW_CLI_HOME", str(Path.home() / ".local/share/gflow-cli")))
         root = Path(os.environ.get("GFLOW_SELFHOST_ROOT", str(home / "selfhost"))).resolve()
+        sync_wait = float(os.environ.get("GFLOW_SELFHOST_SYNC_WAIT_SECONDS", "85"))
+        if not 0 <= sync_wait <= 85:
+            raise ValueError("GFLOW_SELFHOST_SYNC_WAIT_SECONDS must be between 0 and 85")
         return cls(
             token=token,
             root=root,
@@ -66,6 +70,7 @@ class Settings:
                 filter(None, os.environ.get("GFLOW_SELFHOST_CALLBACK_HOSTS", "").split(","))
             ),
             allow_video=os.environ.get("GFLOW_SELFHOST_ALLOW_VIDEO") == "1",
+            sync_wait=sync_wait,
         )
 
 

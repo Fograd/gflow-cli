@@ -19,6 +19,7 @@ Use TLS or an SSH tunnel across untrusted networks.
 | `GFLOW_SELFHOST_HOST` | Listen address; default `127.0.0.1` |
 | `GFLOW_SELFHOST_PORT` | Listen port; default `8844` |
 | `GFLOW_SELFHOST_CALLBACK_HOSTS` | Comma-separated exact HTTPS hostnames; empty disables callbacks |
+| `GFLOW_SELFHOST_SYNC_WAIT_SECONDS` | Default85; range0–85;0 returns accepted jobs immediately |
 | `GFLOW_SELFHOST_ALLOW_VIDEO` | Set `1` to enable generation that spends video credits; default disabled |
 
 Keep existing `GFLOW_CLI_HOME`, `GFLOW_CLI_HEADLESS=false`, and `DISPLAY` settings
@@ -39,27 +40,34 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 
 | Route | Behaviour and limits |
 | --- | --- |
-| `GET /accounts`, `/accounts/{handle}` | Read configured, enabled profiles |
+| `GET /accounts`, `/accounts/{handle}` | Read registered profiles and operator-attested health |
+| `POST /accounts`, `DELETE /accounts/{handle}` | Register an existing local profile or remove its registration; no cookie import or profile deletion |
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
-| `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG upload, maximum 20 MiB; synchronous tee-compatible response |
+| `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
 | `GET /assets/{id}`, `/assets/{id}/download` | Metadata and protected bytes for this server's managed assets |
 | `GET /assets/projects/{handle}` | Local gflow project catalog, labelled as such |
-| `GET /assets/media/{handle}` | This server's managed asset catalog |
-| `GET /jobs`, `/jobs/{id}` | Durable accepted jobs and terminal results |
+| `GET /assets/media/{handle}` | Managed catalog by default; source=google reads selected-project native timeline |
+| `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
+| `DELETE /assets/{handle}` | Native reversible whole-batch archive; explicit localOnly cache deletion is separate |
+| `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded501; see CAPTCHA.md |
 | `GET /voices`, `/voices/{ref}` | Bundled system voice names, descriptors and sample URLs; case-insensitive lookup |
-| `POST /videos` | Single text-to-video adapter, explicitly enabled; not verified with paid live generation in this deployment |
+| `POST /videos` | Text, start/end image or image-ingredient video adapter, explicitly enabled; not verified with paid live generation in this deployment |
 | `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
 
-Generation, upscale and concatenation return HTTP **200** with `jobId` and
-`status: "created"`. Poll `/jobs/{jobId}`. Completed image jobs carry
-`media[].image.generatedImage.encodedImage` as base64 bytes, which the tee client
-can already decode. This intentionally supports tee's accepted-job polling
-contract; it does not reproduce useapi's synchronous default for every caller.
+Generation, upscale, GIF export and concatenation accept `async` (boolean). The
+default `false` waits up to 85 seconds for a terminal result; a longer operation
+returns its original durable job. `async: true` returns immediately. Responses use
+HTTP **200** with `jobId` and status; poll `/jobs/{jobId}` while status is `created`
+or `running`. This differs from useapi explicit-async201 and unbounded synchronous
+expectations. Image results contain
+`media[].image.generatedImage.encodedImage` for tee decoding.
 
 Raw uploads return HTTP200 with
 `mediaGenerationId: { "mediaGenerationId": "Google UUID" }` and `email`.
+MP4 uploads accept `X-Flow-Rights-Confirmed: true` or `false` (exact lowercase); absent means false. Only send true when you can confirm rights for this upload. It permits the native worker to accept a Google rights notice for that request; it is not an account preference. A notice without permission produces `upload_rights_required`; confirm in the browser or submit a new request/new idempotency key with true if entitled. The rights boolean participates in idempotency. The header is rejected on image uploads.
+
 References must be IDs issued by this service. The registry retains account,
 project and saved bytes. useapi's opaque identifiers cannot be used directly.
 Uploaded references are re-uploaded into the pinned generation project as needed.
@@ -70,10 +78,10 @@ The voice list is the SDK's bundled catalog, not a fresh live Google query.
 
 Video generation accepts `veo-3.1-fast`, `veo-3.1-quality`, `veo-3.1-lite`,
 `veo-3.1-lite-low-priority`, and `omni-flash`, subject to the underlying SDK's
-model/duration validation. Only one output is currently exposed. Multi-output
-requests are rejected before billing. Export jobs return protected download paths
+model/duration validation. Counts 1–4 run serial single-output calls with durable output checkpoints; inspect
+partial results if a later call fails. Paid live video verification remains pending. Export jobs return protected download paths
 for local variants while retaining the source Google media ID. GIF export uses a
-queued download, rather than useapi's synchronous `encodedGif` response.
+job/download path, rather than useapi's synchronous `encodedGif` response.
 
 Concatenation accepts `media` items with `mediaGenerationId`, optional `trimStart`
 and `trimEnd` in seconds. Each trim is finite and within 0–10 seconds. Combined
@@ -141,11 +149,26 @@ to64 KiB before parsing, raw uploads to20 MiB. Paths and CLI switches cannot be
 supplied through the API. Prompts are passed as positional arguments after `--`,
 without a shell.
 
-Unimplemented controls include seed, automatic image aspect, useapi inline slot
-markers, CAPTCHA token/provider routing, character CRUD, custom voices, account
-mutation, asset deletion, video extension and the remaining video reference/edit
-cross-product. Unsupported query options and request keys are rejected, rather
-than silently ignored. Google project/media catalogs are not fully synchronised.
+Image requests accept a native integer `seed` with room for `count` consecutive
+seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only external
+CAPTCHA controls and providers are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
+unverified. `captchaOrder` and `captchaRetry` return501 before queueing because the
+native action remains unmeasured. Provider keys alone do not enable generation.
+
+Still unsupported: automatic image aspect, inline grounding/entity/audio controls,
+character CRUD, custom voices, exact useapi deletion/full library sync,
+video extension/V2V and video CAPTCHA overrides. Unknown controls return501.
+
+Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
+and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`
+for protected bytes. Unknown or repeated query keys are rejected. Default catalogs are local. Native timeline rows carry media_id/workflow_id, caption, archived and batch_media_ids plus mediaGenerationId/projectId aliases; they do not claim merged attached-media history or inferred media types.
+
+Account registration accepts `profile`, `email`, `projectId`, `enabled` and
+`verified`. Defaults are disabled/LOGIN_REQUIRED. Enabling requires `verified:true`
+and an existing local profile; this is operator attestation, not a Google probe.
+Removing registration refuses active jobs and keeps the browser profile. Local
+asset deletion with `localOnly:true` requires `mediaGenerationIds` (up to 100) or
+`projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE requires projectId and 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. This is not irreversible individual deletion or useapi already-gone idempotence.
 
 ## Callbacks
 

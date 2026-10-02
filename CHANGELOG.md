@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Expanded the self-hosted API with bounded synchronous waiting, async polling,
+  native image seeds, private CAPTCHA provider configuration and supplied-token
+  transport hooks, account registration,
+  filtered catalogs, raw downloads and video image references with durable output checkpoints.
+- Provider-backed generation remains guarded501 until native CAPTCHA action
+  capture is measured; configured keys alone do not enable generation.
+- Added raw MP4 upload, native selected-project timeline reads and reversible
+  whole-batch archive. Upload rights confirmation is explicit per request.
+- Added complete setup, three-profile operation, backup/recovery and tee migration
+  guides, with all useapi endpoint gaps tracked and verification separated from implementation.
+
 - Self-hosted authenticated REST service with durable jobs, image references,
   native upscale, account scheduling, idempotency and protected downloads.
 - System voice lookup and local ffmpeg video concatenation. The documented

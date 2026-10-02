@@ -15,6 +15,7 @@ def settings(tmp_path):
             "pro1": {"email": "test@example.org", "project": "11111111-1111-4111-8111-111111111111"}
         },
         callbacks=(),
+        sync_wait=0,
     )
 
 
@@ -25,7 +26,9 @@ def test_auth_and_validation_do_not_enqueue(tmp_path):
         headers = {"Authorization": "Bearer test-token"}
         assert (
             client.post(
-                "/v1/google-flow/images", headers=headers, json={"prompt": "x", "seed": 7}
+                "/v1/google-flow/images",
+                headers=headers,
+                json={"prompt": "x", "undefinedParameter": 7},
             ).status_code
             == 501
         )
@@ -262,7 +265,7 @@ async def test_video_export_does_not_replace_source(tmp_path, monkeypatch):
 
 def test_queries_rejected_instead_of_ignored(tmp_path):
     with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
-        assert client.get("/v1/google-flow/jobs?cursor=ignored", headers=AUTH).status_code == 501
+        assert client.get("/v1/google-flow/jobs?unknown=ignored", headers=AUTH).status_code == 501
 
 
 def test_video_dto_validation_before_enqueue(tmp_path):
