@@ -512,6 +512,11 @@ class VideoStarted:
     media_id: str
     project_id: str | None = None
     flow_operation_id: str | None = None
+    #: Flow's workflow id for the clip, when the transport reads one (#898). On
+    #: flow.google.com it is the generation record's slot 0; the labs reply's
+    #: ``operations[0].operation.name`` (``flow_operation_id``) is a different id, and
+    #: whether that reply names a workflow is unobserved -- so labs leaves this None.
+    workflow_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -529,6 +534,7 @@ class VideoResult:
     local_path: Path | None
     project_id: str | None = None
     flow_operation_id: str | None = None
+    workflow_id: str | None = None  # see VideoStarted.workflow_id (#898)
 
 
 # Callback type: invoked by the transport the moment a media_id becomes known,

@@ -791,14 +791,18 @@ class OperationRecorder:
                 ),
             )
 
-        asset_id = _new_id()
+        # Reuse a known media id's row, as record_completed_video does: upsert_asset
+        # conflicts on `id`, and a fresh id for a recorded media id violates
+        # UNIQUE(profile_name, flow_media_id) (#898).
+        existing = repo.get_asset_by_flow_media_id(profile_name, started.media_id)
+        asset_id = existing.id if existing is not None else _new_id()
         repo.upsert_asset(
             AssetRecord(
                 id=asset_id,
                 profile_name=profile_name,
                 flow_project_id=started.project_id,
                 flow_media_id=started.media_id,
-                flow_workflow_id=None,
+                flow_workflow_id=started.workflow_id,
                 flow_media_generation_id=None,
                 kind=AssetKind.VIDEO,
                 status="pending",
@@ -948,7 +952,9 @@ class OperationRecorder:
                 profile_name=profile_name,
                 flow_project_id=result.project_id,
                 flow_media_id=flow_media_id,
-                flow_workflow_id=None,
+                # Never clobber the id the start recorded with None (#898).
+                flow_workflow_id=result.workflow_id
+                or (existing_asset.flow_workflow_id if existing_asset is not None else None),
                 flow_media_generation_id=None,
                 kind=AssetKind.VIDEO,
                 status=result.status.status,
