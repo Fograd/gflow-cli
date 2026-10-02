@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
+from structlog.testing import capture_logs
 
 from gflow_cli.cli_video import video
 
@@ -72,12 +73,20 @@ def test_a_locked_catalog_after_success_is_a_warning_not_a_failed_run(
         client = MagicMock(spec=FlowApiClient)
         client.generate_video = generate_video
         enter.return_value = client
-        run = CliRunner().invoke(video, ["t2v", "x"])
+        with capture_logs() as logs:
+            run = CliRunner().invoke(video, ["t2v", "x"])
 
     for blocker in blockers:
         blocker.execute("ROLLBACK")
         blocker.close()
     assert blockers, "the generation never ran"
     assert run.exit_code == 0, run.output
+    warned = [e for e in logs if e["event"] == "data.persistence_failed_after_success"]
+    assert len(warned) == 1, [e["event"] for e in logs]
+    assert warned[0]["flow_media_id"] == "m900"
+    assert warned[0]["error_class"] == "DataStoreError"
+    assert "locked" in warned[0]["detail"]
+    assert not [e for e in logs if e["event"] == "error_unhandled"]
+    # The STARTED row written before the lock survives; nothing recorded the clip as failed.
     rows = sqlite3.connect(db).execute("SELECT status FROM operations").fetchall()
-    assert ("failed",) not in rows, rows
+    assert rows == [("started",)], rows
