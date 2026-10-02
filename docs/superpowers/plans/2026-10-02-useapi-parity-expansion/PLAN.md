@@ -11,8 +11,8 @@ Predict: CAUTION, 8/10. Independent architecture, security, performance, UX and 
 - [ ] Measure missing native project/media, character, voice, seed and video extension surfaces; implement only with observed contracts.
 - [ ] Add CapSolver/2Captcha integration with private key storage, bounded solves, masked configuration and accurate statistics; prove actual token consumption before calling it supported.
 - [x] Update API guide, compatibility inventory, deployment and migration instructions, examples and verification ledger.
-- [ ] Run targeted, live zero-credit and repository gates; independently review; deploy and publish to the fork.
-  Gates: final4969passed/47skipped/90.36%; native resourceBDD1pass, seedBDD1pass; lint/types/docs/securityreviewgreen. Deployed with no activejobs. Publication pending.
+- [x] Run targeted, live zero-credit and repository gates; independently review; deploy and publish to the fork.
+  Gates: final4969passed/47skipped/90.36%; native resourceBDD1pass, seedBDD1pass; lint/types/docs/securityreviewgreen. Deployed with no activejobs. Published expansion68569e4b to the fork develop and feature/self-hosted-flow-api branches.
 
 ## Completion criteria
 Every remaining option has either an implemented tested path or an evidence-backed blocker with reproduction and next work recorded. This criterion documents progress; it does not imply complete useapi parity when blocked operations remain.
