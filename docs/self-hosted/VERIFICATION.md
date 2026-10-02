@@ -58,3 +58,14 @@ Previous one-reference publication gate: **5,085 passed, 47 skipped; 90.44% cove
 Two-reference native adapter BDD: **1 passed in 34.11 seconds**. Deployed two-reference HTTP lifecycle BDD: **1 passed in 97.82 seconds**. Both references were validated atomically before creation, copied into measured portrait slot 0/body slot 1, persisted, and both source images remained active; the owned test entity was removed. The shared post-create deadline remains 45 seconds. The final second-reference gate passed as recorded below.
 
 Second-reference stable offline gate: **5,098 passed, 47 skipped, 15 warnings; 90.56% coverage**, in 219.93 seconds. Strict Pyright reported zero errors and Ruff checked 571 files cleanly. Duplication checks found only the same three pre-existing unchanged findings. The manual six-axis CLI surface check is not applicable to this change: it extends REST/worker adapters without changing CLI commands. Post-staging hygiene/privacy checks are recorded by the publication step.
+
+
+Guarded native voice-picker probes: **two owned fixtures created and cleaned up**,
+with no TTS/image/video generation or solver submission. Charon was selected with
+empty dialogue/performance, but the preview-pane button candidate was not verified
+as the add action. The first authoritative audio slot was null; the second picker
+remained open and its backdrop blocked header Done. No committed native voice
+metadata update was observed. Unknown `WuwhI` requests were aborted without
+classifying their purpose. This result is **inconclusive for Google voice support**
+and does not enable REST assignment/custom voices. Read
+[the redacted transition evidence](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).

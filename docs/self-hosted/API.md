@@ -77,7 +77,8 @@ Uploaded references are re-uploaded into the pinned generation project as needed
 
 System voice requests accept only `?source=system` and optional `email`. Custom
 voice creation, cloning, deletion and custom voice lookup are not implemented.
-The voice list is the SDK's bundled catalog, not a fresh live Google query.
+The default voice list is the SDK's bundled catalog. Explicit `catalog=google`
+reads the live native system preset catalog; custom saved voices remain separate.
 
 Video generation accepts `veo-3.1-fast`, `veo-3.1-quality`, `veo-3.1-lite`,
 `veo-3.1-lite-low-priority`, and `omni-flash`, subject to the underlying SDK's
@@ -268,3 +269,17 @@ read.raise_for_status()
 These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for one/two-image flows; voice assignment remains unsupported.
 
 For two references, add `imageReference_2` to the create request. Both must belong to the same account/project and pass validation before mutation. Portrait is slot 0 and body is slot 1. Copying both references and applying notes uses the same 45 second post-create deadline, with partial identity preserved on an unconfirmed outcome.
+
+### Automatic image aspect
+
+`aspectRatio:auto` currently returns HTTP501 before job submission: the native automatic-aspect UI/wire contract has not been measured. An [abort-only investigation](../superpowers/spikes/2026-10-02-image-auto-aspect.md) verified an owned reference and explicit square aspect, but its chooser selector failed; that result is inconclusive about native Auto availability. Use an explicit image ratio. The adapter does not silently infer a different ratio.
+
+
+### Voice assignment evidence boundary
+
+Voice assignment still returns 501 in this adapter. Two guarded empty-dialogue
+preset probes did not complete the picker-to-character transition: the selected
+button candidate was unverified, the dialog stayed open and blocked the header
+commit. This is not evidence that Google lacks voice assignment. No TTS was
+generated and both owned test characters were removed. See the
+[redacted transition evidence](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).

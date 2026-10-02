@@ -128,7 +128,7 @@ Every endpoint above is accounted for. These groups explain why a gap remains an
 | Character generation binding | The migrated picker has measured entity chips and accepted submissions, but null submit payloads break the observer. | Add project-keyed status fallback and durable accepted-output checkpoints before enabling the guarded path. Do not equate a timeout with Google rejection. |
 | Custom voice CRUD | Both bundled and dynamic native system presets (30 measured) are available; custom TTS generation, signed playback and delete remain separate operations. | Capture custom voice creation/list/detail/delete, validate preset/dialog/performance limits and prove real token consumption where captcha is required. |
 | Native seed verification | Image overrides now target native ogiZ0b seed slots; aborted browser capture verifies the outgoing value. | Live REST two-image batch returned the requested consecutive seeds and decoded images; retain ledger evidence. Video seed remains unported. |
-| Automatic image aspect | Existing aspects are explicit. Inferring an aspect from reference dimensions is not proof of native automatic mode. | Observe native auto handling; if providing local inference, label that difference and use the first owned reference consistently. |
+| Automatic image aspect | Existing aspects are explicit. Inferring an aspect from reference dimensions is not proof of native automatic mode. | [Abort-only inspection](../superpowers/spikes/2026-10-02-image-auto-aspect.md) verified reference binding and square slot1; chooser discovery failed, so Auto remains inconclusive/501. Local inference must be a separately labelled policy. |
 | Inline markers and entity/audio inputs | Literal text is not grounded reference attachment. | Resolve case-insensitive known markers to supplied slots, validate model reference budgets and assert outgoing entity/media/audio IDs before billing. |
 | Multi-video live proof | Adapter now serialises count1–4 single-output calls and checkpoints results. | Verify paid multi-output generation/partial failure on Google; never automatically replay checkpointed submissions. |
 | OmniV2V, voice references and trim windows | Models support different frame/reference modes; pass-through fields would silently change behaviour. | Reuse observed edit/reference RPCs, verify24fps trim semantics and prohibit incompatible start/end/ingredients combinations before submit. |
@@ -143,3 +143,13 @@ Captures remain private because browser requests contain cookies, tokens and use
 Current native read expansion also exposes GETcharacters project summaries and catalog=google dynamic system voices. Native detail/metadata PATCH/DELETE are present, while one/two-reference POST is implemented and live verified; they do not enable full reference/voice CRUD, generation grounding or custom voices. Live adapter wiring and worker evidence are separate in VERIFICATION.md.
 
 Limited deployed HTTP character CRUD is live verified: one copied owned image, initial/PATCH notes, detail persistence, deletion/404 and preserved original source. Second reference is now live verified in portrait/body slots; voice assignment and generation binding remain separate gaps.
+
+
+Native voice binding remains an implementation gap, not a measured Google absence.
+Two guarded empty-dialogue preset probes did not commit a voice: an unverified
+preview-pane button candidate left the picker open and the modal backdrop blocked
+the header Done transition. No native voice metadata update was captured. Unknown
+writes were aborted, no TTS generation was submitted, and both owned fixtures were
+removed. System preset lookup is already implemented; custom saved-voice CRUD,
+preset assignment and rendered voice application require separate contracts and
+proof. See [the redacted spike](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).
