@@ -810,3 +810,29 @@ Publication/deployment follow after this checked batch. R02 remains open for
 voice/character-reference/thumbnail detail, composite translation and exact error
 equivalence. Generated-arm URLs have source/codec proof, not live acceptance.
 R12 final representative generation campaign remains pending.
+
+### R02 retrieval publication and deployment
+
+Feature revision b3d2523761443178e5503643bff1357970c6f86b was published atomically
+to develop, feature/self-hosted-flow-api and feature/useapi-parity-2026-10-03.
+All three GitHub refs were then verified. Production fast-forwarded to that
+revision; REST/MCP queues were0before and after service stop. Locked dependency
+sync completed and both services restarted active.
+
+Actual deployed checks passed:
+- REST authentication401/200, native image URL200 and Cache-Control:no-store.
+- Registered HTTP MCP37tools, both new names present, native image lookup accepted.
+- REST native raw MP4 returned8908verified bytes and removed temporary output.
+- Registered MCP native image download returned233225verified local bytes with
+  no URL in the download result; only the unique probe directory was removed.
+- Initial MCP proof harness used old isError/structuredContent model attributes;
+  installed client uses snake-case fields. The harness was corrected, with no
+  product-code change or generation replay.
+
+This verifies deployed read/download seams, not generation/full useAPI parity.
+Next R02 work: character imageReferences preview URLs and avatar thumbnail URL,
+plus typed user-voice playback detail. Current useAPI character detail documentation
+also distinguishes system presets, attached live user voices and deleted/orphan
+voices. Fresh ownership/source evidence must establish each form; absent partial
+snapshots must not imply a deleted voice. Composite identity and exact error
+equivalence remain explicitly unfinished.

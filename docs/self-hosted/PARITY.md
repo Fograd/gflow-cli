@@ -182,7 +182,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   in39.95seconds with zero generation requests; the final complete offline suite
   passed5934tests with5skips at89.00%coverage. These establish implementation and
   attachment, not accepted mixed/native REST or registered MCP output; R12 retains
-  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; publication/deployment evidence is recorded in the ledger.
+  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; this image/video batch is published/deployed atb3d25237. Registered HTTP MCP37tools, REST native URL/raw video and MCP lookup/image download passed actual deployed read checks. Next is character reference/thumbnail URLs and user-voice playback detail.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial
