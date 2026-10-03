@@ -415,3 +415,31 @@ def test_useapi_deprecated_image_aliases_normalize_before_enqueue(tmp_path, alia
         assert response.json()["request"]["model"] == canonical
         record = client.app.state.store.get_record(response.json()["jobId"])
         assert record["request"]["model"] == canonical
+
+
+@pytest.mark.parametrize(("alias", "ratio"), [("landscape", "16:9"), ("portrait", "9:16")])
+def test_useapi_image_aspect_aliases_normalize_before_enqueue(tmp_path, alias, ratio):
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json={"prompt": "A ceramic vase.", "aspectRatio": alias, "count": 1, "async": True},
+        )
+        assert response.status_code == 201
+        assert response.json()["request"]["aspectRatio"] == ratio
+
+
+def test_useapi_uppercase_4k_normalizes_for_explicit_native_promotion(tmp_path):
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos/upscale",
+            headers=AUTH,
+            json={
+                "mediaGenerationId": "22222222-2222-4222-8222-222222222222",
+                "operation": "promotion",
+                "resolution": "4K",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["request"]["resolution"] == "4k"

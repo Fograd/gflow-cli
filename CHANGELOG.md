@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add explicit source-backed native video promotion and account model discovery across SDK, CLI, direct MCP and HTTP; preserve export defaults and record paid acceptance limits.
 
 ### Changed
+- HTTP image landscape/portrait aliases and explicit native video promotion4K normalize to canonical controls; entitlement checks remain unchanged.
 - HTTP image requests accept deprecated useapi nano-banana and imagen-4 aliases and enqueue their canonical Nano2/Lite model.
 - Self-hosted native asset DELETE uses the selected account's registered project when projectId is omitted; explicitly invalid projectId values still refuse.
 - Native reference/edit/extension/TTS adapters accept scoped single-use supplied CAPTCHA tokens across SDK, CLI, direct MCP and durable REST jobs, with project/action binding and private worker file cleanup. Provider acceptance and UI/upscale coverage remain pending.

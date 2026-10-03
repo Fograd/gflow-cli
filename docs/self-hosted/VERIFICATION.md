@@ -1109,3 +1109,7 @@ Review expanded job statistics to include native video promotion and image upsca
 R11 final statistics/aliases full gates:6349passed,5skipped,15warnings in219.39seconds,89%coverage. Whole source pyright0errors, hygiene/links/PII/website/council memory/ruff/format checks passed. Corrected staged source reviewed GO by Architect/Security/Performance/UX/docs. Six mirror axes checked: HTTP-only addition; SDK/CLI/direct and queued MCP options/models unchanged; no CLI leaf, exit code, template or browser transport changes.
 
 R11 deployed ate6705181: all three explicit statistics options returned the three registered public handles, invalid/mixed options returned400, and the default job list remained available. Durable job count did not change; zero Google/provider requests. Documentation-only checkpoint reuses the unchanged source's6349-pass final suite.
+
+R11 format aliases: three HTTP red routing cases proved landscape/portrait and native promotion4K previously refused. Normalize to existing controls before queueing; no new transport/entitlement or generation claim. SDK/CLI/MCP remain unchanged.
+
+R11 format-alias final gates:6352passed,5skipped,15warnings in195.03seconds,89%coverage; focused45pass and source pyright0errors. Hygiene/links/PII/website/council-memory/ruff/format checks passed. Architect/Security/docs GO on staged source11fe74715034cafe742c525b84e131343fa08b62. Six mirror axes retain HTTP-only scope; no CLI/MCP or native transport changes.

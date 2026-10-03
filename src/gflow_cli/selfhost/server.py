@@ -844,6 +844,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "auto" if refs and model in ("nano-banana-2", "nano-banana-pro") else "16:9"
         )
         requested_aspect = payload.setdefault("aspectRatio", default_aspect)
+        if isinstance(requested_aspect, str):
+            requested_aspect = payload["aspectRatio"] = {
+                "landscape": "16:9",
+                "portrait": "9:16",
+            }.get(requested_aspect, requested_aspect)
         if requested_aspect == "auto":
             if not refs:
                 raise HTTPException(422, "aspectRatio auto requires an actual reference image")
@@ -2347,6 +2352,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             payload.get("mediaGenerationId"), "mediaGenerationId"
         )
         resolution = payload.setdefault("resolution", "270p" if kind == "videos/gif" else "1080p")
+        if promoting and resolution == "4K":
+            resolution = payload["resolution"] = "4k"
         if resolution not in (
             ("720p", "1080p", "4k")
             if promoting

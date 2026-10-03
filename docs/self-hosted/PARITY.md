@@ -284,7 +284,7 @@ unsafe-caption canonical attachment proof.
   supported controls, response/error fields, sync/async status, polling,
   callbacks and timeout/unknown semantics. Unknown controls must fail explicitly
   before generation. Update the endpoint matrix and API documentation with exact
-  scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image aliases nano-banana/imagen-4 normalize to current Nano2/Lite models. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default response and scheduler/quarantine equivalence remain gaps. The 29 primary contracts were retrieved for comparison; the complete parameter audit remains in progress.
+  scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image model aliases normalize to current Nano2/Lite models; landscape/portrait image aspects and explicit native promotion4K normalize to canonical controls. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default response and scheduler/quarantine equivalence remain gaps. The 29 primary contracts were retrieved for comparison; the complete parameter audit remains in progress.
 
 ### Final verification and delivery
 
