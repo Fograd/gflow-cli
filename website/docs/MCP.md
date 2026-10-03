@@ -668,3 +668,18 @@ the selected-project relationships are positively established, with
 Voice detail distinguishes system presets from owned saved user TTS.
 Unresolved or mismatched detail returns502 instead of inferring404 from a partial
 snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.
+
+
+### Fresh saved user voice detail
+Saved-TTS detail now exposes a recognized canonical base preset from the native
+audio preset/speaker fields, freshly read dialogue/performance and optional audio
+playback URL. A separate description remains separate from voicePerformance.
+SDK get_saved_voice, CLI voice show, direct MCP gflow_get_saved_voice and REST
+GETvoices/ref source=user share the decoder. Strict GetMedia matching verifies the
+selected project/media/workflow and exclusive audio arm. Playback URLs are
+confidential HTTPS values from the owned native response; no media fetch or
+unverified universal URL lifetime is implied. REST returns no-store.
+Missing playback remains optional; missing inventory is not proof of deletion.
+The selected project has no saved user voice fixture, so this enhancement has
+source/offline proof and no newly accepted live audio playback. R12 retains that
+acceptance requirement; no extra paid audio generation was attempted.

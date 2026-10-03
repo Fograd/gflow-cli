@@ -44,3 +44,19 @@ This proves asset-download fields and matching content for these two samples.
 It does not prove byte-for-byte preservation of the upload, universal six-hour
 expiry, every generated variant live, or resolution promotion. Source and codec
 tests cover generated fields; representative final E2E remains separately owed.
+
+
+## Saved audio detail fields
+The same current public project bundle defines IQa as the audio sample, with
+name field1 and performance field2. The KI accessor selects exclusive media
+field11/audio field1, then playback field4 with field6 fallback.
+The LZa audio projection around byte3554580 uses field5 (speaker field12/first
+field1 fallback) for the base preset picker, and field8/performance-field2 fallback
+for display description. RN independently treats field1 as display name, so it
+must not be guessed as the base preset.
+The implementation recognizes base presets only against the known system catalog,
+keeps performance distinct from description, and reads dialogue field7.
+This is current public-source/codec evidence. The selected project has no saved
+user audio fixture; these metadata/playback changes have no new live acceptance.
+HTTPS playback comes only from strict owned native responses; it is not an
+arbitrary-URL download feature or a universal six-hour lifetime guarantee.

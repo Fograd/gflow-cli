@@ -68,3 +68,13 @@ Character-image delivery: published/deployed1216368e; actual REST/MCP detail URL
 accepted with probe cleanup and zero generation. Both services active. Remaining
 next implementation is strict saved-voice detail/full metadata, then nonprojected
 thumbnail contract if positively established; entire R02 remains unchecked.
+
+Saved-voice implementation checkpoint: strict one-response GetMedia with exact
+project/media/workflow/audio proof; recognized base preset from field5/speaker
+field12 fallback; dialogue/performance refreshed, description distinct.
+SDK/CLI/direct MCP/REST share decoder; GETuser voice no-store. No saved voice live
+fixture; no new billable TTS proof attempted. Full gates/publication next.
+
+Saved-voice full gate:6025passed5skipped16warnings,89%coverage,205.69seconds.
+All static/doc gates green, council GO; final casts type-only and codec11tests
+repassed. Ready for publication/deployment; owned liveaudio fixture remainsabsent.

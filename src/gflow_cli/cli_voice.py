@@ -78,7 +78,7 @@ def list_command(project: str, profile: str | None, as_json: bool) -> None:
 @click.option("--profile", default=None)
 @click.option("--json", "as_json", is_flag=True)
 def show_command(project: str, voice_id: str, profile: str | None, as_json: bool) -> None:
-    """Read one owned saved voice without exposing signed URLs."""
+    """Read owned saved voice metadata and its available fresh playback URL."""
     _run("get", project, profile, as_json, voice_id=voice_id)
 
 

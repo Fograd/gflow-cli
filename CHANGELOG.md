@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Saved-user-voice detail includes fresh canonical base preset and dialogue/performance metadata; strict native response matching and REST no-store playback.
 - Fresh native character reference-image and proven reference-thumbnail URLs in
   SDK detail, CLI show --include-urls --json, direct MCP and REST GET detail.
   Protected responses use no-store; unresolved detail refuses without inferring

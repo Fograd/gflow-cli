@@ -166,40 +166,89 @@ async def list_saved_voices(page: Any, project_id: str) -> dict[str, Any]:
     }
 
 
+def saved_voice_detail_fields(
+    payload: Any, *, project_id: str, media_id: str, workflow_id: str
+) -> dict[str, Any]:
+    """Exact audio arm plus source-derived playback/base-preset fields."""
+    from urllib.parse import urlsplit
+
+    project, media, workflow = (validate_identifier(v) for v in (project_id, media_id, workflow_id))
+    if not isinstance(payload, list):
+        raise ValueError("Saved voice detail has an unsupported shape")
+    row = cast(list[Any], payload)
+    if len(row) <= 10 or row[:3] != [media, project, workflow]:
+        raise ValueError("Saved voice detail ownership does not match")
+    if row[6] is not None or row[7] is not None:
+        raise ValueError("Saved voice detail must contain only the audio media union")
+    audio: Any = row[10]
+    if not isinstance(audio, list) or len(cast(list[Any], audio)) != 1:
+        raise ValueError("Saved voice detail audio is unavailable")
+    sample: Any = cast(list[Any], audio)[0]
+    if not isinstance(sample, list):
+        raise ValueError("Saved voice detail audio is unavailable")
+    sample = cast(list[Any], sample)
+
+    def field(index: int) -> Any:
+        return sample[index] if len(sample) > index else None
+
+    result: dict[str, Any] = {
+        "performance": field(1) if isinstance(field(1), str) else "",
+        "dialogue": field(6) if isinstance(field(6), str) else "",
+    }
+    if isinstance(field(7), str):
+        result["description"] = field(7)
+    base: Any = field(4)
+    speakers: Any = field(11)
+    if not base and isinstance(speakers, list) and speakers:
+        speaker: Any = cast(list[Any], speakers)[0]
+        if isinstance(speaker, list) and speaker:
+            base = cast(list[Any], speaker)[0]
+    if isinstance(base, str):
+        canonical = next(
+            (v for v in VOICE_NAMES if v.casefold() == base.removeprefix("voices/").casefold()),
+            None,
+        )
+        if canonical:
+            result["preset_voice"] = canonical
+    url: Any = field(3) or field(5)
+    if url:
+        if not isinstance(url, str):
+            raise ValueError("Saved voice playback URL is unavailable")
+        try:
+            parsed = urlsplit(url)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.port not in (None, 443)
+                or parsed.fragment
+            ):
+                raise ValueError
+        except ValueError:
+            raise ValueError("Saved voice playback URL is invalid") from None
+        result["audio_url"] = url
+    return result
+
+
 async def get_saved_voice(page: Any, project_id: str, voice_id: str) -> dict[str, Any]:
+    from gflow_cli.api.transports.migrated_rpc import native_rpc
+
     project, voice = validate_identifier(project_id), validate_identifier(voice_id)
     snapshot = await list_saved_voices(page, project)
     matches = [row for row in snapshot["voices"] if row["ref"] == voice]
     if len(matches) != 1:
         raise ValueError("Saved voice is not uniquely owned by the selected project")
     result = dict(matches[0])
-    media = await _rpc(page, project, GET_MEDIA_RPC, [voice])
-    if not isinstance(media, list):
-        raise ValueError("Saved voice detail has an unsupported shape")
-    media = cast(list[Any], media)
-    if len(media) <= 10 or media[:3] != [voice, project, result["workflow_id"]]:
-        raise ValueError("Saved voice detail ownership does not match")
-    if media[6] is not None or media[7] is not None:
-        raise ValueError("Saved voice detail must contain only the audio media union")
-    audio: Any = media[10]
-    if not isinstance(audio, list) or len(cast(list[Any], audio)) != 1:
-        raise ValueError("Saved voice detail audio is unavailable")
-    sample: Any = cast(list[Any], audio)[0]
-    if isinstance(sample, list):
-        sample = cast(list[Any], sample)
-        url = sample[3] if len(sample) > 3 and sample[3] else sample[5] if len(sample) > 5 else None
-        if isinstance(url, str):
-            from urllib.parse import urlsplit
-
-            parsed = urlsplit(url)
-            if (
-                parsed.scheme == "https"
-                and parsed.hostname
-                and not parsed.username
-                and not parsed.password
-            ):
-                result["audio_url"] = url
-    return result
+    media = await native_rpc(
+        page, GET_MEDIA_RPC, [voice], "/project/" + project, require_single=True
+    )
+    return {
+        **result,
+        **saved_voice_detail_fields(
+            media, project_id=project, media_id=voice, workflow_id=result["workflow_id"]
+        ),
+    }
 
 
 async def delete_saved_voice(

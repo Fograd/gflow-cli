@@ -861,3 +861,15 @@ registered HTTP MCP (37tools) exposed include_urls and returned matching owned
 reference/thumbnail detail. A uniquely named temporary character was removed
 after both reads; zero generation. Other saved-voice/nonprojected/composite gaps
 remain independent R02 work.
+
+
+## Saved voice detail metadata — 2026-10-03
+Source-derived strict audio detail adds canonical base preset (field5/speaker12
+fallback), fresh dialogue/performance and distinct description. Shared SDK/CLI/
+direct MCP result and REST GETuser voice include these fields; REST validates
+returned ownership and adds no-store. All35 focused tests passed; final codec
+test set11passed after type-only casts. Full offline suite6025passed5skipped,
+16warnings,89%reported coverage in205.69seconds using4workers. Ruff/format/Pyright
+and repository/docs/website/public-memory gates passed; scoped council GO.
+There is no owned saved-user-voice fixture in the selected observed project;
+accepted live playback remains unverified. No new billable TTS or solver attempt.

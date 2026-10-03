@@ -1722,8 +1722,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "projectId requires catalog=google")
         return {"voices": preset_voices(request), "scope": "bundled system voice catalog"}
 
-    @app.get(prefix + "/voices/{ref}")
-    async def voice(request: Request, ref: str) -> dict[str, Any]:
+    @app.get(prefix + "/voices/{ref}", response_model=None)
+    async def voice(request: Request, ref: str) -> dict[str, Any] | JSONResponse:
         if request.query_params.get("source", "system") in {"custom", "user"}:
             profile, project = character_project(dict(request.query_params))
             code, raw = await subprocess_run(
@@ -1742,7 +1742,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             result = parse_json_output(raw)
             if result.get("status") != "ok":
                 raise HTTPException(502, "Saved voice detail unavailable")
-            return saved_voice_item(result)
+            if result.get("project_id") != project or result.get("ref") != uuid_value(ref, "ref"):
+                raise HTTPException(502, "Saved voice detail ownership unresolved")
+            return JSONResponse(saved_voice_item(result), headers={"Cache-Control": "no-store"})
         match = next(
             (
                 item

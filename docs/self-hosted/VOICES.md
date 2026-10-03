@@ -34,3 +34,18 @@ Character create-from-images and update accept a saved audio media UUID in the e
 The audio preview request preserves the canonical displayed system preset name, such as Charon. Public CLI/SDK input remains case-insensitive. This differs from character preset metadata, whose measured identifier remains lowercase. A first final TTS attempt returned an unknown preview outcome without acknowledged media IDs. Source inspection corrected the preview encoder's lowercase divergence; that difference is not established as the cause. The separately authorized corrected canonical Charon trial captured one no0P6 request and received explicit PUBLIC_ERROR_UNUSUAL_ACTIVITY, gRPC 7. Its test reported one failure and four skips in 17.93 seconds. No audio or saved-voice binding lifecycle was accepted.
 
 The completed controlled CapSolver trial concerned native VIDEO_GENERATION, not saved TTS. Its one solved token and one submission were Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted output or retry. It does not verify audio preview tokens or saved-voice creation. The corrected canonical Charon request was captured once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7). No accepted audio or binding lifecycle is claimed.
+
+
+### Fresh saved user voice detail
+Saved-TTS detail now exposes a recognized canonical base preset from the native
+audio preset/speaker fields, freshly read dialogue/performance and optional audio
+playback URL. A separate description remains separate from voicePerformance.
+SDK get_saved_voice, CLI voice show, direct MCP gflow_get_saved_voice and REST
+GETvoices/ref source=user share the decoder. Strict GetMedia matching verifies the
+selected project/media/workflow and exclusive audio arm. Playback URLs are
+confidential HTTPS values from the owned native response; no media fetch or
+unverified universal URL lifetime is implied. REST returns no-store.
+Missing playback remains optional; missing inventory is not proof of deletion.
+The selected project has no saved user voice fixture, so this enhancement has
+source/offline proof and no newly accepted live audio playback. R12 retains that
+acceptance requirement; no extra paid audio generation was attempted.

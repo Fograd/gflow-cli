@@ -101,7 +101,12 @@ def test_saved_voice_catalog_and_detail_use_native_rows(tmp_path, monkeypatch):
     async def worker(args, timeout):
         if args[3] == "voice-saved-get":
             return 0, json.dumps(
-                {"status": "ok", **row, "audio_url": "https://example.org/audio.wav"}
+                {
+                    "status": "ok",
+                    **row,
+                    "audio_url": "https://example.org/audio.wav",
+                    "preset_voice": "Charon",
+                }
             ).encode()
         assert args[3] == "voice-saved-list"
         return 0, json.dumps({"status": "ok", "voices": [row]}).encode()
@@ -114,6 +119,8 @@ def test_saved_voice_catalog_and_detail_use_native_rows(tmp_path, monkeypatch):
         detail = client.get("/v1/google-flow/voices/" + M + "?source=custom", headers=AUTH)
         assert detail.status_code == 200, detail.text
         assert detail.json()["audioUrl"] == "https://example.org/audio.wav"
+        assert detail.json()["baseVoice"] == "Charon"
+        assert detail.headers["cache-control"] == "no-store"
 
 
 def test_permanent_asset_delete_queues_distinct_operation(tmp_path):
