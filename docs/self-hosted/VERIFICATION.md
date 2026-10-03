@@ -491,3 +491,19 @@ sweep exposed an obsolete CLI required-end test and a missing live-feature tag;
 both were corrected, including optional/explicit CLI parameter propagation.
 The duplicate-code proxy found only unchanged experimental transport duplicates.
 Public source and published-doc privacy checks found no private keys or fixtures.
+
+## Owned-media batch publication and deployment
+
+Source9442e653 was atomically published to the fork's develop,
+feature/self-hosted-flow-api and feature/useapi-parity-2026-10-03 references;
+all three remote SHA values matched. With zero queued/running REST or
+pending/processing MCP jobs, production CC LXC source fast-forwarded cleanly,
+locked dependencies synchronized and API/MCP restarted active. The CapSolver
+GUI remained active; private provider keys and the saved browser profile were
+preserved.
+
+Production unauthenticated capabilities returned401; authenticated capabilities
+returned200 withvideoEnabled=true. Native edit-model discovery returned200/two
+models. A real authenticated MCP session listed35tools, confirmed end_frame
+absent from the edit tool's required schema, and confirmed its image tool exposes
+native-image UUID Auto sizing. These probes generated no media or solver tasks.
