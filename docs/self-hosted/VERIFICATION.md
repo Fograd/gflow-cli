@@ -853,3 +853,11 @@ xdist workers and89%reported coverage. Ruff/format/Pyright and repository/docs/
 website/public-memory checks passed. Council GO for pinned source tree; attached
 saved-voice decoder remains an existing unfinished path. No source changes after
 the full test run. Publication/deployment follows this checkpoint.
+
+Character-image detail batch published to all three fork refs and deployed on
+CC LXC at1216368e after REST/MCP active jobs were both zero. Both services active.
+Actual authenticated REST returned fresh reference/thumbnail URLs with no-store;
+registered HTTP MCP (37tools) exposed include_urls and returned matching owned
+reference/thumbnail detail. A uniquely named temporary character was removed
+after both reads; zero generation. Other saved-voice/nonprojected/composite gaps
+remain independent R02 work.

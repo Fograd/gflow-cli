@@ -63,3 +63,8 @@ User requested stopping safely for an update.
 Required gate completed:6014passed5skipped,89%coverage,182.32seconds with4workers.
 Architecture/security, performance/UX/testing and docs council GO on pinned source;
 docs signature and parity-row follow-ups corrected. No new paid allowance used.
+
+Character-image delivery: published/deployed1216368e; actual REST/MCP detail URLs
+accepted with probe cleanup and zero generation. Both services active. Remaining
+next implementation is strict saved-voice detail/full metadata, then nonprojected
+thumbnail contract if positively established; entire R02 remains unchecked.
