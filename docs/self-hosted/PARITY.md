@@ -111,6 +111,166 @@ useapi composite refs cannot be reused without a verified mapping. Job IDs,
 protected callbacks and unknown outcomes preserve safe recovery identities and
 never expose tokens, cookies or solver keys.
 
+## Roadmap
+
+This is the execution roadmap for the self-hosted fork and the source for a
+persistent Goal-mode run. Work from the first unfinished item that can make
+progress. A blocker on one item does not stop work on the others.
+
+**Working order:** deliver features first, keep required correctness/privacy
+checks, then run a representative final E2E campaign. Keep changes limited to
+gflow-cli; Tee Pipeline and cloud-environment setup are outside this goal.
+The deployment target is CC LXC. Three Google AI Pro subscriptions are available,
+but only the configured first account has been verified so far. CapSolver is the
+chosen provider; configured keys and solved tokens do not prove Google acceptance.
+
+### Completed foundations
+
+- [x] Native image2K upscaling through CLI, REST and MCP, with accepted live output.
+- [x] Auto sizing from local references and owned native image UUID dimensions on
+  SDK/CLI/MCP. Native UUID sizing passed a read-only live test; accepted Auto
+  generation remains part of R01/R12.
+- [x] Automatic video-edit end from measured source duration, with explicit
+  overrides and SDK/CLI/MCP/REST wiring. Read-only duration verification passed;
+  edited-video rendering remains part of R12.
+- [x] CapSolver private configuration, masked key GUI, balance checks and outcome
+  statistics. Solver-backed accepted generation remains part of R06.
+
+### Ordered feature backlog
+
+The IDs are stable so a Goal-mode run can record its current item. Check a feature
+item only when its implementation, applicable SDK/CLI/direct and queued MCP/REST
+surfaces, documentation and relevant tests are complete. Record live acceptance
+separately under R12; an existing command or passing mock is insufficient evidence.
+
+- [ ] **R01 — Current Flow image composer and asset picker.** Finish and integrate
+  the current-cohort composer/grid work so local references, native UUIDs, Auto
+  sizing and canonical image/character references reach the correct owned assets.
+  Use fresh structural/source evidence; resolve ambiguity before submission.
+  Current evidence: the grid draft is not deployed, and the last Auto generation
+  failed at composer readiness before any accepted image.
+- [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
+  video, voice, character-reference and thumbnail lookup beyond the local
+  registry, including unregistered native image references/Auto on REST.
+  Correlate account/project/media/type, use bounded trusted downloads and retain
+  explicit local/native scope. Add useapi composite-ID translation only where a
+  verified mapping exists; never guess one.
+- [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
+  account-wide projects, attached media/history and character/user-voice
+  inventories. Expose completeness and counts only when established; a partial
+  snapshot or absent row must not imply deletion.
+- [ ] **R04 — Video reference and character coverage.** Implement canonical
+  positional image/entity/audio grounding and video character references. Extend
+  V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
+  presets and character inputs. Discover actual source contracts before enabling
+  each form; an attachment alone does not prove semantic grounding.
+- [ ] **R05 — Native video controls.** Find and wire numerical video seeds and
+  distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
+  codec collapses those ratios: do not ship extra input choices that produce the
+  wrong shape. Record a source-backed limitation if investigation cannot
+  establish a working contract, and continue other items.
+- [ ] **R06 — CapSolver and CAPTCHA control coverage.** Complete supplied-token
+  and CapSolver selection/control wiring for image/video/upscale/extension/TTS
+  paths where applicable. Investigate the rejected replacement-token integration
+  with matched action, browser/session context and controlled attempts. Separate
+  solve, submission, explicit rejection and unknown outcomes; never replay an
+  uncertain write. Keep unverified provider paths explicitly guarded until an
+  accepted live result proves them. Prior trials solved tokens but Google
+  rejected their submissions; acceptance is an unfinished proof requirement.
+- [ ] **R07 — Real resolution promotion and entitlement handling.** Establish
+  native 360p-to-720p promotion, video4K and accepted image4K where account
+  entitlement permits. Downloads/exports/local resizing do not establish native
+  promotion. Discover actual account capability and return clear limits; three
+  Pro subscriptions do not establish Ultra access. Preserve the working image2K
+  path while investigating higher resolutions.
+- [ ] **R08 — Reference budgets and remaining image controls.** Cover the
+  documented reference forms/counts with current per-model limits, including
+  ten-image cases where actually supported. The measured Lite cap remains 3.
+  Keep first-reference ordering and validation consistent across surfaces.
+  Native Google Auto remains separate from the implemented approximation.
+- [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
+  semantics and complete supported batch behavior with fresh owned membership
+  proof. Preserve permanent deletion versus reversible archive versus local-cache
+  deletion as distinct operations; do not infer success from incomplete listings.
+- [ ] **R10 — Account import, refresh and three-account coverage.** Prove a
+  successful cookie-table import, supported session refresh/reuse and independent
+  account selection/queues for all three Pro accounts. Preserve private profiles
+  and identity verification; Google may still require human login. Prepare
+  everything possible before requesting a required login, then continue other
+  items while it is pending.
+- [ ] **R11 — Remaining useapi contract equivalence.** Audit all 29 endpoint
+  contracts and parameter matrices against the finished adapters: defaults,
+  supported controls, response/error fields, sync/async status, polling,
+  callbacks and timeout/unknown semantics. Unknown controls must fail explicitly
+  before generation. Update the endpoint matrix and API documentation with exact
+  scope instead of declaring parity from endpoint-name coverage.
+
+### Final verification and delivery
+
+- [ ] **R12 — Representative final E2E campaign.** After the feature backlog,
+  verify accepted text/local/native-reference images, canonical grounding, Auto,
+  native2K, available higher-resolution paths, video generation/reference/edit/
+  extension/export/GIF, saved TTS CRUD/binding and native media lifecycles.
+  Exercise REST and registered MCP, including queued paths where different code
+  runs, callbacks/recovery and available account entitlements. Use existing paid
+  test authorizations and remaining allowances; do not start an unbounded stress
+  test or repeatedly submit the same known refusal. Prefer read-only checks until
+  an integration change justifies a new paid trial.
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Publish completed
+  work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
+  verify actual API/MCP capabilities, and update this roadmap, endpoint matrix,
+  [API guide](API.md) and [verification ledger](VERIFICATION.md). Record code
+  revision, tests, accepted outputs and precise remaining limitations.
+
+### Goal-mode execution rules
+
+1. Read this file and the verification ledger at the start of each resumed run.
+   Inspect deployed/source state before choosing the next unfinished item.
+2. Continue implementation and independent investigations autonomously within
+   existing authorization. Do not end the run just because one feature, commit
+   or test batch finished, or because another item is awaiting Google/login.
+3. Keep a compact status for each active item: implementation progress, next
+   concrete action, evidence and any blocker. Record unresolved investigation
+   attempts with dates and outcomes; do not repeatedly run an unchanged failure.
+   Update this roadmap after meaningful delivery, without inventing percentages.
+4. Ask only for genuinely missing access, a necessary human login, an exhausted
+   paid allowance or a scope decision. Complete preparatory work first and keep
+   working on independent items while waiting.
+5. Follow repository development/gate requirements without expanding this into
+   an unrelated reliability rewrite. Publish and deploy concrete completed
+   features as they become ready; perform the comprehensive E2E campaign last.
+6. Keep implementation and live acceptance distinct. Do not check R12 or declare
+   complete useapi parity from mock tests, solved CAPTCHA tokens, configured
+   subscriptions or read-only metadata proofs.
+7. Respect Goal-mode budget/status rules and explicit user pauses. A budget
+   limit is not completion. If unresolved work remains, preserve the next task
+   and evidence for resume; do not mark the goal complete merely by relabeling
+   every remaining item as blocked. An unavoidable parity limitation requires
+   a user scope decision before claiming the full goal is achieved.
+
+### Copyable Goal-mode prompt
+
+```text
+Use docs/self-hosted/PARITY.md, especially its Roadmap section, as the source
+of truth. Continue the Fograd/gflow-cli self-hosted fork toward full useapi
+Google Flow parity on CC LXC.
+
+Work through R01–R11 in order, selecting the next item that can make progress.
+Deliver features first, mirror applicable SDK/CLI/direct and queued MCP/REST
+surfaces, document them on GitHub, and publish/deploy completed changes.
+Then run R12's representative final E2E campaign and finish R13.
+
+Keep working within the goal budget instead of ending after one feature or
+test batch. If one item is blocked, record actual evidence and continue other
+independent work. Use existing authorizations and paid test allowances; ask
+only when required access, login, additional paid allowance or a scope decision
+is genuinely missing. Do not work on Tee Pipeline or cloud-environment setup.
+
+Keep this roadmap and VERIFICATION.md current. Distinguish implemented code,
+accepted live output and external limitations. Do not invent completion
+percentages or claim complete parity while unresolved work remains.
+```
+
 ## Existing proof and remaining final E2E
 
 Earlier live evidence establishes native image2K, seeds, one/two-image character
