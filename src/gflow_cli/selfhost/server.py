@@ -184,7 +184,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             {"code": "feature_not_implemented", "feature": feature, "status": "not_implemented"},
         )
 
-    def pick_account(email: str | None, refs: list[str]) -> str:
+    def pick_account(email: str | None, refs: list[str], *, allow_native: bool = False) -> str:
         if not cfg.accounts:
             raise HTTPException(503, "No verified accounts configured")
         selected = (
@@ -199,7 +199,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             try:
                 ref_profiles.add(store.asset_get(ref)["profile"])
             except KeyError:
-                raise HTTPException(422, "Reference is not registered with this service") from None
+                if not allow_native:
+                    raise HTTPException(
+                        422, "Reference is not registered with this service"
+                    ) from None
+                if not selected:
+                    raise HTTPException(
+                        422, "Native references require an explicit configured account"
+                    ) from None
         if len(ref_profiles) > 1 or (selected and ref_profiles and selected not in ref_profiles):
             raise HTTPException(422, "References must belong to the selected account")
         if ref_profiles:
@@ -772,9 +779,21 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(
                 422, "seed must be a nonnegative integer with room for count consecutive seeds"
             )
-        profile = pick_account(payload.get("email"), refs)
-        if any(store.asset_get(ref)["mime"] not in ("image/png", "image/jpeg") for ref in refs):
-            raise HTTPException(422, "Image references must be PNG or JPEG assets")
+        refs = list(plan.image_ids)
+        profile = pick_account(payload.get("email"), refs, allow_native=True)
+        managed_assets: dict[str, dict[str, Any]] = {}
+        sources: list[dict[str, str]] = []
+        for ref in refs:
+            try:
+                asset = store.asset_get(ref)
+            except KeyError:
+                sources.append({"id": ref, "kind": "native"})
+            else:
+                if asset["mime"] not in ("image/png", "image/jpeg"):
+                    raise HTTPException(422, "Image references must be PNG or JPEG assets")
+                managed_assets[ref] = asset
+                sources.append({"id": ref, "kind": "managed"})
+        payload["_image_reference_sources"] = sources
         default_aspect = (
             "auto" if refs and model in ("nano-banana-2", "nano-banana-pro") else "16:9"
         )
@@ -784,23 +803,27 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(422, "aspectRatio auto requires an actual reference image")
             from gflow_cli.api.image_aspect_policy import derive_aspect_from_file
 
-            first = store.asset_get(refs[0])
-            if first["profile"] != profile:
-                raise HTTPException(422, "Auto reference must belong to the selected account")
-            uuid_value(first["project"], "Registered reference project")
-            try:
-                path = contained_file(first["path"], cfg.root)
-                decision = await run_in_threadpool(derive_aspect_from_file, path)
-            except ValueError:
-                raise HTTPException(
-                    422, "Auto requires a valid managed PNG or JPEG reference"
-                ) from None
-            payload.update(
-                aspectRatio=decision.resolved_aspect,
-                requestedAspectRatio=decision.requested_aspect,
-                resolvedAspectRatio=decision.resolved_aspect,
-                aspectPolicy=decision.policy,
-            )
+            first = managed_assets.get(refs[0])
+            if first is None:
+                # Native dimensions are checked in the serialized selected-account worker.
+                payload["requestedAspectRatio"] = "auto"
+            else:
+                if first["profile"] != profile:
+                    raise HTTPException(422, "Auto reference must belong to the selected account")
+                uuid_value(first["project"], "Registered reference project")
+                try:
+                    path = contained_file(first["path"], cfg.root)
+                    decision = await run_in_threadpool(derive_aspect_from_file, path)
+                except ValueError:
+                    raise HTTPException(
+                        422, "Auto requires a valid managed PNG or JPEG reference"
+                    ) from None
+                payload.update(
+                    aspectRatio=decision.resolved_aspect,
+                    requestedAspectRatio=decision.requested_aspect,
+                    resolvedAspectRatio=decision.resolved_aspect,
+                    aspectPolicy=decision.policy,
+                )
         elif requested_aspect not in ("16:9", "4:3", "1:1", "3:4", "9:16"):
             feature_missing("aspectRatio")
         from gflow_cli.selfhost.captcha_routes import prepare_image_controls

@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _make_provider_dir, run_with_handlers
 from gflow_cli.api.client import FlowApiClient
+from gflow_cli.api.image import GenerateImageRequest
 from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
 from gflow_cli.config import get_settings
-from gflow_cli.errors import WafRejectionError, WireFormatError
+from gflow_cli.errors import ConfigurationError, WafRejectionError, WireFormatError
 from gflow_cli.image_recovery import create_journal, download_images
 from gflow_cli.selfhost.captcha import CaptchaStats, ProviderKeys, Solver, SolverError
 
@@ -20,6 +22,29 @@ from gflow_cli.selfhost.captcha import CaptchaStats, ProviderKeys, Solver, Solve
 def failure_phase(error: BaseException, *, generating: bool) -> str:
     """Only a typed refusal during generation proves a rejected submit."""
     return "rejected" if generating and isinstance(error, WafRejectionError) else "unknown"
+
+
+async def prepare_image_aspect(
+    client: FlowApiClient,
+    project: str,
+    request: GenerateImageRequest,
+    payload: dict[str, Any],
+) -> tuple[GenerateImageRequest, dict[str, str]]:
+    """Resolve native-first Auto before any upload or generation in this worker."""
+    from gflow_cli.selfhost.http_jobs import aspect_metadata
+    from gflow_cli.services.image_aspect import aspect_decision_metadata
+
+    if payload.get("aspectRatio") != "auto":
+        return request, aspect_metadata(payload)
+    plan = request.reference_prompt_plan
+    if (
+        plan is None
+        or not plan.image_ids
+        or plan.image_ids[0] not in {ref.name for ref in request.refs}
+    ):
+        raise ConfigurationError(detail="Native Auto requires the first ordered native image input")
+    aspect, decision = await client.resolve_native_image_aspect(project, plan.image_ids[0])
+    return replace(request, aspect=aspect), aspect_decision_metadata(decision)
 
 
 async def generate(profile: str, project: str, job_path: Path) -> None:
@@ -70,7 +95,7 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
         {
             **payload,
             "ref_paths": payload.get("refPaths", []),
-            "aspect": payload["aspectRatio"],
+            "aspect": "16:9" if payload["aspectRatio"] == "auto" else payload["aspectRatio"],
             "reference_entities": payload.get("reference_prompt_plan", {}).get("character_ids", []),
             "reference_syntax": payload.get("reference_syntax", "names"),
         }
@@ -83,12 +108,14 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
         metadata_required=selected_solver and not bool(supplied),
     )
     state = active_overrides.set(override)
-    generating = True
+    generating = False
     try:
         settings = get_settings()
         async with FlowApiClient(
             profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
         ) as client:
+            request, aspect_metadata = await prepare_image_aspect(client, project, request, payload)
+            generating = True
             images = await client.generate_images_batch(
                 project_id=project, req=request, count=payload["count"]
             )
@@ -109,6 +136,7 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
                 images=images,
                 saved_paths=paths,
             )
+            result.update(aspect_metadata)
             if chosen:
                 stats.record(chosen, "accepted")
                 result["captchaProvider"] = chosen

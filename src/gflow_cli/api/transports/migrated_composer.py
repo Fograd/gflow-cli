@@ -34,9 +34,10 @@ import asyncio
 import json
 import mimetypes
 import re
+import sys
 import time
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 from urllib.parse import unquote_plus, urlsplit
@@ -93,6 +94,7 @@ from gflow_cli.errors import (
     ImageGenerationUnknownError,
     InsufficientCreditsError,
     MediaUploadRejectedError,
+    NativeMediaMutationUnknownError,
     ReferenceNotFoundError,
     TransportTimeoutError,
     UiSelectorDriftError,
@@ -648,8 +650,12 @@ def migrated_can_serve(request: GenerateVideoRequest, project_id: str | None) ->
 
 
 def _unported_image_form(request: GenerateImageRequest) -> str | None:
-    if request.refs and request.ref_paths:
-        return "existing-image references mixed with local files"
+    if (
+        request.refs
+        and request.ref_paths
+        and (request.reference_prompt_plan is None or not request.local_ref_ids)
+    ):
+        return "existing-image references mixed with local files without a canonical mapping"
     if any(not ref.in_project for ref in request.refs):
         # Eligibility comes from a same-project generated acknowledgement or
         # fresh native ownership proof; bare catalog/MCP flags are not proof.
@@ -828,16 +834,68 @@ def _body_rpcid(body: str) -> str | None:
     return m.group(1) if m else None
 
 
-def _first_uuid(text: str) -> str | None:
-    """The first UUID in a ``batchexecute`` reply — for ``maseQ`` that is the new
-    media id (``[media_id, project_id, …]``, measured 2026-09-05)."""
-    for rid, payload in parse_frames(text):
-        if rid != UPLOAD_RPC:
-            continue
-        m = UUID_RE.search(str(payload))
-        if m:
-            return m.group(0)
-    return None
+def _uploaded_image_id(text: str, project_id: str, display_name: str | None = None) -> str | None:
+    """Decode typed current/legacy image-upload responses, never search UUIDs.
+
+    The current nested media/workflow form was correlated with fresh project
+    metadata on 2026-10-03. Require one frame and the selected project.
+    """
+    payloads = [payload for rid, payload in parse_frames(text) if rid == UPLOAD_RPC]
+    if len(payloads) != 1 or not isinstance(payloads[0], list):
+        return None
+    row = cast(list[Any], payloads[0])
+    if len(row) == 2 and isinstance(row[0], list) and isinstance(row[1], list):
+        # Current image upload response, measured 2026-10-03: a typed
+        # media row and a workflow row name the same media/project/workflow.
+        # No recursive UUID search or generation-record decoder is involved.
+        media_row, workflow_row = cast(list[Any], row[0]), cast(list[Any], row[1])
+        if len(media_row) != 7 or len(workflow_row) != 5:
+            return None
+        media, project, workflow = media_row[:3]
+        if any(
+            not isinstance(value, str) or UUID_RE.fullmatch(value) is None
+            for value in (media, project, workflow)
+        ):
+            return None
+        if (
+            project.lower() != project_id.lower()
+            or len({media.lower(), project.lower(), workflow.lower()}) != 3
+            or workflow_row[0] != workflow
+            or workflow_row[4] != project
+        ):
+            return None
+        info, image = workflow_row[3], media_row[6]
+        if (
+            not isinstance(info, list)
+            or len(cast(list[Any], info)) != 5
+            or info[4] != media
+            or not isinstance(info[0], str)
+            or not info[0]
+            or (display_name is not None and info[0] != display_name)
+            or not isinstance(image, list)
+            or len(cast(list[Any], image)) != 3
+            or image[0] is not None
+            or not isinstance(image[1], list)
+            or len(cast(list[Any], image[1])) != 7
+            or not isinstance(image[1][6], str)
+            or image[1][6] not in {"image/jpeg", "image/png"}
+            or not isinstance(image[2], list)
+            or len(cast(list[Any], image[2])) != 2
+            or any(type(value) is not int or value <= 0 for value in cast(list[Any], image[2]))
+        ):
+            return None
+        return media.lower()
+    if len(row) < 2 or not isinstance(row[0], str) or not isinstance(row[1], str):
+        return None
+    media, project = row[0], row[1]
+    if (
+        UUID_RE.fullmatch(media) is None
+        or UUID_RE.fullmatch(project) is None
+        or project.lower() != project_id.lower()
+        or media.lower() == project.lower()
+    ):
+        return None
+    return media.lower()
 
 
 def _post_data(request: Any) -> str:
@@ -2094,10 +2152,20 @@ class MigratedComposer:
         loop = asyncio.get_running_loop()
         reply: asyncio.Future[tuple[int, str]] = loop.create_future()
         route = f"batchexecute:{UPLOAD_RPC}"
+        armed = False
+        upload_request: Any = None
+        ambiguous_dispatch = False
+        known_media: str | None = None
 
         async def on_response(response: Any) -> None:
             url = str(getattr(response, "url", ""))
-            if "batchexecute" not in url or _rpcid(url) != UPLOAD_RPC or reply.done():
+            if (
+                "batchexecute" not in url
+                or _rpcid(url) != UPLOAD_RPC
+                or reply.done()
+                or upload_request is None
+                or getattr(response, "request", None) is not upload_request
+            ):
                 return
             status = int(getattr(response, "status", 0) or 0)
             text = ""
@@ -2116,10 +2184,14 @@ class MigratedComposer:
         sent = False
 
         def on_request(request: Any) -> None:
-            nonlocal sent
+            nonlocal sent, upload_request, ambiguous_dispatch
             url = str(getattr(request, "url", ""))
-            if "batchexecute" in url and _rpcid(url) == UPLOAD_RPC:
+            if armed and "batchexecute" in url and _rpcid(url) == UPLOAD_RPC:
                 sent = True
+                if upload_request is None:
+                    upload_request = request
+                elif request is not upload_request:
+                    ambiguous_dispatch = True
 
         page.on("response", on_response)
         page.on("request", on_request)
@@ -2180,6 +2252,9 @@ class MigratedComposer:
             # ours to choose, so uniqueness needs no copy on disk (and leaves no temp file
             # to leak). `read_bytes` is off-thread for the same reason the header read in
             # `client.py` is — the file is up to MAX_IMAGE_BYTES.
+            # Associate the response with the request observed after this chooser
+            # dispatch. Older in-flight uploads cannot supply this binding.
+            armed = True
             await chooser.set_files(
                 {
                     "name": display_name,
@@ -2239,37 +2314,53 @@ class MigratedComposer:
                         "image does NOT help; three different files were ruled out in #719."
                     ),
                 ) from None
+            if ambiguous_dispatch:
+                raise NativeMediaMutationUnknownError(
+                    operation="upload", phase="dispatch", project_id=project_id
+                )
             if status != 200:
                 raise MediaUploadRejectedError(
                     detail=f"migrated host: the upload rpc {UPLOAD_RPC} answered HTTP {status}",
                     status=status,
                     route=route,
                 )
-            media_id = _first_uuid(text)
+            media_id = _uploaded_image_id(text, project_id, display_name)
             if media_id is None:
                 raise MediaUploadRejectedError(
-                    detail=f"migrated host: {UPLOAD_RPC} answered 200 without a media id",
-                    status=status,
-                    route=route,
-                )
-            if media_id.lower() == project_id.lower():
-                # The measured reply is ``[media_id, project_id, …]``. If the first
-                # UUID is the project's, the shape moved under us — and the submit-body
-                # assertion could not catch it, since the project id is in every body.
-                raise MediaUploadRejectedError(
                     detail=(
-                        f"migrated host: the first id in the {UPLOAD_RPC} reply is the "
-                        f"project id ({project_id}), not a new media id — the reply "
-                        "shape changed and the upload cannot be bound safely"
+                        f"migrated host: {UPLOAD_RPC} answered 200 without a media id "
+                        "confirmed for the requested project id"
                     ),
                     status=status,
                     route=route,
                 )
+            known_media = media_id
             log.info("migrated.frame_uploaded", media_id=media_id, status=status)
             return media_id, display_name
         finally:
-            page.remove_listener("response", on_response)
-            page.remove_listener("request", on_request)
+            primary = sys.exception()
+            cleanup_error: Exception | None = None
+            for event, handler in (("response", on_response), ("request", on_request)):
+                try:
+                    page.remove_listener(event, handler)
+                except Exception as error:
+                    cleanup_error = cleanup_error or error
+            if cleanup_error:
+                if known_media:
+                    recovery = NativeMediaMutationUnknownError(
+                        operation="upload",
+                        phase="cancelled"
+                        if isinstance(primary, asyncio.CancelledError)
+                        else "response",
+                        project_id=project_id,
+                        known_media_ids=(known_media,),
+                    )
+                    if isinstance(primary, asyncio.CancelledError):
+                        vars(primary)["gflow_native_media_unknown"] = recovery
+                    else:
+                        raise recovery from primary or cleanup_error
+                elif primary is None:
+                    raise cleanup_error
 
     async def reference_existing(
         self, page: Page, project_id: str, request: GenerateImageRequest
@@ -2499,9 +2590,38 @@ class MigratedComposer:
         self, page: Page, project_id: str, paths: tuple[Path, ...]
     ) -> tuple[NativeImageBinding, ...]:
         bindings: list[NativeImageBinding] = []
-        for path in paths:
-            media_id, name = await self._upload_via_toolbar(page, project_id, path)
-            bindings.append(NativeImageBinding(media_id, name))
+        try:
+            for path in paths:
+                media_id, name = await self._upload_via_toolbar(page, project_id, path)
+                bindings.append(NativeImageBinding(media_id, name))
+        except asyncio.CancelledError as error:
+            if bindings:
+                vars(error)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
+                    operation="upload",
+                    phase="cancelled",
+                    project_id=project_id,
+                    known_media_ids=tuple(binding.media_id for binding in bindings),
+                )
+            raise
+        except Exception as error:
+            if not bindings:
+                raise
+            raise NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="response",
+                project_id=project_id,
+                known_media_ids=tuple(binding.media_id for binding in bindings)
+                + (
+                    error.known_media_ids
+                    if isinstance(error, NativeMediaMutationUnknownError)
+                    else ()
+                ),
+                pending_media_ids=(
+                    error.pending_media_ids
+                    if isinstance(error, NativeMediaMutationUnknownError)
+                    else ()
+                ),
+            ) from error
         return tuple(bindings)
 
     async def attach_character_entities(
@@ -3608,6 +3728,19 @@ async def run_images(
     out_dir: Path | None = None,
 ) -> list[GeneratedImage]:
     """Drive supported image requests through the migrated project composer."""
+    if request.reference_prompt_plan is not None:
+        from gflow_cli.api.reference_markers import (
+            ReferenceContractError,
+            validate_image_slot_plan,
+        )
+
+        try:
+            checked = validate_image_slot_plan(request)
+        except ReferenceContractError as exc:
+            raise ConfigurationError(detail=str(exc)) from exc
+        # Freshly hydrated character names/counts belong to SDK ownership proof.
+        # Reconcile only logical image identifiers, preserving that proof.
+        request = replace(request, refs=checked.refs, local_ref_ids=checked.local_ref_ids)
     unported = _unported_image_form(request)
     if unported is not None:
         raise FlowHostMigratedError(
@@ -3627,13 +3760,16 @@ async def run_images(
     await composer.ensure_editor(page, pid)
     plan = request.reference_prompt_plan
     if plan is not None:
+        local_ids = request.local_ref_ids or (plan.image_ids if request.ref_paths else ())
+        local_set = set(local_ids)
+        native_ids = tuple(value for value in plan.image_ids if value not in local_set)
         if (
             plan.surface != "image"
             or plan.audio_ids
             or plan.video_ids
             or tuple(plan.character_ids) != request.reference_entities
-            or (request.refs and tuple(plan.image_ids) != tuple(ref.name for ref in request.refs))
-            or (request.ref_paths and len(plan.image_ids) != len(request.ref_paths))
+            or tuple(ref.name for ref in request.refs) != native_ids
+            or len(local_ids) != len(request.ref_paths)
             or (plan.image_ids and not request.refs and not request.ref_paths)
         ):
             raise ConfigurationError(
@@ -3649,16 +3785,51 @@ async def run_images(
             }
         else:
             await composer.apply_image_settings(page, request)
-        if request.ref_paths:
-            uploaded = await composer.upload_reference_bindings(page, pid, request.ref_paths)
-            image_bindings = dict(zip(plan.image_ids, uploaded, strict=True))
-        expected = await materialize_reference_prompt(
-            page,
-            composer,
-            plan,
-            image_bindings,
-            dict(zip(request.reference_entities, request.reference_entity_names, strict=True)),
-        )
+        uploaded: tuple[NativeImageBinding, ...] = ()
+        try:
+            if request.ref_paths:
+                uploaded = await composer.upload_reference_bindings(page, pid, request.ref_paths)
+                image_bindings.update(zip(local_ids, uploaded, strict=True))
+                if request.refs:
+                    # Toolbar upload may change the mounted document. Reacquire
+                    # exact native tokens before composing the immutable plan.
+                    tokens = await composer.await_existing_references(page, request.refs)
+                    image_bindings.update(
+                        {
+                            ref.name: NativeImageBinding(
+                                ref.name, ref.display_name or "", tokens[ref.name]
+                            )
+                            for ref in request.refs
+                        }
+                    )
+            image_bindings = {
+                identifier: image_bindings[identifier] for identifier in plan.image_ids
+            }
+            expected = await materialize_reference_prompt(
+                page,
+                composer,
+                plan,
+                image_bindings,
+                dict(zip(request.reference_entities, request.reference_entity_names, strict=True)),
+            )
+        except asyncio.CancelledError as error:
+            if uploaded:
+                vars(error)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
+                    operation="upload",
+                    phase="cancelled",
+                    project_id=pid,
+                    known_media_ids=tuple(binding.media_id for binding in uploaded),
+                )
+            raise
+        except Exception as error:
+            if not uploaded:
+                raise
+            raise NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="response",
+                project_id=pid,
+                known_media_ids=tuple(binding.media_id for binding in uploaded),
+            ) from error
         return await composer.submit_images_and_observe(
             page,
             request,

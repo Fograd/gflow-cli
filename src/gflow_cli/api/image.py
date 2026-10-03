@@ -466,8 +466,19 @@ class GenerateImageRequest:
     # Requested Flow UI arm (#299) from --ui-mode; None → resolve from
     # GFLOW_CLI_UI_MODE / default at the transport. Not sent on the wire.
     ui_mode: UiMode | None = None
+    # Private canonical slot aliases paired with ref_paths. These are logical
+    # identities, never proof of Google ownership or acknowledged upload IDs.
+    local_ref_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if self.local_ref_ids and (
+            len(self.local_ref_ids) != len(self.ref_paths)
+            or any(
+                not isinstance(cast(object, value), str) or not value
+                for value in self.local_ref_ids
+            )
+        ):
+            raise ValueError("Local reference aliases must match local path inputs")
         if self.reference_syntax not in ("names", "slots"):
             raise ValueError("Image reference syntax must be names or slots")
         if not self.prompt or not self.prompt.strip():

@@ -162,19 +162,27 @@ separately under R12; an existing command or passing mock is insufficient eviden
   attachment BDD passed (one pass, one deselected, two warnings,31.33seconds)
   without generation. Unsafe captions remain a separate measured picker-contract
   gap; canonical grounding and accepted output still need their own proof.
-- [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
-  video, voice, character-reference and thumbnail lookup beyond the local
-  registry, including unregistered native image references/Auto on REST.
-  Correlate account/project/media/type, use bounded trusted downloads and retain
-  explicit local/native scope. Add useapi composite-ID translation only where a
-  verified mapping exists; never guess one. Source audit confirms REST rejects
-  unregistered UUIDs before the existing SDK owned-reference/Auto helpers can run;
-  next implementation must carry native IDs separately under an explicit selected
-  account/project, preserving managed paths and reference order. The composer
-  currently assumes plan images are wholly native or wholly local, and local
-  upload bindings replace native bindings. Mixed inputs require an explicit local
-  slot-alias vector, ordered subset validation and merging acknowledged uploads
-  with owned native bindings; Auto must follow the first actual source.
+- [ ] **R02 — Native media lookup and fresh URLs.** Remaining work is owned
+  image/video/voice/character-reference/thumbnail lookup beyond the local registry,
+  typed fresh protected URLs and bounded trusted downloads. Correlate account,
+  project, media and type; keep local/native scope explicit. Translate useapi
+  composite IDs only with a verified mapping.
+  Native/mixed image generation routing is now implemented: unregistered native
+  UUIDs require an explicit configured REST account; server-owned ordered source
+  records preserve managed paths and original slots through the private worker.
+  CLI/direct and queued MCP share the same ordered plan/local alias contract.
+  Native-first Auto resolves fresh dimensions in the selected-account worker;
+  managed-first Auto decodes the actual first local file. Missing dimensions
+  never fall back to another reference.
+  Current toolbar upload acknowledgements are request-correlated typed nested
+  media/workflow rows, matching project/media/workflow, unique requested caption,
+  MIME and dimensions. Earlier/current upload handles survive later upload,
+  binding, cancellation and listener-cleanup failures without automatic replay.
+  The tagged upload/owned-identity/canonical-binding/archive BDD passed once
+  in39.95seconds with zero generation requests; the final complete offline suite
+  passed5934tests with5skips at89.00%coverage. These establish implementation and
+  attachment, not accepted mixed/native REST or registered MCP output; R12 retains
+  those acceptance requirements. Native URL/download lookup is the next R02 task.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial

@@ -32,7 +32,6 @@ from gflow_cli.errors import (
 from tests.api.transports.test_migrated_composer import (
     MEDIA,
     MEDIA_UP,
-    PROJ,
     VIDEO_URL,
     WF,
     FakePage,
@@ -40,11 +39,14 @@ from tests.api.transports.test_migrated_composer import (
     _frame,
     _record,
 )
+from tests.api.transports.test_migrated_composer import (
+    PROJ_UUID as PROJ,
+)
 
 scenarios("migrated_i2v.feature")
 
-_LABS = "https://labs.google/fx/en/tools/flow/project/p1"
-_MIGRATED = "https://flow.google.com/project/p1"
+_LABS = f"https://labs.google/fx/en/tools/flow/project/{PROJ}"
+_MIGRATED = f"https://flow.google.com/project/{PROJ}"
 
 
 class _LabsDriverTouchedError(Exception):
@@ -195,7 +197,7 @@ def _upload_400(world: dict[str, Any]) -> None:
 def _run(world: dict[str, Any], request: GenerateVideoRequest) -> None:
     async def go() -> Any:
         return await world["transport"].generate_video(
-            request=request, project_id="p1", download=False, poll_timeout_s=5.0
+            request=request, project_id=PROJ, download=False, poll_timeout_s=5.0
         )
 
     try:
@@ -264,7 +266,7 @@ def _i2v_body(world: dict[str, Any]) -> None:
 @then("the result reports success with the workflow id")
 def _success(world: dict[str, Any]) -> None:
     result = world["result"]
-    assert result.status.succeeded and result.project_id == "p1"
+    assert result.status.succeeded and result.project_id == PROJ
     assert result.flow_operation_id == WF
 
 

@@ -212,6 +212,7 @@ def build_image_request(payload: dict[str, Any]) -> GenerateImageRequest:
         model=model,
         refs=refs,
         ref_paths=ref_paths,
+        local_ref_ids=tuple(payload.get("local_ref_ids", [])),
         reference_entities=reference_entities,
         reference_entity_names=reference_entity_names,
         reference_syntax=payload.get("reference_syntax", "names"),

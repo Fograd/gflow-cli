@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Canonical image slots preserve mixed native UUID/local-file caller order through SDK, CLI, direct and queued MCP, and self-hosted REST. Unregistered REST native references require an explicit configured account. Native-first Auto resolves fresh dimensions in that account worker before generation.
+- Toolbar image upload acknowledgement follows the current typed nested media/workflow response and exact chooser request, project and display name. Earlier acknowledged upload IDs survive later upload or canonical binding failures, including cancellation; uploads are never automatically replayed.
+
 - Fresh owned native image references may share captions. Exact grid tokens and submitted media IDs remain the identity checks; unsafe picker captions and ambiguous ownership still refuse.
 
 - Existing native image references use bounded exact-ID grid discovery across mounted windows, restoring scroll position and rejecting ambiguous tokens. A parent deadline bounds discovery and reload together; up to two seconds of restoration cleanup remains allowed.

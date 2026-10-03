@@ -846,7 +846,8 @@ async def gflow_generate_image(
             Count outputs use seed+index; returned seeds are verified. Unsupported
             host/transport paths reject before submission; identical pixels are not guaranteed.
         reference_images: Optional list of reference images for image-to-image generation.
-            Can be local file paths or UUIDs of previously uploaded assets.
+            Can be local file paths or owned native image UUIDs.
+            Slots mode preserves original order for mixed local/native inputs.
         reference_syntax: names preserves saved @AssetName expansion (default).
             slots uses ordered @reference_N/@character_N, leaves unknown literals
             unchanged and requires native positional materialization.
@@ -914,6 +915,7 @@ async def gflow_generate_image(
             assert decision is not None
             aspect = decision.resolved_aspect
             aspect_metadata = aspect_decision_metadata(decision)
+    image_slot_payload: dict[str, Any] = {}
     if reference_syntax not in {"names", "slots"}:
         return _bad_param("Invalid reference syntax", "reference_syntax must be names or slots")
     if reference_syntax == "slots":
@@ -927,16 +929,31 @@ async def gflow_generate_image(
             assert resolved_refs is not None
             preflight_refs = resolved_refs
         try:
-            build_image_request(
+            from gflow_cli.api.reference_markers import (
+                prepare_explicit_image_inputs,
+                reference_plan_record,
+            )
+
+            base = build_image_request(
                 {
                     "prompt": prompt,
                     "model": model,
                     "count": count,
                     "reference_entities": reference_entities or [],
-                    "reference_syntax": "slots",
                     **preflight_refs,
                 }
             )
+            local_paths = iter(preflight_refs["ref_paths"])
+            ordered = [
+                ImageRef(value) if is_media_uuid(value) else Path(next(local_paths))
+                for value in reference_images or []
+            ]
+            prepared = prepare_explicit_image_inputs(base, ordered)
+            assert prepared.reference_prompt_plan is not None
+            image_slot_payload = {
+                "local_ref_ids": list(prepared.local_ref_ids),
+                "reference_prompt_plan": reference_plan_record(prepared.reference_prompt_plan),
+            }
         except (ValueError, TypeError) as exc:
             return _bad_param("Invalid image reference slots", str(exc))
     if seed is not None:
@@ -1006,6 +1023,7 @@ async def gflow_generate_image(
         payload["aspect_decision"] = aspect_metadata
     if reference_syntax == "slots":
         payload["reference_syntax"] = reference_syntax
+        payload.update(image_slot_payload)
     if instructions:
         payload["instructions"] = list(instructions)
     if ui_mode is not None:

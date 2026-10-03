@@ -617,3 +617,18 @@ See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MED
 The source registers 35 tools, comprising the prior 24 and 11 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
+
+### Ordered image slots
+
+For gflow_generate_image with reference_syntax="slots", reference_images retains
+caller order even when native UUIDs and local PNG/JPEG paths are interleaved.
+@reference_N uses that original numeric position; repeated prompt markers attach
+one owned asset. The same immutable plan is carried through direct and queued
+execution. Native ownership is checked before local uploads. Uploaded local
+references bind their acknowledged native IDs, and partial upload/picker failures
+preserve those IDs for inspection without automatic upload replay.
+
+Auto sizing still uses the first actual reference and the documented local
+approximation. Native UUID Auto requires an explicit project and fresh dimensions;
+it never substitutes a later reference when the first cannot resolve.
+Canonical accepted mixed/native output remains a separate E2E proof obligation.

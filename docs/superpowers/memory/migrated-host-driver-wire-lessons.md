@@ -229,7 +229,8 @@ Resolve only the first reference: bounded local PNG/JPEG bytes or fresh selected
 project owned active typed-image dimensions. Native UUID resolution needs an
 explicit project; reject absent/malformed dimensions without falling back to
 later references. MCP resolves before direct/queued generation and retains
-requested/resolved/policy metadata. Managed REST refs still require the registry.
+requested/resolved/policy metadata. Managed REST refs require the registry; the R02 draft separately routes
+unregistered owned native UUIDs only under an explicit configured account.
 
 Native edit duration uses the frontend AP video branch: video field2 LI, field3
 qx Duration (asset row[7][1][2]), seconds plus nanoseconds/1e9. Omitted end means
@@ -266,3 +267,22 @@ No-submit probes must return their page lease before calling an SDK helper that
 borrows from the same single-page pool. The corrected repeated-caption BDD proved
 hydration and attachment, not accepted generation or canonical outgoing grounding.
 See [verification](../../self-hosted/VERIFICATION.md).
+
+Ordered mixed image references need an explicit immutable caller-order plan,
+with local logical aliases paired to managed paths. Split native/local vectors
+must partition that plan without overlap; toolbar upload bindings merge into
+native bindings and re-acquire native grid tokens before materialization.
+REST source records must remain server-owned, revalidated in the selected-account
+worker, with native-first Auto resolving there before upload/generation.
+
+Do not infer the image upload acknowledgement shape from old flat fixtures.
+The2026-10-03 captured maseQ response contains a seven-field media row and
+five-field workflow row, repeating media/project/workflow identities and carrying
+the upload caption, JPEG MIME and positive dimensions. Correlate the exact chooser
+request, selected project and unique requested caption before binding. A failed
+decoder after HTTP200 can still have uploaded successfully; inspect fresh typed
+unique-caption identity and preserve confirmed handles before another attempt.
+Known upload handles survive later upload/attachment failure and cancellation;
+generation submission must stay outside that upload exception wrapper.
+The corrected live no-generation BDD proved upload, exact owned canonical
+attachment and archive, not accepted image output. See [verification](../../self-hosted/VERIFICATION.md).

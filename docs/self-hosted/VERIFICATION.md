@@ -612,3 +612,119 @@ references and deployed to the clean CC LXC checkout after both queues reported
 zero active jobs. Locked dependencies synchronized; both services are active.
 REST capabilities returned401/200for unauthenticated/authenticated requests, and
 authenticated MCP initialization listed35tools. The CapSolver GUI stayed active.
+
+## R02 ordered input and upload acknowledgement development draft
+
+The explicit ordered-input helper now assigns local logical aliases at their
+original numeric positions, preserving interleaved native/local/native slots.
+CLI preflight/execution use it, and MCP includes the same plan/aliases in direct
+and queued task payloads. The new helper regressions failed before implementation.
+The helper/codec/slot matrix passed53tests in1.25seconds. The public MCP/CLI
+ordering, payload and existing Auto matrix passed52tests in1.62seconds.
+
+The measured maseQ flat response [media_id, project_id, ...] is decoded by its
+fields, requiring exactly one upload frame, two UUID fields, the selected project
+and a distinct media ID. Nested, foreign, reversed, malformed and duplicate-frame
+responses refuse. Nine new decoder regressions failed before implementation.
+The first expanded suite found12legacy fixtures whose requested project was the
+placeholder p1 while the acknowledgement named a different UUID. Upload cases
+now request the same real synthetic project UUID as their acknowledgement.
+The corrected composer/image/prompt/mention/decoder suite passed194tests in29.01seconds.
+Whole-tree Ruff/format and strict Pyright passed.
+
+These are uncommitted development changes, not deployed behavior or accepted live
+generation. Dispatch/file correlation and retained acknowledgements after partial
+failure remain required, followed by REST native references/Auto, public docs,
+tagged live verification and complete gates before publication/deployment.
+
+## R02 REST native routing and correlated uploads — development draft
+
+REST accepts an unregistered native image UUID only with an explicit configured
+account. It queues ordered server-owned native/managed source records; the runtime
+revalidates their exact shape, source identity, account ownership, MIME and managed
+path containment. Native IDs are never registered as synthetic local assets.
+The private worker retains separate native IDs, local aliases and managed paths.
+Native-first Auto resolves fresh dimensions inside the selected-account worker
+before upload/generation; managed-first Auto still decodes the actual first file.
+
+The full selfhost matrix passed463tests in14.64seconds before the additional
+boundary regressions. The selected REST suite subsequently passed12tests, then
+14tests in0.96seconds including omitted-aspect default Auto and full-worker
+dimension failure with generation never called. The affected composer/decoder/
+prompt/selfhost/codec/CLI suite passed641tests in45.02seconds. Whole-tree Ruff
+and strict Pyright passed at that draft revision.
+
+A regression with a distinct stale media ID failed on the prior uncorrelated
+response listener. Upload replies now require the exact observed request after
+chooser dispatch; multiple observed upload requests are refused as ambiguous.
+A partial batch failure regression failed first, then confirmed earlier
+acknowledged IDs are returned through non-retryable native mutation recovery.
+Canonical prompt binding failures retain newly uploaded IDs before generation.
+A cancellation regression also failed first; cancellation keeps its original
+exception and carries the same private recovery metadata as native video upload.
+Generation submission remains outside the upload-preparation exception wrapper,
+preserving typed Google generation refusal/unknown outcomes.
+
+No R02 changes are committed, published or deployed yet. These offline proofs do
+not establish live correlated uploads, exact current picker binding or accepted
+mixed/native REST generation. Those remain separate live/gate requirements.
+
+### Live upload contract correction
+
+The first tagged no-generation upload scenario failed in18.29seconds: HTTP200
+returned a shape the flat decoder refused. A fresh selected-project inspection
+found exactly one active synthetic image workflow; its explicit archive was
+acknowledged. This was an uploaded asset, not a generated image.
+
+A second bounded schema-capture scenario failed in19.74seconds at the same
+decoder and recovered/archived its exact unique-caption typed image in cleanup.
+The response was retained privately with mode600. Matching its fields against
+fresh typed project metadata established the current two-row response: the media
+row names media/project/workflow; the workflow row repeats workflow/project and
+names the same media with the requested upload caption. The image arm carries
+JPEG MIME and48×32 dimensions. The nested shape, rather than a guessed recursive
+UUID location, now has explicit positive and mismatched-identity/type regressions.
+Ten new regressions failed first. The captured reply decodes to the fresh typed
+image identity after correction. No generation, CAPTCHA solve or billed output
+was requested by these probes; no paid image-generation allowance was consumed.
+The corrected live binding proof and full gates remain pending at this entry.
+
+The corrected tagged no-generation scenario passed once with two warnings
+in39.95seconds. It uploaded one synthetic PNG, decoded the current correlated
+acknowledgement, verified its unique fresh typed active identity and requested
+caption, attached its canonical prompt slot, checked one media chip and archived
+only that fixture. The generation route guard observed zero generation requests.
+The corrected decoder/composer/native-prompt suite passed169tests in28.95seconds
+and strict Pyright passed. This establishes current upload/attachment handling,
+not accepted output or completed R02 fresh URLs. Full publication gates remain.
+
+The first complete offline sweep passed5924tests with5skips but found7migrated
+i2v BDD failures: their requested project was the placeholder p1 while their
+shared upload reply named the synthetic project UUID. The same project-correlation
+guard already passed the live image upload and focused composer checks. These
+BDD inputs now use the reply's project UUID consistently, keeping start/end-frame
+binding, confirm/picker and no-submit negatives intact. Coverage was88.29%;
+publication remains gated on the corrected complete sweep.
+
+The corrected complete sweep passed5932tests with5skips and15warnings
+in180.05seconds at89.00%coverage; repo/doc/site/public-memory checks,
+CLI/MCP61-test parity, Ruff/format and strict Pyright passed.
+Pinned prepublication review approved account/security and CLI/MCP/order scope,
+but found one upload cleanup recovery gap: removing a listener could throw after
+a decoded acknowledgement before the caller appended its binding. Two new
+regressions failed first. The upload driver now retains that current handle and
+attempts both removals; a later upload recovery merges current and earlier
+acknowledgements. Cancellation retains its original exception and recovery
+metadata, while an existing primary error is preserved when no handle exists.
+The targeted upload/decoder matrix passed33tests in1.20seconds and Pyright passed.
+Publication waits for the corrected final gate and scoped re-review.
+
+The final complete sweep after cleanup recovery passed5934tests with5skips
+and15warnings in206.68seconds at89.00%coverage. Whole-tree lint/format,
+strict Pyright, repository/doc/site/mirror/public-memory checks and61CLI/MCP
+parity tests passed. The duplication proxy found only the unchanged experimental
+bearer/SAPISID blocks. Pinned peer reviews approved ordering/public mirrors,
+account security and the corrected upload/recovery boundary; the prior cleanup
+CAUTION was cleared on staged treea27cfdf2. The27-file staged privacy scan found
+zero configured solver-key or private account/project/media identifier matches.
+Publication/deployment revision and runtime verification follow separately.

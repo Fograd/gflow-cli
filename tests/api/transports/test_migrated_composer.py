@@ -537,6 +537,7 @@ class FakeKeyboard:
 class FakeResponse:
     def __init__(self, url: str, text: str, status: int = 200) -> None:
         self.url, self._text, self.status = url, text, status
+        self.request: FakeRequest | None = None
 
     async def text(self) -> str:
         return self._text
@@ -553,6 +554,7 @@ class FakePage:
         self.keyboard = FakeKeyboard(self)
         self.gotos: list[str] = []
         self._handlers: dict[str, list[Any]] = {"response": [], "request": []}
+        self._last_request: FakeRequest | None = None
         self._pending_lig: re.Pattern[str] | None = None
         # (url, text) or (url, text, http_status) — the status defaults to 200, so an
         # existing 2-tuple keeps working and a non-200 reply is expressible.
@@ -584,10 +586,15 @@ class FakePage:
         return list(self._handlers[event])
 
     def _fire_request(self, url: str) -> None:
+        self._last_request = FakeRequest(url, "")
         for h in list(self._handlers["request"]):
-            asyncio.get_event_loop().create_task(_maybe_await(h(FakeRequest(url, ""))))
+            result = h(self._last_request)
+            if hasattr(result, "__await__"):
+                asyncio.get_event_loop().create_task(result)
 
     def _fire_response(self, response: FakeResponse) -> None:
+        if response.request is None:
+            response.request = self._last_request
         for h in list(self._handlers["response"]):
             asyncio.get_event_loop().create_task(_maybe_await(h(response)))
 
@@ -1811,10 +1818,10 @@ async def test_attach_end_frame_binds_the_second_chip(tmp_path: Path) -> None:
     end_png = tmp_path / "02-end.png"
     end_png.write_bytes(start_png.read_bytes())
 
-    await composer.attach_start_frame(page, PROJ, start_png)
+    await composer.attach_start_frame(page, PROJ_UUID, start_png)
     assert page.dom.bound_chip_count == 1
     with capture_logs() as logs:
-        media_id = await composer.attach_end_frame(page, PROJ, end_png)
+        media_id = await composer.attach_end_frame(page, PROJ_UUID, end_png)
 
     assert media_id == MEDIA_UP
     assert page.dom.bound_chip_count == 2
@@ -1838,7 +1845,7 @@ async def test_attach_end_frame_without_a_bound_start_is_selector_drift(
 
     page = FakePage()
     with pytest.raises(UiSelectorDriftError) as excinfo:
-        await MigratedComposer().attach_end_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_end_frame(page, PROJ_UUID, _png(tmp_path))
     assert "End" in str(excinfo.value)
     assert page.dom.bound_chip_count == 1  # Start took it — exactly the mis-bind
 
@@ -1849,7 +1856,7 @@ async def test_attach_uploads_then_binds_the_frame_by_file_name(tmp_path: Path) 
     page = FakePage()
     path = _png(tmp_path)
     with capture_logs() as logs:
-        media_id = await MigratedComposer().attach_start_frame(page, PROJ, path)
+        media_id = await MigratedComposer().attach_start_frame(page, PROJ_UUID, path)
     assert media_id == MEDIA_UP
     # #792: what is uploaded is a run-unique COPY — same stem, same suffix, plus a
     # random tag — so the picker search has exactly one match by construction and the
@@ -1879,7 +1886,7 @@ async def test_attach_refuses_a_non_image_before_any_click(tmp_path: Path) -> No
     path = tmp_path / "notes.txt"
     path.write_text("hello")
     with pytest.raises(ValueError, match="supported image"):
-        await MigratedComposer().attach_start_frame(page, PROJ, path)
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, path)
     assert "add_menu_opened" not in page.dom.events and page.dom.chosen_files == []
 
 
@@ -1893,7 +1900,7 @@ async def test_attach_refuses_when_the_add_menu_has_no_upload_entry(
     page = FakePage()
     page.dom.upload_item_present = False
     with pytest.raises(UiSelectorDriftError, match="upload"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.chosen_files == []
 
 
@@ -1903,7 +1910,7 @@ async def test_attach_refuses_when_no_file_chooser_opens(tmp_path: Path) -> None
     page = FakePage()
     page.dom.chooser_opens = False
     with pytest.raises(UiSelectorDriftError, match="file chooser"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.chosen_files == [] and page.listeners("response") == []
 
 
@@ -1917,7 +1924,7 @@ async def test_attach_is_upload_rejected_when_maseq_does_not_answer(
     page = FakePage()
     page.dom.maseq_reply = "none"
     with pytest.raises(MediaUploadRejectedError) as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert ei.value.route == "batchexecute:maseQ"
     assert EXIT_CODE_MAP[MediaUploadRejectedError] == 27
     assert page.dom.picked == [] and not page.dom.picker_open
@@ -1942,7 +1949,7 @@ async def test_attach_names_the_one_time_terms_dialog_when_one_opens(
     page = FakePage()
     page.dom.consent_dialog_on_upload = True
     with pytest.raises(MediaUploadRejectedError) as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert "one-time upload-terms" in str(ei.value)
     assert "most likely" in str(ei.value)  # a count is evidence for a guess, not a fact
     assert "rights" in ei.value.remediation_hint
@@ -1968,7 +1975,7 @@ async def test_attach_does_not_blame_a_dialog_that_was_already_open(
     page.dom.dialog_present = True  # already there before the file is chosen
     page.dom.maseq_reply = "none"
     with pytest.raises(MediaUploadRejectedError) as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert "one-time upload-terms" not in str(ei.value)
     assert "no upload request ever left the page" in str(ei.value)
 
@@ -1988,7 +1995,7 @@ async def test_attach_says_the_request_left_the_page_when_flow_just_never_answer
     page = FakePage()
     page.dom.maseq_reply = "sent_no_reply"
     with pytest.raises(MediaUploadRejectedError) as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert "the request left the page and Flow did not answer" in str(ei.value)
     assert "one-time upload-terms" not in str(ei.value)
     # This message ships a user-visible string, so it must ship somewhere to go with it —
@@ -2012,7 +2019,7 @@ async def test_attach_keeps_exit_27_when_the_dialog_probe_itself_dies(
     page = FakePage()
     page.dom.page_dies_on_upload = True
     with pytest.raises(MediaUploadRejectedError) as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert EXIT_CODE_MAP[MediaUploadRejectedError] == 27
     assert "no upload request ever left the page" in str(ei.value)
 
@@ -2023,7 +2030,7 @@ async def test_attach_is_upload_rejected_on_a_non_200_maseq(tmp_path: Path) -> N
     page = FakePage()
     page.dom.maseq_reply = 400
     with pytest.raises(MediaUploadRejectedError, match="400") as ei:
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert ei.value.route == "batchexecute:maseQ" and ei.value.status == 400
     assert page.dom.picked == []
 
@@ -2034,7 +2041,7 @@ async def test_attach_is_upload_rejected_when_maseq_names_no_media_id(tmp_path: 
     page = FakePage()
     page.dom.maseq_reply = "no_id"
     with pytest.raises(MediaUploadRejectedError, match="without a media id"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.picked == []
 
 
@@ -2065,7 +2072,7 @@ async def test_attach_is_reference_not_found_when_the_picker_lists_no_such_name(
     page.dom.picker_lists_upload = False  # Flow took the upload and never listed it
     path = _png(tmp_path)
     with pytest.raises(ReferenceNotFoundError, match=re.escape(path.stem)):
-        await MigratedComposer().attach_start_frame(page, PROJ, path)
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, path)
     assert EXIT_CODE_MAP[ReferenceNotFoundError] == 32
     assert page.dom.picked == [] and not page.dom.chip_bound
 
@@ -2080,7 +2087,7 @@ async def test_attach_is_selector_drift_when_the_chip_stays_empty_after_the_pick
     page = FakePage()
     page.dom.chip_binds = False
     with pytest.raises(UiSelectorDriftError, match="chip"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     # The exact name is free here, and a stale look-alike must still be a failure.
     assert page.dom.picked == [page.dom.chosen_files[0]]  # the pick happened; not the bind
 
@@ -2098,7 +2105,7 @@ async def test_attach_searches_again_when_the_upload_is_not_indexed_yet(
     monkeypatch.setattr(migrated_composer, "FRAME_SEARCH_RETRY_PAUSE_S", 0.01)
     page = FakePage()
     page.dom.picker_lists_after_searches = 1  # listed on the second search only
-    media_id = await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+    media_id = await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert media_id == MEDIA_UP and page.dom.picker_searches == 2 and page.dom.chip_bound
 
 
@@ -2113,7 +2120,7 @@ async def test_attach_gives_up_after_the_search_attempts(
     page = FakePage()
     page.dom.picker_lists_after_searches = 99
     with pytest.raises(ReferenceNotFoundError, match="nothing"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.picker_searches == migrated_composer.FRAME_SEARCH_ATTEMPTS
 
 
@@ -2129,7 +2136,7 @@ async def test_attach_is_unambiguous_even_when_the_library_holds_the_same_file(
     page = FakePage()
     name = "01-pre-submit.png"
     page.dom.picker_options = [name, name, "Blue sphere on table"]  # two earlier runs
-    media_id = await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path, name))
+    media_id = await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path, name))
     staged = page.dom.chosen_files[0]
     assert media_id == MEDIA_UP
     assert page.dom.picked == [staged] and staged != name
@@ -2164,7 +2171,7 @@ async def test_r2v_references_upload_run_unique_names_and_mention_those(
     monkeypatch.setattr(MigratedComposer, "clear_composer", AsyncMock())
     page = FakePage()
     refs = (_png(tmp_path, "a.png"), _png(tmp_path, "b.png"))
-    await MigratedComposer().attach_references(page, PROJ, refs)
+    await MigratedComposer().attach_references(page, PROJ_UUID, refs)
 
     uploaded = list(page.dom.chosen_files)
     assert [Path(u).stem.rsplit("-", 1)[0] for u in uploaded] == ["a", "b"]
@@ -2183,7 +2190,7 @@ async def test_attach_clicks_the_pickers_confirm_when_the_pick_does_not_commit(
     page = FakePage()
     page.dom.picker_needs_confirm = True
     with capture_logs() as logs:
-        media_id = await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        media_id = await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert media_id == MEDIA_UP
     assert page.dom.confirm_clicks == 1
     assert page.dom.chip_bound and not page.dom.picker_open
@@ -2206,7 +2213,7 @@ async def test_attach_says_so_when_the_confirm_was_clicked_and_the_picker_stayed
     page.dom.picker_needs_confirm = True
     page.dom.picker_confirm_commits = False
     with pytest.raises(UiSelectorDriftError, match="even after its confirm was clicked"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.confirm_clicks == 1  # it WAS clicked; the picker simply ignored it
 
 
@@ -2225,7 +2232,7 @@ async def test_attach_says_so_when_the_picker_neither_commits_nor_offers_a_confi
     page.dom.picker_needs_confirm = True
     page.dom.picker_has_confirm = False
     with pytest.raises(UiSelectorDriftError, match="carries no confirm"):
-        await MigratedComposer().attach_start_frame(page, PROJ, _png(tmp_path))
+        await MigratedComposer().attach_start_frame(page, PROJ_UUID, _png(tmp_path))
     assert page.dom.confirm_clicks == 0
 
 
@@ -3336,3 +3343,117 @@ async def test_image_unknown_retains_predispatch_project_after_page_changes(
     assert error.media_ids == (() if failure == "timeout" else (MEDIA,))
     assert error.workflow_ids == (() if failure == "timeout" else (WORKFLOW,))
     route.continue_.assert_awaited_once()
+
+
+async def test_toolbar_ignores_upload_reply_from_another_request(tmp_path, monkeypatch):
+    from gflow_cli.api.transports import migrated_composer as source
+
+    original = FakeFileChooser.set_files
+    observed = []
+
+    async def send_with_stale_reply(chooser, files):
+        observed.append(True)
+        stale = FakeResponse(
+            _batch_url("maseQ"),
+            _frame("maseQ", ["99999999-9999-4999-8999-999999999999", PROJ_UUID, "CAE"]),
+        )
+        stale.request = FakeRequest(_batch_url("maseQ"), "")
+        chooser.page._fire_response(stale)
+        await asyncio.sleep(0.01)
+        await original(chooser, files)
+
+    monkeypatch.setattr(FakeFileChooser, "set_files", send_with_stale_reply)
+    page = FakePage()
+    media, _ = await source.MigratedComposer()._upload_via_toolbar(page, PROJ_UUID, _png(tmp_path))
+    assert observed == [True]
+    assert media == MEDIA_UP
+
+
+async def test_reference_upload_keeps_prior_ack_on_later_failure(tmp_path, monkeypatch):
+    from gflow_cli.api.transports import migrated_composer as source
+    from gflow_cli.errors import NativeMediaMutationUnknownError
+
+    composer = source.MigratedComposer()
+    calls = 0
+
+    async def upload(page, project, path):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise MediaUploadRejectedError(detail="second upload failed")
+        return MEDIA_UP, "owned-upload"
+
+    monkeypatch.setattr(composer, "_upload_via_toolbar", upload)
+    with pytest.raises(NativeMediaMutationUnknownError) as err:
+        await composer.upload_reference_bindings(FakePage(), PROJ_UUID, (_png(tmp_path),) * 2)
+    assert err.value.known_media_ids == (MEDIA_UP,)
+    assert calls == 2
+
+
+async def test_reference_upload_cancellation_retains_prior_ack_without_replay(
+    tmp_path, monkeypatch
+):
+    from gflow_cli.api.transports import migrated_composer as source
+
+    composer = source.MigratedComposer()
+    calls = 0
+
+    async def upload(page, project, path):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise asyncio.CancelledError()
+        return MEDIA_UP, "owned-upload"
+
+    monkeypatch.setattr(composer, "_upload_via_toolbar", upload)
+    with pytest.raises(asyncio.CancelledError) as err:
+        await composer.upload_reference_bindings(FakePage(), PROJ_UUID, (_png(tmp_path),) * 2)
+    recovery = vars(err.value)["gflow_native_media_unknown"]
+    assert recovery.known_media_ids == (MEDIA_UP,)
+    assert recovery.phase == "cancelled"
+    assert calls == 2
+
+
+async def test_upload_listener_cleanup_failure_preserves_current_ack(tmp_path, monkeypatch):
+    from gflow_cli.api.transports import migrated_composer as source
+    from gflow_cli.errors import NativeMediaMutationUnknownError
+
+    page = FakePage()
+    cleanup = []
+
+    def fail_cleanup(event, handler):
+        cleanup.append(event)
+        raise RuntimeError("listener cleanup failed")
+
+    monkeypatch.setattr(page, "remove_listener", fail_cleanup)
+    with pytest.raises(NativeMediaMutationUnknownError) as err:
+        await source.MigratedComposer()._upload_via_toolbar(page, PROJ_UUID, _png(tmp_path))
+    assert err.value.known_media_ids == (MEDIA_UP,)
+    assert cleanup == ["response", "request"]
+
+
+async def test_later_upload_cleanup_failure_preserves_all_acknowledged_ids(tmp_path, monkeypatch):
+    from gflow_cli.api.transports import migrated_composer as source
+    from gflow_cli.errors import NativeMediaMutationUnknownError
+
+    composer = source.MigratedComposer()
+    current = "99999999-9999-4999-8999-999999999999"
+    calls = 0
+
+    async def upload(page, project, path):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="response",
+                project_id=PROJ_UUID,
+                known_media_ids=(current,),
+            )
+        return MEDIA_UP, "owned-upload"
+
+    monkeypatch.setattr(composer, "_upload_via_toolbar", upload)
+    with pytest.raises(NativeMediaMutationUnknownError) as err:
+        await composer.upload_reference_bindings(FakePage(), PROJ_UUID, (_png(tmp_path),) * 2)
+    assert err.value.known_media_ids == (MEDIA_UP, current)
+    assert calls == 2

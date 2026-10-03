@@ -390,3 +390,38 @@ voice/video error instead carries outcomeUnknown=true with validated
 knownMediaGenerationIds/knownWorkflowIds for inspection; it remains nonretryable.
 A positively identified Google unusual-activity refusal returns403 without
 outcomeUnknown. No raw worker diagnostics or credentials are projected.
+
+## Ordered native and managed image references
+
+POST /images can mix managed PNG/JPEG IDs from POST /assets/{email} with
+owned native image UUIDs in reference_1 through reference_10, subject to the
+selected model's actual reference budget. The slot numbers and prompt marker
+order are preserved; a repeated marker attaches its image once.
+
+An unregistered native UUID requires an explicit configured email and the
+selected or configured default projectId. The worker checks fresh ownership in
+that account/project before uploading managed files or submitting generation.
+A managed asset owned by another registered account refuses before queueing.
+This does not enable arbitrary remote asset download or account-wide discovery.
+
+For aspectRatio:"auto" (also the reference-image default for nano-banana-2),
+the first image reference controls the documented nearest-supported-ratio
+approximation. A managed first reference uses its decoded file dimensions.
+A native first reference resolves dimensions inside the selected account worker;
+missing dimensions fail before generation and never fall back to another input.
+requestedAspectRatio, resolvedAspectRatio and aspectPolicy describe the
+actual decision. This remains distinct from Google's own native Auto control.
+
+CLI gflow image i2i --reference-syntax slots and MCP
+gflow_generate_image(reference_syntax="slots") preserve interleaved local-path
+and native-UUID caller order through direct and queued execution. REST managed
+IDs are server-owned files; the request does not accept caller filesystem paths.
+Names-mode mixed references remain guarded when an explicit ordered slot plan
+is required.
+
+Uploads bind only a reply correlated with the current chooser request. The
+current typed acknowledgement cross-checks media/project/workflow identities,
+the exact upload name and image dimensions. Earlier acknowledged upload IDs are
+retained if a later upload or prompt binding fails. Inspect those returned
+recovery handles before resubmission; no upload is automatically replayed.
+Accepted mixed/native REST and MCP output remains part of final E2E verification.

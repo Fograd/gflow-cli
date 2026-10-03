@@ -7,7 +7,7 @@ measured native reference chunk. Plain text substitution is not grounding.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
@@ -15,6 +15,8 @@ from uuid import UUID
 from gflow_cli.api.character import VOICES
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from gflow_cli.api.image import GenerateImageRequest, ImageRef
 
 Surface = Literal["image", "video"]
@@ -267,22 +269,34 @@ def prepare_image_slot_request(
     Existing media must exactly match ordered deduplicated image IDs. For local
     files, the caller supplies one managed decoded path per ordered logical ID;
     the native transport maps those IDs to measured uploaded media identities.
-    Mixed existing-media/local-file attachment modes are not measured here.
+    Mixed modes require explicit local aliases paired with paths and a complete
+    disjoint ordered partition of the plan. Logical aliases are not upload IDs.
     Character names and weighted image counts require fresh SDK preflight.
     """
     from dataclasses import replace
 
     plan = resolve_reference_markers(request.prompt, surface="image", slots=slots)
-    if request.refs and request.ref_paths:
-        raise ReferenceContractError("Mixed image attachment modes are not supported")
-    resolved_refs = request.refs
-    if request.refs:
-        unique_refs: dict[str, ImageRef] = {}
-        for ref in request.refs:
-            identifier = _identifier(ref.name, "image")
-            unique_refs.setdefault(identifier, replace(ref, name=identifier))
-        resolved_refs = tuple(unique_refs.values())
-        actual = tuple(unique_refs)
+    unique_refs: dict[str, ImageRef] = {}
+    for ref in request.refs:
+        identifier = _identifier(ref.name, "image")
+        unique_refs.setdefault(identifier, replace(ref, name=identifier))
+    resolved_refs = tuple(unique_refs.values())
+    actual = tuple(unique_refs)
+    local_ids = tuple(_identifier(value, "image") for value in request.local_ref_ids)
+    if local_ids:
+        local_set = set(local_ids)
+        if (
+            len(local_ids) != len(request.ref_paths)
+            or len(local_set) != len(local_ids)
+            or local_set.intersection(actual)
+            or set(actual).union(local_set) != set(plan.image_ids)
+            or actual != tuple(value for value in plan.image_ids if value not in local_set)
+            or local_ids != tuple(value for value in plan.image_ids if value in local_set)
+        ):
+            raise ReferenceContractError("Reference plan does not match ordered mixed attachments")
+    elif request.refs and request.ref_paths:
+        raise ReferenceContractError("Mixed image attachments require explicit local aliases")
+    elif actual:
         if actual != plan.image_ids:
             raise ReferenceContractError("Reference plan does not match ordered image attachments")
     elif len(request.ref_paths) != len(plan.image_ids):
@@ -295,6 +309,7 @@ def prepare_image_slot_request(
     return replace(
         request,
         refs=resolved_refs,
+        local_ref_ids=local_ids,
         reference_entities=plan.character_ids,
         reference_entity_names=(),
         reference_prompt_plan=plan,
@@ -316,6 +331,43 @@ def validate_image_slot_plan(request: GenerateImageRequest) -> GenerateImageRequ
     if prepared.reference_prompt_plan != plan:
         raise ReferenceContractError("Reference plan does not match the submitted prompt")
     return prepared
+
+
+def prepare_explicit_image_inputs(
+    request: GenerateImageRequest, ordered: Sequence[ImageRef | Path]
+) -> GenerateImageRequest:
+    """Preserve caller input positions before separating native IDs/local paths.
+
+    Local aliases describe logical slots only. Their acknowledged Google IDs
+    are established later by upload; they never assert native ownership.
+    """
+    from dataclasses import replace
+    from pathlib import Path
+
+    from gflow_cli.api.image import ImageRef
+
+    if tuple(value for value in ordered if isinstance(value, Path)) != request.ref_paths:
+        raise ReferenceContractError("Ordered local inputs do not match request paths")
+    local_ids: list[str] = []
+    slots: dict[str, ReferenceSlot] = {}
+    for index, value in enumerate(ordered, 1):
+        if isinstance(value, ImageRef):
+            identifier = value.name
+        elif isinstance(cast(object, value), Path):
+            identifier = f"local-reference-{index}"
+            local_ids.append(identifier)
+        else:
+            raise ReferenceContractError("Unsupported ordered image input")
+        slots[f"reference_{index}"] = ReferenceSlot("image", identifier)
+    slots.update(
+        {
+            f"character_{index}": ReferenceSlot("character", entity)
+            for index, entity in enumerate(request.reference_entities, 1)
+        }
+    )
+    return prepare_image_slot_request(
+        replace(request, local_ref_ids=tuple(local_ids), reference_syntax="slots"), slots
+    )
 
 
 def prepare_ordered_image_slots(request: GenerateImageRequest) -> GenerateImageRequest:

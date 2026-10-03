@@ -146,11 +146,20 @@ def _validate_entity_ids(
     return value
 
 
-def _preflight_image_slots(request: GenerateImageRequest) -> None:
-    from gflow_cli.api.reference_markers import ReferenceContractError, prepare_ordered_image_slots
+def _preflight_image_slots(
+    request: GenerateImageRequest, ordered: list[ImageRef | Path] | None = None
+) -> None:
+    from gflow_cli.api.reference_markers import (
+        ReferenceContractError,
+        prepare_explicit_image_inputs,
+        prepare_ordered_image_slots,
+    )
 
     try:
-        prepare_ordered_image_slots(request)
+        if ordered is None:
+            prepare_ordered_image_slots(request)
+        else:
+            prepare_explicit_image_inputs(request, ordered)
     except ReferenceContractError as exc:
         raise click.UsageError(str(exc)) from None
 
@@ -1822,7 +1831,8 @@ def i2i(  # NOSONAR
                 ref_paths=tuple(ref for ref in classified_refs if isinstance(ref, Path)),
                 reference_entities=reference_entities,
                 reference_syntax=reference_syntax,
-            )
+            ),
+            classified_refs,
         )
     native_auto = (
         aspect == "auto" and bool(classified_refs) and isinstance(classified_refs[0], ImageRef)
@@ -1949,6 +1959,11 @@ async def _run_i2i(
                 instructions=params.instructions,
                 ui_mode=params.ui_mode,
             )
+
+            if params.reference_syntax == "slots":
+                from gflow_cli.api.reference_markers import prepare_explicit_image_inputs
+
+                req = prepare_explicit_image_inputs(req, params.classified_refs)
 
             # Resolve @-mentions (entities → reference_entities, media → refs) and
             # expand --tool specs (shared helper).

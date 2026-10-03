@@ -127,6 +127,45 @@ async def subprocess_run(
     return process.returncode or 0, stdout
 
 
+def image_reference_inputs(
+    cfg: Settings, store: Store, profile: str, payload: dict[str, Any], refs: list[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Revalidate server-owned source records; paths never come from callers."""
+    records: object = payload.get("_image_reference_sources")
+    if records is None:
+        records = [{"id": value, "kind": "managed"} for value in refs]
+    if not isinstance(records, list):
+        raise ValueError("Image reference source records do not match inputs")
+    rows = cast(list[object], records)
+    if len(rows) != len(refs):
+        raise ValueError("Image reference source records do not match inputs")
+    native: list[str] = []
+    local_ids: list[str] = []
+    paths: list[str] = []
+    for identifier, value in zip(refs, rows, strict=True):
+        if not isinstance(value, dict):
+            raise ValueError("Image reference source record is invalid")
+        record = cast(dict[str, Any], value)
+        if (
+            set(record) != {"id", "kind"}
+            or record.get("id") != identifier
+            or not isinstance(record.get("kind"), str)
+            or record.get("kind") not in {"managed", "native"}
+        ):
+            raise ValueError("Image reference source record is invalid")
+        if record["kind"] == "native":
+            if payload.get("email") != cfg.accounts[profile]["email"]:
+                raise ValueError("Native references require the selected configured account")
+            native.append(identifier)
+        else:
+            asset = store.asset_get(identifier)
+            if asset["profile"] != profile or asset["mime"] not in ("image/png", "image/jpeg"):
+                raise ValueError("Managed image reference is not owned by the selected account")
+            paths.append(str(contained_file(asset["path"], cfg.root)))
+            local_ids.append(identifier)
+    return native, local_ids, paths
+
+
 async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str, Any]:
     payload = json.loads(job["payload"])
     profile = job["profile"]
@@ -432,11 +471,17 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
     kind = job["kind"]
     items: list[dict[str, Any]]
     refs: list[str] = []
+    native_refs: list[str] = []
+    local_ids: list[str] = []
+    managed_paths: list[str] = []
     if kind == "images":
         refs = list(
             dict.fromkeys(
                 payload[f"reference_{i}"] for i in range(1, 11) if payload.get(f"reference_{i}")
             )
+        )
+        native_refs, local_ids, managed_paths = image_reference_inputs(
+            cfg, store, profile, payload, refs
         )
         args = cli + [
             "image",
@@ -452,9 +497,9 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             "--count",
             str(payload["count"]),
         ]
-        for ref in refs:
-            # Re-upload our saved bytes into the pinned project, avoiding cross-project UUID drift.
-            args.extend(["--ref", str(contained_file(store.asset_get(ref)["path"], cfg.root))])
+        for path in managed_paths:
+            # Managed bytes are uploaded; native IDs stay separate for the private worker.
+            args.extend(["--ref", path])
         args.extend(["--reference-syntax", "slots", "--", payload["prompt"]])
     elif kind == "images/upscale":
         args = cli + [
@@ -546,15 +591,16 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             "captchaOrder",
             "captchaRetry",
             "reference_prompt_plan",
+            "_image_reference_sources",
         )
     ):
         request_path = out / "request.json"
         worker_payload = {
             **payload,
             "model": MODEL_ALIASES[payload["model"]],
-            "refPaths": [
-                str(contained_file(store.asset_get(ref)["path"], cfg.root)) for ref in refs
-            ],
+            "refs": native_refs,
+            "refPaths": managed_paths,
+            "local_ref_ids": local_ids if "reference_prompt_plan" in payload else [],
         }
         with request_path.open("w", encoding="utf-8") as file:
             request_path.chmod(0o600)
@@ -762,6 +808,10 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                 "Preserved returned images; inspect the job before submitting another generation."
             ),
         }
+    if kind == "images":
+        from gflow_cli.selfhost.http_jobs import aspect_metadata
+
+        envelope.update(aspect_metadata(result))
     if result.get("captchaProvider"):
         envelope["captchaProvider"] = result["captchaProvider"]
     return envelope
