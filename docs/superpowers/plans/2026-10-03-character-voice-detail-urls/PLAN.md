@@ -78,3 +78,9 @@ fixture; no new billable TTS proof attempted. Full gates/publication next.
 Saved-voice full gate:6025passed5skipped16warnings,89%coverage,205.69seconds.
 All static/doc gates green, council GO; final casts type-only and codec11tests
 repassed. Ready for publication/deployment; owned liveaudio fixture remainsabsent.
+
+Saved-voice batch published/deployed3d35e1d5; systemvoice HTTP200, MCP37tools.
+Remaining R02 implementation: nonprojected thumbnail forms/composite ID mapping.
+Remaining R02 acceptance: generated media arms and owned saved-user-audio detail.
+Work can move independently to R03 account inventories while those fixtures/
+contracts are unavailable; R01–R13 scope is unchanged.

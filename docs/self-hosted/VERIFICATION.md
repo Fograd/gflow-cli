@@ -873,3 +873,9 @@ test set11passed after type-only casts. Full offline suite6025passed5skipped,
 and repository/docs/website/public-memory gates passed; scoped council GO.
 There is no owned saved-user-voice fixture in the selected observed project;
 accepted live playback remains unverified. No new billable TTS or solver attempt.
+
+Saved-voice metadata batch published to all three fork refs and deployed on
+CC LXC at3d35e1d5 after both queues were idle. REST/MCP services active, actual
+system-preset detail returned200 and registered MCP retained37tools including
+saved-voice detail. These deployment health checks do not establish accepted
+saved-user-audio playback. Character-image live/deployed proof is separate above.
