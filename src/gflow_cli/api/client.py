@@ -3545,6 +3545,38 @@ class FlowApiClient:
 
         return await list_native_video_edit_models(self, project_id)
 
+    async def upscale_native_video(
+        self,
+        *,
+        project_id: str,
+        media_id: str,
+        resolution: str = "1080p",
+        model_key: str | None = None,
+        on_started: Any = None,
+    ) -> Any:
+        from gflow_cli.api.native_video_upscale import upscale_native_video
+
+        return await upscale_native_video(
+            self,
+            project_id=project_id,
+            media_id=media_id,
+            resolution=resolution,
+            model_key=model_key,
+            on_started=on_started,
+        )
+
+    async def list_native_promotion_models(
+        self, project_id: str, *, resolution: str = "1080p"
+    ) -> list[dict[str, Any]]:
+        from gflow_cli.api.native_video_upscale import list_native_promotion_models
+
+        return await list_native_promotion_models(self, project_id, resolution=resolution)
+
+    async def wait_native_promotion(self, started: Any, *, timeout_s: float = 600) -> Any:
+        from gflow_cli.api.native_video_upscale import wait_native_promotion
+
+        return await wait_native_promotion(self, started, timeout_s=timeout_s)
+
     async def list_native_extension_models(self, project_id: str) -> list[dict[str, Any]]:
         """Read current tier-available native extension keys and prices."""
         from gflow_cli.api.native_extension import list_native_extension_models

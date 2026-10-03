@@ -2323,3 +2323,11 @@ from gflow_cli.cli_native_reference_video import (  # noqa: E402
 
 video.add_command(reference_native_command)
 video.add_command(reference_models_command)
+
+from gflow_cli.cli_native_video_upscale import (  # noqa: E402
+    upscale_models_command,
+    upscale_native_command,
+)
+
+video.add_command(upscale_native_command)
+video.add_command(upscale_models_command)

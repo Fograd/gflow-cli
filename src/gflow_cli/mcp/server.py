@@ -130,6 +130,7 @@ _SPEND_TOOLS = (
     "gflow_extend_native_video",
     "gflow_edit_native_video",
     "gflow_generate_native_reference_video",
+    "gflow_upscale_native_video",
 )
 
 

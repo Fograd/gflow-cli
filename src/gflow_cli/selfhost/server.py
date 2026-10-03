@@ -132,7 +132,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             path = request.url.path
             allowed: set[str] = set()
             if request.method == "GET":
-                if path == "/v1/google-flow/videos/reference/models":
+                if path == "/v1/google-flow/videos/upscale/models":
+                    allowed = {"email", "projectId", "resolution"}
+                elif path == "/v1/google-flow/videos/reference/models":
                     allowed = {"email", "projectId", "withAudio"}
                 elif path in {
                     "/v1/google-flow/videos/extend/models",
@@ -323,9 +325,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     ) -> dict[str, Any] | JSONResponse:
         from gflow_cli.selfhost.http_jobs import error_record, http_status, result_record
 
-        if kind in {"videos/extend", "videos/edit", "videos/reference", "voices/create"} and any(
-            key in payload for key in ("captchaToken", "captchaOrder", "captchaRetry")
-        ):
+        if kind in {
+            "videos/extend",
+            "videos/edit",
+            "videos/reference",
+            "videos/promote",
+            "voices/create",
+        } and any(key in payload for key in ("captchaToken", "captchaOrder", "captchaRetry")):
             from gflow_cli.selfhost.captcha_routes import prepare_image_controls
 
             raw_token = payload.get("captchaToken")
@@ -689,6 +695,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "native-reference-video/supplied-captcha-token",
                 "native-edit-video/supplied-captcha-token",
                 "native-extension/supplied-captcha-token",
+                "videos/upscale-native-promotion",
                 "native-tts/supplied-captcha-token",
                 "images",
                 "images/upscale",
@@ -1860,6 +1867,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "System voice not found")
         return match
 
+    @app.get(prefix + "/videos/upscale/models")
+    async def promotion_models(request: Request) -> dict[str, Any]:
+        resolution = request.query_params.get("resolution", "1080p")
+        if resolution not in {"720p", "1080p", "4k"}:
+            raise HTTPException(422, "Native promotion target must be720p,1080p or4k")
+        return await native_catalog(
+            request, "promotion-models", "models", {"resolution": resolution}
+        )
+
     @app.get(prefix + "/videos/extend/models")
     async def extension_models(request: Request) -> dict[str, Any]:
         return await native_catalog(request, "extension-models", "models")
@@ -2273,6 +2289,21 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         request: Request, payload: dict[str, Any]
     ) -> dict[str, Any] | JSONResponse:
         kind = "videos/gif" if request.url.path.endswith("/gif") else "videos/upscale"
+        promoting = kind == "videos/upscale" and payload.get("operation") == "promotion"
+        if promoting and not cfg.allow_video:
+            raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
+        if "operation" in payload and (
+            kind == "videos/gif" or payload["operation"] not in ("promotion", "export")
+        ):
+            raise HTTPException(422, "operation must be promotion or export for video upscale")
+        if (
+            promoting
+            and payload.get("modelKey") is not None
+            and (
+                not isinstance(payload["modelKey"], str) or not 1 <= len(payload["modelKey"]) <= 200
+            )
+        ):
+            raise HTTPException(422, "modelKey requires a bounded native model key")
         check_unknown(
             payload,
             {
@@ -2283,13 +2314,23 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "replyUrl",
                 "replyRef",
                 "async",
-            },
+                "operation",
+            }
+            | (
+                {"modelKey", "captchaToken", "captchaOrder", "captchaRetry"} if promoting else set()
+            ),
         )
         payload["mediaGenerationId"] = uuid_value(
             payload.get("mediaGenerationId"), "mediaGenerationId"
         )
         resolution = payload.setdefault("resolution", "270p" if kind == "videos/gif" else "1080p")
-        if resolution not in (("270p",) if kind == "videos/gif" else ("1080p", "720p")):
+        if resolution not in (
+            ("720p", "1080p", "4k")
+            if promoting
+            else (("270p",) if kind == "videos/gif" else ("1080p", "720p"))
+        ):
+            if promoting:
+                raise HTTPException(422, "Native promotion requires720p,1080p or4k")
             feature_missing("video export resolution")
         try:
             asset = store.asset_get(payload["mediaGenerationId"])
@@ -2306,7 +2347,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if payload.get("projectId") and payload["projectId"] != asset["project"]:
                 raise HTTPException(422, "projectId does not own the requested media")
             payload["projectId"] = asset["project"]
-        return await submit(request, kind, payload, profile)
+        return await submit(request, "videos/promote" if promoting else kind, payload, profile)
 
     @app.get("/openapi.json")
     async def openapi() -> dict[str, Any]:

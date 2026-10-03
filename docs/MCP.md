@@ -614,7 +614,7 @@ See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MED
 
 ## Current feature proof boundary
 
-The source registers 37 tools, comprising the prior 24 and 13 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
+The source registers 39 tools, comprising the prior 24 and 15 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -772,3 +772,6 @@ offqueue file storage. No token is returned or persisted in normal job results.
 Provider controls remain guarded501 and acceptance remains unverified.
 See [native CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) for exact scope,
 limitations, cleanup, verification and troubleshooting.
+
+### Native video promotion (R07)
+Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video upscale-native`/`upscale-models` have direct MCP twins and REST `videos/upscale` accepts `operation: promotion`. Fresh account model/task/target checks determine availability. See [native promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) for billing, supplied-token, ownership and output verification contracts; paid acceptance remains R12.

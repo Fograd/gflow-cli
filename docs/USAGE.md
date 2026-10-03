@@ -2470,3 +2470,6 @@ offqueue file storage. No token is returned or persisted in normal job results.
 Provider controls remain guarded501 and acceptance remains unverified.
 See [native CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) for exact scope,
 limitations, cleanup, verification and troubleshooting.
+
+### Native video promotion (R07)
+Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video upscale-native`/`upscale-models` have direct MCP twins and REST `videos/upscale` accepts `operation: promotion`. Fresh account model/task/target checks determine availability. See [native promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) for billing, supplied-token, ownership and output verification contracts; paid acceptance remains R12.

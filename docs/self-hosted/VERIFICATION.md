@@ -1063,3 +1063,10 @@ External token acceptance, UI-video/image-upscale and provider-backed paths
 remain incomplete R06/R07/R12 work. No provider task or paid generation was sent.
 
 R06 final offline gates:6249passed,5skipped,15warnings in188.64seconds,89%coverage. Whole source pyright0errors; hygiene, links, PII, website mirrors, council memory, ruff andformat checks passed. Council Architect/Security/Performance/UX/docs GO with documented limits. CLI-privatefile to MCP-token parity is explicitly translated and tested.
+
+### R07 native promotion free preflight
+SDK promotion discovery and source ownership/checkpoint BDD passed1test,2warnings in31.04seconds, zero generation requests. The observed Pro account exposed one720p and one1080p promotion model and zero4k models. Owned synthetic360p video reached720p checkpoint before dispatch; fixture archived and originals preserved. This is not paid promotion/output acceptance.
+
+R07 corrected active-workflow/spend-policy finalpreflight passed1test,2warnings in42.53seconds withzero generation requests; sourcefixture archived, originalspreserved. Focused SDK/sourceownership/worker/HTTP/MCP-policy tests49passed in0.96seconds. Council GO on corrected stagedtree66478a9492206cc071c53b661046106ca2554a85; paid acceptance remainsR12.
+
+R07 full source suite:6285passed,5skipped,15warnings in211.81seconds withtwo documentation-plugin-link failures. Corrected the new canonical/plugin link to the GitHub fork, then all15 plugin-manifest checks passed; final hygiene/links/PII/website/ruff/format/type gates passed. No production source changed after that full run. Coverage remained89%.

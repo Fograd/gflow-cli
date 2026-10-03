@@ -307,7 +307,8 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             "voicePerformance": result["performance"],
             "source": "user",
         }
-    if job["kind"] in {"videos/extend", "videos/edit", "videos/reference"}:
+    if job["kind"] in {"videos/extend", "videos/edit", "videos/reference", "videos/promote"}:
+        promoting = job["kind"] == "videos/promote"
         referencing = job["kind"] == "videos/reference"
         editing = job["kind"] == "videos/edit"
         request = out / "request.json"
@@ -318,7 +319,9 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                 [
                     sys.executable,
                     "-m",
-                    "gflow_cli.selfhost.reference_video_worker"
+                    "gflow_cli.selfhost.video_promotion_worker"
+                    if promoting
+                    else "gflow_cli.selfhost.reference_video_worker"
                     if referencing
                     else "gflow_cli.selfhost.native_video_edit_worker"
                     if editing
@@ -345,7 +348,9 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             return {
                 "projectId": project,
                 "error": {
-                    "code": "native_video_generation_outcome_unknown"
+                    "code": "native_video_promotion_outcome_unknown"
+                    if promoting
+                    else "native_video_generation_outcome_unknown"
                     if referencing
                     else "native_video_edit_outcome_unknown"
                     if editing
@@ -367,7 +372,9 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         if (
             result.get("type")
             != (
-                "video_reference_result"
+                "video_promotion_result"
+                if promoting
+                else "video_reference_result"
                 if referencing
                 else "video_edit_result"
                 if editing
@@ -387,6 +394,11 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                     "workflowId": item["workflow_id"],
                     "downloadPath": f"/v1/google-flow/assets/{media}/download",
                     "mimeType": "video/mp4",
+                    **(
+                        {key: item[key] for key in ("width", "height") if key in item}
+                        if promoting
+                        else {}
+                    ),
                 }
             )
         return {
@@ -402,6 +414,11 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             ),
             "media": media_rows,
             "completedCount": len(media_rows),
+            **(
+                {"operation": "native-promotion", "resolution": payload["resolution"]}
+                if promoting
+                else {}
+            ),
             **(
                 {
                     key: result[key]

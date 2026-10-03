@@ -52,6 +52,8 @@ CLI_TO_MCP: dict[str, str] = {
     "video edit-models": "gflow_list_edit_models",
     "video edit-native": "gflow_edit_native_video",
     "video extend-native": "gflow_extend_native_video",
+    "video upscale-native": "gflow_upscale_native_video",
+    "video upscale-models": "gflow_list_video_upscale_models",
     "video extension-models": "gflow_list_extension_models",
     "character create-from-images": "gflow_character_create_from_images",
     "character update": "gflow_character_update",

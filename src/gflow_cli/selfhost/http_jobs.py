@@ -29,6 +29,7 @@ _NATIVE_UNKNOWN_CODES = {
     "native_video_generation_outcome_unknown",
     "native_video_edit_outcome_unknown",
     "native_video_extension_outcome_unknown",
+    "native_video_promotion_outcome_unknown",
 }
 _ERROR_CODES = _NATIVE_UNKNOWN_CODES | {
     "gflow_command_failed",
@@ -158,6 +159,10 @@ def _media(item: dict[str, Any]) -> dict[str, Any]:
                 fields[generated] = output
         if fields:
             safe[arm] = fields
+    for key in ("width", "height"):
+        value = item.get(key)
+        if type(value) is int and 0 < value <= 100000:
+            safe[key] = value
     path = item.get("downloadPath")
     if isinstance(path, str) and _DOWNLOAD.fullmatch(path):
         safe["downloadPath"] = path
@@ -256,6 +261,7 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
         "scope",
         "kind",
         "operation",
+        "resolution",
         "requestedAspectRatio",
         "resolvedAspectRatio",
         "aspectPolicy",

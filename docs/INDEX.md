@@ -229,3 +229,5 @@ projects: [usage](USAGE.md#observed-catalogs-across-native-account-projects) and
 [API](self-hosted/API.md#account-project-catalogs).
 
 - [Native supplied CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) — SDK scope, CLI/MCP/REST, private lifecycle and acceptance limits.
+
+- [Native video promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) — R07 request and account contracts.

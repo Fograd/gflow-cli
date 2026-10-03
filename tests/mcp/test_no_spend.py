@@ -58,6 +58,8 @@ def test_no_spend_removes_both_generate_tools(
     assert "gflow_extend_native_video" not in names
     assert "gflow_edit_native_video" not in names
     assert "gflow_generate_native_reference_video" not in names
+    assert "gflow_upscale_native_video" not in names
+    assert "gflow_list_video_upscale_models" in names
     # Read-only surfaces stay available.
     assert "gflow_list_projects" in names
     assert "gflow_list_tools" in names

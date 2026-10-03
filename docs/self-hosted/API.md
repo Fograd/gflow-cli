@@ -60,7 +60,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /videos` | Text, start/end image or image-ingredient video; referenceVideo_1 selects native Omni editing with frame trims, up to5 image/3 saved-audio references; ordinary Omni image/audio ingredients use the dedicated native adapter; explicitly enabled |
 | `POST /videos/extend` | Native standalone continuation outputs, count1–4; optional modelKey discovered by account tier/source aspect; see [extension](NATIVE_VIDEO_EXTENSION.md) |
 | `GET /videos/extend/models`, `/videos/edit/models`, `/videos/reference/models` | Fresh native model keys and credit costs for the selected account/project |
-| `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
+| `POST /videos/upscale`, `/videos/gif` | Default exports:1080p/original720p,270p GIF. Explicit upscale operation=promotion generates720p/1080p/4k where fresh account models permit; paid acceptance remains pending. |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
 
 Generation, upscale, GIF export and concatenation accept async (boolean).
@@ -378,7 +378,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 37 tools: the prior 24 plus 13 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+The registered MCP surface contains 39 tools: the prior 24 plus 15 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -600,3 +600,6 @@ stay outside durable job JSON and are consumed through private worker files.
 Exact native project/action/host binding and no fallback/replay apply.
 Image-upscale/UI-video and export controls are outside this batch.
 See [native CAPTCHA controls](NATIVE_CAPTCHA.md).
+
+## Explicit native video promotion
+POST videos/upscale accepts operation=promotion with720p/1080p/4k, optional modelKey and native CAPTCHA controls. GET videos/upscale/models discovers target-specific account models. Omitted operation preserves exports. See [promotion](NATIVE_VIDEO_PROMOTION.md).

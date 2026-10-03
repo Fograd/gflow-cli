@@ -3257,3 +3257,65 @@ async def gflow_download_native_asset(
 
     async with _profile_lock(resolved):
         return {"status": "ok", **await read_asset(resolved, project, media_id, Path(output_dir))}
+
+
+@server.tool(
+    name="gflow_upscale_native_video",
+    description=(
+        "Generate a native promoted video at720p,1080p or4k using available models. "
+        "May spend credits; distinct from export. Optional confidential captcha_token."
+    ),
+)
+@_guarded
+async def gflow_upscale_native_video(
+    project: str,
+    media_id: str,
+    resolution: str = "1080p",
+    model_key: str | None = None,
+    profile: str = "default",
+    out_dir: str | None = None,
+    captcha_token: str | None = None,
+) -> dict[str, Any]:
+    from gflow_cli.api.native_captcha import native_captcha_or_none
+    from gflow_cli.selfhost.video_promotion_worker import run_promotion
+
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    target = Path(out_dir) if out_dir else get_settings().output_dir / "promotions"
+    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
+        async with _profile_lock(resolved):
+            result = await run_promotion(
+                resolved,
+                project,
+                {"mediaGenerationId": media_id, "resolution": resolution, "modelKey": model_key},
+                target,
+            )
+    return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_list_video_upscale_models",
+    description=("Read account-available video promotion models and costs for720p,1080p or4k."),
+)
+@_guarded
+async def gflow_list_video_upscale_models(
+    project: str, resolution: str = "1080p", profile: str = "default"
+) -> dict[str, Any]:
+    from gflow_cli.api.native_video_upscale import list_native_promotion_models
+
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            models = await list_native_promotion_models(client, project, resolution=resolution)
+    return {
+        "status": "ok",
+        "project_id": project,
+        "target_resolution": resolution,
+        "models": models,
+    }

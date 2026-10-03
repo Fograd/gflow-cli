@@ -117,6 +117,15 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                 "mimeType": downloaded_asset.mime_type,
                 "bytes": downloaded_asset.bytes,
             }
+        if verb == "promotion-models":
+            from gflow_cli.api.native_video_upscale import list_native_promotion_models
+
+            return {
+                "status": "ok",
+                "models": await list_native_promotion_models(
+                    client, project_id, resolution=payload.get("resolution", "1080p")
+                ),
+            }
         if verb == "reference-models":
             return {
                 "status": "ok",

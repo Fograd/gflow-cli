@@ -423,3 +423,5 @@ Native supplied CAPTCHA: scoped SDK native_captcha_token, private-file CLI
 direct MCP captcha_token and REST captchaToken share single-use project/action
 binding. Token files/values are private; no fallback or uncertain retry.
 Provider acceptance remains unverified. See docs/self-hosted/NATIVE_CAPTCHA.md.
+
+Native video promotion: SDK/CLI video upscale-native/upscale-models, direct MCP twins, HTTP explicit operation=promotion. Targets720p/1080p/4k require fresh tier/model/source proof. Paid acceptance remains R12. See [native promotion](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_VIDEO_PROMOTION.md).
