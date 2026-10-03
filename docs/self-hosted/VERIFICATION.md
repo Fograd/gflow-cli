@@ -1098,3 +1098,12 @@ A single cookie transfer from the second profile into a separate candidate profi
 HTTP-only native DELETE now resolves an omitted projectId from the selected account registration. Routing tests cover selection between two different account projects and explicit null/malformed/boolean refusal. Native ownership and receipt proof remain unchanged. No new generation/provider requests.
 
 R11 project-default full offline gates:6342passed,5skipped,15warnings in188.81seconds,89%coverage. Hygiene/links/PII/website/council memory/ruff/format/type checks passed. Architect/Security and docs review GO. HTTP-only default resolution does not change native transport; SDK/CLI/MCP requirements and all six surface axes remain unchanged.
+
+R11 default-project deployment at86196743: actual authenticated HTTP omission used the registered project and accepted two confirmed-gone test media IDs. Zero Google mutation and generation requests.
+
+### R11 account-load statistics
+Red API tests rejected the unsupported options with501. Implemented explicit statistics views with SQL snapshot aggregation and scoped public metadata. Focused statistics/routing tests39passed; count105 proves no legacy100-row truncation. Boundary tests cover exactly900seconds, older/future outcomes, malformed rate-limit codes, interrupted classification and disabled/unverified registrations. No Google/provider requests. Full gates and live deployed reads remain pending.
+
+Review expanded job statistics to include native video promotion and image upscale. The superseded full run was intentionally interrupted; no final full-pass claim uses that run. Three additional red tests proved the missing upscale load and deprecated image aliases before correction.
+
+R11 final statistics/aliases full gates:6349passed,5skipped,15warnings in219.39seconds,89%coverage. Whole source pyright0errors, hygiene/links/PII/website/council memory/ruff/format checks passed. Corrected staged source reviewed GO by Architect/Security/Performance/UX/docs. Six mirror axes checked: HTTP-only addition; SDK/CLI/direct and queued MCP options/models unchanged; no CLI leaf, exit code, template or browser transport changes.

@@ -42,7 +42,7 @@ _ERROR_CODES = _NATIVE_UNKNOWN_CODES | {
     "google_flow_waf_rejection",
     "google_flow_content_policy",
 }
-_EXIT_HTTP = {
+EXIT_HTTP_STATUS = {
     3: 596,
     8: 596,
     38: 596,
@@ -70,7 +70,7 @@ def http_status(result: dict[str, Any], state: str) -> int:
         if details.get("code") == "upload_rights_required":
             return 400
         code = details.get("exit_code")
-        return _EXIT_HTTP.get(code, 502) if type(code) is int else 502
+        return EXIT_HTTP_STATUS.get(code, 502) if type(code) is int else 502
     return 502
 
 

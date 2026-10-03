@@ -393,3 +393,25 @@ def test_native_delete_default_project_is_scoped_to_selected_account(tmp_path):
         row = client.app.state.store.get_record(response.json()["jobId"])
         assert row["request"]["projectId"] == other_project
         assert row["request"]["projectId"] != PROJECT
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [("nano-banana", "nano-banana-2"), ("imagen-4", "nano-banana-2-lite")],
+)
+def test_useapi_deprecated_image_aliases_normalize_before_enqueue(tmp_path, alias, canonical):
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json={
+                "prompt": "A small blue ceramic vase.",
+                "model": alias,
+                "count": 1,
+                "async": True,
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["request"]["model"] == canonical
+        record = client.app.state.store.get_record(response.json()["jobId"])
+        assert record["request"]["model"] == canonical

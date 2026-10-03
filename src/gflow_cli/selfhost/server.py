@@ -149,7 +149,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 ):
                     allowed = {"email", "source", "projectId"}
                 elif path == "/v1/google-flow/jobs":
-                    allowed = {"email", "status", "kind", "limit", "cursor"}
+                    allowed = {"email", "status", "kind", "limit", "cursor", "options"}
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
@@ -780,6 +780,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         ):
             raise HTTPException(422, "prompt requires 1 to 4000 characters")
         model = payload.setdefault("model", "nano-banana-2-lite")
+        if isinstance(model, str):
+            model = payload["model"] = {
+                "nano-banana": "nano-banana-2",
+                "imagen-4": "nano-banana-2-lite",
+            }.get(model, model)
         if not isinstance(model, str) or model not in MODEL_ALIASES:
             raise HTTPException(422, "Unsupported image model")
         count = payload.setdefault("count", 4)
@@ -977,6 +982,17 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.get(prefix + "/jobs")
     async def jobs(request: Request) -> dict[str, Any]:
+        if "options" in request.query_params:
+            if set(request.query_params) != {"options"}:
+                raise HTTPException(
+                    400, "Statistics options cannot be combined with job-list filters"
+                )
+            from gflow_cli.selfhost.job_statistics import statistics
+
+            try:
+                return statistics(store, request.query_params["options"])
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from None
         limit, cursor = pagination(request)
         status = request.query_params.get("status")
         if status and status not in (

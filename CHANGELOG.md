@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add explicit source-backed native video promotion and account model discovery across SDK, CLI, direct MCP and HTTP; preserve export defaults and record paid acceptance limits.
 
 ### Changed
+- HTTP image requests accept deprecated useapi nano-banana and imagen-4 aliases and enqueue their canonical Nano2/Lite model.
 - Self-hosted native asset DELETE uses the selected account's registered project when projectId is omitted; explicitly invalid projectId values still refuse.
 - Native reference/edit/extension/TTS adapters accept scoped single-use supplied CAPTCHA tokens across SDK, CLI, direct MCP and durable REST jobs, with project/action binding and private worker file cleanup. Provider acceptance and UI/upscale coverage remain pending.
 - Native reference/edit video audio inputs accept available system presets with strict name/resource normalization, fresh catalog proof and actual model audio capacities. Owned UUID validation and source-only behavior remain unchanged.
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Added
+- Read-only HTTP jobs statistics via explicit summary/executing/history options, with scoped account counters, recorded rate limits and bounded safe history; timing includes queue waiting and does not affect scheduling.
 - Saved-user-voice detail includes fresh canonical base preset and dialogue/performance metadata; strict native response matching and REST no-store playback.
 - Fresh native character reference-image and proven reference-thumbnail URLs in
   SDK detail, CLI show --include-urls --json, direct MCP and REST GET detail.
