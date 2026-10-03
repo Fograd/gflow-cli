@@ -223,3 +223,7 @@ Bounded native account project traversal and its continuation/count semantics:
 [CLI usage](USAGE.md#bounded-native-project-traversal),
 [MCP](MCP.md#bounded-native-project-traversal),
 [self-hosted API](self-hosted/API.md#project-catalog-traversal).
+
+Observed media/workflow/character/saved-voice catalogs across discovered account
+projects: [usage](USAGE.md#observed-catalogs-across-native-account-projects) and
+[API](self-hosted/API.md#account-project-catalogs).

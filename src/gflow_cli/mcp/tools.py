@@ -31,14 +31,14 @@ from pathlib import Path
 from typing import Any, cast
 
 import structlog
-from pydantic import StrictBool
+from pydantic import StrictBool, StrictInt
 
 from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
-from gflow_cli.api.native_catalogs import validate_project_traversal
+from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
 from gflow_cli.auth import verification
@@ -2019,8 +2019,10 @@ async def gflow_list_projects(
     offset: int = 0,
     source: str = "local",
     cursor: str | None = None,
-    all_pages: bool = False,
-    max_pages: int | None = None,
+    all_pages: StrictBool = False,
+    max_pages: StrictInt | None = None,
+    include_catalogs: StrictBool = False,
+    max_projects: StrictInt | None = None,
 ) -> dict[str, Any]:
     """List local SQLite rows or an explicitly selected native Google page.
 
@@ -2030,6 +2032,8 @@ async def gflow_list_projects(
         cursor: Opaque next_cursor from a Google page; at most 4096 characters.
         all_pages: Traverse Google pages with one browser lease; default false.
         max_pages: Optional cap 1–100 with all_pages; default 100.
+        include_catalogs: Include typed media/workflow/character/saved-voice observations.
+        max_projects: Optional cap 1–20 with include_catalogs; default 20.
         limit: Local page size, default 50; omit for Google pages.
         offset: Number of rows to skip — pass the previous page's
             ``next_offset`` to fetch the next page (#498).
@@ -2037,14 +2041,18 @@ async def gflow_list_projects(
     Returns:
         Local: projects/count/offset/has_more/next_offset. Google: projects,
         next_cursor, returned_count, pages_read, pagination_exhausted, scope
-        and complete=None. Google snapshots
+        and complete=None. Optional catalogs contain known returned counts and
+        pending discovered project IDs, separately from later-page continuation. Google snapshots
         neither update local catalog entries nor infer missing-project deletion.
     """
     try:
         validate_project_traversal(all_pages, max_pages)
+        validate_project_catalogs(include_catalogs, max_projects)
     except ValueError as exc:
         return _bad_param("Invalid native catalog controls", str(exc))
-    if source != "google" and (all_pages or max_pages is not None):
+    if source != "google" and (
+        all_pages or max_pages is not None or include_catalogs or max_projects is not None
+    ):
         return _bad_param("Invalid native catalog controls", "Traversal requires source=google")
     if source not in {"local", "google"}:
         return _bad_param("Invalid native catalog controls", "source must be local or google")
@@ -2066,13 +2074,22 @@ async def gflow_list_projects(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                snapshot = (
-                    await client.list_native_projects(
-                        cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                if include_catalogs:
+                    snapshot = await client.list_native_projects(
+                        cursor=cursor,
+                        all_pages=all_pages,
+                        max_pages=max_pages,
+                        include_catalogs=True,
+                        max_projects=max_projects,
                     )
-                    if all_pages
-                    else await client.list_native_projects(cursor=cursor)
-                )
+                else:
+                    snapshot = (
+                        await client.list_native_projects(
+                            cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                        )
+                        if all_pages
+                        else await client.list_native_projects(cursor=cursor)
+                    )
         return {"status": "ok", **snapshot}
     if cursor is not None:
         return _bad_param("Invalid native catalog controls", "cursor requires source=google")

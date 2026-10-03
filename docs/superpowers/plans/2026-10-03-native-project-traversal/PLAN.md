@@ -7,5 +7,7 @@ One-page default retained. all_pages actualbool; max_pages optional actualint1..
 - [x] Red traversal and invalid controls/cleanup tests.
 - [x] Shared one-lease traversal.
 - [x] SDK/CLI/MCP/REST/privateworker forwarding, docs and website/skill mirror truth.
-- [ ] Read-only multi-page verification and required gates/council/publication/deployment.
+- [x] Read-only multi-page verification and required gates/council/publication/deployment.
 Attached media/history and account-wide character/voice synchronization remain later R03 work; no feature narrowing.
+
+Published/deployed5b877043; offline6068pass5skips89%coverage. ActualREST/MCPprojecttraversal readproof passed with registered37tools.

@@ -937,3 +937,24 @@ SDK/CLI/direct MCP/private REST worker carry identical controls; no queued
 mutation applies to this synchronous read; README/AGENTS/INDEX/USAGE/MCP,
 canonical/plugin skill and website documentation agree. Existing typed errors
 and exit codes remain unchanged.
+
+### R03 observed cross-project catalogs — current batch
+
+The tagged one-project account catalog BDD passed once (1passed,2warnings,
+10.14seconds), using one leased page and one fresh project payload. It checked
+owned typed media/workflows/characters/saved-voice records, exact returned row
+counts, unknown completeness, unread discovered IDs and zero generation.
+This does not prove complete project history or a nonempty saved-voice cohort.
+Focused projection/control/registered-MCP strict-model tests passed31tests.
+MCP booleans/integers are strict at registration: six coercion regressions failed
+against the old model before passing the corrected model.
+
+Source5b877043 was published to all three GitHub refs and deployed on CC LXC with
+idle queues and active REST/MCP services. Actual deployed REST traversal returned
+42unique projects across2pages with continuation, complete:null. Registered MCP
+returned21projects on1page and exposed the new traversal controls among37tools.
+
+The catalog batch full offline suite passed6101tests,5skips,15warnings
+in194.85seconds at89%coverage. All required hygiene/documentation/privacy/
+website/council-memory/lint/format/type gates passed; three council reviewers
+returned GO. Rendered video and complete-history acceptance remain separate.

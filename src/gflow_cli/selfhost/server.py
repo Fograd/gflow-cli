@@ -26,7 +26,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from gflow_cli.api.native_catalogs import validate_project_traversal
+from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
 from gflow_cli.selfhost.config import (
     MAX_ASSET,
     MODEL_ALIASES,
@@ -150,7 +150,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
-                    allowed = {"limit", "cursor", "source", "allPages", "maxPages"}
+                    allowed = {
+                        "limit",
+                        "cursor",
+                        "source",
+                        "allPages",
+                        "maxPages",
+                        "includeCatalogs",
+                        "maxProjects",
+                    }
                 elif path.startswith("/v1/google-flow/assets/") and not path.endswith("/download"):
                     allowed = {"raw", "source", "email", "projectId"}
             if request.method == "DELETE" and path.startswith("/v1/google-flow/characters/"):
@@ -975,7 +983,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if source not in ("local", "google"):
             raise HTTPException(422, "source requires local or google")
         if source != "google" and any(
-            key in request.query_params for key in ("allPages", "maxPages")
+            key in request.query_params
+            for key in ("allPages", "maxPages", "includeCatalogs", "maxProjects")
         ):
             raise HTTPException(422, "Traversal controls require source=google")
         if source == "google":
@@ -991,9 +1000,23 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(
                     422, "maxPages requires allPages=true and an integer 1 to 100"
                 ) from None
+            raw_include = request.query_params.get("includeCatalogs", "false")
+            if raw_include not in ("true", "false"):
+                raise HTTPException(422, "includeCatalogs requires true or false")
+            include_catalogs = raw_include == "true"
+            raw_projects = request.query_params.get("maxProjects")
+            try:
+                max_projects = int(raw_projects) if raw_projects is not None else None
+                validate_project_catalogs(include_catalogs, max_projects)
+            except ValueError:
+                raise HTTPException(
+                    422, "maxProjects requires includeCatalogs=true and an integer 1 to 20"
+                ) from None
             controls: dict[str, Any] = {}
             if all_pages:
                 controls = {"all_pages": True, "max_pages": max_pages}
+            if include_catalogs:
+                controls.update({"include_catalogs": True, "max_projects": max_projects})
             cursor = request.query_params.get("cursor")
             if cursor is not None and (not cursor or len(cursor) > 4096):
                 raise HTTPException(422, "Native project cursor requires 1 to 4096 characters")
@@ -1008,13 +1031,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     profile,
                     json.dumps({"cursor": cursor, **controls}),
                 ],
-                240 if all_pages else 90,
+                240 if all_pages or include_catalogs else 90,
             )
             if code:
                 raise HTTPException(502, "Google project catalog unavailable")
             result = parse_json_output(raw)
             if result.get("status") != "ok" or not isinstance(result.get("projects"), list):
                 raise HTTPException(502, "Google project catalog unavailable")
+            if include_catalogs and not isinstance(result.get("project_catalogs"), list):
+                raise HTTPException(502, "Google project catalogs unavailable")
             return {
                 "projects": [
                     {
@@ -1036,6 +1061,20 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     "pagination_exhausted", result.get("next_cursor") is None
                 ),
                 "complete": None,
+                **(
+                    {
+                        "projectCatalogs": [
+                            {**row, "projectId": row["project_id"]}
+                            for row in result["project_catalogs"]
+                        ],
+                        "catalogProjectsRead": result["catalog_projects_read"],
+                        "catalogCounts": result["catalog_counts"],
+                        "pendingProjectIds": result["pending_project_ids"],
+                        "catalogsCapped": result["catalogs_capped"],
+                    }
+                    if include_catalogs
+                    else {}
+                ),
             }
         code, output = await subprocess_run(
             [

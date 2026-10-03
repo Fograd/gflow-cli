@@ -3604,11 +3604,20 @@ class FlowApiClient:
         *,
         all_pages: bool = False,
         max_pages: int | None = None,
+        include_catalogs: bool = False,
+        max_projects: int | None = None,
     ) -> dict[str, Any]:
         """Read bounded account project pages; exhaustion is not snapshot completeness."""
         from gflow_cli.api.native_catalogs import projects_snapshot
 
-        return await projects_snapshot(self, cursor, all_pages=all_pages, max_pages=max_pages)
+        return await projects_snapshot(
+            self,
+            cursor,
+            all_pages=all_pages,
+            max_pages=max_pages,
+            include_catalogs=include_catalogs,
+            max_projects=max_projects,
+        )
 
     async def list_native_media(self, project_id: str) -> dict[str, Any]:
         """Read stable asset IDs/kinds/dimensions; completeness and origin remain unknown.

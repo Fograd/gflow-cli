@@ -7,5 +7,7 @@ User standing authorization applies.
 - [x] Red absent-projection/contradictory rows/separate-thumbnail/read-budget tests.
 - [x] Candidate primary handles and independently projected thumbnail with exact workflow parent.
 - [x] One strict read per distinct identity, <=16 total, 60s total.
-- [ ] Focused tests, required checks/council, docs, publication/deployment.
+- [x] Focused tests, required checks/council, docs, publication/deployment.
 Existing live character detail proof covers projected reference thumbnail. Hidden workflow contracts and composite useAPI translation are separate measured gaps; do not invent.
+
+Published/deployed5b877043; offline6068pass5skips89%coverage. ActualREST/MCPprojecttraversal readproof passed with registered37tools.

@@ -205,7 +205,14 @@ unsafe-caption canonical attachment proof.
   refuse and no absent row triggers deletion. The live two-page read-only
   BDD passed in9.04seconds, then repeated in13.86seconds with concurrency
   explicitly pinned to one and zero generation. Attached media/history and
-  account-wide character/user-voice inventories remain open.
+  account-wide character/user-voice inventories remain open until catalog delivery.
+  Optional include_catalogs/max_projects now aggregates observed media, workflow
+  history, characters and saved user voices from one fresh payload per project.
+  CLI/MCP and REST includeCatalogs/maxProjects share the one-page/180second
+  boundary, known counts and explicit pending discovered IDs. The one-project
+  live BDD passed10.14seconds with zero generation. Complete history/paging
+  beyond the measured project snapshot and destructive synchronization remain
+  unimplemented; unknown completeness never becomes deletion evidence.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system

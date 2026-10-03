@@ -2396,3 +2396,22 @@ or duplicate project identities refuse. The one-page browser lease has a
 pagination leaves `complete=None`: it is not a stable account-history snapshot
 and does not update catalogs or infer deletion. There is no queued mutation for
 this synchronous read-only tool.
+
+### Observed catalogs across native account projects
+
+Add `--include-catalogs --max-projects 1` to `gflow project list --source google
+--json`; it combines with `--all-pages/--max-pages`. Direct MCP adds
+`include_catalogs=True, max_projects=1` to `gflow_list_projects(source="google")`.
+One fresh payload per read project supplies typed media, observed workflow
+history, characters and saved user voices without signed playback/thumbnail
+URLs. `max_projects` is1–20, default20, and requires inclusion. Local source
+rejects both controls. Registered MCP requires actual booleans and integers.
+
+JSON includes `project_catalogs`, per-project `counts` and `complete=None`,
+`catalog_projects_read`, aggregate `catalog_counts`, `catalogs_capped` and
+`pending_project_ids`. Pending IDs are already listed but unread projects;
+`next_cursor` is for later unlisted project pages. Neither is an account total.
+Counts describe returned rows, not complete generation history. The whole
+traversal/enrichment shares one page and180seconds. Ambiguous/unrelated catalog
+rows fail the read; successful partial catalogs are not disguised as complete.
+No registry reconciliation or missing-object deletion runs.

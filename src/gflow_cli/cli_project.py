@@ -18,7 +18,7 @@ from gflow_cli._cli_helpers import (
 )
 from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.native_catalogs import validate_project_traversal
+from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.cli_data import _db_path, _emit_projects_table
 from gflow_cli.config import get_settings
@@ -59,6 +59,17 @@ def project() -> None:
     type=click.IntRange(1, 100),
     help="Page cap with --all-pages; default 100.",
 )
+@click.option(
+    "--include-catalogs",
+    is_flag=True,
+    help="Include observed native project media/workflows/characters/user voices.",
+)
+@click.option(
+    "--max-projects",
+    default=None,
+    type=click.IntRange(1, 20),
+    help="Catalog project cap with --include-catalogs; default 20.",
+)
 @click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON output.")
 @click.pass_context
 def list_subcommand(
@@ -69,14 +80,19 @@ def list_subcommand(
     cursor: str | None,
     all_pages: bool,
     max_pages: int | None,
+    include_catalogs: bool,
+    max_projects: int | None,
     as_json: bool,
 ) -> None:
     """List local projects or bounded read-only Google account pages."""
     try:
         validate_project_traversal(all_pages, max_pages)
+        validate_project_catalogs(include_catalogs, max_projects)
     except ValueError as exc:
         raise click.BadParameter(str(exc)) from None
-    if source != "google" and (all_pages or max_pages is not None):
+    if source != "google" and (
+        all_pages or max_pages is not None or include_catalogs or max_projects is not None
+    ):
         raise click.BadParameter("Traversal controls require --source google")
     if source == "google":
         if ctx.get_parameter_source("limit") != click.core.ParameterSource.DEFAULT:
@@ -90,13 +106,22 @@ def list_subcommand(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                snapshot = (
-                    await client.list_native_projects(
-                        cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                if include_catalogs:
+                    snapshot = await client.list_native_projects(
+                        cursor=cursor,
+                        all_pages=all_pages,
+                        max_pages=max_pages,
+                        include_catalogs=True,
+                        max_projects=max_projects,
                     )
-                    if all_pages
-                    else await client.list_native_projects(cursor=cursor)
-                )
+                else:
+                    snapshot = (
+                        await client.list_native_projects(
+                            cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                        )
+                        if all_pages
+                        else await client.list_native_projects(cursor=cursor)
+                    )
             if as_json:
                 json_output.emit({"status": "ok", **snapshot})
             else:
@@ -108,6 +133,12 @@ def list_subcommand(
                         "exhausted" if snapshot.get("pagination_exhausted") else "page cap reached"
                     )
                     console.print(f"Traversal: {state}; pages read: {snapshot.get('pages_read')}")
+                if include_catalogs:
+                    console.print(
+                        f"Catalog projects read: {snapshot.get('catalog_projects_read')}; "
+                        f"unread listed projects: {len(snapshot.get('pending_project_ids', []))}"
+                    )
+                    console.print(f"Observed catalog counts: {snapshot.get('catalog_counts')}")
                 console.print("Snapshot completeness: unknown")
 
         run_with_handlers(act, cli_command="project list", as_json=as_json)

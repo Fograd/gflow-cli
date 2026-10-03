@@ -82,6 +82,8 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                     cursor=payload.get("cursor"),
                     all_pages=payload.get("all_pages", False),
                     max_pages=payload.get("max_pages"),
+                    include_catalogs=payload.get("include_catalogs", False),
+                    max_projects=payload.get("max_projects"),
                 ),
             }
         if verb in {"asset-get", "asset-download"}:

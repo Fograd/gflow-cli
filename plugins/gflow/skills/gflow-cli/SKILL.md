@@ -396,3 +396,9 @@ Native project traversal: `gflow project list --source google --all-pages
 all_pages=True, max_pages=2)`. Page cap1–100 defaults100. Local source and a
 cap without traversal refuse. Results preserve next cursor, pages read and
 pagination exhaustion; complete remains unknown and absence never means deleted.
+
+Observed account project catalogs: append `--include-catalogs --max-projects 1`
+to native `project list`; MCP mirrors `include_catalogs/max_projects`.
+Cap1–20 defaults20. Returns four typed URL-free per-project catalogs and known
+counts, unread listed IDs and later-page cursor separately. Completeness remains
+unknown. One leased page/180seconds; no cache or missing-object deletion.

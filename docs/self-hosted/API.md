@@ -532,3 +532,23 @@ Cycles/duplicate IDs or malformed correlated responses fail explicitly.
 Traversal is bounded at180seconds inside the SDK and240seconds for the REST
 worker including browser startup. No catalog writes or absence-based deletion
 follow this read. SDK: `list_native_projects(all_pages=True, max_pages=2)`.
+
+#### Account project catalogs
+
+`GET /assets/projects/{email}?source=google&includeCatalogs=true&maxProjects=1`
+adds fresh typed catalogs for bounded discovered projects. It combines with
+`allPages/maxPages/cursor`. `includeCatalogs` accepts literal `true/false`;
+`maxProjects` requires true and an integer1–20 (default20). Local source rejects
+these controls. SDK: `list_native_projects(include_catalogs=True,max_projects=1)`.
+CLI and MCP controls are documented in their [usage](../USAGE.md#observed-catalogs-across-native-account-projects)
+and [MCP](../MCP.md#observed-catalogs-across-native-account-projects) guides.
+
+Additional REST fields are `projectCatalogs` (each adds a `projectId` alias to
+the native SDK `project_id`), `catalogProjectsRead`, `catalogCounts`,
+`catalogsCapped` and `pendingProjectIds`. Nested native records retain documented
+SDK names: media/media_id, workflows/workflow_id, characters/entity_id and
+user_voices/ref, each with project_id. Per-project `counts` and `complete:null`
+describe observed rows. Signed URLs and raw native payloads are excluded.
+Unread listed IDs remain separate from the opaque later-page `cursor`.
+Catalogs and account pages share one180-second SDK deadline, with240seconds
+for REST process/browser startup. No cache writes or absence-based deletion.

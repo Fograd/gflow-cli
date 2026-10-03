@@ -424,3 +424,9 @@ Native Google project inventories support bounded multi-page reads:
 Direct MCP mirrors `all_pages/max_pages`; self-hosted REST uses
 `allPages/maxPages`. A page cap preserves continuation, and pagination
 exhaustion does not establish complete account history or deletion.
+
+Native project listing optionally includes observed media/workflow/character/
+saved-voice catalogs with `--include-catalogs --max-projects 1`. SDK and direct
+MCP use `include_catalogs/max_projects`; REST uses `includeCatalogs/maxProjects`.
+Returned counts, unread listed IDs and later-page cursor are separate; complete
+account history and absence-based deletion are not implied.

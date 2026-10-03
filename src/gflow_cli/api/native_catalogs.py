@@ -5,10 +5,11 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
-from gflow_cli.api.transports.migrated_catalog import parse_native_voices
+from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
 from gflow_cli.api.transports.migrated_projects import MAX_CURSOR_LENGTH, list_projects
-from gflow_cli.api.transports.migrated_resources import read_project_payload
+from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
+from gflow_cli.api.transports.native_voices import parse_saved_voices, validate_identifier
 from gflow_cli.errors import ConfigurationError, WireFormatError
 
 if TYPE_CHECKING:
@@ -92,23 +93,76 @@ def validate_project_traversal(all_pages: object, max_pages: object) -> int:
     return max_pages if max_pages is not None else (100 if all_pages else 1)
 
 
+def validate_project_catalogs(include_catalogs: object, max_projects: object) -> int:
+    """Bound read-only project enrichment independently of account pagination."""
+    if type(include_catalogs) is not bool:
+        raise ValueError("include_catalogs must be a boolean")
+    if max_projects is not None and (type(max_projects) is not int or not 1 <= max_projects <= 20):
+        raise ValueError("max_projects must be an integer from 1 to 20")
+    if not include_catalogs and max_projects is not None:
+        raise ValueError("max_projects requires include_catalogs")
+    return max_projects if max_projects is not None else 20
+
+
+def project_catalog_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
+    """One fresh owned payload, URL-free typed observations with exact row counts."""
+    project = validate_identifier(project_id)
+    media = parse_media_snapshot(payload, project)["media"]
+    workflows = project_media(payload, project)
+    seen_workflows: set[str] = set()
+    for candidate in payload[1]:
+        if not isinstance(candidate, list):
+            raise ValueError("Native catalog workflow ownership is unavailable")
+        row = cast(list[Any], candidate)
+        if len(row) < 5 or row[4] != project:
+            raise ValueError("Native catalog workflow ownership is unavailable")
+        identifier = validate_identifier(row[0])
+        if identifier in seen_workflows:
+            raise ValueError("Native catalog workflow identity is duplicated")
+        seen_workflows.add(identifier)
+    characters = parse_native_characters(payload, project)
+    voices = parse_saved_voices(payload, project)
+    for rows, field in ((media, "media_id"), (characters, "entity_id"), (voices, "ref")):
+        identifiers = [validate_identifier(row[field]) for row in rows]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("Native catalog identity is duplicated")
+    return {
+        "project_id": project,
+        "media": media,
+        "workflows": workflows,
+        "characters": characters,
+        "user_voices": voices,
+        "counts": {
+            "media": len(media),
+            "workflows": len(workflows),
+            "characters": len(characters),
+            "user_voices": len(voices),
+        },
+        "complete": None,
+        "scope": "observed native project catalogs; workflow history and completeness unknown",
+    }
+
+
 async def projects_snapshot(
     client: FlowApiClient,
     cursor: object = None,
     *,
     all_pages: bool = False,
     max_pages: int | None = None,
+    include_catalogs: bool = False,
+    max_projects: int | None = None,
 ) -> dict[str, Any]:
     _native_only(client)
     try:
         budget = validate_project_traversal(all_pages, max_pages)
+        catalog_budget = validate_project_catalogs(include_catalogs, max_projects)
     except ValueError as exc:
         raise ConfigurationError(detail=str(exc)) from None
     if cursor is not None and (
         not isinstance(cursor, str) or not cursor or len(cursor) > MAX_CURSOR_LENGTH
     ):
         raise ConfigurationError(detail="Native project cursor requires 1 to 4096 characters")
-    async with asyncio.timeout(180 if all_pages else 60):
+    async with asyncio.timeout(180 if all_pages or include_catalogs else 60):
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
             projects: list[dict[str, Any]] = []
@@ -140,7 +194,7 @@ async def projects_snapshot(
             )
             if cursor is not None:
                 scope += "; continuation from supplied cursor"
-            return {
+            output: dict[str, Any] = {
                 "projects": projects,
                 "next_cursor": current,
                 "returned_count": len(projects),
@@ -149,6 +203,26 @@ async def projects_snapshot(
                 "scope": scope,
                 "complete": None,
             }
+            if include_catalogs:
+                catalogs: list[dict[str, Any]] = []
+                counts = {"media": 0, "workflows": 0, "characters": 0, "user_voices": 0}
+                for row in projects[:catalog_budget]:
+                    payload = await read_project_payload(page, row["project_id"])
+                    catalog = project_catalog_snapshot(payload, row["project_id"])
+                    catalogs.append(catalog)
+                    for field in counts:
+                        counts[field] += catalog["counts"][field]
+                pending = [row["project_id"] for row in projects[catalog_budget:]]
+                output.update(
+                    {
+                        "project_catalogs": catalogs,
+                        "catalog_projects_read": len(catalogs),
+                        "catalog_counts": counts,
+                        "pending_project_ids": pending,
+                        "catalogs_capped": bool(pending),
+                    }
+                )
+            return output
         except ValueError as exc:
             raise WireFormatError(
                 detail="Native project listing has an invalid shape", route="projects.native"
