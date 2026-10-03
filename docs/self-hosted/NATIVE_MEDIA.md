@@ -54,3 +54,34 @@ Free owned-synthetic batch/retry BDD passed1test,2warnings in43.96seconds: three
 
 
 HTTP DELETE /assets/{handle} accepts an omitted projectId and uses that selected account's registered project. Explicit null, malformed or non-string projectId refuses. This default applies to the self-hosted HTTP adapter; SDK/CLI/direct MCP still require their explicit project argument. Ownership checks and archive/delete selection still apply.
+
+
+## Read inventory and metadata boundaries
+
+Native read inventories merge timeline media with attached media from the fresh
+GetProjectContents response. Rows preserve their origin project and identify the
+selected attachment project separately; listing an attachment does not establish
+ownership for deletion, archive, references or download. Recognized exclusive
+uploaded image/video arms supply likelyUpload; generated arms supply the opposite
+classification. Unknown/audio rows are OTHER for the HTTP mediaType projection.
+Creation times come from native metadata when valid, never from the time of the
+read. Counts describe returned inventory, and completeness remains unknown; this
+is not account generation-history aggregation.
+
+HTTP source=google media inventory returns all observed rows by default, without
+an implicit50-row cap. Explicit pagination is a fork extension; it does not turn
+the snapshot into complete generation history. count and likelyUploads describe
+the returned rows; observedCount records the full snapshot before explicit pagination. Protected download URLs are excluded from list results.
+
+SDK get_native_asset, CLI project get-media and direct MCP gflow_get_native_asset
+can read exact active owned audio metadata and a confidential transient URL;
+width/height are null. An exact fresh media/project/workflow join is required.
+Download adapters remain image/video only, and HTTP source=google asset lookup
+rejects audio with400. Audio playback and accepted video output are separate live
+proof obligations.
+
+Character thumbnails missing from the media projection can resolve through
+bounded exact character detail with a positively owned parent relationship.
+Unknown or ambiguous relationships refuse; missing projection is not404 proof.
+The source-backed merge and typed classification do not complete R02/R03 or
+establish compatibility with useapi composite references.

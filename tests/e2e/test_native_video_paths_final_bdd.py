@@ -131,7 +131,11 @@ def video_case(monkeypatch, mode):
             str(UUID(x))
             for x in json.loads(os.environ.get("GFLOW_CLI_E2E_NATIVE_VIDEO_AUDIO", "[]"))
         )
-        if not case["images"] and not case["audio"]:
+        case["characters"] = tuple(
+            str(UUID(x))
+            for x in json.loads(os.environ.get("GFLOW_CLI_E2E_NATIVE_VIDEO_CHARACTERS", "[]"))
+        )
+        if not case["images"] and not case["audio"] and not case["characters"]:
             pytest.skip("Exact existing owned ingredients required")
         assert len(case["images"]) <= 7 and len(case["audio"]) <= 5
     # Persistent one-shot allowance refuses any accidental retry, even after a failure.
@@ -185,7 +189,15 @@ def generate(case):
                 ]
                 assert candidates, "Observed model limits do not fit supplied ingredients"
             model = min(candidates, key=lambda row: row["credits"])
-            private_checkpoint(case, modelKey=model["model_key"])
+            resolution = next(
+                (
+                    {1: "720p", 2: "1080p", 3: "4k", 4: "360p"}[value]
+                    for value in model.get("resolution_enums", [1])
+                    if value in (1, 2, 3, 4)
+                ),
+                "720p",
+            )
+            private_checkpoint(case, modelKey=model["model_key"], resolution=resolution)
 
             async def started(value):
                 private_checkpoint(
@@ -223,12 +235,16 @@ def generate(case):
                     prompt += " Use @referenceImage_1."
                 if case["audio"]:
                     prompt += " Match @referenceAudio_1."
+                if case.get("characters"):
+                    prompt += " Keep @character_1 visually recognizable."
                 value = await client.generate_native_reference_video(
                     project_id=case["project"],
                     prompt=prompt,
                     reference_image_ids=case["images"],
                     reference_audio_ids=case["audio"],
+                    reference_character_ids=case.get("characters", ()),
                     model_key=model["model_key"],
+                    resolution=resolution,
                     count=1,
                     aspect="16:9",
                     on_started=started,

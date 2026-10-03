@@ -537,8 +537,8 @@ existing limit and MCP offset pagination; local listing rejects Google cursors.
 
 `gflow project media --project "$PROJECT_ID" --source google --profile pro1 --json`
 reads the selected native project asset snapshot. It returns stable media/project/
-workflow identifiers, measured `image`/`video` kinds and available dimensions;
-unknown kinds remain `unknown`. It excludes captions and signed URLs. This is a
+workflow identifiers, measured image/video/audio kinds and available dimensions;
+unknown kinds remain unknown. It excludes captions and signed URLs. This is a
 read-only snapshot with `complete: null`; it does not sync the local catalog or
 infer deletion from absent entries.
 
@@ -633,11 +633,20 @@ approximation. Native UUID Auto requires an explicit project and fresh dimension
 it never substitutes a later reference when the first cannot resolve.
 Canonical accepted mixed/native output remains a separate E2E proof obligation.
 
+
+Native read inventories merge timeline and attached media. Rows retain origin
+project_id; attached-only rows add attached_to_project_id for the selected scope.
+Typed image/video upload arms supply likely_upload, and valid native creation
+timestamps are source-derived. Counts describe observed rows; complete remains
+null. An attached row grants no mutation or generation-reference ownership.
+Account generation-history totals and useapi composite references remain gaps.
+
 ### Fresh native asset read tools
 
 `gflow_get_native_asset(project, media_id, profile="default")` reads a fresh
-selected-project snapshot and exact current image/video metadata, returning
-native identities, dimensions and a confidential transient URL.
+selected-project snapshot and exact current image/video/audio metadata, returning
+native identities and a confidential transient URL. Audio lookup is metadata-only:
+width/height are null and a fresh active owned workflow must match exactly.
 `gflow_download_native_asset(project, media_id, output_dir, profile="default")`
 downloads verified image/video content, returning the contained local path,
 byte count, digest and MIME/dimensions. Existing output files are not overwritten;
@@ -646,8 +655,8 @@ library mutation is performed.
 
 These are synchronous direct reads, matching useAPI GET semantics. Protected
 URLs are deliberately excluded from durable generation queues/history; existing
-direct/queued generation tools remain separate. Character/audio/voice-reference
-detail is a different capability. CLI mirrors are project get-media and
+direct/queued generation tools remain separate. Character and saved-voice detail
+remain separate capabilities; native download supports images/videos only. CLI mirrors are project get-media and
 project download-media. See [self-hosted native retrieval](self-hosted/API.md#fresh-native-imagevideo-retrieval).
 
 Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.
@@ -667,7 +676,9 @@ the selected-project relationships are positively established, with
 `Cache-Control: no-store`. Existing account/project selection applies.
 Voice detail distinguishes system presets from owned saved user TTS.
 Unresolved or mismatched detail returns502 instead of inferring404 from a partial
-snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.
+snapshot. A thumbnail missing from the media projection can resolve through bounded
+exact character detail and a positively owned parent relationship; ambiguous or
+unrelated candidates refuse. Composite vendor reference compatibility remains open.
 
 
 ### Fresh saved user voice detail

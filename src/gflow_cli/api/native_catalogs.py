@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
@@ -27,8 +28,84 @@ def _dimensions(value: Any) -> dict[str, int]:
     return {}
 
 
-def parse_media_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
-    """Classify only measured exclusive image/video arms; URLs never leave parser."""
+def _source_created_time(row: list[Any]) -> dict[str, str]:
+    metadata: Any = row[5] if len(row) > 5 else None
+    if not isinstance(metadata, list):
+        return {}
+    values = cast(list[Any], metadata)
+    stamp: Any = values[0] if values else None
+    if not isinstance(stamp, list) or not stamp:
+        return {}
+    parts = cast(list[Any], stamp)
+    seconds: Any = parts[0]
+    nanos: Any = parts[1] if len(parts) > 1 else 0
+    if (
+        isinstance(seconds, str)
+        and 1 <= len(seconds) <= 12
+        and seconds.isascii()
+        and seconds.isdecimal()
+    ):
+        seconds = int(seconds)
+    if type(seconds) is not int or not 0 <= seconds <= 253402300799:
+        return {}
+    if type(nanos) is not int or not 0 <= nanos <= 999999999:
+        return {}
+    base = datetime.fromtimestamp(seconds, UTC).isoformat(timespec="seconds")[:-6]
+    fraction = ("." + f"{nanos:09d}".rstrip("0")) if nanos else ""
+    return {"created_time": base + fraction + "Z"}
+
+
+def _likely_uploaded_media(kind: str, image: Any, video: Any) -> bool:
+    arm = image if kind == "image" else video if kind == "video" else None
+    upload_index = 1 if kind == "image" else 4
+    if not isinstance(arm, list):
+        return False
+    values = cast(list[Any], arm)
+    uploaded: Any = values[upload_index] if len(values) > upload_index else None
+    return (
+        values[0] is None and isinstance(uploaded, list) and len(cast(list[Any], uploaded)) > 0
+        if values
+        else False
+    )
+
+
+def _bundled_preset_attachment(wrapper: list[Any]) -> bool:
+    from gflow_cli.api.character import VOICE_NAMES
+
+    name: Any = wrapper[2]
+    identifier: Any = wrapper[0]
+    if type(wrapper[1]) is not int or wrapper[1] != 3 or name not in VOICE_NAMES:
+        return False
+    if not isinstance(identifier, str) or identifier.casefold() != name.casefold():
+        return False
+    details: Any = wrapper[3]
+    if not isinstance(details, list):
+        return False
+    values = cast(list[Any], details)
+    if (
+        len(values) <= 10
+        or not isinstance(values[0], str)
+        or values[0].casefold() != name.casefold()
+    ):
+        return False
+    samples: Any = values[10]
+    if not isinstance(samples, list) or not samples:
+        return False
+    sample: Any = cast(list[Any], samples)[0]
+    if not isinstance(sample, list):
+        return False
+    source = cast(list[Any], sample)
+    return (
+        len(source) >= 4
+        and source[0] == name
+        and source[3] == f"https://gstatic.com/aitestkitchen/voices/samples/{name}.wav"
+    )
+
+
+def parse_media_snapshot(
+    payload: Any, project_id: str, *, include_attached: bool = False
+) -> dict[str, Any]:
+    """Classify measured exclusive image/video/audio arms; URLs never leave parser."""
     if not is_uuid(project_id):
         raise ValueError("Native project identifier must be a UUID")
     if not isinstance(payload, list) or len(cast("list[Any]", payload)) < 3:
@@ -36,35 +113,69 @@ def parse_media_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
     collection: Any = cast("list[Any]", payload)[2]
     if not isinstance(collection, list):
         raise ValueError("Native media collection must be an array")
+    if type(include_attached) is not bool:
+        raise ValueError("include_attached must be a boolean")
+    values = cast(list[Any], payload)
+    candidates: list[tuple[Any, bool]] = [(row, False) for row in cast(list[Any], collection)]
+    if include_attached and len(values) > 3 and values[3] is not None:
+        attached: Any = values[3]
+        if not isinstance(attached, list):
+            raise ValueError("Native attached media collection must be an array")
+        for wrapper in cast(list[Any], attached):
+            if not isinstance(wrapper, list) or len(cast(list[Any], wrapper)) < 4:
+                raise ValueError("Native attached media wrapper is malformed")
+            wrapper_values = cast(list[Any], wrapper)
+            if _bundled_preset_attachment(wrapper_values):
+                continue
+            if wrapper_values[3] is not None:
+                candidates.append((wrapper_values[3], True))
     rows: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for candidate in cast("list[Any]", collection):
+    seen: dict[str, list[Any]] = {}
+    for candidate, attached_row in candidates:
         if not isinstance(candidate, list):
             raise ValueError("Native media row must be an array")
         row = cast("list[Any]", candidate)
-        if len(row) < 3 or row[1] != project_id or not is_uuid(row[0]) or not is_uuid(row[2]):
+        if (
+            len(row) < 3
+            or not is_uuid(row[1])
+            or (not attached_row and row[1] != project_id)
+            or not is_uuid(row[0])
+            or not is_uuid(row[2])
+        ):
             raise ValueError("Native media has unrelated or invalid identities")
         if row[0] in seen:
-            raise ValueError("Native media identity is duplicated")
-        seen.add(row[0])
+            if include_attached and row == seen[row[0]]:
+                continue
+            raise ValueError("Native media identity is duplicated or contradictory")
+        seen[row[0]] = row
         image: Any = row[6] if len(row) > 6 else None
         video: Any = row[7] if len(row) > 7 else None
+        audio: Any = row[10] if len(row) > 10 else None
         kind = "unknown"
         dimensions: dict[str, int] = {}
-        if isinstance(image, list) and video is None:
+        if isinstance(image, list) and video is None and audio is None:
             kind = "image"
             values = cast("list[Any]", image)
             dimensions = _dimensions(values[2] if len(values) > 2 else None)
-        elif image is None and isinstance(video, list):
+        elif image is None and isinstance(video, list) and audio is None:
             kind = "video"
             values = cast("list[Any]", video)
             dimensions = _dimensions(values[1] if len(values) > 1 else None)
+        elif image is None and video is None and isinstance(audio, list):
+            kind = "audio"
         rows.append(
             {
                 "media_id": row[0],
-                "project_id": project_id,
+                "project_id": row[1],
                 "workflow_id": row[2],
                 "kind": kind,
+                **({"attached_to_project_id": project_id} if attached_row else {}),
+                **(
+                    {"likely_upload": _likely_uploaded_media(kind, image, video)}
+                    if include_attached
+                    else {}
+                ),
+                **(_source_created_time(row) if include_attached else {}),
                 **dimensions,
             }
         )
@@ -107,7 +218,7 @@ def validate_project_catalogs(include_catalogs: object, max_projects: object) ->
 def project_catalog_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
     """One fresh owned payload, URL-free typed observations with exact row counts."""
     project = validate_identifier(project_id)
-    media = parse_media_snapshot(payload, project)["media"]
+    media = parse_media_snapshot(payload, project, include_attached=True)["media"]
     workflows = project_media(payload, project)
     seen_workflows: set[str] = set()
     for candidate in payload[1]:
@@ -237,7 +348,9 @@ async def media_snapshot(client: FlowApiClient, project_id: str) -> dict[str, An
         raise ConfigurationError(detail="Native project identifier must be a UUID")
     page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
     try:
-        return parse_media_snapshot(await read_project_payload(page, project_id), project_id)
+        return parse_media_snapshot(
+            await read_project_payload(page, project_id), project_id, include_attached=True
+        )
     except ValueError as exc:
         raise WireFormatError(
             detail="Native media listing has an invalid shape", route="media.native"

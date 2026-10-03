@@ -3210,17 +3210,17 @@ async def gflow_list_reference_video_models(
 
 @server.tool(
     name="gflow_get_native_asset",
-    description="Read owned native image/video and confidential fresh URL; synchronous.",
+    description="Read owned native image/video/audio and confidential fresh URL; synchronous.",
 )
 @_guarded
 async def gflow_get_native_asset(
     project: str, media_id: str, profile: str = _DEFAULT_PROFILE
 ) -> dict[str, Any]:
-    """Read selected-project native image/video; URL is ephemeral and confidential.
+    """Read selected-project native image/video/audio; URL is ephemeral and confidential.
 
     Args:
         project: Native project UUID.
-        media_id: Native image/video UUID; not a local artifact or character/voice.
+        media_id: Native media UUID; not a local artifact, character entity or voice workflow.
         profile: Owning saved profile. No account scanning.
     """
     if not is_uuid(project) or not is_uuid(media_id):

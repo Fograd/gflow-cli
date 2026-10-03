@@ -1115,3 +1115,29 @@ R11 format aliases: three HTTP red routing cases proved landscape/portrait and n
 R11 format-alias final gates:6352passed,5skipped,15warnings in195.03seconds,89%coverage; focused45pass and source pyright0errors. Hygiene/links/PII/website/council-memory/ruff/format checks passed. Architect/Security/docs GO on staged source11fe74715034cafe742c525b84e131343fa08b62. Six mirror axes retain HTTP-only scope; no CLI/MCP or native transport changes.
 
 R11 format aliases deployed at063d3f86. Actual authenticated requests with landscape/portrait advanced to the intentional invalid-seed guard; uppercase4K promotion advanced to the intentional invalid-project guard. All three inputs reached their existing downstream validation instead of alias refusal. Durable job count remained unchanged; zero Google/provider requests. The live summary still included all three registrations. This is validation/queue-routing evidence, not4K output or entitlement proof.
+
+## R02/R03 detail and inventory follow-up — 2026-10-04
+
+Source batch: owned generic audio metadata, missing-projection character thumbnail
+candidates, attached media inventory, typed upload classification/source timestamps,
+and unpaginated-by-default native HTTP inventory. Protected URLs remain transient;
+strict ownership-sensitive callers retain selected-project checks.
+
+- Red-to-green regression tests cover audio unions/workflow ownership, downloader
+  refusal, thumbnail ownership, attachments/conflicts/system presets and timestamps.
+- Full offline gates:6415passed,5skipped,15warnings,89%coverage in207.02seconds;
+  repository hygiene/links/website PII/mirror/memory/lint/format/types passed.
+- Tagged zero-generation live BDD:3passed,6warnings in72.25seconds covering
+  image/video content, character reference/thumbnail details and catalog aggregation.
+- New pro1 image: one accepted1024×1024 output, fresh generated-arm GetMedia,
+  validated download and inventory membership. No generated video accepted.
+- New pro2 video: one cheapest-model360p character R2V submission, explicitly
+  WAF-rejected(gRPC7), zero accepted outputs, no retry. Durable per-account campaign
+  counters currently pro1 images1/videos0; pro2 images0/videos1; pro3 images0/videos0.
+  Each account's user limit is50images/2videos; rejected/uncertain reservations count.
+
+This does not complete R02/R03/R04: composite mappings, complete account history,
+persistent reconciliation, saved-user audio playback and rendered reference/audio
+grounding remain distinct unfinished requirements. A private main-world correction
+enabled read-only Patchright model discovery; no production engine change or paid
+acceptance is claimed by that probe.

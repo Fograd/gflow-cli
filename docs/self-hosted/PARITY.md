@@ -196,6 +196,15 @@ performance/dialogue/preset/playback details are published at3d35e1d; live saved
 user playback coverage remains R12. R01 caption implementation is published and
 deployed atf802e754 with6037offline tests passing and the37.41s no-generation
 unsafe-caption canonical attachment proof.
+  Follow-up 2026-10-04: exclusive generic audio metadata now requires an active
+  owned workflow and strict GetMedia, with null dimensions and metadata-only
+  playback; the downloader remains image/video-only and HTTP assets refuse audio400.
+  Explicit character thumbnail candidates omitted from the media projection now
+  resolve through exact GetMedia plus fresh active character-parent ownership.
+  Fresh generated-image lookup/download/inventory membership passed on pro1
+  (one new1024×1024 image). The existing zero-generation asset/character/catalog
+  BDD batch passed3tests in72.25seconds. Composite translation, exact error
+  equivalence and live saved-user audio acceptance remain open.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial
@@ -215,6 +224,16 @@ unsafe-caption canonical attachment proof.
   live BDD passed10.14seconds with zero generation. Complete history/paging
   beyond the measured project snapshot and destructive synchronization remain
   unimplemented; unknown completeness never becomes deletion evidence.
+  Follow-up 2026-10-04: read inventories now merge the source-derived timeline
+  and attached collection, preserve origin/attachment project identities, exclude
+  positively verified bundled preset wrappers, and expose exact typed upload
+  classification plus validated source timestamps. Strict ownership parsers retain
+  their separate same-project default. HTTP native media lists all observed rows
+  by default; explicit pagination is a fork extension. count/likelyUploads describe
+  returned rows and observedCount the full snapshot. Cached real payloads passed
+  for all3 accounts (53/556/565 observed media), and fresh catalog BDD passed in the
+ 3-test batch. Account generation-history paging/completeness and persistent
+  reconciliation remain open; no absent row authorizes deletion.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
@@ -235,6 +254,13 @@ unsafe-caption canonical attachment proof.
   Free system-preset R2V/V2V preflight BDD passed45.63seconds at both token
   boundaries, with0generation, synthetic cleanup and originals preserved.
   Rendered grounding remains open for R12.
+  Follow-up 2026-10-04: one canonical owned-character R2V attempt on pro2 selected
+  the cheapest fresh compatible model (4seconds,360p,4credits). Google explicitly
+  rejected the single submission with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC7):
+  accepted outputs0, no retry. It counts as1of2 video attempts in the new campaign.
+  A read-only alternative-engine probe exposed missing main-world WIZ context;
+  a private correction passed native model reads with0generation. Production
+  adapter correction and accepted rendered character/audio/video proof remain open.
 - [x] **R05 — Native video controls (bounded discovery, limits recorded).** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the

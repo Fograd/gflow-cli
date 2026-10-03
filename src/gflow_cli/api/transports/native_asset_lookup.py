@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.transports.migrated_resources import read_project_payload
 from gflow_cli.api.transports.migrated_rpc import native_rpc
-from gflow_cli.api.transports.native_voices import validate_identifier
+from gflow_cli.api.transports.native_voices import saved_voice_detail_fields, validate_identifier
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,42 @@ class NativeAsset:
     width: int
     height: int
     size_bytes: int | None = None
+
+
+@dataclass(frozen=True)
+class NativeAudioAsset:
+    """Confidential playback metadata; audio has no image/video dimensions."""
+
+    media_id: str
+    project_id: str
+    workflow_id: str
+    url: str = field(repr=False)
+    kind: Literal["audio"] = field(default="audio", init=False)
+    width: None = field(default=None, init=False)
+    height: None = field(default=None, init=False)
+
+
+def _owned_audio_workflow(payload: Any, project: str, workflow: str) -> None:
+    rows = _list(_at(payload, 1))
+    matches = [row for row in rows if _at(row, 0) == workflow]
+    if len(matches) != 1:
+        raise ValueError("Native audio workflow ownership is unresolved")
+    row = _list(matches[0])
+    info = _list(_at(row, 3))
+    if _at(row, 4) != project or len(info) < 5 or info[2]:
+        raise ValueError("Native audio requires an active owned project workflow")
+
+
+def _existing_audio(payload: Any, project: str, media: str, workflow: str) -> NativeAudioAsset:
+    if len({project, media, workflow}) != 3:
+        raise ValueError("Native audio identities must be distinct")
+    fields = saved_voice_detail_fields(
+        payload, project_id=project, media_id=media, workflow_id=workflow
+    )
+    url = fields.get("audio_url")
+    if not isinstance(url, str):
+        raise ValueError("Native audio playback URL is unavailable")
+    return NativeAudioAsset(media, project, workflow, url)
 
 
 def _list(value: Any) -> list[Any]:
@@ -109,20 +145,25 @@ def existing_asset(
     )
 
 
-async def lookup_asset(page: Any, *, project_id: str, media_id: str) -> NativeAsset:
+async def lookup_asset(
+    page: Any, *, project_id: str, media_id: str
+) -> NativeAsset | NativeAudioAsset:
     """One page, fresh ownership projection and one strict correlated metadata read."""
     project, media = validate_identifier(project_id), validate_identifier(media_id)
     async with asyncio.timeout(60):
-        snapshot = parse_media_snapshot(await read_project_payload(page, project), project)
+        project_payload = await read_project_payload(page, project)
+        snapshot = parse_media_snapshot(project_payload, project)
         matches = [row for row in snapshot["media"] if row["media_id"] == media]
-        if len(matches) != 1 or matches[0]["kind"] not in ("image", "video"):
-            raise ValueError(
-                "Native image/video is unresolved in the fresh selected-project snapshot"
-            )
+        if len(matches) != 1 or matches[0]["kind"] not in ("image", "video", "audio"):
+            raise ValueError("Native media is unresolved in the fresh selected-project snapshot")
         owned = matches[0]
+        if owned["kind"] == "audio":
+            _owned_audio_workflow(project_payload, project, owned["workflow_id"])
         payload = await native_rpc(
             page, "as29s", [media], "/project/" + project, require_single=True
         )
+        if owned["kind"] == "audio":
+            return _existing_audio(payload, project, media, owned["workflow_id"])
         return existing_asset(
             payload,
             project_id=project,

@@ -137,7 +137,7 @@ if TYPE_CHECKING:
     from gflow_cli.api.image_aspect_policy import ImageAspectDecision
     from gflow_cli.api.native_video_edit import NativeVideoEditStarted
     from gflow_cli.api.transports.native_asset_download import DownloadedNativeAsset
-    from gflow_cli.api.transports.native_asset_lookup import NativeAsset
+    from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset
     from gflow_cli.api.video import (
         GenerateVideoRequest,
         VideoResult,
@@ -3678,8 +3678,10 @@ class FlowApiClient:
 
         return await media_snapshot(self, project_id)
 
-    async def get_native_asset(self, project_id: str, media_id: str) -> NativeAsset:
-        """Resolve an owned image/video and transient download URL from fresh metadata."""
+    async def get_native_asset(
+        self, project_id: str, media_id: str
+    ) -> NativeAsset | NativeAudioAsset:
+        """Resolve owned image/video/audio and a transient URL from fresh metadata."""
         from gflow_cli.api.native_assets import get_native_asset
 
         return await get_native_asset(self, project_id, media_id)

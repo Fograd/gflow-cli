@@ -703,6 +703,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/upload",
                 "assets/upload-mp4",
                 "assets/media-native-timeline",
+                "assets/media-native-attached-inventory",
+                "assets/media-native-upload-and-source-time",
                 "assets/archive-native-whole-batch",
                 "assets/delete-native-individual",
                 "assets/delete-local-cache",
@@ -1176,14 +1178,31 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             result = parse_json_output(raw)
             if result.get("status") != "ok":
                 raise HTTPException(502, "Google media library unavailable")
-            native_rows = [
-                {**row, "mediaGenerationId": row["media_id"], "projectId": row["project_id"]}
+            native_rows: list[dict[str, Any]] = [
+                {
+                    **row,
+                    "mediaGenerationId": row["media_id"],
+                    "projectId": row["project_id"],
+                    "mediaType": {"image": "IMAGE", "video": "VIDEO"}.get(row.get("kind"), "OTHER"),
+                    "likelyUpload": row.get("likely_upload") is True,
+                    **({"createTime": row["created_time"]} if "created_time" in row else {}),
+                }
                 for row in result["media"]
             ]
+            selected: dict[str, Any] = (
+                page_slice(request, native_rows, "media")
+                if any(key in request.query_params for key in ("limit", "cursor"))
+                else {"media": native_rows, "cursor": None}
+            )
             return {
-                **page_slice(request, native_rows, "media"),
+                **selected,
                 "projectId": project,
+                "count": len(selected["media"]),
+                "observedCount": len(native_rows),
+                "likelyUploads": sum(1 for row in selected["media"] if row["likelyUpload"] is True),
+                "complete": None,
                 "scope": "google-project-library",
+                "inventoryScope": "timeline and attached snapshot; completeness unknown",
             }
         rows = sorted(store.asset_list(profile), key=lambda row: row["id"])
         if project:
@@ -1314,6 +1333,18 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(
                 502, "Native asset read worker returned no valid response"
             ) from None
+        if (
+            not code
+            and result.get("status") == "ok"
+            and result.get("mediaGenerationId") == identifier
+            and result.get("projectId") == project
+            and result.get("kind") == "audio"
+        ):
+            raise HTTPException(
+                400,
+                "Native audio detail is available through SDK/CLI/MCP; "
+                "this asset route supports image/video",
+            )
         if (
             code
             or result.get("status") != "ok"

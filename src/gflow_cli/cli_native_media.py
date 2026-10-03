@@ -120,7 +120,7 @@ def delete_media_command(
 @click.option("--profile", default=None)
 @click.option("--json", "as_json", is_flag=True)
 def get_media_command(project: str, media_id: str, profile: str | None, as_json: bool) -> None:
-    """Read fresh owned image/video metadata and confidential download URL."""
+    """Read owned image/video/audio metadata and confidential fresh playback URL."""
     from gflow_cli.api.transports.native_voices import validate_identifier
     from gflow_cli.services.native_assets import read_asset
 

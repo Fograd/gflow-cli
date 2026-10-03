@@ -108,3 +108,61 @@ def test_native_catalog_http_routes(tmp_path, monkeypatch, kind, query, verb):
             assert response.json()[kind][0]["ref"] == "Enceladus"
     assert calls[0][3] == verb
     assert json.loads(calls[0][5]) == {"project_id": P}
+
+
+def test_native_media_inventory_is_unpaginated_by_default_and_typed(tmp_path, monkeypatch):
+    import json
+    from uuid import UUID
+
+    from fastapi.testclient import TestClient
+
+    from gflow_cli.selfhost.server import Settings, create_app
+
+    rows = [
+        {
+            "media_id": str(UUID(int=i + 1000)),
+            "project_id": P,
+            "workflow_id": W,
+            "kind": "image",
+            "likely_upload": i % 2 == 0,
+        }
+        for i in range(64)
+    ]
+    rows[0]["created_time"] = "1970-01-01T00:00:00Z"
+    rows[-1].update(kind="audio", likely_upload=False)
+    rows[-2]["attached_to_project_id"] = P
+    rows[-2]["project_id"] = E
+
+    async def run(argv, timeout):
+        assert argv[3] == "media-list"
+        return 0, json.dumps({"status": "ok", "media": rows, "complete": None}).encode()
+
+    monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
+    cfg = Settings(
+        token="test",
+        root=tmp_path,
+        accounts={"pro1": {"email": "test@example.org", "project": P}},
+        callbacks=(),
+        sync_wait=0,
+    )
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.get(
+            "/v1/google-flow/assets/media/test@example.org",
+            params={"source": "google"},
+            headers={"Authorization": "Bearer test"},
+        )
+        assert response.status_code == 200
+        value = response.json()
+        assert len(value["media"]) == value["count"] == value["observedCount"] == 64
+        assert value["likelyUploads"] == sum(row["likely_upload"] for row in rows)
+        assert value["media"][0]["createTime"] == "1970-01-01T00:00:00Z"
+        assert value["media"][-1]["mediaType"] == "OTHER"
+        assert value["media"][-2]["projectId"] == E
+        assert value["complete"] is None
+        paged = client.get(
+            "/v1/google-flow/assets/media/test@example.org",
+            params={"source": "google", "limit": 2},
+            headers={"Authorization": "Bearer test"},
+        ).json()
+        assert len(paged["media"]) == paged["count"] == 2
+        assert paged["cursor"] and paged["observedCount"] == 64

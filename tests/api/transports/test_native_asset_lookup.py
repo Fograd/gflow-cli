@@ -194,3 +194,101 @@ async def test_unresolved_snapshot_never_dispatches_detail(monkeypatch):
     monkeypatch.setattr(module, "native_rpc", rpc)
     with pytest.raises(ValueError, match="unresolved"):
         await module.lookup_asset(object(), project_id=P, media_id=M)
+
+
+AUDIO = "https://audio.example.test/playback?token=private"
+
+
+def audio_row():
+    value = [M, P, W, None, None, [None] * 14, None, None, None, None, [[None] * 8]]
+    value[10][0][3] = AUDIO
+    return value
+
+
+@pytest.mark.asyncio
+async def test_generic_audio_lookup_without_saved_visibility(monkeypatch):
+    from gflow_cli.api.transports import native_asset_lookup as module
+
+    async def project(page, project_id):
+        return [None, [[W, None, None, ["audio", None, False, None, M], P]], [audio_row()]]
+
+    async def rpc(page, name, args, source_path, *, require_single):
+        assert (name, args, source_path, require_single) == ("as29s", [M], "/project/" + P, True)
+        return audio_row()
+
+    monkeypatch.setattr(module, "read_project_payload", project)
+    monkeypatch.setattr(module, "native_rpc", rpc)
+    result = await module.lookup_asset(object(), project_id=P, media_id=M)
+    assert result.kind == "audio" and result.url == AUDIO
+    assert result.width is None and result.height is None
+    assert AUDIO not in repr(result)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("variant", ["foreign", "archived", "duplicate", "absent"])
+async def test_audio_requires_unique_active_owned_workflow(monkeypatch, variant):
+    from gflow_cli.api.transports import native_asset_lookup as module
+
+    workflow = [W, None, None, ["audio", None, False, None, M], P]
+    if variant == "foreign":
+        workflow[4] = M
+    elif variant == "archived":
+        workflow[3][2] = True
+    rows = (
+        []
+        if variant == "absent"
+        else [workflow, workflow]
+        if variant == "duplicate"
+        else [workflow]
+    )
+
+    async def project(page, project_id):
+        return [None, rows, [audio_row()]]
+
+    async def rpc(*args, **kwargs):
+        pytest.fail("Unowned audio must refuse before GetMedia")
+
+    monkeypatch.setattr(module, "read_project_payload", project)
+    monkeypatch.setattr(module, "native_rpc", rpc)
+    with pytest.raises(ValueError):
+        await module.lookup_asset(object(), project_id=P, media_id=M)
+
+
+@pytest.mark.asyncio
+async def test_audio_download_refuses_before_network_or_directory(tmp_path):
+    from gflow_cli.api.transports.native_asset_download import download_asset
+    from gflow_cli.api.transports.native_asset_lookup import NativeAudioAsset
+
+    asset = NativeAudioAsset(M, P, W, AUDIO)
+    target = tmp_path / "never-created"
+    with pytest.raises(ValueError, match="audio.*metadata only"):
+        await download_asset(asset, target)
+    assert not target.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("variant", ["identity", "mixed", "missing", "unsafe"])
+async def test_generic_audio_detail_refuses_inconsistent_or_unavailable_playback(
+    monkeypatch, variant
+):
+    from gflow_cli.api.transports import native_asset_lookup as module
+
+    async def project(page, project_id):
+        return [None, [[W, None, None, ["audio", None, False, None, M], P]], [audio_row()]]
+
+    async def rpc(*args, **kwargs):
+        value = audio_row()
+        if variant == "identity":
+            value[2] = M
+        elif variant == "mixed":
+            value[6] = row()[6]
+        elif variant == "missing":
+            value[10][0][3] = None
+        else:
+            value[10][0][3] = "https://user:password@audio.example.test/sample"
+        return value
+
+    monkeypatch.setattr(module, "read_project_payload", project)
+    monkeypatch.setattr(module, "native_rpc", rpc)
+    with pytest.raises(ValueError):
+        await module.lookup_asset(object(), project_id=P, media_id=M)

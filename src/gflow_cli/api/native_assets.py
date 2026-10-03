@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from gflow_cli.api.transports.native_asset_download import DownloadedNativeAsset, download_asset
-from gflow_cli.api.transports.native_asset_lookup import NativeAsset, lookup_asset
+from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset, lookup_asset
 from gflow_cli.api.transports.native_voices import validate_identifier
 from gflow_cli.errors import ConfigurationError, WireFormatError
 
@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from gflow_cli.api.client import FlowApiClient
 
 
-async def get_native_asset(client: FlowApiClient, project_id: str, media_id: str) -> NativeAsset:
+async def get_native_asset(
+    client: FlowApiClient, project_id: str, media_id: str
+) -> NativeAsset | NativeAudioAsset:
     try:
         project, media = validate_identifier(project_id), validate_identifier(media_id)
     except ValueError:

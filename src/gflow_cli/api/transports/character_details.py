@@ -60,33 +60,55 @@ def character_image_handles(payload: Any, *, project_id: str, entity_id: str) ->
     thumbnail = character.get("thumbnail_media_id")
     thumbnails = [handle for handle in handles if handle["media_id"] == thumbnail]
     if thumbnail is not None and not thumbnails:
-        rows = [row for row in media if row["media_id"] == thumbnail and row["kind"] == "image"]
-        if len(rows) != 1:
-            raise ValueError("Character thumbnail ownership is unresolved")
-        workflow = rows[0]["workflow_id"]
-        workflows = [
-            row for row in payload[1] if isinstance(row, list) and row and row[0] == workflow
-        ]
-        if len(workflows) != 1:
-            raise ValueError("Character thumbnail workflow is ambiguous")
-        owned = workflows[0]
-        if (
-            len(owned) < 6
-            or owned[4] != project
-            or owned[5] != entity
-            or not isinstance(owned[3], list)
-            or len(cast(list[Any], owned[3])) < 3
-            or owned[3][2]
-        ):
-            raise ValueError("Character thumbnail workflow ownership does not match")
-        thumbnails = [{"workflow_id": workflow, "media_id": thumbnail}]
-    if len({handle["media_id"] for handle in [*handles, *thumbnails]}) > 16:
+        if thumbnail in {project, entity}:
+            raise ValueError("Character thumbnail identity is ambiguous")
+        rows = [row for row in media if row["media_id"] == thumbnail]
+        if rows and (len(rows) != 1 or rows[0]["kind"] != "image"):
+            raise ValueError("Character thumbnail projection contradicts ownership")
+        # An explicit entity thumbnail may be absent from the asset projection.
+        # Its workflow stays unresolved until exact GetMedia and fresh parent proof.
+        if rows:
+            workflow = rows[0]["workflow_id"]
+            _owned_thumbnail_workflow(payload, project, entity, workflow)
+            thumbnails = [{"workflow_id": workflow, "media_id": thumbnail}]
+    distinct_media = {handle["media_id"] for handle in [*handles, *thumbnails]}
+    if thumbnail is not None:
+        distinct_media.add(validate_identifier(thumbnail))
+    if len(distinct_media) > 16:
         raise ValueError("Character detail exceeds the bounded read budget")
     return {
         "character": character,
         "references": handles,
-        "thumbnail": thumbnails[0] if thumbnails else None,
+        "thumbnail": (
+            thumbnails[0]
+            if thumbnails
+            else {"workflow_id": None, "media_id": thumbnail}
+            if thumbnail is not None
+            else None
+        ),
     }
+
+
+def _owned_thumbnail_workflow(payload: Any, project: str, entity: str, workflow: str) -> None:
+    workflows: list[list[Any]] = [
+        cast(list[Any], row)
+        for row in payload[1]
+        if isinstance(row, list)
+        and row
+        and validate_identifier(cast(list[Any], row)[0]) == workflow
+    ]
+    if len(workflows) != 1:
+        raise ValueError("Character thumbnail workflow is ambiguous")
+    owned = workflows[0]
+    if (
+        len(owned) < 6
+        or owned[4] != project
+        or owned[5] != entity
+        or not isinstance(owned[3], list)
+        or len(cast(list[Any], owned[3])) < 3
+        or owned[3][2] not in (None, False, 0)
+    ):
+        raise ValueError("Character thumbnail workflow ownership does not match")
 
 
 async def lookup_character(
@@ -131,6 +153,16 @@ async def lookup_character(
                 "/project/" + project,
                 require_single=True,
             )
+            if handle["workflow_id"] is None:
+                if (
+                    not isinstance(detail, list)
+                    or len(cast(list[Any], detail)) < 3
+                    or cast(list[Any], detail)[:2] != [handle["media_id"], project]
+                ):
+                    raise ValueError("Character thumbnail identity does not match")
+                workflow = validate_identifier(cast(list[Any], detail)[2])
+                _owned_thumbnail_workflow(payload, project, result["entity_id"], workflow)
+                handle["workflow_id"] = workflow
             asset = existing_asset(
                 detail,
                 project_id=project,

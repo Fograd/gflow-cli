@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.transports.native_asset_lookup import NativeAsset
+from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset
 from gflow_cli.config import get_settings
 
 
-def asset_payload(asset: NativeAsset) -> dict[str, Any]:
+def asset_payload(asset: NativeAsset | NativeAudioAsset) -> dict[str, Any]:
     """Explicit confidential response; never use as a routine event/history value."""
     return {
         "mediaGenerationId": asset.media_id,

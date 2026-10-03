@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 from PIL import Image
 
-from gflow_cli.api.transports.native_asset_lookup import NativeAsset, media_url
+from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset, media_url
 from gflow_cli.api.transports.native_voices import validate_identifier
 
 _signed_request_active: ContextVar[bool] = ContextVar("gflow_signed_request_active", default=False)
@@ -119,7 +119,7 @@ async def _video(path: Path, asset: NativeAsset, mime: str) -> str:
 
 
 async def download_asset(
-    asset: NativeAsset,
+    asset: NativeAsset | NativeAudioAsset,
     out_dir: Path,
     *,
     http: httpx.AsyncClient | None = None,
@@ -130,6 +130,8 @@ async def download_asset(
     Caller may provide an HTTP client for tests, but each request explicitly disables
     redirects. No signed URL appears in the durable result or diagnostic errors.
     """
+    if isinstance(asset, NativeAudioAsset):
+        raise ValueError("Native audio is metadata only; its download boundary is unverified")
     validate_identifier(asset.media_id)
     media_url(asset.url, asset.kind)
     if asset.kind == "image":

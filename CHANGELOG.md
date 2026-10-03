@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Native read inventories merge timeline and attached media while preserving origin and attachment scope, expose typed upload classification and source creation times, and retain unknown completeness. HTTP native inventory has no implicit50-row cap.
+- Native SDK/CLI/direct MCP asset metadata reads support strictly owned active audio with null dimensions; downloads remain image/video only and HTTP assets reject audio. Bounded character detail can resolve missing-projection thumbnails with a proven owned parent. Live audio/video acceptance and full R02/R03 parity remain pending.
+
 - Native permanent-delete retries use private fresh account/project-scoped confirmed receipts; exact missing reads never replay known-gone IDs. Mixed batches delete present IDs only; REST adds accepted counts and separates already/newly deleted IDs.
 
 - Discover fresh account image-reference capacities across SDK/CLI/MCP/HTTP and enforce effective budgets for every native reference-bearing SDK request before upload/mint; clarify Lite's conservative cap.

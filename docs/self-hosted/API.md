@@ -48,7 +48,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
 | `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
 | `GET /assets/projects/{handle}` | Local catalog by default; source=google reads paginated native account projects |
-| `GET /assets/media/{handle}` | Managed catalog by default; source=google reads selected-project native timeline |
+| `GET /assets/media/{handle}` | Managed catalog by default; source=google reads timeline and attached native media, preserving origin |
 | `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
 | `DELETE /assets/{handle}` | Native reversible whole-batch archive by default; operation=delete permanently removes only selected owned media IDs; explicit localOnly cache deletion is separate |
 | `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded with HTTP 501; see CAPTCHA.md |
@@ -201,7 +201,7 @@ survive synchronous response, job polling and callbacks. Read [video editing](..
 for CLI/MCP and SDK equivalents.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
-and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`; source=google native lookup also accepts email/projectId and requires explicit account selection
+and `kind`, managed media accepts `projectId`, and `source=google` for native timeline and attached-media inventory; asset lookup accepts `raw=true`; source=google native lookup also accepts email/projectId and requires explicit account selection
 for protected bytes. Unknown or repeated query keys are rejected. Default catalogs are local. Native timeline rows carry media_id/workflow_id, caption, archived and batch_media_ids plus mediaGenerationId/projectId aliases; they do not claim merged attached-media history or inferred media types.
 
 Account registration accepts `profile`, `email`, `projectId`, `enabled` and
@@ -425,6 +425,17 @@ retained if a later upload or prompt binding fails. Inspect those returned
 recovery handles before resubmission; no upload is automatically replayed.
 Accepted mixed/native REST and MCP output remains part of final E2E verification.
 
+## Native project media inventory
+
+GET /assets/media/{handle}?source=google merges observed timeline and attached
+media from the fresh selected-project response. It has no implicit50-row cap;
+optional explicit pagination is a fork extension. count/likelyUploads describe
+the returned rows; observedCount records the full snapshot before explicit pagination. Entries expose IMAGE/VIDEO/OTHER, typed likelyUpload
+and valid source createTime when available. Origin project identity is preserved,
+with attachment scope identified separately; no ownership is widened. Signed URLs
+are excluded. Completeness remains unknown, and these counts are not account
+generation-history totals. See [native media boundaries](NATIVE_MEDIA.md#read-inventory-and-metadata-boundaries).
+
 ## Fresh native image/video retrieval
 
 GET /assets/{mediaUUID}?source=google&email={configuredEmail}&projectId={projectUUID}
@@ -440,6 +451,11 @@ Raw downloads have a256MiB limit and require ffprobe. Temporary server output is
 removed after response completion, Range refusal, send failure or cancellation.
 The default source=local retains the managed-registry metadata/download extension
 and its existing raw controls, including image bytes.
+
+SDK/CLI/direct MCP native metadata lookup also supports active owned audio UUIDs,
+with width/height null and a confidential URL. Audio bytes are not supported by
+these download adapters; this HTTP asset route rejects audio with400. Saved-voice
+detail remains a separate endpoint. No live audio playback acceptance is implied.
 
 The image/video URL fields match the current frontend's source-size download
 accessor, including generated and uploaded variants. Downloads retain the fresh

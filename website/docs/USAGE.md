@@ -2352,10 +2352,20 @@ Native Omni edit: `video edit-models` reads available model keys; `video edit-na
 
 Native credit inspection: set `GFLOW_CLI_FLOW_HOST=flow.google.com` for CLI/MCP credit tools; [mapped fields and limits](NATIVE_CREDITS.md).
 
+
+Native read inventories merge timeline and attached media. Rows retain origin
+project_id; attached-only rows add attached_to_project_id for the selected scope.
+Typed image/video upload arms supply likely_upload, and valid native creation
+timestamps are source-derived. Counts describe observed rows; complete remains
+null. An attached row grants no mutation or generation-reference ownership.
+Account generation-history totals and useapi composite references remain gaps.
+
 ### Fresh native media lookup and download
 
 `gflow project get-media --project "$PROJECT_ID" --media-id "$MEDIA_ID" --profile pro1 --json`
-reads exact owned image/video metadata and a confidential fresh URL.
+reads exact owned image/video/audio metadata and a confidential fresh URL.
+Audio lookup is metadata-only, returns null width/height, and requires an exact
+fresh active owned workflow. Download supports images/videos only.
 `gflow project download-media --project "$PROJECT_ID" --media-id "$MEDIA_ID" --output-dir ./out --profile pro1 --json`
 downloads verified content without generation or upscaling; existing files are
 never overwritten. These synchronous reads use the selected profile/project and
@@ -2380,7 +2390,9 @@ the selected-project relationships are positively established, with
 `Cache-Control: no-store`. Existing account/project selection applies.
 Voice detail distinguishes system presets from owned saved user TTS.
 Unresolved or mismatched detail returns502 instead of inferring404 from a partial
-snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.
+snapshot. A thumbnail missing from the media projection can resolve through bounded
+exact character detail and a positively owned parent relationship; ambiguous or
+unrelated candidates refuse. Composite vendor reference compatibility remains open.
 
 ### Bounded native project traversal
 

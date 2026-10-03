@@ -147,3 +147,27 @@ def test_native_raw_content_cleanup(tmp_path, monkeypatch, range_header, expecte
         )
         assert response.status_code == expected
     assert calls and not calls[0].exists()
+
+
+@pytest.mark.parametrize("raw", [None, "true"])
+def test_native_audio_is_an_explicit_http_contract_refusal(native_http, monkeypatch, raw):
+    client, calls = native_http
+
+    async def run(argv, timeout):
+        calls.append(argv)
+        return 0, json.dumps(
+            {
+                "status": "ok",
+                "mediaGenerationId": M,
+                "projectId": P,
+                "kind": "audio",
+                "url": "https://audio.example.test/sample?secret=private",
+            }
+        ).encode()
+
+    monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
+    response = get(client, email="test@example.org", **({} if raw is None else {"raw": raw}))
+    assert response.status_code == 400
+    assert "audio" in response.json()["detail"]
+    assert "secret" not in response.text
+    assert len(calls) == 1

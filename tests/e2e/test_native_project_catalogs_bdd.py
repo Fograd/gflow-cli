@@ -64,7 +64,14 @@ def verified(case):
     assert catalog["complete"] is None and result["complete"] is None
     for field in ("media", "workflows", "characters", "user_voices"):
         assert catalog["counts"][field] == len(catalog[field]) == result["catalog_counts"][field]
-        assert all(row["project_id"] == catalog["project_id"] for row in catalog[field])
+        if field == "media":
+            assert all(
+                row["project_id"] == catalog["project_id"]
+                or row.get("attached_to_project_id") == catalog["project_id"]
+                for row in catalog[field]
+            )
+        else:
+            assert all(row["project_id"] == catalog["project_id"] for row in catalog[field])
         assert not any(key.endswith("url") for row in catalog[field] for key in row)
     assert result["pending_project_ids"] == [row["project_id"] for row in result["projects"][1:]]
     assert result["catalogs_capped"] == bool(result["pending_project_ids"])
