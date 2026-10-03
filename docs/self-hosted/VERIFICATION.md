@@ -507,3 +507,30 @@ returned200 withvideoEnabled=true. Native edit-model discovery returned200/two
 models. A real authenticated MCP session listed35tools, confirmed end_frame
 absent from the edit tool's required schema, and confirmed its image tool exposes
 native-image UUID Auto sizing. These probes generated no media or solver tasks.
+
+## Expanded agent panel recovery investigation
+
+On2026-10-03, an authenticated zero-submit DOM probe observed the classic
+settings trigger present but hidden and the mode chip absent while chat was
+expanded. Opening the tune control showed the image model/aspect/count settings.
+Closing the unique visible agent-panel header close remounted a pressed mode chip.
+Closing alone left classic settings hidden; the subsequent pressed-chip toggle
+restored them. The old recovery checked the chip before closing the panel and
+therefore prematurely returned absence. This is a recovery-order defect, not proof
+that the account has no classic composer or needs another subscription.
+
+The new real-CSS regression failed first (absent instead of clicked), then passed
+with the bounded close/reprobe implementation. The tagged live no-submit BDD passed
+once with two pytest deprecation warnings in15.21seconds. It proved restored
+classic settings and zero observed generation requests. An initial harness attempt
+intercepted binary network bodies and failed in request decoding; the guard was
+restricted to batchexecute. A second attempt sampled before the asynchronous chip
+removal settled; the scenario now waits for the measured detach transition.
+
+The focused composer suite passed144tests in37.21seconds. The full offline gate
+passed5855tests with5skips and15warnings in181.22seconds, with88.96%coverage.
+Whole-tree Ruff/format and strict Pyright were clean; CLI/MCP parity gates
+passed61tests. Private-value scanning found zero staged keys or live fixture IDs.
+
+This development change is not yet published/deployed. Accepted image generation,
+exact older-grid discovery, and comprehensive feature parity remain unfinished.

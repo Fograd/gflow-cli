@@ -120,3 +120,66 @@ async def test_a_vanished_trigger_stays_selector_drift(page: Page) -> None:
 @pytest.mark.asyncio
 async def test_a_healthy_composer_is_never_called_a_cohort(page: Page) -> None:
     assert await _verdict(page, HEALTHY) is False
+
+
+@pytest.mark.asyncio
+async def test_expanded_panel_reveals_pressed_chip_before_recovery(page: Page) -> None:
+    """Measured R01: expanded chat removes the chip; close remounts it."""
+    await page.set_content("""
+      <button hidden class="settings-trigger-button">settings</button>
+      <flow-agent-panel><button class="header-action" onclick="
+        this.parentElement.remove();
+        const chip=document.createElement('button');
+        chip.className='agent-mode-chip'; chip.setAttribute('aria-pressed','true');
+        chip.onclick=()=>{chip.setAttribute('aria-pressed','false');
+          document.querySelector('.settings-trigger-button').hidden=false};
+        document.body.appendChild(chip);
+      "><mat-icon>close</mat-icon></button></flow-agent-panel>
+    """)
+    assert await page.locator("button.agent-mode-chip").count() == 0
+    state, error = await MigratedComposer._exit_agent_mode(page)
+    assert (state, error) == ("clicked", None)
+    assert await page.locator(".settings-trigger-button").is_visible()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pressed", ["false", None])
+async def test_panel_recovery_does_not_enable_agent_mode(page: Page, pressed: str | None) -> None:
+    value = (
+        ""
+        if pressed is None
+        else (
+            "<button class='agent-mode-chip' aria-pressed='false' onclick='window.flipped=true'>"
+            "</button>"
+        )
+    )
+    await page.set_content("""
+      <flow-agent-panel>
+        <button class="header-action"><mat-icon>close</mat-icon></button>
+      </flow-agent-panel>
+    """)
+    await page.locator("button.header-action").evaluate(
+        "(e, markup)=>e.onclick=()=>{e.parentElement.remove();"
+        "document.body.insertAdjacentHTML('beforeend',markup)}",
+        value,
+    )
+    state, error = await MigratedComposer._exit_agent_mode(page)
+    assert (state, error) == ("absent", None)
+    assert await page.evaluate("Boolean(window.flipped)") is False
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_panel_close_does_not_mutate(page: Page) -> None:
+    await page.set_content("""
+      <flow-agent-panel>
+        <button class="header-action" onclick="window.clicked=true">
+          <mat-icon>close</mat-icon>
+        </button>
+        <button class="header-action" onclick="window.clicked=true">
+          <mat-icon>close</mat-icon>
+        </button>
+      </flow-agent-panel>
+    """)
+    state, error = await MigratedComposer._exit_agent_mode(page)
+    assert (state, error) == ("absent", None)
+    assert await page.evaluate("Boolean(window.clicked)") is False

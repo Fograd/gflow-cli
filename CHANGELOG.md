@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Migrated composer recovery closes a uniquely identified expanded chat panel before diagnosing a missing mode chip. A freshly pressed chip can restore classic settings; unpressed or genuinely absent chips never enable agent mode.
+
 - Image Auto resolves the first owned native image UUID from fresh project dimensions on CLI/direct and queued MCP. Missing dimensions fail before generation; the approximation policy is unchanged.
 - Native Omni edit end-frame is optional across SDK/CLI/MCP/REST: measured source duration supplies a virtual24fps window rounded down and capped240. Explicit end overrides remain supported; unresolved duration fails before token mint.
 

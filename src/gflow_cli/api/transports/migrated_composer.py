@@ -1328,12 +1328,39 @@ class MigratedComposer:
         The three outcomes are not interchangeable, which is why this is not a bool:
         ``"clicked"`` means the page was asked to change and may still be re-rendering,
         ``"blocked"`` means it was never asked — there is nothing to wait for — and
-        ``"absent"`` means the mode was not the problem. ``"blocked"`` carries the click's
+        ``"absent"`` means no pressed chip was established after bounded recovery.
+        ``"blocked"`` carries the click's
         own exception, so the caller can chain it instead of truncating it into a warning
         nobody reads.
         """
-        if not await cls._agent_chip_pressed(page):
+        pressed = await cls._agent_chip_pressed(page)
+        if pressed is None:
             return "absent", None
+        if not pressed:
+            # An expanded panel can remove the chip from the DOM entirely. The
+            # measured close transition remounts it; absence before that is not
+            # evidence of an agent-only cohort. Never close for an unpressed chip.
+            try:
+                if await page.locator(AGENT_MODE_CHIP_ANY).count():
+                    return "absent", None
+            except Exception:  # noqa: BLE001 - unreadable is not absence evidence
+                return "absent", None
+            reveal_close = page.locator("flow-agent-panel button.header-action:visible").filter(
+                has=_ligature(page, "close")
+            )
+            if await reveal_close.count() != 1:
+                return "absent", None
+            try:
+                await reveal_close.click(timeout=5000)
+                # Bounded SPA remount, without a reload or another readiness wait.
+                for _ in range(10):
+                    if await page.locator(AGENT_MODE_CHIP_ANY).count():
+                        break
+                    await asyncio.sleep(0.1)
+            except Exception as e:  # noqa: BLE001 - the caller owns blocked recovery
+                return "blocked", e
+            if not await cls._agent_chip_pressed(page):
+                return "absent", None
 
         # Some accounts leave the Agent panel expanded over the chip. Close only the
         # structural panel close button; the pressed-state chip has already been

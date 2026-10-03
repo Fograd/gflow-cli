@@ -240,3 +240,11 @@ window consistently on SDK/CLI/MCP/REST and expose bounded result metadata.
 The read-only image and duration BDD tests passed without generation; rendered
 acceptance remains separate. See [Auto aspect](../../AUTO_ASPECT.md) and
 [Video edit](../../VIDEO_EDIT.md).
+
+Expanded migrated agent chat can REMOVE the mode chip from the DOM, not merely
+occlude it. A unique visible flow-agent-panel button.header-action with exact close
+ligature remounted the pressed chip on2026-10-03. Probe that bounded transition
+before declaring an agent-only cohort; toggle only fresh aria-pressed=true.
+One tagged live BDD restored classic readiness with no generation requests.
+This does not prove accepted image generation or exact-grid reference discovery.
+See [verification](../../self-hosted/VERIFICATION.md).

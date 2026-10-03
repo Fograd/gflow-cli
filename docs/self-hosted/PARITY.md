@@ -147,8 +147,12 @@ separately under R12; an existing command or passing mock is insufficient eviden
   the current-cohort composer/grid work so local references, native UUIDs, Auto
   sizing and canonical image/character references reach the correct owned assets.
   Use fresh structural/source evidence; resolve ambiguity before submission.
-  Current evidence: the grid draft is not deployed, and the last Auto generation
-  failed at composer readiness before any accepted image.
+  Current evidence: expanded chat removed the mode chip before the old recovery
+  checked it. A bounded close-then-reprobe fix passed the live zero-submit BDD
+  (one pass, two warnings,15.21seconds); classic settings became visible. The
+  grid draft is still not deployed, and accepted Auto/reference generation is
+  still pending. Next: finish recovery regressions/gates, then exact asset
+  discovery and one justified bounded image test.
 - [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
   video, voice, character-reference and thumbnail lookup beyond the local
   registry, including unregistered native image references/Auto on REST.

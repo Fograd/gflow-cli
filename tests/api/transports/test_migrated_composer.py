@@ -628,7 +628,10 @@ class FakePage:
             # Presence alone, independent of `agent_mode` — that is the whole point of
             # the second selector: #799's cohort renders no chip in any state.
             return FakeLocator(self, "agent_chip_any", ["chip"] if dom.agent_chip_present else [])
-        if css == "flow-agent-panel button":
+        if css in {
+            "flow-agent-panel button",
+            "flow-agent-panel button.header-action:visible",
+        }:
             buttons = [Radio("close", "Close")] if dom.agent_panel_expanded else []
             return FakeLocator(self, "agent_close", buttons)
         if css == TOOLBAR_ADD_XPATH:
