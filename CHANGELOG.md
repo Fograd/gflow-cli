@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Fresh native character reference-image and proven reference-thumbnail URLs in
+  SDK detail, CLI show --include-urls --json, direct MCP and REST GET detail.
+  Protected responses use no-store; unresolved detail refuses without inferring
+  absence from a partial inventory.
+
+
 ### Changed
 
 - Fresh selected-project native image/video lookup and verified downloads are available through SDK, project get-media/download-media, direct MCP and REST source=google. Native REST URL responses are confidential/no-store; raw=true/1 is video-only. Downloads use bounded trusted URLs, content/dimension/available-byte checks and exclusive output writes; no generation/upscale or synthetic local ownership.

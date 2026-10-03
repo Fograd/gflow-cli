@@ -1546,18 +1546,67 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         )
 
     @app.get(prefix + "/characters/{ref}")
-    async def get_character(request: Request, ref: str) -> dict[str, Any]:
+    async def get_character(request: Request, ref: str) -> JSONResponse:
         if request.query_params.get("source", "google") != "google":
             raise HTTPException(422, "Character source requires google")
         if "catalog" in request.query_params:
             raise HTTPException(422, "catalog is a voice-only option")
-        character_project(dict(request.query_params))
+        profile, project = character_project(dict(request.query_params))
         ref = uuid_value(ref, "ref")
-        result = await native_catalog(request, "characters-list", "characters")
-        row = next((row for row in result["characters"] if row["entity_id"] == ref), None)
-        if row is None:
-            raise HTTPException(404, "Character not present in the selected project")
-        return character_item(row, detail=True)
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "character-detail",
+                profile,
+                json.dumps({"project_id": project, "entity_id": ref}),
+            ],
+            100,
+        )
+        if code:
+            raise HTTPException(502, "Native character detail unresolved")
+        try:
+            result = parse_json_output(raw)
+            row = result["character"]
+            if (
+                result.get("status") != "ok"
+                or row["entity_id"] != ref
+                or row["project_id"] != project
+            ):
+                raise ValueError
+            item = character_item(row, detail=True)
+            item["entityId"] = ref
+            item["imageReferences"] = [
+                {
+                    "workflowId": image["workflow_id"],
+                    "mediaId": image["media_id"],
+                    "previewUrl": image["preview_url"],
+                }
+                for image in row.get("image_references", [])
+            ]
+            if row.get("thumbnail_url"):
+                item["thumbnailUrl"] = row["thumbnail_url"]
+            voice = row.get("voice_detail")
+            if voice:
+                item["voice"] = {
+                    "source": voice["source"],
+                    "voice": voice["voice"],
+                    "displayName": voice.get("display_name", ""),
+                }
+                for original, public in (
+                    ("workflow_id", "workflowId"),
+                    ("ref", "mediaId"),
+                    ("audio_url", "audioUrl"),
+                    ("dialogue", "dialog"),
+                    ("performance", "voicePerformance"),
+                    ("preset_voice", "baseVoice"),
+                ):
+                    if original in voice:
+                        item["voice"][public] = voice[original]
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(502, "Native character detail unresolved") from None
+        return JSONResponse(item, headers={"Cache-Control": "no-store"})
 
     @app.get(prefix + "/characters")
     async def characters(request: Request) -> dict[str, Any]:

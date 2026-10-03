@@ -414,3 +414,7 @@ virtual-24fps window capped240, while explicit end overrides remain supported. S
 uploaded audio. Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
 `docs/self-hosted/NATIVE_VIDEO_EXTENSION.md`, `docs/VIDEO_EDIT.md` and
 `docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.
+
+Character show supports --include-urls --json for fresh confidential native
+reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
+defaults remain unchanged; unresolved ownership refuses rather than guessing.

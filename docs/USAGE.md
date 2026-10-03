@@ -2364,3 +2364,20 @@ so avoid saving it in logs or shared transcripts. Video validation requires ffpr
 See [self-hosted retrieval and limits](self-hosted/API.md#fresh-native-imagevideo-retrieval).
 
 Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.
+
+
+### Fresh character image detail
+SDK `get_character_detail(project_id, entity_id=...)` returns ordered native
+image references with fresh preview URLs and a proven reference-image thumbnail.
+CLI `gflow character show --project UUID --id UUID --include-urls --json` and
+MCP `gflow_character_show(include_urls=true)` expose the same detail.
+Metadata-only show/list defaults remain unchanged. These are synchronous reads;
+bearer URLs must not be stored in generation queues, history or logs.
+
+REST GET `/v1/google-flow/characters/{UUID}` returns `entityId`,
+`imageReferences[{workflowId,mediaId,previewUrl}]` and `thumbnailUrl` when
+the selected-project relationships are positively established, with
+`Cache-Control: no-store`. Existing account/project selection applies.
+Voice detail distinguishes system presets from owned saved user TTS.
+Unresolved or mismatched detail returns502 instead of inferring404 from a partial
+snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.

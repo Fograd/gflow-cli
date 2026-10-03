@@ -3738,6 +3738,14 @@ class FlowApiClient:
             )
         return cast("JsonObject", parsed)
 
+    async def get_character_detail(
+        self, project_id: str, *, entity_id: str | None = None, name: str | None = None
+    ) -> dict[str, Any]:
+        """Fresh character image/thumbnail bearer URLs; do not persist or log."""
+        from gflow_cli.api.native_characters import detail_native
+
+        return await detail_native(self, project_id, entity_id=entity_id, name=name)
+
     async def get_character(
         self,
         project_id: str,

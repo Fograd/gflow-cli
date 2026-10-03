@@ -68,3 +68,37 @@ async def mutate_native(
         ) from exc
     finally:
         client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
+
+
+async def detail_native(
+    client: FlowApiClient,
+    project_id: str,
+    *,
+    entity_id: str | None = None,
+    name: str | None = None,
+) -> dict[str, Any]:
+    """Explicit confidential detail; catalog Character models remain URL-free."""
+    import asyncio
+
+    from gflow_cli.api.transports.character_details import lookup_character
+
+    if not is_uuid(project_id) or (entity_id is not None and not is_uuid(entity_id)):
+        raise ConfigurationError(detail="Native character/project identifiers must be UUIDs")
+    if (entity_id is None) == (name is None):
+        raise ConfigurationError(detail="Provide exactly one character ID or exact name")
+    if getattr(client.settings, "flow_host", "auto") == "labs.google":
+        raise ConfigurationError(detail="Native character detail requires migrated Flow")
+    try:
+        async with asyncio.timeout(90):
+            page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
+            try:
+                return await lookup_character(
+                    page, project_id=project_id, entity_id=entity_id, name=name
+                )
+            finally:
+                client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
+    except (ValueError, TimeoutError):
+        raise WireFormatError(
+            detail="Native character detail is unresolved; inspect the selected project",
+            route="character.detail",
+        ) from None

@@ -1718,6 +1718,7 @@ async def gflow_character_show(
     entity_id: str | None = None,
     name: str | None = None,
     profile: str = _DEFAULT_PROFILE,
+    include_urls: bool = False,
 ) -> dict[str, Any]:
     """Show one Flow Character by id or exact display name.
 
@@ -1727,6 +1728,7 @@ async def gflow_character_show(
         name: Exact display name (mirrors ``--name``). Case-sensitive, and ambiguous
             names are refused rather than resolved arbitrarily.
         profile: gflow-cli profile name.
+        include_urls: Include fresh confidential image/thumbnail URLs; do not persist.
 
     Returns:
         ``{"status": "ok", "character": {...}}``.
@@ -1749,6 +1751,9 @@ async def gflow_character_show(
             headless=settings.headless,
         ) as client,
     ):
+        if include_urls:
+            detail = await client.get_character_detail(project, entity_id=entity_id, name=name)
+            return {"status": "ok", "project": project, "character": detail}
         char = await client.get_character(project, entity_id=entity_id, name=name)
 
     return {"status": "ok", "project": project, "character": _character_to_dict(char)}

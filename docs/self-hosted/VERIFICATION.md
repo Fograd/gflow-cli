@@ -836,3 +836,20 @@ also distinguishes system presets, attached live user voices and deleted/orphan
 voices. Fresh ownership/source evidence must establish each form; absent partial
 snapshots must not imply a deleted voice. Composite identity and exact error
 equivalence remain explicitly unfinished.
+
+
+## Character reference/thumbnail detail — 2026-10-03
+The tagged character-detail-urls BDD passed once in39.12seconds (two pytest-BDD
+deprecation warnings). One temporary character copied one existing owned image;
+fresh project/entity/workflow-parent/primary-image correlation resolved its preview
+and matching thumbnail URL. The test removed only its own character and verified
+all original media remained present. Generation requests were guarded and zero.
+This proves the projected reference-thumbnail form, not nonprojected variants,
+saved-user-TTS playback, composite IDs or account-wide inventory.
+SDK/CLI/MCP/REST detail is wired; publication/deployment remains pending.
+
+Required offline gate:6014passed,5skipped,15warnings in182.32seconds using four
+xdist workers and89%reported coverage. Ruff/format/Pyright and repository/docs/
+website/public-memory checks passed. Council GO for pinned source tree; attached
+saved-voice decoder remains an existing unfinished path. No source changes after
+the full test run. Publication/deployment follows this checkpoint.

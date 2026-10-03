@@ -263,3 +263,7 @@ Current source contains 37 MCP tools. Native credit and model/catalog reads pass
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
 Native media retrieval: `gflow project get-media` reads fresh owned image/video metadata; `gflow project download-media` verifies and downloads content without generation or upscaling. See [commands and limits](docs/USAGE.md#fresh-native-media-lookup-and-download).
+
+Character show supports --include-urls --json for fresh confidential native
+reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
+defaults remain unchanged; unresolved ownership refuses rather than guessing.

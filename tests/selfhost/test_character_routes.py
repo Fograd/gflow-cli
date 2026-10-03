@@ -108,7 +108,7 @@ def test_character_detail_returns_owned_metadata(setup):
 
 def test_missing_character_does_not_return_other_entity(setup):
     client, calls = setup
-    assert client.get("/v1/google-flow/characters/" + M, headers=AUTH).status_code == 404
+    assert client.get("/v1/google-flow/characters/" + M, headers=AUTH).status_code == 502
 
 
 def test_invalid_patch_cannot_start_mutation(setup):
@@ -242,3 +242,41 @@ def test_create_and_update_voice_forward_literal_canonical_preset(setup):
     )
     assert response.status_code == 200
     assert json.loads(calls[-1][-1])["voice"] == "Charon"
+
+
+def test_character_detail_fresh_urls_have_no_store(setup, monkeypatch):
+    client, calls = setup
+    url = "https://flow-content.google/image/test"
+
+    async def run(argv, timeout):
+        assert argv[3] == "character-detail"
+        assert json.loads(argv[5]) == {"project_id": P, "entity_id": E}
+        return 0, json.dumps(
+            {
+                "status": "ok",
+                "character": {
+                    "entity_id": E,
+                    "project_id": P,
+                    "display_name": "Name",
+                    "workflow_ids": [M],
+                    "thumbnail_media_id": M2,
+                    "image_references": [{"workflow_id": M, "media_id": M2, "preview_url": url}],
+                    "thumbnail_url": url,
+                    "voice_detail": {
+                        "source": "system",
+                        "voice": "Charon",
+                        "display_name": "Charon",
+                    },
+                },
+            }
+        ).encode()
+
+    monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
+    response = client.get("/v1/google-flow/characters/" + E, headers=AUTH)
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["imageReferences"] == [
+        {"workflowId": M, "mediaId": M2, "previewUrl": url}
+    ]
+    assert response.json()["thumbnailUrl"] == url
+    assert response.json()["voice"]["source"] == "system"

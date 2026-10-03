@@ -156,3 +156,21 @@ async def test_character_voices_needs_no_browser_or_profile() -> None:
 
     assert result["status"] == "ok"
     assert result["count"] > 0
+
+
+@pytest.mark.usefixtures("_no_rate_limit")
+async def test_character_show_include_urls_forwards_confidential_detail():
+    detail = {
+        "entity_id": _ALDOUS.entity_id,
+        "image_references": [{"preview_url": "https://flow-content.google/image/test"}],
+    }
+    ctx, client = _client_returning(get_character_detail=detail)
+    with patch.object(mcp_tools, "FlowApiClient", return_value=ctx):
+        result = await mcp_tools.gflow_character_show(
+            project=_PROJECT, entity_id=_ALDOUS.entity_id, include_urls=True
+        )
+    assert result["character"] == detail
+    client.get_character_detail.assert_awaited_once_with(
+        _PROJECT, entity_id=_ALDOUS.entity_id, name=None
+    )
+    client.get_character.assert_not_awaited()

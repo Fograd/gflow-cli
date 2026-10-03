@@ -98,7 +98,7 @@ The server registers three protocol surfaces:
 * `gflow_auth_status(profile)`: Credit-free, non-interactive Flow session probe (#497) — wraps the same fail-closed `verify_flow_profile` check as `gflow auth status`. Returns `{"status": "authenticated", "profile", "user_email"}` or a problem-details error with a `remediation_hint`; a `verification_error` outcome (HTTP 503, `retryable: true`) means a network/endpoint problem, which re-login does not fix, and a `profile_marker_missing` outcome (HTTP 409, `retryable: false`, #796) means the profile lost its `.gflow_browser_strategy` marker so its cookies cannot be read — neither a retry nor a re-login helps; re-run `gflow auth login --browser chrome` for that profile. Any other unauthenticated outcome is a dead session (HTTP 401). Call it before a generation tool to fail fast on dead auth (the queue is async — without it, an auth failure surfaces only later from the daemon). Login/logout remain CLI-only (genuinely interactive).
 * `gflow_get_credits(profile, all_profiles)`: Read-only current Flow balance query. With `all_profiles=true`, inspects every saved profile sequentially and preserves successful balances plus `total_credits` when another profile fails. This tool spends no credits and returns no cookies, bearer tokens, or browser API keys. The balance funds Veo video generation; image generation uses separate per-model daily quotas. **Not available where Flow serves `flow.google.com`:** that host's session mints no labs.google API token, so no balance can be read — the tool reports that the labs session returned no access token, which is expected there and is not an auth fault. Open, tracked in #795.
 * `gflow_character_list(project, profile)`: Lists a project's saved Flow CHARACTER entities with their **entity ids** — read-only, spends no credits, drives a browser session. This is how an agent discovers what it can attach: an `entity_id` goes to `reference_entities`, a `display_name` can be used as an `@Name` mention. An empty list means the project genuinely has none.
-* `gflow_character_show(project, entity_id, name, profile)`: Shows one character by id or exact display name (exactly one selector required). An ambiguous name is refused rather than resolved arbitrarily — which is the reason to prefer the id. Read-only; drives a browser session.
+* `gflow_character_show(project, entity_id, name, profile, include_urls=false)`: Shows one character by id or exact display name (exactly one selector required). An ambiguous name is refused rather than resolved arbitrarily — which is the reason to prefer the id. Read-only; drives a browser session.
 * `gflow_character_voices(catalog="bundled", project=None, profile="default")`: Defaults to offline preset discovery. Explicit Google catalog requires an owned project UUID and reads native system presets without generation. Scope and unknown completeness remain explicit; custom voice CRUD and rendered speech are not implied.
 * `gflow_list_projects(profile, limit, offset)`: Queries the SQLite catalog for recent generation folders, paginated — the response carries `count` (rows in this page), `offset`, `has_more`, and `next_offset` (pass it back as `offset` for the next page; `null` on the last page).
 * `gflow_download_media(media_id, out_dir, profile)`: Fetches an already-generated asset from Flow by its media ID and writes it to disk — the recovery path for a generation that was billed but whose download failed. Spends no credits. The bytes are verified against the size Flow reports before the file is written, and the catalog's `local_files` row is updated. Returns `path`, `bytes`, `media_id`, `workflow_id`, `project_id` and `profile`. The transfer retries a dropped connection internally ([#895](https://github.com/ffroliva/gflow-cli/issues/895)), so a failure marked `retryable` means pause and call again — not immediately, and not in a tight loop: each call opens a browser under a per-profile lease, and a second concurrent call fails on that lease instead (exit 11).
@@ -651,3 +651,20 @@ detail is a different capability. CLI mirrors are project get-media and
 project download-media. See [self-hosted native retrieval](self-hosted/API.md#fresh-native-imagevideo-retrieval).
 
 Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.
+
+
+### Fresh character image detail
+SDK `get_character_detail(project_id, entity_id=...)` returns ordered native
+image references with fresh preview URLs and a proven reference-image thumbnail.
+CLI `gflow character show --project UUID --id UUID --include-urls --json` and
+MCP `gflow_character_show(include_urls=true)` expose the same detail.
+Metadata-only show/list defaults remain unchanged. These are synchronous reads;
+bearer URLs must not be stored in generation queues, history or logs.
+
+REST GET `/v1/google-flow/characters/{UUID}` returns `entityId`,
+`imageReferences[{workflowId,mediaId,previewUrl}]` and `thumbnailUrl` when
+the selected-project relationships are positively established, with
+`Cache-Control: no-store`. Existing account/project selection applies.
+Voice detail distinguishes system presets from owned saved user TTS.
+Unresolved or mismatched detail returns502 instead of inferring404 from a partial
+snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.

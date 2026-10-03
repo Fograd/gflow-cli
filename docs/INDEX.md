@@ -214,3 +214,7 @@ Slash commands for Claude Code, stored in `.claude/commands/gflow/`. All prefixe
 | [Native reference video](self-hosted/NATIVE_REFERENCE_VIDEO.md) | Owned image/audio ingredient video generation | Audio-only or mixed reference generation |
 
 Native asset lookup/download: [usage](USAGE.md#fresh-native-media-lookup-and-download), [MCP](MCP.md#fresh-native-asset-read-tools), [self-hosted API](self-hosted/API.md#fresh-native-imagevideo-retrieval).
+
+Character show supports --include-urls --json for fresh confidential native
+reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
+defaults remain unchanged; unresolved ownership refuses rather than guessing.

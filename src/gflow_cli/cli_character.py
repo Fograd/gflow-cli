@@ -301,12 +301,18 @@ async def _run_list(*, profile_dir: Path, headless: bool, project_id: str, as_js
 @click.option("--name", "name", default=None, help="Character display name (exact match).")
 @click.option("--json", "as_json", is_flag=True, default=False, help="Emit JSON output.")
 @click.option("--profile", default=None, help="Profile name (overrides default).")
+@click.option(
+    "--include-urls",
+    is_flag=True,
+    help="Include fresh confidential image/thumbnail URLs; requires --json.",
+)
 def show(
     project_id: str,
     entity_id: str | None,
     name: str | None,
     as_json: bool,
     profile: str | None,
+    include_urls: bool = False,
 ) -> None:
     """Show a single Character by --id or --name.
 
@@ -317,6 +323,8 @@ def show(
         raise click.UsageError("Provide either --id or --name.")
     if entity_id is not None and name is not None:
         raise click.UsageError("--id and --name are mutually exclusive.")
+    if include_urls and not as_json:
+        raise click.UsageError("--include-urls requires --json.")
     profile_name = _resolve_profile(profile)
     pdir = _make_provider_dir(profile_name)
     settings = get_settings()
@@ -328,6 +336,7 @@ def show(
             entity_id=entity_id,
             name=name,
             as_json=as_json,
+            include_urls=include_urls,
         ),
         cli_command="character show",
         as_json=as_json,
@@ -342,8 +351,13 @@ async def _run_show(
     entity_id: str | None,
     name: str | None,
     as_json: bool,
+    include_urls: bool = False,
 ) -> None:
     async with FlowApiClient(profile_dir=profile_dir, headless=headless) as client:
+        if include_urls:
+            detail = await client.get_character_detail(project_id, entity_id=entity_id, name=name)
+            json_output.emit({"status": "ok", "character": detail})
+            return
         char = await client.get_character(project_id, entity_id=entity_id, name=name)
     if as_json:
         json_output.emit({"status": "ok", "character": _char_to_dict(char)})

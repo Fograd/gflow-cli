@@ -162,6 +162,13 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                     voice=payload.get("voice"),
                 )
                 return {"status": "ok", "project_id": project_id, **result}
+            if verb == "character-detail":
+                from gflow_cli.api.transports.character_details import lookup_character
+
+                detail = await lookup_character(
+                    page, project_id=project_id, entity_id=str(payload["entity_id"])
+                )
+                return {"status": "ok", "project_id": project_id, "character": detail}
             if verb in {"characters-list", "voice-presets"}:
                 data = await read_project_payload(page, project_id)
                 key = "characters" if verb == "characters-list" else "voices"
