@@ -5,4 +5,4 @@ Predict: Architect/Security GO with scoped metadata and consistent snapshot; Per
 - [x] Implement SQL snapshot aggregates and bounded history, with public handles only.
 - [x] Document exact scope and timing; default list and scheduler remain compatibility gaps.
 - [x] Full gates and council:6349pass/89%, corrected tree GO.
-- [ ] Publish, idledeploy, free live statistics reads.
+- [x] Publish, idledeploy ate6705181, and all three free live statistics reads; three accounts, zero new jobs/Google requests.

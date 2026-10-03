@@ -1107,3 +1107,5 @@ Red API tests rejected the unsupported options with501. Implemented explicit sta
 Review expanded job statistics to include native video promotion and image upscale. The superseded full run was intentionally interrupted; no final full-pass claim uses that run. Three additional red tests proved the missing upscale load and deprecated image aliases before correction.
 
 R11 final statistics/aliases full gates:6349passed,5skipped,15warnings in219.39seconds,89%coverage. Whole source pyright0errors, hygiene/links/PII/website/council memory/ruff/format checks passed. Corrected staged source reviewed GO by Architect/Security/Performance/UX/docs. Six mirror axes checked: HTTP-only addition; SDK/CLI/direct and queued MCP options/models unchanged; no CLI leaf, exit code, template or browser transport changes.
+
+R11 deployed ate6705181: all three explicit statistics options returned the three registered public handles, invalid/mixed options returned400, and the default job list remained available. Durable job count did not change; zero Google/provider requests. Documentation-only checkpoint reuses the unchanged source's6349-pass final suite.
