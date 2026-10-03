@@ -318,3 +318,18 @@ describe the stricter MP4 consent contract and measured scope.
 The duplication proxy found only two unchanged experimental transport blocks.
 Fork publishing and production deployment are recorded separately after their
 actual completion; no remote CI or Sonar result is inferred from these local gates.
+
+## Portable media publication and production smoke
+
+Source checkpoint c03c1fe3 was atomically published to the fork's develop and
+self-hosted feature branches, with both remote references independently checked.
+CC LXC deployed it by a clean fast-forward with idle API/MCP queues and the
+original profile lease guarded. The pinned lock synchronized successfully;
+both API and MCP services restarted active.
+
+A fresh production health job (not the earlier cached idempotent proof) completed
+OK/project_access_verified with profilePreserved true and refreshAttempted false.
+Unauthenticated capabilities returned401; MP4 without per-request rights returned
+the specific consent422 before queueing. Actual authenticated Streamable HTTP
+registration exposed24tools and both native upload/archive input schemas. These
+smoke checks performed no generation or solver operation.

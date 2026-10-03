@@ -32,7 +32,7 @@ paths; actual credit-free synthetic upload/list/archive BDD with owned cleanup.
 - [x] CLI and MCP mirrors with explicit reversible scope and safe recovery handles.
 - [x] Offline BDD, six mirror axes and actual SDK/CLI/MCP/HTTP credit-free probes.
 - [x] Docs and independent source/recovery reviews; full offline regression5,612passed/28skipped/90.75% in212.90s.
-- [ ] Publish reviewed checkpoint and deploy cleanly to CC LXC; verify actual production schemas/session.
+- [x] Published sourcecheckpoint c03c1fe3 to both fork branches; clean CC LXC fast-forward, API/MCPactive, fresh authenticated project-access healthOK, actual MCP24tools/newmedia schemas and MP4missing-consent422 verified without generation.
 
 No video/TTS generation credits are required. Uploaded synthetic video proves
 ingestion/archive, not Veo export, video editing or higher resolution promotion.

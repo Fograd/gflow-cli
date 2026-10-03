@@ -127,3 +127,35 @@ not an implemented fix: delayed initial mounting and picker option identity stil
 need a corresponding no-submit observation and meaningful regression before a
 new paid adapter attempt. The current fail-closed ownership/literal/UUID guards
 remain intact; Google feature absence is not inferred from the earlier refusal.
+
+## Fixture-aware observation and capture limits
+
+A separately authorized free metadata probe added one unique temporary character
+by copying the existing recent seed image, distinct from the older direct reference.
+Exactly one correlated create, copy and cleanup write was allowed; generation,
+upload and unknown writes were blocked. The acknowledged character identity was
+checkpointed before later discovery. Cleanup verified removal of the owned fixture
+and preservation of every originally active media identity. No generation or solver
+budget was used, and the original managed profile lease was released.
+
+Fresh shared ownership preflight passed. Both exact target grid tokens remained
+available before fixture creation, after creation and immediately after the
+reference-binding helper failed. Mounted grid count changed from 24 to 23 and
+scroll height from 3275 to 3341, with scrollTop zero. This run does not support the
+hypothesis that the character copy displaced the requested target from mounted DOM.
+It also does not reproduce the earlier CLI failure.
+
+The helper returned `UiSelectorDriftError`, not `ReferenceNotFoundError`. An
+immediate post-helper scan still recognized both tokens, but no explicit second
+`await_existing_references` call was made. The capture stored only the exception
+class and aggregate 339 blocked POST requests, not traceback frames or per-RPC
+frequencies. Consequently it cannot establish whether the failure happened in
+settings or picker binding, nor classify the blocked dependencies. They must not
+be called telemetry. The earlier no-fixture request-name capture is a different
+run and cannot supply missing fixture-run frequencies.
+
+Before another browser attempt, instrumentation must retain safe function/line
+frames, fixed drift fields and method/RPC-name counts in private evidence. No
+source change, guard relaxation, generation retry or inferred Google feature
+absence follows from this incomplete classification. Paid CLI/MCP/HTTP image
+acceptance remains pending, with all three additional allowances unused.
