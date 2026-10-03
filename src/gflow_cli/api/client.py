@@ -2983,9 +2983,13 @@ class FlowApiClient:
             except ReferenceContractError as exc:
                 raise ConfigurationError(detail=str(exc)) from exc
         reference_plan = req.reference_prompt_plan
-        if req.reference_entities or (
-            reference_plan is not None
-            and (reference_plan.image_ids or reference_plan.character_ids)
+        if (
+            ((req.refs or req.ref_paths) and self._uses_native_characters())
+            or req.reference_entities
+            or (
+                reference_plan is not None
+                and (reference_plan.image_ids or reference_plan.character_ids)
+            )
         ):
             native = self._uses_native_characters()
             if not native:
@@ -3564,6 +3568,11 @@ class FlowApiClient:
             model_key=model_key,
             on_started=on_started,
         )
+
+    async def list_native_image_reference_models(self, project_id: str) -> list[dict[str, Any]]:
+        from gflow_cli.api.native_image_models import list_native_image_reference_models
+
+        return await list_native_image_reference_models(self, project_id)
 
     async def list_native_promotion_models(
         self, project_id: str, *, resolution: str = "1080p"

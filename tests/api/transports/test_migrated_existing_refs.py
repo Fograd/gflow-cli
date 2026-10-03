@@ -322,6 +322,11 @@ async def test_sdk_duplicate_caption_reaches_exact_token_picker(monkeypatch, off
     monkeypatch.setattr(proof, "read_project_payload", AsyncMock(return_value=[None, None, []]))
     monkeypatch.setattr(proof, "parse_native_characters", lambda *args: [])
     monkeypatch.setattr(
+        "gflow_cli.api.native_image_models.read_image_reference_models",
+        AsyncMock(return_value=[{"model_key": Model.NARWHAL.value, "effective_reference_cap": 10}]),
+    )
+
+    monkeypatch.setattr(
         proof,
         "parse_media_snapshot",
         lambda *args: {

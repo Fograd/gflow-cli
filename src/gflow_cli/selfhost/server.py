@@ -139,6 +139,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 elif path in {
                     "/v1/google-flow/videos/extend/models",
                     "/v1/google-flow/videos/edit/models",
+                    "/v1/google-flow/images/reference/models",
                 }:
                     allowed = {"email", "projectId"}
                 elif path == "/v1/google-flow/voices" or path.startswith("/v1/google-flow/voices/"):
@@ -1866,6 +1867,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if match is None:
             raise HTTPException(404, "System voice not found")
         return match
+
+    @app.get(prefix + "/images/reference/models")
+    async def image_reference_models(request: Request) -> dict[str, Any]:
+        return await native_catalog(request, "image-reference-models", "models")
 
     @app.get(prefix + "/videos/upscale/models")
     async def promotion_models(request: Request) -> dict[str, Any]:

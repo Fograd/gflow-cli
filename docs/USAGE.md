@@ -2473,3 +2473,6 @@ limitations, cleanup, verification and troubleshooting.
 
 ### Native video promotion (R07)
 Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video upscale-native`/`upscale-models` have direct MCP twins and REST `videos/upscale` accepts `operation: promotion`. Fresh account model/task/target checks determine availability. See [native promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) for billing, supplied-token, ownership and output verification contracts; paid acceptance remains R12.
+
+### Fresh native image reference limits (R08)
+`image reference-models`, SDK `list_native_image_reference_models`, direct MCP `gflow_list_image_reference_models` and HTTP GET `images/reference/models` share fresh account capacity discovery. Native reference-bearing SDK requests enforce the smaller of advertised and transport capacities before upload/mint, preserving image order and character weights. Lite remains conservatively3; metadata advertises10 but does not prove retained/rendered use. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).

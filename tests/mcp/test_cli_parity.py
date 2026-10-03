@@ -63,6 +63,7 @@ CLI_TO_MCP: dict[str, str] = {
     "character show": "gflow_character_show",
     "credits user": "gflow_get_credits",
     "credits list": "gflow_get_credits",
+    "image reference-models": "gflow_list_image_reference_models",
     "image t2i": "gflow_generate_image",
     "image i2i": "gflow_generate_image",  # reference_images param
     "video t2v": "gflow_generate_video",  # mode="t2v"

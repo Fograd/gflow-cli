@@ -72,7 +72,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
-Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes39 tools.
+Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes40 tools.
 The same checked-out project page mints generation tokens. Preassigned identities
 are derived from invocation-owned seeds, checkpointed before dispatch and
 correlated with acknowledgements; ambiguous writes are not automatically replayed.
@@ -97,7 +97,7 @@ Focused source/codec tests establish implementation, not Google acceptance.
   inventories and full native library synchronization. Snapshot absence is not deletion.
 - Exact already-gone individual-delete compatibility; registry/operator scope and
   native deletion acknowledgement remain distinct from useapi opaque IDs.
-- Full ten-image model budgets: the measured Lite cap stays3. Native audio,
+- Full ten-image model budgets: the conservative Lite transport cap stays3. Native audio,
   available system presets and character inputs are implemented on dedicated
   V2V; rendered acceptance remains pending.
   Image Auto supports owned native UUID dimensions on CLI/MCP; unregistered native
@@ -263,7 +263,7 @@ unsafe-caption canonical attachment proof.
   path while investigating higher resolutions.
 - [ ] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
-  ten-image cases where actually supported. The measured Lite cap remains 3.
+  ten-image cases where actually supported. The conservative Lite transport cap remains 3.
   Keep first-reference ordering and validation consistent across surfaces.
   Native Google Auto remains separate from the implemented approximation.
 - [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone

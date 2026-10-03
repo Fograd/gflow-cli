@@ -448,3 +448,51 @@ async def test_owned_identity_survives_missing_or_long_caption(monkeypatch, capt
     assert result.refs[0].name == M1
     assert result.refs[0].display_name == (caption or "")
     client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.fixture(autouse=True)
+def image_model_metadata(monkeypatch):
+    """Ownership fixtures also provide fresh available model metadata."""
+    import gflow_cli.api.native_image_models as models
+    from tests.api.test_native_image_models import payload
+
+    data = payload("NARWHAL")
+    data[0][5].extend(payload(key)[0][5][0] for key in ("GEM_PIX_2", "HARBOR_SEAL"))
+
+    async def read(page, rpc, *args):
+        return [None, None, None, 2] if rpc == "nzlxg" else data
+
+    monkeypatch.setattr(models, "_read_native", read)
+
+
+@pytest.mark.asyncio
+async def test_plain_native_refs_without_plan_use_fresh_budget_before_submit(monkeypatch):
+    import gflow_cli.api.native_image_models as models
+    from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.api.image import ImageRef
+    from tests.api.test_native_image_models import payload
+
+    fake = _fixtures(monkeypatch)
+
+    async def read(page, rpc, *args):
+        return [None, None, None, 2] if rpc == "nzlxg" else payload(cap=1)
+
+    monkeypatch.setattr(models, "_read_native", read)
+    client = object.__new__(FlowApiClient)
+    client._checkout_page = fake._checkout_page
+    client._checkin_page = fake._checkin_page
+    client._uses_native_characters = Mock(return_value=True)
+    client._mint_recaptcha_token = AsyncMock()
+    submit = AsyncMock()
+    client.transport = SimpleNamespace(generate_images=submit)
+    checkpoint = Mock()
+    with pytest.raises(ConfigurationError, match="budget exceeded"):
+        await client._drive_images_generation_unseeded(
+            project_id=P,
+            req=GenerateImageRequest(prompt="Fixture", refs=(ImageRef(M1), ImageRef(M2))),
+            recaptcha_action="IMAGE_GENERATION",
+            on_checkpoint=checkpoint,
+        )
+    client._mint_recaptcha_token.assert_not_awaited()
+    submit.assert_not_awaited()
+    checkpoint.assert_not_called()

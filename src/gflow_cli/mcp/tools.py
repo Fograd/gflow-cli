@@ -3319,3 +3319,26 @@ async def gflow_list_video_upscale_models(
         "target_resolution": resolution,
         "models": models,
     }
+
+
+@server.tool(
+    name="gflow_list_image_reference_models",
+    description=(
+        "Read fresh image reference budgets: advertised, transport and effective limits. "
+        "Metadata does not prove retained references or rendered use."
+    ),
+)
+@_guarded
+async def gflow_list_image_reference_models(
+    project: str, profile: str = "default"
+) -> dict[str, Any]:
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            models = await client.list_native_image_reference_models(project)
+    return {"status": "ok", "project_id": project, "models": models}

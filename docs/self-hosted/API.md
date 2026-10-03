@@ -378,7 +378,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 39 tools: the prior 24 plus 15 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+The registered MCP surface contains 40 tools: the prior 24 plus 16 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -603,3 +603,6 @@ See [native CAPTCHA controls](NATIVE_CAPTCHA.md).
 
 ## Explicit native video promotion
 POST videos/upscale accepts operation=promotion with720p/1080p/4k, optional modelKey and native CAPTCHA controls. GET videos/upscale/models discovers target-specific account models. Omitted operation preserves exports. See [promotion](NATIVE_VIDEO_PROMOTION.md).
+
+## Fresh image reference budgets
+GET images/reference/models exposes advertised, transport and effective capacities using fresh account metadata. All native reference-bearing SDK requests use that effective capacity before uploads/minting. See [budget contracts](IMAGE_REFERENCE_BUDGETS.md).

@@ -166,7 +166,9 @@ _MODEL_FROM_CLI: Mapping[str, Model] = MappingProxyType(
     },
 )
 
-# Per-model I2I reference-image cap (live-observed). Flow silently keeps only
+# Per-model I2I transport limits: measured for Nano2/Pro and Imagen4,
+# conservative for Lite. Native metadata can further reduce these limits.
+# Flow may keep only
 # the first N references when more are attached, so the request is rejected up
 # front rather than letting the caller believe every ref was used. NARWHAL
 # (Nano Banana 2) and GEM_PIX_2 (Nano Pro) accept 10; IMAGEN_3_5 (Imagen 4)

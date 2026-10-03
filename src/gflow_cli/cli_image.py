@@ -2061,3 +2061,8 @@ def _print_i2i_summary(images: list[GeneratedImage], saved_paths: list[Path]) ->
         w, h = img.dimensions
         table.add_row(img.media_name, str(img.seed), f"{w}x{h}", safe_path_text(path))
     console.print(table)
+
+
+from gflow_cli.cli_native_image_models import image_reference_models_command  # noqa: E402
+
+image.add_command(image_reference_models_command)

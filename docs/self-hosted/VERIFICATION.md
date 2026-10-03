@@ -1070,3 +1070,10 @@ SDK promotion discovery and source ownership/checkpoint BDD passed1test,2warning
 R07 corrected active-workflow/spend-policy finalpreflight passed1test,2warnings in42.53seconds withzero generation requests; sourcefixture archived, originalspreserved. Focused SDK/sourceownership/worker/HTTP/MCP-policy tests49passed in0.96seconds. Council GO on corrected stagedtree66478a9492206cc071c53b661046106ca2554a85; paid acceptance remainsR12.
 
 R07 full source suite:6285passed,5skipped,15warnings in211.81seconds withtwo documentation-plugin-link failures. Corrected the new canonical/plugin link to the GitHub fork, then all15 plugin-manifest checks passed; final hygiene/links/PII/website/ruff/format/type gates passed. No production source changed after that full run. Coverage remained89%.
+
+R07 deployed atd88c08ee: actual REST promotion model catalog returned one720pmodel; registered MCP39tools and bothpromotiontools plusconfidential token schema verified. No generation.
+
+### R08 fresh image reference budgets
+Read-only SDK/catalog BDD passed1test,2warnings in13.33seconds. FreshPro modelmetadata advertises10slots forNanoPro/Nano2/Lite; effectiveLite3 remainsconservative. Tenexistingactiveownedimages passedfreshSDKownership/capvalidation inoriginalorder theninterceptedtransportstop. Zerouploads/generation. TenUI-chipretention/renderedproof isnotclaimed.
+
+R08 initial full run:6301passed withtwo existing caption-picker fixture failures after fresh model metadata became required. Updated the fake SDK fixture without weakening picker assertions; focused73passed in1.64seconds. Corrected full suite:6303passed,5skipped,15warnings in219.69seconds,89%coverage. Source unchanged from reviewed implementation; whole-source pyright0errors and allD0 checks passed. Docs council GO on the fixture and exact-ten E2E guard. The13.33second live result remains the actual ten-reference preflight, not a new run or rendered proof.

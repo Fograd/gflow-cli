@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-from gflow_cli.api.image import GenerateImageRequest, ImageRef, reference_cap_for
+from gflow_cli.api.image import GenerateImageRequest, ImageRef
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters
 from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
@@ -171,7 +171,14 @@ async def validate_native_image_references(
             names.append(name)
             verified_counts[entity] = len(workflows)
             total += len(workflows)
-        cap = reference_cap_for(request.model)
+        from gflow_cli.api.native_image_models import (
+            image_reference_cap,
+            read_image_reference_models,
+        )
+
+        cap = image_reference_cap(
+            await read_image_reference_models(page, project_id), request.model
+        )
         if total > cap:
             raise ConfigurationError(
                 detail=f"Native image reference budget exceeded; model allows {cap} image slots"
