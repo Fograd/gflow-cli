@@ -105,3 +105,87 @@ def verified(case):
     assert case["restored"] is True
     assert case["state_clean"] is True
     assert case["generation_requests"] == 0
+
+
+@when("a fresh owned repeated-caption image is hydrated and attached")
+def attach_repeated(case):
+    from gflow_cli.api.image import GenerateImageRequest
+    from gflow_cli.api.native_image_references import validate_native_image_references
+    from gflow_cli.api.transports.migrated_composer import _picker_query
+    from gflow_cli.errors import ReferenceNotFoundError
+
+    async def perform():
+        async with FlowApiClient(
+            profile_dir=get_settings().profile_subdir(case["PROFILE"]), headless=False
+        ) as client:
+            page = await client._checkout_page()
+            composer = MigratedComposer()
+            try:
+
+                async def guard(route):
+                    request = route.request
+                    if any(
+                        rpc in request.url or rpc in (request.post_data or "")
+                        for rpc in ("ogiZ0b", "MZZa6b", "fZytfe", "jIps6", "no0P6")
+                    ):
+                        case["generation_requests"] += 1
+                        await route.abort()
+                    else:
+                        await route.continue_()
+
+                await page.route("**/batchexecute*", guard)
+                payload = await read_project_payload(page, case["RESOURCES_PROJECT"])
+                timeline = project_media(payload, case["RESOURCES_PROJECT"])
+                media = parse_media_snapshot(payload, case["RESOURCES_PROJECT"])["media"]
+                candidates = []
+                for row in media:
+                    matches = [w for w in timeline if w["workflow_id"] == row["workflow_id"]]
+                    if row["kind"] != "image" or len(matches) != 1 or matches[0]["archived"]:
+                        continue
+                    caption = matches[0].get("caption")
+                    if not isinstance(caption, str):
+                        continue
+                    if sum(w.get("caption") == caption and not w["archived"] for w in timeline) < 2:
+                        continue
+                    ref = ImageRef(row["media_id"], display_name=caption)
+                    try:
+                        _picker_query(ref)
+                    except ReferenceNotFoundError:
+                        continue
+                    candidates.append(ref)
+                if not candidates:
+                    pytest.skip("No active owned repeated-caption image with a safe picker query")
+                target = candidates[0]
+                # Fresh SDK validation owns its own page lease. Return this
+                # discovery lease first; the default pool contains one page.
+                client._checkin_page(page)
+                page = None
+                request = await validate_native_image_references(
+                    client,
+                    case["RESOURCES_PROJECT"],
+                    GenerateImageRequest(prompt="No-submit attachment probe", refs=(target,)),
+                )
+                page = await client._checkout_page()
+                await composer.ensure_editor(page, case["RESOURCES_PROJECT"])
+                await composer.clear_composer(page)
+                ids = await composer.reference_existing(page, case["RESOURCES_PROJECT"], request)
+                case["attached"] = ids == (target.name,)
+                chips = await composer.read_chips(page)
+                case["media_chip"] = len(chips) == 1 and chips[0].get("reference_type") == "media"
+            finally:
+                # No submit button or generation method is invoked.
+                if page is not None:
+                    try:
+                        if case.get("attached"):
+                            await composer.clear_composer(page)
+                    finally:
+                        client._checkin_page(page)
+
+    asyncio.run(asyncio.wait_for(perform(), 120))
+
+
+@then("its exact reference is attached without generation")
+def attached_without_generation(case):
+    assert case["attached"] is True
+    assert case["media_chip"] is True
+    assert case["generation_requests"] == 0

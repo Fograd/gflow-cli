@@ -300,3 +300,89 @@ async def test_the_arrow_settles_before_enter() -> None:
     arrow_at = page.typed.index("<ArrowDown>")
     assert arrow_at < page.typed.index("<Enter>")
     assert 3500 in waits  # measured UpteDb settle (capture_migrated_attach_rpcs.py)
+
+
+@pytest.mark.parametrize("offered", ["tokNew", "tokWrong"])
+async def test_sdk_duplicate_caption_reaches_exact_token_picker(monkeypatch, offered):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from gflow_cli.api import native_image_references as proof
+    from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.api.reference_markers import ReferenceSlot, prepare_image_slot_request
+
+    project = "11111111-1111-4111-8111-111111111111"
+    workflows = (
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+    )
+    monkeypatch.setattr(proof, "read_project_payload", AsyncMock(return_value=[None, None, []]))
+    monkeypatch.setattr(proof, "parse_native_characters", lambda *args: [])
+    monkeypatch.setattr(
+        proof,
+        "parse_media_snapshot",
+        lambda *args: {
+            "media": [
+                {
+                    "media_id": identifier,
+                    "project_id": project,
+                    "workflow_id": workflow,
+                    "kind": "image",
+                    "width": 1024,
+                    "height": 1024,
+                }
+                for identifier, workflow in zip((PARENT, OTHER), workflows, strict=True)
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        proof,
+        "project_media",
+        lambda *args: [
+            {
+                "workflow_id": workflow,
+                "project_id": project,
+                "archived": False,
+                "caption": "Same caption",
+            }
+            for workflow in workflows
+        ],
+    )
+    page = FakePage(
+        grid={PARENT: "tokNew", OTHER: "tokOld"},
+        options=[("Same caption", "tokOld"), ("Same caption", offered)],
+    )
+    client = object.__new__(FlowApiClient)
+    client._checkout_page = AsyncMock(return_value=page)
+    client._checkin_page = Mock()
+    client._uses_native_characters = Mock(return_value=True)
+    client._mint_recaptcha_token = AsyncMock()
+    attached = []
+
+    async def drive(*, project_id, request):
+        attached.extend(await _composer().reference_existing(page, project_id, request))
+        return [SimpleNamespace(media_name="generated", workflow_id="workflow")]
+
+    client.transport = SimpleNamespace(
+        uses_page_owned_image_recaptcha=lambda: True, generate_images=AsyncMock(side_effect=drive)
+    )
+    request = prepare_image_slot_request(
+        GenerateImageRequest(prompt="Use @reference_1", refs=(ImageRef(PARENT),)),
+        {"reference_1": ReferenceSlot("image", PARENT)},
+    )
+    call = client._drive_images_generation_unseeded(
+        project_id=project, req=request, recaptcha_action="imageGeneration"
+    )
+    if offered == "tokWrong":
+        with pytest.raises(ReferenceNotFoundError):
+            await call
+        assert attached == page.bound == []
+        assert "<Enter>" not in page.typed
+    else:
+        result = await call
+        assert len(result) == 1
+        assert attached == [PARENT]
+        assert page.bound == ["tokNew"]
+        assert page.typed.count("<ArrowDown>") == 1
+    client._mint_recaptcha_token.assert_not_awaited()
+    client._checkin_page.assert_called_once_with(page)

@@ -549,7 +549,7 @@ Slots1and2 are used; slot3 remains. This proves the CLI local-reference Auto pat
 not native UUID/canonical grounding or registered MCP/REST generation acceptance.
 Exact older-grid discovery and comprehensive feature parity remain unfinished.
 
-## Bounded native grid discovery draft
+## Bounded native grid discovery
 
 The frozen exact-ID grid draft was integrated into the development worktree after
 its eight regressions failed against the old implementation. Thirteen focused
@@ -566,8 +566,7 @@ selection now excludes inactive/ambiguous workflows and unresolved dimensions.
 One subsequent harness attempt omitted the required project_media project argument
 and failed before discovery; it was corrected before the successful run.
 
-The draft remains unpublished while remaining regression review and required gates
-run. Discovery/restoration proof does not establish accepted canonical grounding,
+The component passed pinned peer review and was published/deployed atbd6f71c5. Discovery/restoration proof does not establish accepted canonical grounding,
 all-gallery completeness or generation through every public adapter.
 
 The final boundary suite passed17tests in7.72seconds, and the combined existing
@@ -577,3 +576,36 @@ protocol, while retaining picker collision, reload, missing-tile and character-c
 checks. Missing-reference diagnostics retain the requested media ID.
 The corrected full sweep passed5874tests with5skips and15warnings in184.48seconds
 at88.95%coverage. Whole-tree Ruff/format and strict Pyright were clean.
+
+Deployment fast-forwarded the clean production checkout after both REST and MCP
+queues reported zero active jobs. Locked dependencies synchronized; both services
+are active. REST capabilities returned401without authentication and200with
+authentication on the configured LAN listener; MCP initialization listed35tools.
+An initial verification probe used loopback for the LAN-only REST listener and
+failed to connect; the configured listener check passed without a service change.
+
+## Repeated native image captions
+
+The fresh ownership helper incorrectly required a caption to be globally unique
+among active workflows. Captions are labels; exact owned media/workflow IDs,
+grid tokens and guarded outgoing IDs identify references. Only that caption-count
+refusal was removed; ownership, type, budget and caption safety checks remain.
+
+The hydration regression and combined SDK-to-picker positive/negative regressions
+failed first on the old caption guard. The focused matrix then passed64tests.
+CLI/MCP parity passed61tests. The tagged live no-submit scenario passed once
+with one deselected scenario and two deprecation warnings in31.33seconds. It
+hydrated a repeated-caption owned image, selected its exact token and observed one
+media chip before clearing the composer; no generation request was observed.
+The initial harness attempt deadlocked its single-page pool by holding a page
+while SDK validation requested a lease, then timed out in121.56seconds. Returning
+the discovery lease before validation fixed the harness; no production lease code
+changed. Attachment proof does not establish canonical wire or accepted output.
+
+The first full offline sweep passed5873tests with7skips but failed the packaging
+test because the invocation's PATH did not contain uv. The corrected invocation
+passed5876tests with5skips and15warnings in186.53seconds, with88.94%coverage.
+Whole-tree Ruff/format and strict Pyright passed. Repository/doc/site/privacy and
+public-memory checks passed; the duplication proxy reported only unchanged
+experimental transport blocks. This is source/test verification; deployment is
+recorded separately after publication.

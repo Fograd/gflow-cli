@@ -314,6 +314,16 @@ its acceptance and rendered speech await final E2E.
 
 For two references, add `imageReference_2` to the create request. Both must belong to the same account/project and pass validation before mutation. Portrait is slot 0 and body is slot 1. Copying both references and applying notes uses the same 45 second post-create deadline, with partial identity preserved on an unconfirmed outcome.
 
+### Native reference caption identity
+
+Fresh SDK-owned native image references can share a caption on the migrated Flow
+host. Captions supply safe picker search text; the selected project's exact media
+UUID-to-thumbnail-token match identifies the image. Foreign, inactive, ambiguously
+owned or unsearchable references remain refused, and outgoing media IDs remain
+guarded. The no-submit live repeated-caption test proves hydration and attachment;
+canonical grounding and accepted image output are separate proofs. Unregistered
+native REST references remain part of the native lookup backlog.
+
 ### Automatic image aspect
 
 REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP and manifest rows now support first-local-reference Auto through the same

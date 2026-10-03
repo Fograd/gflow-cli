@@ -154,12 +154,14 @@ separately under R12; an existing command or passing mock is insufficient eviden
   recovery is published/deployed at64974ba0. A count-one local-reference Auto CLI
   BDD passed (one pass, one skip, three deselected, two warnings,55.37seconds),
   with a decoded image and expected aspect metadata. The bounded grid draft now
-  passes13offline tests plus a live active-image discovery/restoration BDD
-  (one pass, two warnings,9.95seconds), but is not yet deployed. Native
+  passes17offline boundary tests plus a live active-image discovery/restoration BDD
+  (one pass, two warnings,9.95seconds), and is published/deployed atbd6f71c5. Native
   UUID/canonical-reference and registered MCP/REST accepted
-  output remain pending. Next: publish/deploy bounded discovery, then address the
-  SDK's globally unique-caption restriction under exact-token/final-ID guards.
-  Unsafe captions remain a separate measured picker-contract gap.
+  output remain pending. The SDK global caption-uniqueness restriction is removed
+  in the current development change; a tagged live repeated-caption hydration/
+  attachment BDD passed (one pass, one deselected, two warnings,31.33seconds)
+  without generation. Unsafe captions remain a separate measured picker-contract
+  gap; canonical grounding and accepted output still need their own proof.
 - [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
   video, voice, character-reference and thumbnail lookup beyond the local
   registry, including unregistered native image references/Auto on REST.
@@ -168,7 +170,11 @@ separately under R12; an existing command or passing mock is insufficient eviden
   verified mapping exists; never guess one. Source audit confirms REST rejects
   unregistered UUIDs before the existing SDK owned-reference/Auto helpers can run;
   next implementation must carry native IDs separately under an explicit selected
-  account/project, preserving managed paths and reference order.
+  account/project, preserving managed paths and reference order. The composer
+  currently assumes plan images are wholly native or wholly local, and local
+  upload bindings replace native bindings. Mixed inputs require an explicit local
+  slot-alias vector, ordered subset validation and merging acknowledged uploads
+  with owned native bindings; Auto must follow the first actual source.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial

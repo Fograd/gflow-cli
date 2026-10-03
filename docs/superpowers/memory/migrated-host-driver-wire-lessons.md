@@ -258,3 +258,11 @@ from one active owned workflow with positively measured image dimensions. The ta
 live BDD proved one unmounted active-image lookup/restoration, not complete gallery
 coverage, picker attachment or accepted generation. Keep those proofs separate.
 See [verification](../../self-hosted/VERIFICATION.md).
+
+Fresh native ownership checks must validate media/workflow identity rather than
+global caption uniqueness: copies and separately owned images may share labels.
+The exact grid token selects among picker matches; final IDs remain guarded.
+No-submit probes must return their page lease before calling an SDK helper that
+borrows from the same single-page pool. The corrected repeated-caption BDD proved
+hydration and attachment, not accepted generation or canonical outgoing grounding.
+See [verification](../../self-hosted/VERIFICATION.md).

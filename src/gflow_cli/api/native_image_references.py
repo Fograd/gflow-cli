@@ -68,8 +68,8 @@ def _hydrate_owned_images(
         caption = matches[0].get("caption")
         if not isinstance(caption, str) or not caption.strip() or len(caption) > 4096:
             raise ValueError("Native image caption unavailable")
-        if sum(row.get("caption") == caption and not row["archived"] for row in timeline) != 1:
-            raise ValueError("Ambiguous native image caption")
+        # Captions are search labels, not identities. The migrated picker matches
+        # this owned media UUID's exact grid token; the submit guard checks its ID.
         hydrated.append(replace(ref, display_name=caption, in_project=True))
     return tuple(hydrated)
 

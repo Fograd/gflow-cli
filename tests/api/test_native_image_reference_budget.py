@@ -377,7 +377,7 @@ async def test_claimed_in_project_flag_cannot_bypass_fresh_image_proof(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_caption_collision_between_active_workflows_refuses_before_submit(monkeypatch):
+async def test_caption_collision_preserves_distinct_owned_image_ids(monkeypatch):
     from gflow_cli.api.image import ImageRef
 
     client = _fixtures(monkeypatch)
@@ -389,10 +389,13 @@ async def test_caption_collision_between_active_workflows_refuses_before_submit(
             {"workflow_id": W2, "project_id": P, "archived": False, "caption": "Same"},
         ],
     )
-    with pytest.raises(ConfigurationError):
-        await subject.validate_native_image_references(
-            client, P, GenerateImageRequest(prompt="x", refs=(ImageRef(M1),))
-        )
+    result = await subject.validate_native_image_references(
+        client, P, GenerateImageRequest(prompt="x", refs=(ImageRef(M2), ImageRef(M1)))
+    )
+    assert [ref.name for ref in result.refs] == [M2, M1]
+    assert [ref.display_name for ref in result.refs] == ["Same", "Same"]
+    assert all(ref.in_project for ref in result.refs)
+    client._checkin_page.assert_called_once_with("page")
 
 
 @pytest.mark.asyncio
