@@ -119,31 +119,39 @@ def test_both_original_arms_are_ambiguous():
 
 @pytest.mark.asyncio
 async def test_strict_rpc_refuses_duplicate_matching_frames(monkeypatch):
+    import json
+
     from gflow_cli.api.transports import migrated_rpc
 
     class Page:
         async def evaluate(self, *args):
-            return {"status": 200, "text": "opaque"}
+            frame = ["wrb.fr", "as29s", json.dumps(row()), None, None, None, "generic"]
+            return {"status": 200, "text": json.dumps([frame, frame])}
 
-    monkeypatch.setattr(
-        migrated_rpc, "parse_frames", lambda text: [("as29s", row()), ("as29s", row())]
-    )
     with pytest.raises(ValueError, match="exactly one"):
         await migrated_rpc.native_rpc(Page(), "as29s", [M], "/project/" + P, require_single=True)
 
 
 @pytest.mark.asyncio
 async def test_strict_rpc_selects_only_expected_rpc(monkeypatch):
+    import json
+
     from gflow_cli.api.transports import migrated_rpc
+
+    expected = row()
 
     class Page:
         async def evaluate(self, *args):
-            return {"status": 200, "text": "opaque"}
+            return {
+                "status": 200,
+                "text": json.dumps(
+                    [
+                        ["wrb.fr", "other", "[]", None, None, None, "generic"],
+                        ["wrb.fr", "as29s", json.dumps(expected), None, None, None, "generic"],
+                    ]
+                ),
+            }
 
-    expected = row()
-    monkeypatch.setattr(
-        migrated_rpc, "parse_frames", lambda text: [("other", []), ("as29s", expected)]
-    )
     assert (
         await migrated_rpc.native_rpc(Page(), "as29s", [M], "/project/" + P, require_single=True)
         == expected

@@ -465,9 +465,21 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             raise ValueError("Native archive did not report success")
         return {
             "deleted": result["deleted"],
+            **(
+                {
+                    "deletedCount": len(result["deleted"]),
+                    "alreadyDeleted": result.get("already_deleted", []),
+                    "newlyDeleted": result.get("newly_deleted", result["deleted"]),
+                    "receiptPersisted": result.get("receipt_persisted", False),
+                }
+                if deleting
+                else {}
+            ),
             "operation": "delete" if deleting else "archive",
             "scope": "google-project-library",
-            "googleLibraryModified": True,
+            "googleLibraryModified": (
+                bool(result.get("newly_deleted", result["deleted"])) if deleting else True
+            ),
             "localCacheModified": False,
             "projectId": project,
         }

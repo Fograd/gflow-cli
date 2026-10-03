@@ -242,6 +242,39 @@ def _saved_voice_result(result: dict[str, Any], kind: str | None) -> dict[str, A
     return safe
 
 
+def _delete_retry_result(result: dict[str, Any], kind: str | None) -> dict[str, Any]:
+    if kind not in (None, "assets/delete") or result.get("operation") != "delete":
+        return {}
+    if _uuid_value(result.get("projectId")) is None:
+        return {}
+    groups: dict[str, list[str]] = {}
+    for key in ("deleted", "newlyDeleted", "alreadyDeleted"):
+        raw = result.get(key)
+        if not isinstance(raw, list) or len(cast(list[Any], raw)) > 100:
+            return {}
+        values = [_uuid_value(value) for value in cast(list[Any], raw)]
+        if None in values or len(set(values)) != len(values):
+            return {}
+        groups[key] = cast(list[str], values)
+    count = result.get("deletedCount")
+    persisted = result.get("receiptPersisted")
+    if (
+        not groups["deleted"]
+        or type(count) is not int
+        or count != len(groups["deleted"])
+        or type(persisted) is not bool
+        or set(groups["newlyDeleted"]) & set(groups["alreadyDeleted"])
+        or set(groups["deleted"]) != set(groups["newlyDeleted"] + groups["alreadyDeleted"])
+    ):
+        return {}
+    return {
+        "deletedCount": count,
+        "receiptPersisted": persisted,
+        "newlyDeleted": groups["newlyDeleted"],
+        "alreadyDeleted": groups["alreadyDeleted"],
+    }
+
+
 def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[str, Any]:
     safe: dict[str, Any] = {}
     media = result.get("media")
@@ -349,6 +382,7 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
         from gflow_cli.selfhost.session_health import public_health_observation
 
         safe["sessionHealth"] = public_health_observation(result["sessionHealth"])
+    safe.update(_delete_retry_result(result, kind))
     safe.update(_saved_voice_result(result, kind))
     safe.update(_native_unknown_handles(result))
     return safe

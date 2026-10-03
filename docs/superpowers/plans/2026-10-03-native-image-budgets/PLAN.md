@@ -7,5 +7,5 @@ Source currentbuild poKdDH1IwKU.2018.O U6a imagefamiliesfield6 Q6a usagesfield2 
 - [x] CLI image reference-models, direct MCP twin and HTTP reference model catalog/private worker.
 - [x] Free catalog/budget preflight BDD, documentation and corrected proof wording.
 - [x] Gates/council complete:6303pass/89%, final fixture review GO.
-- [ ] Publish and idledeploy.
+- [x] Published/deployed891151ef with clean queues and active user services.
 No paid rendering untilR12. No Lite cap increase until retained-reference proof; keep reference-free/legacy behavior unchanged.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -201,7 +202,13 @@ async def delete(
     outcome: dict[str, Any] = {}
     try:
         try:
-            outcome = await delete_individual_media(page, project, identifiers, True)
+            from gflow_cli.api.native_delete_receipts import verified_delete_receipts
+
+            async with asyncio.timeout(120):
+                receipts = await verified_delete_receipts(page, client.profile_dir, project)
+                outcome = await delete_individual_media(
+                    page, project, identifiers, True, receipts=receipts
+                )
         finally:
             import sys
 

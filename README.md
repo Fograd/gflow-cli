@@ -304,3 +304,5 @@ Provider acceptance remains unverified. See docs/self-hosted/NATIVE_CAPTCHA.md.
 Native video promotion: SDK/CLI video upscale-native/upscale-models, direct MCP twins, HTTP explicit operation=promotion. Targets720p/1080p/4k require fresh tier/model/source proof. Paid acceptance remains R12. See [native promotion](docs/self-hosted/NATIVE_VIDEO_PROMOTION.md).
 
 Fresh native image reference budgets: SDK/CLI image reference-models, direct MCP twin, HTTP images/reference/models. Effective=min(advertised,transport), fresh before upload/mint; Lite3 conservative. See [budgets](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+
+Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).

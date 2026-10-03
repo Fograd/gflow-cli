@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Native permanent-delete retries use private fresh account/project-scoped confirmed receipts; exact missing reads never replay known-gone IDs. Mixed batches delete present IDs only; REST adds accepted counts and separates already/newly deleted IDs.
+
 - Discover fresh account image-reference capacities across SDK/CLI/MCP/HTTP and enforce effective budgets for every native reference-bearing SDK request before upload/mint; clarify Lite's conservative cap.
 
 - Add explicit source-backed native video promotion and account model discovery across SDK, CLI, direct MCP and HTTP; preserve export defaults and record paid acceptance limits.

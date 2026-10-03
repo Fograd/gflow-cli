@@ -1077,3 +1077,12 @@ R07 deployed atd88c08ee: actual REST promotion model catalog returned one720pmod
 Read-only SDK/catalog BDD passed1test,2warnings in13.33seconds. FreshPro modelmetadata advertises10slots forNanoPro/Nano2/Lite; effectiveLite3 remainsconservative. Tenexistingactiveownedimages passedfreshSDKownership/capvalidation inoriginalorder theninterceptedtransportstop. Zerouploads/generation. TenUI-chipretention/renderedproof isnotclaimed.
 
 R08 initial full run:6301passed withtwo existing caption-picker fixture failures after fresh model metadata became required. Updated the fake SDK fixture without weakening picker assertions; focused73passed in1.64seconds. Corrected full suite:6303passed,5skipped,15warnings in219.69seconds,89%coverage. Source unchanged from reviewed implementation; whole-source pyright0errors and allD0 checks passed. Docs council GO on the fixture and exact-ten E2E guard. The13.33second live result remains the actual ten-reference preflight, not a new run or rendered proof.
+
+R08 deployed891151ef: actual RESTreferencecatalog3modelrows; registeredMCP40tools andreadonly referencecatalogtoolconfirmed. User servicesactive, queues0.
+
+### R09 confirmed deletion retry proof
+Free realaccount/projectreceipt-scope probe passed withoutmutations. Free owned-synthetic batch/retry BDD1passed,2warnings in43.96seconds:3uploads,2deletewrites,zeroallgone-retrywrites, mixedwriteonlythirdID,originalspreserved. No generation/provider task. Strict raw-envelope, account-index and checkedoutpage-readiness refinements followed this proof and are covered offline; no additional browser mutation is claimed.
+
+R09 initial full run6336passed withone older RPC-selection fixture failure: it supplied opaque text while mocking only decodedframes. Replaced that fixture with real matching/mismatching RPC envelopes, preserving selection/duplicate assertions. Focused70passed in2.01seconds; finalfullsuite6337passed,5skipped,15warnings in231.06seconds with89%coverage. D0/whole-sourcepyrightpassed; final Arch/SecGO and Perf/UXGO after publicprojection correction. RESTfields survive actualStore/publicGET plus repeatedsyncprojection; all-gone googleLibraryModified=false.
+
+R10 second-account live setup: user completed pro2login. Fresh same-browserGoogleprincipal matched recordedprofile, differed frompro1, projectaccesspassed and nativecreditstier2 confirmedPro. Registered pro2 underseparatepublichandle withzero generation. Third-account hostedloginpreparedseparately; identity/project/tierproof remains pending. No cookies/identityvalues published.

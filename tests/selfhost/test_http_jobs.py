@@ -282,3 +282,57 @@ def test_pending_legacy_callback_migration_preserves_snapshot_state(tmp_path):
     assert body["status"] == "created" and body["createdAt"] == body["updatedAt"] == 10
     assert "SECRET" not in json.dumps(body)
     assert upgraded.get(job["jobId"])["status"] == "completed"
+
+
+def test_confirmed_delete_metadata_survives_public_and_repeated_projection(tmp_path):
+    from gflow_cli.selfhost.http_jobs import result_record
+
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        store = client.app.state.store
+        job = store.submit("assets/delete", "pro1", {"mediaGenerationIds": [PROJECT]}, None)
+        response = {
+            "projectId": PROJECT,
+            "operation": "delete",
+            "deleted": [PROJECT],
+            "deletedCount": 1,
+            "newlyDeleted": [],
+            "alreadyDeleted": [PROJECT],
+            "receiptPersisted": True,
+            "googleLibraryModified": False,
+            "localCacheModified": False,
+        }
+        store.finish(job["jobId"], "completed", response)
+        body = client.get("/v1/google-flow/jobs/" + job["jobId"], headers=AUTH).json()
+        public = body["response"]
+        for key in ("deletedCount", "newlyDeleted", "alreadyDeleted", "receiptPersisted"):
+            assert public[key] == response[key]
+            assert result_record(public)[key] == response[key]
+        assert public["googleLibraryModified"] is False
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"deletedCount": True},
+        {"deletedCount": 2},
+        {"receiptPersisted": "true"},
+        {"newlyDeleted": [PROJECT], "alreadyDeleted": [PROJECT]},
+        {"alreadyDeleted": ["/private/path"]},
+        {"alreadyDeleted": []},
+    ],
+)
+def test_malformed_delete_retry_metadata_is_not_published(override):
+    from gflow_cli.selfhost.http_jobs import result_record
+
+    response = {
+        "projectId": PROJECT,
+        "operation": "delete",
+        "deleted": [PROJECT],
+        "deletedCount": 1,
+        "newlyDeleted": [],
+        "alreadyDeleted": [PROJECT],
+        "receiptPersisted": True,
+        **override,
+    }
+    result = result_record(response, kind="assets/delete")
+    assert "deletedCount" not in result and "receiptPersisted" not in result

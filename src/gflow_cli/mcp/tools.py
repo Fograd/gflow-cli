@@ -2974,7 +2974,9 @@ async def gflow_list_extension_models(project: str, profile: str = "default") ->
 @server.tool(
     name="gflow_delete_native_media",
     description="Permanently delete only selected owned image/video/audio media IDs. "
-    "Preserves sibling media; requires confirm_delete=true.",
+    "Preserves sibling media; requires confirm_delete=true. "
+    "Confirmed deletions can be repeated with fresh account/project proof; "
+    "unknown missing IDs refuse.",
 )
 @_guarded
 async def gflow_delete_native_media(

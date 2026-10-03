@@ -270,6 +270,9 @@ unsafe-caption canonical attachment proof.
   semantics and complete supported batch behavior with fresh owned membership
   proof. Preserve permanent deletion versus reversible archive versus local-cache
   deletion as distinct operations; do not infer success from incomplete listings.
+  Delivered: scoped confirmed-delete receipts, exact fresh NOT_FOUND, zero-write
+  repeat requests and present-only mixed batches. Arbitrary already-gone raw
+  UUIDs remain unprovable; see NATIVE_MEDIA.md. Free synthetic proof43.96seconds.
 - [ ] **R10 — Account import, refresh and three-account coverage.** Prove a
   successful cookie-table import, supported session refresh/reuse and independent
   account selection/queues for all three Pro accounts. Preserve private profiles

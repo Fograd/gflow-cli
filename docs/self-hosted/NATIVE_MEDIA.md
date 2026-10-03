@@ -30,7 +30,7 @@ Offline source/adapter tests cover consent, duplicate aliases, unsafe files, mut
 
 ## Permanent individual deletion
 
-SDK delete_native_media and CLI project delete-media permanently target only requested owned identities. Every ID passes a fresh GetMedia ownership/type check before one BatchDeleteAssets request. The payload contains media IDs and no workflow IDs; unrequested siblings are not included. Explicit true confirmation and 1–100 distinct UUIDs are required. UUID aliases are normalized before duplicate checks.
+SDK delete_native_media and CLI project delete-media permanently target only requested owned identities. Every present ID passes a fresh GetMedia ownership/type check before at most one BatchDeleteAssets request. A missing ID requires the confirmed deletion receipt described below. The payload contains media IDs and no workflow IDs; unrequested siblings are not included. Explicit true confirmation and 1–100 distinct UUIDs are required. UUID aliases are normalized before duplicate checks.
 
 ~~~bash
 gflow project delete-media --project PROJECT_UUID --media-id MEDIA_UUID --confirm-delete --profile PROFILE --json
@@ -39,3 +39,15 @@ gflow project delete-media --project PROJECT_UUID --media-id MEDIA_UUID --confir
 NativeMediaMutationUnknownError operation delete preserves pending IDs after an unconfirmed response. Never replay automatically. Reversible whole-batch archive remains separate. The media-only wire is derived from the deployed frontend source. One final owned synthetic clip received an empty acknowledgement, remained in an immediate project read, then disappeared from a fresh project timeline; exact GetMedia subsequently returned native not-found (gRPC 5) with no owned media reply. This proves deletion of that acknowledged fixture, with delayed read visibility. It does not establish a guaranteed visibility interval, all media types or preservation of every possible sibling structure. The final separately authorized synthetic upload/delete lifecycle with bounded read-only polling passed: one test passed and four skipped in 28.91 seconds, with every originally active media identity preserved.
 
 Upload readiness is established by the native add-menu becoming visible; a hidden classic settings button alone does not show that native upload is unavailable. The corrected readiness check reached the upload menu in the final synthetic fixture run.
+
+## Confirmed deletion retries (R09)
+
+The fork records each strictly acknowledged permanent deletion in private profile metadata, scoped to the freshly verified Google account, project, canonical media UUID and exclusive media type. A repeat request is accepted only when exact fresh GetMedia reports native NOT_FOUND (gRPC5) and a matching receipt exists. Unknown missing UUIDs, authorization errors, malformed responses and inventory absence refuse the whole batch before any write.
+
+Fresh same-session identity must resolve uniquely on Google's account-index-zero page. The selected project must be positively found within two current account project-list pages; a truncated listing never proves deletion. Ambiguous identity, another account/project/profile or malformed/public/symlink receipt files refuse. Request preflight is bounded120seconds.
+
+For mixed batches, only freshly present IDs enter one permanent deletion RPC. An all-confirmed-gone batch makes zero mutation calls. SDK/CLI/direct MCP preserve the requested `deleted` list and add `newly_deleted`, `already_deleted` and `receipt_persisted`. Self-hosted native-delete job responses preserve `deleted` and add `deletedCount`, `newlyDeleted`, `alreadyDeleted` and `receiptPersisted`. Counts include all validated requested IDs. Failed receipt persistence after Google's acknowledgment remains a known successful deletion with the persistence flag false; it does not authorize mutation replay.
+
+This is narrower than [useAPI's already-gone contract](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email): its identifiers encode ownership, whereas this fork's raw UUIDs do not. Media removed outside this fork or before receipt support cannot be accepted merely because it is absent. Native audio deletion is a fork extension; useAPI's media endpoint documents image/video only.
+
+Free owned-synthetic batch/retry BDD passed1test,2warnings in43.96seconds: three uploads, two deletion writes, zero writes for the all-gone repeat, only the third UUID in the mixed-batch write, originals preserved. No generation or CAPTCHA task occurred. Final exact-envelope/account-index/page-readiness guard regressions are verified offline separately.

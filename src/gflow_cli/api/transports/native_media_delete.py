@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from gflow_cli.api.transports.migrated_rpc import native_rpc
+if TYPE_CHECKING:
+    from gflow_cli.api.native_delete_receipts import DeleteReceipts
+
+from gflow_cli.api.transports.migrated_rpc import NativeMetadataRpcError, native_rpc
 from gflow_cli.api.transports.native_voices import validate_identifier
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
@@ -41,21 +44,62 @@ def owned_media(payload: Any, project: str, identifier: str) -> str:
 
 
 async def delete_individual_media(
-    page: Any, project_id: str, media_ids: object, confirm_delete: object = False
+    page: Any,
+    project_id: str,
+    media_ids: object,
+    confirm_delete: object = False,
+    *,
+    receipts: DeleteReceipts | None = None,
 ) -> dict[str, Any]:
     project, identifiers = validate_delete(project_id, media_ids, confirm_delete)
-    await page.goto("https://flow.google.com/project/" + project, wait_until="domcontentloaded")
+    if str(page.url).rstrip("/") != "https://flow.google.com/project/" + project:
+        await page.goto("https://flow.google.com/project/" + project, wait_until="domcontentloaded")
     await page.wait_for_function("() => Boolean(window.WIZ_global_data?.SNlM0e)", timeout=15000)
-    for identifier in identifiers:
-        owned_media(
-            await native_rpc(page, "as29s", [identifier], "/project/" + project),
-            project,
-            identifier,
-        )
-    # Intentionally omit workflow field2. Sibling identities are never requested.
-    payload = [None, None, project, None, None, None, list(identifiers)]
+    present: list[str] = []
+    already: list[str] = []
+    kinds: dict[str, str] = {}
+    async with asyncio.timeout(120):
+        for identifier in identifiers:
+            try:
+                row = await native_rpc(
+                    page, "as29s", [identifier], "/project/" + project, require_single=True
+                )
+            except NativeMetadataRpcError as error:
+                if (
+                    error.rpcid != "as29s"
+                    or type(error.code) is not int
+                    or error.code != 5
+                    or receipts is None
+                    or receipts.kind(identifier) is None
+                ):
+                    raise ValueError(
+                        "Missing media has no confirmed scoped deletion receipt"
+                    ) from None
+                already.append(identifier)
+                continue
+            owned_media(row, project, identifier)
+            kinds[identifier] = next(
+                kind
+                for index, kind in ((6, "image"), (7, "video"), (10, "audio"))
+                if len(row) > index and row[index] is not None
+            )
+            present.append(identifier)
+    if not present:
+        return {
+            "project_id": project,
+            "deleted": list(identifiers),
+            "newly_deleted": [],
+            "already_deleted": already,
+            "receipt_persisted": True,
+            "operation": "delete",
+            "scope": "native permanent individual media deletion",
+        }
+    # Intentionally omit workflow field2. Siblings and confirmed-gone IDs are never requested.
+    payload = [None, None, project, None, None, None, present]
     try:
-        reply = await native_rpc(page, "cz8Z4b", payload, "/project/" + project)
+        reply = await native_rpc(
+            page, "cz8Z4b", payload, "/project/" + project, require_single=True
+        )
         if reply != []:
             raise ValueError("Permanent media deletion acknowledgement is unavailable")
     except BaseException as error:
@@ -71,9 +115,20 @@ async def delete_individual_media(
         if not isinstance(error, Exception):
             raise
         raise typed from None
+    persisted = receipts is not None
+    if receipts is not None:
+        try:
+            for identifier in present:
+                receipts.record(identifier, kinds[identifier])
+        except Exception:
+            # Google already acknowledged. Report known success, never invite mutation retry.
+            persisted = False
     return {
         "project_id": project,
         "deleted": list(identifiers),
+        "newly_deleted": present,
+        "already_deleted": already,
+        "receipt_persisted": persisted,
         "operation": "delete",
         "scope": "native permanent individual media deletion",
     }

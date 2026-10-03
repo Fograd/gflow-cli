@@ -4,7 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from gflow_cli.api.transports.batchexecute import parse_frames
+from gflow_cli.api.transports.batchexecute import (
+    _wrb_rows,  # pyright: ignore[reportPrivateUsage]
+    parse_frames,
+    rpc_errors,
+)
+
+
+class NativeMetadataRpcError(ValueError):
+    """Correlated native read error; no response text or private reasons."""
+
+    def __init__(self, rpcid: str, code: int | None) -> None:
+        self.rpcid = rpcid
+        self.code = code
+        super().__init__("Native metadata RPC rejected the request")
 
 
 async def native_rpc(
@@ -45,9 +58,17 @@ async def native_rpc(
     )
     if result["status"] != 200:
         raise ValueError(f"Native Flow operation failed with HTTP {result['status']}")
+    rows = [row for row in _wrb_rows(result["text"]) if row[1] == rpc]
+    if require_single and len(rows) != 1:
+        raise ValueError("Native metadata requires exactly one matching RPC envelope")
     replies = [data for name, data in parse_frames(result["text"]) if name == rpc]
+    errors = [error for error in rpc_errors(result["text"]) if error.rpcid == rpc]
+    if errors:
+        if len(errors) != 1 or len(rows) != 1 or rows[0][2] is not None or replies:
+            raise ValueError("Native metadata response is ambiguous")
+        raise NativeMetadataRpcError(rpc, errors[0].code)
     if require_single and len(replies) != 1:
         raise ValueError("Native metadata requires exactly one matching RPC response")
-    if replies:
+    if replies and replies[0] is not None:
         return replies[0]
     raise ValueError("Native Flow operation was not acknowledged; inspect before retrying")

@@ -606,3 +606,5 @@ POST videos/upscale accepts operation=promotion with720p/1080p/4k, optional mode
 
 ## Fresh image reference budgets
 GET images/reference/models exposes advertised, transport and effective capacities using fresh account metadata. All native reference-bearing SDK requests use that effective capacity before uploads/minting. See [budget contracts](IMAGE_REFERENCE_BUDGETS.md).
+
+Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
