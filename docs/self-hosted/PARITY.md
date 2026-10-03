@@ -68,7 +68,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Saved-voice character binding | Fresh owned saved audio can be assigned through character create/update; metadata semantics separate from rendered speech. Final binding E2E pending. |
 | Permanent individual media removal | Explicit operation=delete removes selected owned media rather than archiving siblings. Default whole-batch archive remains reversible. Complete owned synthetic upload/delete lifecycle passed with bounded metadata polling, preserving all original active media. Already-gone semantics remain different. |
 | Standalone extension | SDK/CLI/MCP/REST identify and download independent extension outputs; available native model keys/costs discovered. Legacy scene-concatenating command remains separate. Paid acceptance pending. |
-| Omni V2V | SDK/CLI/MCP/REST edit one owned source clip, explicit native model key, optional end frame, inherited aspect, at most5 existing images/3 saved voices. Omitted end uses measured source length at virtual24fps, rounded down/capped240; unavailable duration refuses before submission. Paid acceptance pending. |
+| Omni V2V | SDK/CLI/MCP/REST edit one owned source clip, explicit native model key, optional end frame, inherited aspect, at most5 existing images/3 active owned native audio media IDs. Omitted end uses measured source length at virtual24fps, rounded down/capped240; unavailable duration refuses before submission. Paid acceptance pending. |
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
@@ -218,6 +218,10 @@ unsafe-caption canonical attachment proof.
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
   presets and character inputs. Discover actual source contracts before enabling
   each form; an attachment alone does not prove semantic grounding.
+  Generic native-audio edit preflight is now implemented without saved-TTS
+  visibility, with exact active workflow and exclusive audio proof. Read-only
+  preflight BDD passed7.68seconds; uploaded-audio/rendered acceptance remains R12.
+  Character/system-preset inputs and positional video grounding remain open.
 - [ ] **R05 — Native video controls.** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the

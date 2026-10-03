@@ -22,7 +22,7 @@ Frames are the useapi virtual24fps window: start0–239/end1–240, end greater 
 start. `duration` and start/end images are not edit inputs.
 
 Optional repeated `--image-ref` accepts up to five active same-project existing
-image UUIDs; `--audio-ref` accepts up to three same-project saved voice UUIDs.
+image UUIDs; `--audio-ref` accepts up to three active owned same-project native audio media UUIDs. Saved TTS visibility is not required; system preset names and character IDs remain unwired here.
 System preset names, character refs and inline positional markers are not yet
 accepted by this dedicated form. The encoder uses source-proven image field9
 and audio field10. No local upload or unverified reference substitution occurs.

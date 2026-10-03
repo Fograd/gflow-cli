@@ -32,7 +32,7 @@ from gflow_cli.config import get_settings
     help="Default: floor(source seconds ×24), capped240.",
 )
 @click.option("--image-ref", multiple=True, help="Same-project existing image UUID; up to5.")
-@click.option("--audio-ref", multiple=True, help="Same-project saved voice UUID; up to3.")
+@click.option("--audio-ref", multiple=True, help="Active owned native audio media UUID; up to3.")
 @click.option("--profile", default=None)
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
 @click.option("--json", "as_json", is_flag=True)

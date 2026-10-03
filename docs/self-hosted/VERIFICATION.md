@@ -958,3 +958,18 @@ The catalog batch full offline suite passed6101tests,5skips,15warnings
 in194.85seconds at89%coverage. All required hygiene/documentation/privacy/
 website/council-memory/lint/format/type gates passed; three council reviewers
 returned GO. Rendered video and complete-history acceptance remain separate.
+
+### R04 generic native-audio edit references — current batch
+
+Saved-TTS visibility is no longer required for native edit audio UUIDs. Fresh
+exclusive typed audio and exact active owned workflow proof run before mint or
+checkpoint. Source-derived E4a field10 remains unchanged; max3/order/checkpoint
+semantics are preserved. Focused tests passed65tests in1.23seconds before adding
+one explicit invalid-audio/no-mint regression. Read-only preflight BDD passed
+1test,2warnings in7.68seconds, zero generation. It proves wrong-kind refusal
+against the live payload, not a nonempty uploaded-audio cohort or rendered output.
+
+The audio batch full offline suite passed6121tests,5skips,15warnings in
+187.74seconds at89%coverage. All required gates and three council reviews
+passed. Actual deployed R03 REST and registered MCP catalog inclusion each
+returned one typed project catalog; no generation was requested.

@@ -410,8 +410,7 @@ The native video feature batch adds `video extension-models` / `extend-native`,
 `reference-native`, with matching MCP tools and durable REST jobs. These use
 fresh owned native media UUIDs and observed account model keys. Extension and
 reference generation support count 1–4; edit requires one output; omitted end derives a measured source-duration
-virtual-24fps window capped240, while explicit end overrides remain supported. Saved audio inputs are preset-based TTS, not arbitrary
-uploaded audio. Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
+virtual-24fps window capped240, while explicit end overrides remain supported. Video editing accepts active owned native uploaded-audio media UUIDs without saved-TTS visibility; preset names and character IDs remain unwired. Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
 `docs/self-hosted/NATIVE_VIDEO_EXTENSION.md`, `docs/VIDEO_EDIT.md` and
 `docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.
 

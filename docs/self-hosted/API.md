@@ -193,7 +193,7 @@ end1–240 and end greater than start. When omitted, end is derived from the mea
 owned source duration, rounded down to virtual24fps and capped at240. Missing or
 invalid duration fails before token mint/submission. Explicit end remains unchanged. Input references are existing selected-project
 media UUIDs: `referenceImage_1..5` and `referenceAudio_1..3`. Audio currently
-requires saved TTS voices; arbitrary uploaded audio is a separate gap. Count
+accepts active owned native audio media UUIDs, including uploaded audio without saved-TTS visibility. System preset names and character IDs remain separate R04 work. Count
 is1 and aspect follows the source. The SDK performs fresh native ownership checks.
 Results retain resolved `startFrameIndex` and `endFrameIndex`;
 `sourceDurationSeconds` is present when measured for an omitted end. These fields

@@ -2990,7 +2990,7 @@ async def gflow_delete_native_media(
 @server.tool(
     name="gflow_edit_native_video",
     description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
-    "up to5 owned image refs and3 saved TTS audio refs. Explicit native "
+    "up to5 owned image refs and3 active owned native audio media refs. Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
     "Consumes video credits.",
 )

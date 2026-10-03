@@ -8,7 +8,7 @@ Scenario D1auth unchanged; D2readonly0gen; D3measuredparsers; D4no writes/replay
 - [x] Shared pure projection and one-page enrichment.
 - [x] Public adapter forwarding and documentation mirrors.
 - [x] Read-only one-project BDD; requiredchecks and council.
-- [ ] Publication and idle deployment.
+- [x] Publication and idle deployment at05c3b632; both services active.
 Pagination/history completeness still unknown; this enumerates discovered native catalogs and does not claim atomic account history.
 
 Live one-project catalog BDD1pass2warnings10.14s with concurrency1/0generation. Registered MCP strictbool/int controls red6coercion failures, then green. Mirror sweep SDK/CLI/directMCP/privateworker/REST, no queued mutation; docs/skill/plugin/website updated, existing error codes preserved.

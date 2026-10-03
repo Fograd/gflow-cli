@@ -717,3 +717,8 @@ Counts describe returned rows, not complete generation history. The whole
 traversal/enrichment shares one page and180seconds. Ambiguous/unrelated catalog
 rows fail the read; successful partial catalogs are not disguised as complete.
 No registry reconciliation or missing-object deletion runs.
+
+Native video edit audio references accept active owned native audio media UUIDs,
+including uploaded audio without saved-TTS visibility. Max3 and exact fresh
+project/workflow/exclusive-audio proof apply before generation. Preset names
+and character IDs remain separate R04 work; rendered acceptance remains R12.
