@@ -317,26 +317,22 @@ _CAPTION_MAX = 120
 
 
 def _picker_query(ref: ImageRef) -> str:
-    """The search text for an existing image: its Flow caption, only if safe to type.
+    """Safe contiguous locator text; owned UUID/token checks establish identity.
 
-    A newline would press Enter mid-query and ``@`` opens a nested mention. Rather than
-    search a string other than the caption, refuse (SCENARIO #18, #19).
+    Preserve safe captions. Otherwise search the longest safe contiguous excerpt,
+    bounded to120characters. No safe text means bare @ picker; never type controls,
+    nested @ mentions or surrogate characters, and never alter native metadata.
     """
-    caption = ref.display_name
-    if (
-        not caption.strip()
-        or "@" in caption
-        # Control, format (zero-width, direction marks) and line/paragraph separators.
-        or any(unicodedata.category(ch) in {"Cc", "Cf", "Zl", "Zp"} for ch in caption)
-        or len(caption) > _CAPTION_MAX
-    ):
-        raise ReferenceNotFoundError(
-            detail=(
-                f"migrated host: image {ref.name} has no caption that can be searched "
-                f"safely ({len(caption)} chars), so it cannot be referenced in place"
-            ),
-        )
-    return caption.strip()
+    spans: list[str] = []
+    current: list[str] = []
+    for char in ref.display_name:
+        if char == "@" or unicodedata.category(char) in {"Cc", "Cf", "Cs", "Zl", "Zp"}:
+            spans.append("".join(current).strip()[:_CAPTION_MAX])
+            current.clear()
+        else:
+            current.append(char)
+    spans.append("".join(current).strip()[:_CAPTION_MAX])
+    return max(spans, key=len, default="")
 
 
 #: The Ingredients sub-mode holds references; Frames holds the i2v chips.
@@ -660,9 +656,6 @@ def _unported_image_form(request: GenerateImageRequest) -> str | None:
         # Eligibility comes from a same-project generated acknowledgement or
         # fresh native ownership proof; bare catalog/MCP flags are not proof.
         return "a reference given by Flow media UUID"
-    if any(not ref.display_name for ref in request.refs):
-        # Found by its Flow caption, then matched by thumbnail; Flow returned none.
-        return "a reference to an image Flow returned without a caption"
     if request.reference_entities and (
         len(request.reference_entities) != len(request.reference_entity_names)
         or any(not name for name in request.reference_entity_names)
@@ -2387,7 +2380,7 @@ class MigratedComposer:
         resets the settings and the composer, so each attempt redoes all three steps.
         """
         for ref in request.refs:
-            _picker_query(ref)  # an unusable caption is refused before any reload
+            _picker_query(ref)  # bounded safe locator; UUID/token proof remains required
         deadline = time.monotonic() + EXISTING_REF_WAIT_S
         while True:
             try:
@@ -2538,7 +2531,7 @@ class MigratedComposer:
         await page.keyboard.type(query, delay=100)
         await page.wait_for_timeout(2500)
         tokens = [str(t) for t in await page.evaluate(_OPTION_TOKENS_JS, PICKER_OPTION)]
-        if token in tokens:
+        if tokens.count(token) == 1:
             # The option's position: >0 means another image shares the caption (#21).
             log.info("migrated.existing_reference_option", option_index=tokens.index(token))
             for _ in range(tokens.index(token)):
@@ -2560,7 +2553,7 @@ class MigratedComposer:
         raise ReferenceNotFoundError(
             detail=(
                 f"migrated host: image {media_id} did not attach as a reference "
-                f"({len(tokens)} picker option(s) offered for its caption, none of them it)"
+                f"({len(tokens)} picker options; no unique matching owned image)"
             ),
         )
 

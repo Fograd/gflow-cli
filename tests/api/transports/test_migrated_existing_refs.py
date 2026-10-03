@@ -195,11 +195,14 @@ async def test_no_matching_option_is_refused_without_binding_anything() -> None:
     "caption",
     ["two\nlines", "say @hi", "", "   ", "x" * 121, "zero\u200bwidth", "line\u2028sep"],
 )
-async def test_an_unusable_caption_is_refused_before_typing(caption: str) -> None:
+async def test_unsafe_caption_uses_exact_owned_token(caption: str) -> None:
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[(caption, "tokNew")])
-    with pytest.raises(ReferenceNotFoundError):
-        await _attach(page, (_ref(caption),))
-    assert page.typed == []
+    from gflow_cli.api.transports.migrated_composer import _picker_query
+
+    assert await _attach(page, (_ref(caption),)) == (PARENT,)
+    query = _picker_query(_ref(caption))
+    assert query in page.typed
+    assert len(query) <= 120 and "@" not in query
 
 
 def _req(**kw: Any) -> GenerateImageRequest:
@@ -208,14 +211,14 @@ def _req(**kw: Any) -> GenerateImageRequest:
     )
 
 
-def test_only_an_in_project_captioned_reference_is_ported(tmp_path: Any) -> None:
+def test_only_an_in_project_reference_is_ported(tmp_path: Any) -> None:
     assert _unported_image_form(_req(refs=(_ref(),))) is None
     # A catalog/MCP UUID ref carries a caption too, but is not from this run's project:
     # it stays unported on flow.google.com (exit 36), as before #913.
     catalog = ImageRef(name=PARENT, display_name="a single red apple")
     assert _unported_image_form(_req(refs=(catalog,))) == "a reference given by Flow media UUID"
     no_caption = ImageRef(name=PARENT, in_project=True)
-    assert "without a caption" in (_unported_image_form(_req(refs=(no_caption,))) or "")
+    assert _unported_image_form(_req(refs=(no_caption,))) is None
     local = tmp_path / "x.png"
     local.write_bytes(b"\x89PNG")
     assert _unported_image_form(_req(refs=(_ref(),), ref_paths=(local,))) is not None

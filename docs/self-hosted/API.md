@@ -502,3 +502,13 @@ Missing playback remains optional; missing inventory is not proof of deletion.
 The selected project has no saved user voice fixture, so this enhancement has
 source/offline proof and no newly accepted live audio playback. R12 retains that
 acceptance requirement; no extra paid audio generation was attempted.
+
+#### Native image picker captions
+
+Captions locate an owned image; they do not establish ownership. Native UUID
+references use fresh project/media/workflow proof and exact thumbnail tokens.
+Long captions and captions containing at-signs, line breaks or formatting
+characters use one bounded safe contiguous excerpt. Blank captions use the bare
+picker. A missing or duplicate exact token stops attachment before generation.
+Canonical uploaded image references share this behavior. SDK, CLI, direct/queued
+MCP and REST reach this shared transport without additional request parameters.

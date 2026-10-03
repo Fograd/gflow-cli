@@ -40,9 +40,10 @@ def configured(monkeypatch, tmp_path):
     monkeypatch.setenv("GFLOW_CLI_HOME", values["HOME"])
     monkeypatch.setenv("GFLOW_CLI_HEADLESS", "false")
     reset_settings()
-    path = tmp_path / "synthetic-owned.png"
+    unsafe_caption = os.getenv("GFLOW_CLI_E2E_UPLOAD_UNSAFE_CAPTION") == "1"
+    path = tmp_path / ("unsafe@reference\ncaption.png" if unsafe_caption else "synthetic-owned.png")
     Image.new("RGB", (48, 32), (25, 85, 145)).save(path)
-    case = {**values, "path": path, "generation_requests": 0}
+    case = {**values, "path": path, "generation_requests": 0, "unsafe_caption": unsafe_caption}
     unique_name = migrated_composer._unique_display_name
 
     def capture_name(image_path):
@@ -103,6 +104,8 @@ def upload_and_bind(case):
                 with Path(case["IMAGE_UPLOAD_ALLOWANCE"]).open("x") as allowance:
                     allowance.write("one synthetic toolbar upload; never replay\n")
                 media_id, caption = await composer._upload_via_toolbar(page, project, case["path"])
+                if case["unsafe_caption"]:
+                    assert "@" in caption and "\n" in caption
                 for _ in range(12):
                     payload = await read_project_payload(page, project)
                     media = parse_media_snapshot(payload, project)["media"]

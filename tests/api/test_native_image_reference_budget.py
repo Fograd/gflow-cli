@@ -310,8 +310,8 @@ async def test_bare_uuid_hydrated_from_same_snapshot_becomes_composer_eligible(m
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "caption",
-    [None, "", "  ", 42, "x" * 4097],
-    ids=["missing", "empty", "blank", "nontext", "oversize"],
+    [42],
+    ids=["nontext"],
 )
 async def test_requested_image_missing_or_invalid_caption_fails_closed(monkeypatch, caption):
     from gflow_cli.api.image import ImageRef
@@ -399,7 +399,7 @@ async def test_caption_collision_preserves_distinct_owned_image_ids(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_caption_refusal_through_sdk_precedes_mint_checkpoint_and_submit(monkeypatch):
+async def test_inactive_image_through_sdk_precedes_mint_checkpoint_and_submit(monkeypatch):
     from gflow_cli.api.client import FlowApiClient
     from gflow_cli.api.image import ImageRef
 
@@ -407,7 +407,7 @@ async def test_caption_refusal_through_sdk_precedes_mint_checkpoint_and_submit(m
     monkeypatch.setattr(
         subject,
         "project_media",
-        lambda *args: [{"workflow_id": W1, "project_id": P, "archived": False, "caption": ""}],
+        lambda *args: [{"workflow_id": W1, "project_id": P, "archived": True, "caption": ""}],
     )
     client = object.__new__(FlowApiClient)
     client._checkout_page = fake._checkout_page
@@ -429,3 +429,22 @@ async def test_caption_refusal_through_sdk_precedes_mint_checkpoint_and_submit(m
     client._mint_recaptcha_token.assert_not_awaited()
     submit.assert_not_awaited()
     checkpoint.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("caption", [None, "", "  ", "x" * 4097])
+async def test_owned_identity_survives_missing_or_long_caption(monkeypatch, caption):
+    from gflow_cli.api.image import ImageRef
+
+    client = _fixtures(monkeypatch)
+    monkeypatch.setattr(
+        subject,
+        "project_media",
+        lambda *args: [{"workflow_id": W1, "project_id": P, "archived": False, "caption": caption}],
+    )
+    result = await subject.validate_native_image_references(
+        client, P, GenerateImageRequest(prompt="x", refs=(ImageRef(M1),))
+    )
+    assert result.refs[0].name == M1
+    assert result.refs[0].display_name == (caption or "")
+    client._checkin_page.assert_called_once_with("page")

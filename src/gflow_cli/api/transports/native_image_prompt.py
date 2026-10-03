@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from gflow_cli.api.reference_markers import ReferenceMarker, ResolvedReferencePrompt, TextSpan
@@ -130,10 +130,32 @@ async def materialize_reference_prompt(
         or set(names) != set(plan.character_ids)
     ):
         raise ValueError("Native image prompt attachments do not match the validated plan")
-    if any(not binding.media_id or not binding.name for binding in images.values()) or any(
+    if any(not binding.media_id for binding in images.values()) or any(
         not name for name in names.values()
     ):
         raise ValueError("Native image references require authoritative binding names")
+    from gflow_cli.api.image import ImageRef  # noqa: PLC0415
+    from gflow_cli.api.transports.migrated_composer import (  # noqa: PLC0415
+        _picker_query,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    unresolved = tuple(
+        ImageRef(binding.media_id, display_name=binding.name, in_project=True)
+        for binding in images.values()
+        if not binding.token
+        and (
+            not binding.name
+            or _picker_query(ImageRef(binding.media_id, display_name=binding.name)) != binding.name
+        )
+    )
+    if unresolved:
+        tokens = await composer.await_existing_references(page, unresolved)
+        images = {
+            key: replace(binding, token=tokens[binding.media_id])
+            if binding.media_id in tokens
+            else binding
+            for key, binding in images.items()
+        }
     mentioned = {span.identifier for span in plan.spans if isinstance(span, ReferenceMarker)}
     spans: list[ReferenceMarker | TextSpan] = []
     for identifier in (*plan.image_ids, *plan.character_ids):
@@ -160,7 +182,7 @@ async def materialize_reference_prompt(
             if binding.token:
                 await composer._mention_by_token(  # pyright: ignore[reportPrivateUsage]
                     page,
-                    binding.name,
+                    _picker_query(ImageRef(binding.media_id, display_name=binding.name)),
                     binding.token,
                     binding.media_id,
                     expect_chips=count,

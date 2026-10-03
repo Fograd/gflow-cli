@@ -66,8 +66,10 @@ def _hydrate_owned_images(
         if len(matches) != 1:
             raise ValueError("Ambiguous native image workflow")
         caption = matches[0].get("caption")
-        if not isinstance(caption, str) or not caption.strip() or len(caption) > 4096:
-            raise ValueError("Native image caption unavailable")
+        if caption is None:
+            caption = ""
+        elif not isinstance(caption, str):
+            raise ValueError("Native image caption has an invalid type")
         # Captions are search labels, not identities. The migrated picker matches
         # this owned media UUID's exact grid token; the submit guard checks its ID.
         hydrated.append(replace(ref, display_name=caption, in_project=True))

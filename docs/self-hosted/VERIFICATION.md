@@ -879,3 +879,21 @@ CC LXC at3d35e1d5 after both queues were idle. REST/MCP services active, actual
 system-preset detail returned200 and registered MCP retained37tools including
 saved-voice detail. These deployment health checks do not establish accepted
 saved-user-audio playback. Character-image live/deployed proof is separate above.
+
+### R01 unsafe-caption image references — current delivery
+
+A live one-upload BDD initially stopped canonical composition before generation:
+the local-upload branch typed the full unsafe caption. After routing unsafe
+canonical bindings through the shared exact-owned grid token and safe excerpt,
+the same tagged scenario passed once (1 passed, 2 warnings, 37.41 seconds).
+The synthetic filename contained both an at-sign and a line break. Fresh native
+media/workflow ownership, exact canonical binding, media chip and fixture archive
+were checked. Generation requests were blocked and remained zero. No paid
+generation allowance was consumed. Both test runs cleaned up their new fixture.
+
+Blank/missing and long captions retain the positively verified native image ID.
+Nontext caption metadata, ambiguous workflows, inactive images and duplicate
+picker tokens still refuse. The locator is at most 120 safe contiguous characters;
+an empty locator uses the bare picker and refuses if its exact token is absent.
+Actual native empty-caption and generated canonical output acceptance remain
+unverified; this attachment result does not complete the R12 campaign.

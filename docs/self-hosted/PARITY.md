@@ -160,8 +160,13 @@ separately under R12; an existing command or passing mock is insufficient eviden
   output remain pending. The SDK global caption-uniqueness restriction is removed
   in published/deployed sourcefd22da6a; a tagged live repeated-caption hydration/
   attachment BDD passed (one pass, one deselected, two warnings,31.33seconds)
-  without generation. Unsafe captions remain a separate measured picker-contract
-  gap; canonical grounding and accepted output still need their own proof.
+  without generation. Unsafe captions now use a bounded contiguous safe excerpt and require a unique
+  exact owned thumbnail token. Canonical uploaded references use that same token
+  path when their caption cannot be typed safely. The live unsafe-caption upload/
+  canonical-attachment/archive BDD passed in37.41seconds with zero generation
+  requests. Empty captions preserve fresh owned UUIDs and use a bare picker,
+  but actual empty-caption live coverage is pending. Accepted output still needs
+  its own R12 proof.
 - [ ] **R02 — Native media lookup and fresh URLs.** Remaining work is owned
   image/video/voice/character-reference/thumbnail lookup beyond the local registry,
   remaining typed detail/thumbnail variants and verified composite translation. Image/video UUID URL/download adapters are implemented in the current batch with selected-account/project ownership and no Store synthesis. Correlate account,
