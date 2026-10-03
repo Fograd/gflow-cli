@@ -218,3 +218,8 @@ Native asset lookup/download: [usage](USAGE.md#fresh-native-media-lookup-and-dow
 Character show supports --include-urls --json for fresh confidential native
 reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
 defaults remain unchanged; unresolved ownership refuses rather than guessing.
+
+Bounded native account project traversal and its continuation/count semantics:
+[CLI usage](USAGE.md#bounded-native-project-traversal),
+[MCP](MCP.md#bounded-native-project-traversal),
+[self-hosted API](self-hosted/API.md#project-catalog-traversal).

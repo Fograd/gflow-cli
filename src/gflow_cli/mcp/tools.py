@@ -38,6 +38,7 @@ from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
+from gflow_cli.api.native_catalogs import validate_project_traversal
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
 from gflow_cli.auth import verification
@@ -2007,7 +2008,8 @@ async def gflow_upscale_video(
     name="gflow_list_projects",
     description=(
         "List local catalog projects by default, or source=google for a native account page. "
-        "Google pages use an opaque cursor and fixed size 21; completeness remains unknown."
+        "Google pages use an opaque cursor and fixed size 21; optional bounded all_pages "
+        "traversal. Completeness remains unknown."
     ),
 )
 @_guarded
@@ -2017,6 +2019,8 @@ async def gflow_list_projects(
     offset: int = 0,
     source: str = "local",
     cursor: str | None = None,
+    all_pages: bool = False,
+    max_pages: int | None = None,
 ) -> dict[str, Any]:
     """List local SQLite rows or an explicitly selected native Google page.
 
@@ -2024,15 +2028,24 @@ async def gflow_list_projects(
         profile: gflow-cli profile name to filter by.
         source: local catalog (default) or live google account snapshot.
         cursor: Opaque next_cursor from a Google page; at most 4096 characters.
+        all_pages: Traverse Google pages with one browser lease; default false.
+        max_pages: Optional cap 1–100 with all_pages; default 100.
         limit: Local page size, default 50; omit for Google pages.
         offset: Number of rows to skip — pass the previous page's
             ``next_offset`` to fetch the next page (#498).
 
     Returns:
         Local: projects/count/offset/has_more/next_offset. Google: projects,
-        next_cursor, returned_count, scope and complete=None. Google snapshots
+        next_cursor, returned_count, pages_read, pagination_exhausted, scope
+        and complete=None. Google snapshots
         neither update local catalog entries nor infer missing-project deletion.
     """
+    try:
+        validate_project_traversal(all_pages, max_pages)
+    except ValueError as exc:
+        return _bad_param("Invalid native catalog controls", str(exc))
+    if source != "google" and (all_pages or max_pages is not None):
+        return _bad_param("Invalid native catalog controls", "Traversal requires source=google")
     if source not in {"local", "google"}:
         return _bad_param("Invalid native catalog controls", "source must be local or google")
     if source == "google":
@@ -2053,7 +2066,13 @@ async def gflow_list_projects(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                snapshot = await client.list_native_projects(cursor=cursor)
+                snapshot = (
+                    await client.list_native_projects(
+                        cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                    )
+                    if all_pages
+                    else await client.list_native_projects(cursor=cursor)
+                )
         return {"status": "ok", **snapshot}
     if cursor is not None:
         return _bad_param("Invalid native catalog controls", "cursor requires source=google")

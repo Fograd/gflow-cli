@@ -320,7 +320,7 @@ identities; inspect before creating again.
 ### Native read-only inventory
 
 `gflow project list` defaults to the local catalog. Explicit `--source google`
-reads one native account page (fixed 21 rows; omit --limit), with `--cursor`
+reads one native account page by default (fixed 21 rows; omit --limit), with `--cursor`
 forwarding the returned opaque cursor. `gflow project media --project <UUID>
 --source google --json` reads mixed native media identifiers/kinds/dimensions.
 Both return unknown completeness and perform no local sync or absence deletion.
@@ -390,3 +390,9 @@ Native reads: project get-media --project UUID --media-id UUID returns confident
 Character show supports --include-urls --json for fresh confidential native
 reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
 defaults remain unchanged; unresolved ownership refuses rather than guessing.
+
+Native project traversal: `gflow project list --source google --all-pages
+--max-pages 2 --json`; MCP `gflow_list_projects(source="google",
+all_pages=True, max_pages=2)`. Page cap1–100 defaults100. Local source and a
+cap without traversal refuse. Results preserve next cursor, pages read and
+pagination exhaustion; complete remains unknown and absence never means deleted.

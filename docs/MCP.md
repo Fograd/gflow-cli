@@ -683,3 +683,18 @@ Missing playback remains optional; missing inventory is not proof of deletion.
 The selected project has no saved user voice fixture, so this enhancement has
 source/offline proof and no newly accepted live audio playback. R12 retains that
 acceptance requirement; no extra paid audio generation was attempted.
+
+### Bounded native project traversal
+
+One Google page remains the default. CLI: `gflow project list --source google
+--all-pages --max-pages 2 --profile pro1 --json`. Direct MCP:
+`gflow_list_projects(source="google", all_pages=True, max_pages=2)`.
+The optional page cap is 1–100 (default100) and requires traversal; local source
+rejects these controls. A supplied cursor starts a continuation traversal.
+Results include `pages_read`, `returned_count`, `pagination_exhausted` and
+`next_cursor`. A capped traversal retains the unconsumed cursor. Cursor cycles
+or duplicate project identities refuse. The one-page browser lease has a
+60-second deadline; traversal has180seconds including checkout. Even exhausted
+pagination leaves `complete=None`: it is not a stable account-history snapshot
+and does not update catalogs or infer deletion. There is no queued mutation for
+this synchronous read-only tool.

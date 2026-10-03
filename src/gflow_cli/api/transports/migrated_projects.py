@@ -53,6 +53,10 @@ async def list_projects(page: Any, cursor: object = None) -> dict[str, Any]:
         await page.goto("https://flow.google.com/u/0/")
     await page.wait_for_function("() => Boolean(window.WIZ_global_data?.SNlM0e)", timeout=10000)
     payload = await native_rpc(
-        page, "UpteDb", ["projects/*", 21, cursor, None, None, None, [1]], "/u/0/"
+        page,
+        "UpteDb",
+        ["projects/*", 21, cursor, None, None, None, [1]],
+        "/u/0/",
+        require_single=True,
     )
     return parse_projects(payload)

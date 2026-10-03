@@ -8,7 +8,9 @@ Scenarios D1 auth existinglease; D2 generation guarded; D3 unique exacttoken; D4
 - [x] Red safe-query/duplicate-token tests.
 - [x] Deterministic contiguous excerpt<=120 or bare picker; unique token required.
 - [x] Fresh-owned zero-generation attachment BDD.
-- [ ] Docs and evidence, required gate/council/publication/deployment.
+- [x] Docs and evidence, required gate/council/publication/deployment.
 Only one authorized image-generation slot remains; this attachment batch does not satisfy all generation acceptance or shrink R01/R02/full roadmap.
 
 Live canonical unsafe-caption attachment passed 37.41s after caller-path correction; two synthetic fixtures archived, no generation. Missing/nontext captions are distinct: None becomes bare query, nontext refuses. Safe captions preserve the previous local name path; unsafe uploaded references discover a fresh exact owned grid token.
+
+Published/deployed sourcef802e754; offline6037passed5skips89%coverage. Council correction for emptytokenless canonical binding resolved before publication.

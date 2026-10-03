@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api.transports.migrated_catalog import parse_native_voices
@@ -80,25 +81,80 @@ def _native_only(client: FlowApiClient) -> None:
         raise ConfigurationError(detail="Native inventory requires the migrated Flow host")
 
 
-async def projects_snapshot(client: FlowApiClient, cursor: object = None) -> dict[str, Any]:
+def validate_project_traversal(all_pages: object, max_pages: object) -> int:
+    """Validate optional traversal before touching a browser/profile."""
+    if type(all_pages) is not bool:
+        raise ValueError("all_pages must be a boolean")
+    if max_pages is not None and (type(max_pages) is not int or not 1 <= max_pages <= 100):
+        raise ValueError("max_pages must be an integer from 1 to 100")
+    if not all_pages and max_pages is not None:
+        raise ValueError("max_pages requires all_pages")
+    return max_pages if max_pages is not None else (100 if all_pages else 1)
+
+
+async def projects_snapshot(
+    client: FlowApiClient,
+    cursor: object = None,
+    *,
+    all_pages: bool = False,
+    max_pages: int | None = None,
+) -> dict[str, Any]:
     _native_only(client)
-    if cursor is not None and (not isinstance(cursor, str) or len(cursor) > MAX_CURSOR_LENGTH):
-        raise ConfigurationError(detail="Native project cursor requires at most 4096 characters")
-    page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
     try:
-        result = await list_projects(page, cursor)
-        return {
-            **result,
-            "returned_count": len(result["projects"]),
-            "scope": "one native account project page",
-            "complete": None,
-        }
+        budget = validate_project_traversal(all_pages, max_pages)
     except ValueError as exc:
-        raise WireFormatError(
-            detail="Native project listing has an invalid shape", route="projects.native"
-        ) from exc
-    finally:
-        client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
+        raise ConfigurationError(detail=str(exc)) from None
+    if cursor is not None and (
+        not isinstance(cursor, str) or not cursor or len(cursor) > MAX_CURSOR_LENGTH
+    ):
+        raise ConfigurationError(detail="Native project cursor requires 1 to 4096 characters")
+    async with asyncio.timeout(180 if all_pages else 60):
+        page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
+        try:
+            projects: list[dict[str, Any]] = []
+            seen_ids: set[str] = set()
+            seen_cursors: set[str] = {cursor} if cursor is not None else set()
+            current = cursor
+            exhausted = False
+            pages_read = 0
+            for _ in range(budget):
+                result = await list_projects(page, current)
+                pages_read += 1
+                for row in result["projects"]:
+                    identifier = str(row["project_id"]).lower()
+                    if identifier in seen_ids:
+                        raise ValueError("Duplicate native project identity during traversal")
+                    seen_ids.add(identifier)
+                    projects.append(row)
+                current = result["next_cursor"]
+                if current is None:
+                    exhausted = True
+                    break
+                if current in seen_cursors:
+                    raise ValueError("Native project cursor cycle")
+                seen_cursors.add(current)
+            scope = (
+                "bounded native account project traversal"
+                if all_pages
+                else "one native account project page"
+            )
+            if cursor is not None:
+                scope += "; continuation from supplied cursor"
+            return {
+                "projects": projects,
+                "next_cursor": current,
+                "returned_count": len(projects),
+                "pages_read": pages_read,
+                "pagination_exhausted": exhausted,
+                "scope": scope,
+                "complete": None,
+            }
+        except ValueError as exc:
+            raise WireFormatError(
+                detail="Native project listing has an invalid shape", route="projects.native"
+            ) from exc
+        finally:
+            client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
 
 
 async def media_snapshot(client: FlowApiClient, project_id: str) -> dict[str, Any]:

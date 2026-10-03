@@ -3598,11 +3598,17 @@ class FlowApiClient:
 
         return await resolve_native_image_aspect(self, project_id, media_id)
 
-    async def list_native_projects(self, cursor: str | None = None) -> dict[str, Any]:
-        """Read one account project page; returned_count is not account history total."""
+    async def list_native_projects(
+        self,
+        cursor: str | None = None,
+        *,
+        all_pages: bool = False,
+        max_pages: int | None = None,
+    ) -> dict[str, Any]:
+        """Read bounded account project pages; exhaustion is not snapshot completeness."""
         from gflow_cli.api.native_catalogs import projects_snapshot
 
-        return await projects_snapshot(self, cursor)
+        return await projects_snapshot(self, cursor, all_pages=all_pages, max_pages=max_pages)
 
     async def list_native_media(self, project_id: str) -> dict[str, Any]:
         """Read stable asset IDs/kinds/dimensions; completeness and origin remain unknown.

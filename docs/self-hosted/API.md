@@ -486,7 +486,13 @@ the selected-project relationships are positively established, with
 `Cache-Control: no-store`. Existing account/project selection applies.
 Voice detail distinguishes system presets from owned saved user TTS.
 Unresolved or mismatched detail returns502 instead of inferring404 from a partial
-snapshot. Composite vendor refs and nonprojected thumbnail variants remain open.
+snapshot. An omitted primary-media projection can be resolved from its fresh
+character-owned active workflow, only after strict GetMedia proves the exact
+project/media/workflow/image identity. A separately projected, typed thumbnail
+can be read through its character-owned workflow without being inserted into
+ordered references. All distinct image/thumbnail reads share a sixteen-read and
+sixty-second budget. Contradictory projections refuse. Composite vendor refs and
+thumbnail variants with no proven workflow remain open.
 
 
 ### Fresh saved user voice detail
@@ -512,3 +518,17 @@ characters use one bounded safe contiguous excerpt. Blank captions use the bare
 picker. A missing or duplicate exact token stops attachment before generation.
 Canonical uploaded image references share this behavior. SDK, CLI, direct/queued
 MCP and REST reach this shared transport without additional request parameters.
+
+#### Project catalog traversal
+
+`GET /assets/projects/{email}?source=google&allPages=true&maxPages=2`
+follows Google's opaque returned cursors using one browser lease. Default remains
+one page. `allPages` requires literal `true` or `false`; `maxPages` accepts1–100
+only with `allPages=true`, default100. Local source rejects both controls.
+A supplied `cursor` starts a continuation, not a full-account census.
+Responses expose `returnedCount`, `pagesRead`, `paginationExhausted`,
+`cursor`, `scope` and `complete:null`. Page caps preserve the continuation.
+Cycles/duplicate IDs or malformed correlated responses fail explicitly.
+Traversal is bounded at180seconds inside the SDK and240seconds for the REST
+worker including browser startup. No catalog writes or absence-based deletion
+follow this read. SDK: `list_native_projects(all_pages=True, max_pages=2)`.

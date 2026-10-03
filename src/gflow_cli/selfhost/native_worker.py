@@ -22,7 +22,6 @@ from gflow_cli.api.transports.migrated_characters import (
     CharacterUpdateError,
     mutate_character,
 )
-from gflow_cli.api.transports.migrated_projects import list_projects
 from gflow_cli.api.transports.migrated_resources import (
     read_project,
     read_project_payload,
@@ -76,6 +75,15 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
+        if verb == "projects-list":
+            return {
+                "status": "ok",
+                **await client.list_native_projects(
+                    cursor=payload.get("cursor"),
+                    all_pages=payload.get("all_pages", False),
+                    max_pages=payload.get("max_pages"),
+                ),
+            }
         if verb in {"asset-get", "asset-download"}:
             from gflow_cli.services.native_assets import asset_payload
 
@@ -141,8 +149,6 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
             }
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
-            if verb == "projects-list":
-                return {"status": "ok", **await list_projects(page, payload.get("cursor"))}
             if verb in {"character-create", "character-update", "character-delete"}:
                 workflow_id = payload.get("workflow_id")
                 verified_image = payload.get("image_reference_confirmed", False)

@@ -418,3 +418,9 @@ uploaded audio. Native credit/model catalogs passed live. R2V browser-token and 
 Character show supports --include-urls --json for fresh confidential native
 reference-image/thumbnail detail, mirrored by MCP include_urls. Metadata-only
 defaults remain unchanged; unresolved ownership refuses rather than guessing.
+
+Native Google project inventories support bounded multi-page reads:
+`gflow project list --source google --all-pages --max-pages 2 --json`.
+Direct MCP mirrors `all_pages/max_pages`; self-hosted REST uses
+`allPages/maxPages`. A page cap preserves continuation, and pagination
+exhaustion does not establish complete account history or deletion.

@@ -44,7 +44,6 @@ def test_order_follows_entity_not_timeline():
         "duplicate_workflow",
         "duplicate_entity",
         "wrong_kind",
-        "missing_primary",
         "duplicate_ref",
     ],
 )
@@ -60,8 +59,6 @@ def test_ambiguous_or_unowned_relationship_refuses(mutation):
         payload[5].append(deepcopy(payload[5][0]))
     elif mutation == "wrong_kind":
         payload[2][0][6] = None
-    elif mutation == "missing_primary":
-        payload[1][0][3][4] = E
     else:
         payload[5][0][3][2][0].append([W])
     with pytest.raises(ValueError):

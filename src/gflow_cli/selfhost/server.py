@@ -26,6 +26,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from gflow_cli.api.native_catalogs import validate_project_traversal
 from gflow_cli.selfhost.config import (
     MAX_ASSET,
     MODEL_ALIASES,
@@ -149,7 +150,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
-                    allowed = {"limit", "cursor", "source"}
+                    allowed = {"limit", "cursor", "source", "allPages", "maxPages"}
                 elif path.startswith("/v1/google-flow/assets/") and not path.endswith("/download"):
                     allowed = {"raw", "source", "email", "projectId"}
             if request.method == "DELETE" and path.startswith("/v1/google-flow/characters/"):
@@ -973,10 +974,29 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         source = request.query_params.get("source", "local")
         if source not in ("local", "google"):
             raise HTTPException(422, "source requires local or google")
+        if source != "google" and any(
+            key in request.query_params for key in ("allPages", "maxPages")
+        ):
+            raise HTTPException(422, "Traversal controls require source=google")
         if source == "google":
+            raw_all = request.query_params.get("allPages", "false")
+            if raw_all not in ("true", "false"):
+                raise HTTPException(422, "allPages requires true or false")
+            all_pages = raw_all == "true"
+            raw_max = request.query_params.get("maxPages")
+            try:
+                max_pages = int(raw_max) if raw_max is not None else None
+                validate_project_traversal(all_pages, max_pages)
+            except ValueError:
+                raise HTTPException(
+                    422, "maxPages requires allPages=true and an integer 1 to 100"
+                ) from None
+            controls: dict[str, Any] = {}
+            if all_pages:
+                controls = {"all_pages": True, "max_pages": max_pages}
             cursor = request.query_params.get("cursor")
-            if cursor is not None and len(cursor) > 4096:
-                raise HTTPException(422, "Native project cursor exceeds 4096 characters")
+            if cursor is not None and (not cursor or len(cursor) > 4096):
+                raise HTTPException(422, "Native project cursor requires 1 to 4096 characters")
             if "limit" in request.query_params:
                 raise HTTPException(422, "Native project pages have a fixed size of 21")
             code, raw = await subprocess_run(
@@ -986,9 +1006,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     "gflow_cli.selfhost.native_worker",
                     "projects-list",
                     profile,
-                    json.dumps({"cursor": cursor}),
+                    json.dumps({"cursor": cursor, **controls}),
                 ],
-                60,
+                240 if all_pages else 90,
             )
             if code:
                 raise HTTPException(502, "Google project catalog unavailable")
@@ -1009,7 +1029,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     for row in result["projects"]
                 ],
                 "cursor": result.get("next_cursor"),
-                "scope": "native Google account project catalog",
+                "scope": result.get("scope", "native Google account project catalog"),
+                "returnedCount": result.get("returned_count", len(result["projects"])),
+                "pagesRead": result.get("pages_read", 1),
+                "paginationExhausted": result.get(
+                    "pagination_exhausted", result.get("next_cursor") is None
+                ),
+                "complete": None,
             }
         code, output = await subprocess_run(
             [

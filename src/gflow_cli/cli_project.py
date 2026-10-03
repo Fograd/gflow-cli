@@ -18,6 +18,7 @@ from gflow_cli._cli_helpers import (
 )
 from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
+from gflow_cli.api.native_catalogs import validate_project_traversal
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.cli_data import _db_path, _emit_projects_table
 from gflow_cli.config import get_settings
@@ -49,6 +50,15 @@ def project() -> None:
     "--source", type=click.Choice(["local", "google"]), default="local", show_default=True
 )
 @click.option("--cursor", default=None, help="Opaque Google project page cursor.")
+@click.option(
+    "--all-pages", is_flag=True, help="Traverse Google project pages within bounded limits."
+)
+@click.option(
+    "--max-pages",
+    default=None,
+    type=click.IntRange(1, 100),
+    help="Page cap with --all-pages; default 100.",
+)
 @click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON output.")
 @click.pass_context
 def list_subcommand(
@@ -57,9 +67,17 @@ def list_subcommand(
     limit: int,
     source: str,
     cursor: str | None,
+    all_pages: bool,
+    max_pages: int | None,
     as_json: bool,
 ) -> None:
-    """List local projects or an explicit read-only Google account page."""
+    """List local projects or bounded read-only Google account pages."""
+    try:
+        validate_project_traversal(all_pages, max_pages)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from None
+    if source != "google" and (all_pages or max_pages is not None):
+        raise click.BadParameter("Traversal controls require --source google")
     if source == "google":
         if ctx.get_parameter_source("limit") != click.core.ParameterSource.DEFAULT:
             raise click.BadParameter("Google pages have a fixed size of 21; omit --limit")
@@ -72,13 +90,24 @@ def list_subcommand(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                snapshot = await client.list_native_projects(cursor=cursor)
+                snapshot = (
+                    await client.list_native_projects(
+                        cursor=cursor, all_pages=all_pages, max_pages=max_pages
+                    )
+                    if all_pages
+                    else await client.list_native_projects(cursor=cursor)
+                )
             if as_json:
                 json_output.emit({"status": "ok", **snapshot})
             else:
                 for row in snapshot["projects"]:
                     console.print(f"{row['project_id']}  {row['name']}", markup=False)
                 console.print(f"Next cursor: {snapshot['next_cursor'] or '(none)'}", markup=False)
+                if all_pages:
+                    state = (
+                        "exhausted" if snapshot.get("pagination_exhausted") else "page cap reached"
+                    )
+                    console.print(f"Traversal: {state}; pages read: {snapshot.get('pages_read')}")
                 console.print("Snapshot completeness: unknown")
 
         run_with_handlers(act, cli_command="project list", as_json=as_json)

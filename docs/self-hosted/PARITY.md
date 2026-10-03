@@ -144,7 +144,7 @@ item only when its implementation, applicable SDK/CLI/direct and queued MCP/REST
 surfaces, documentation and relevant tests are complete. Record live acceptance
 separately under R12; an existing command or passing mock is insufficient evidence.
 
-- [ ] **R01 — Current Flow image composer and asset picker.** Finish and integrate
+- [x] **R01 — Current Flow image composer and asset picker.** Finish and integrate
   the current-cohort composer/grid work so local references, native UUIDs, Auto
   sizing and canonical image/character references reach the correct owned assets.
   Use fresh structural/source evidence; resolve ambiguity before submission.
@@ -187,11 +187,25 @@ separately under R12; an existing command or passing mock is insufficient eviden
   in39.95seconds with zero generation requests; the final complete offline suite
   passed5934tests with5skips at89.00%coverage. These establish implementation and
   attachment, not accepted mixed/native REST or registered MCP output; R12 retains
-  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; this image/video batch is published/deployed atb3d25237. Registered HTTP MCP37tools, REST native URL/raw video and MCP lookup/image download passed actual deployed read checks. Character reference/thumbnail detail is now implemented in the working tree with ordered workflow-parent/primary-image joins and SDK/CLI/MCP/REST wiring. The tagged live detail BDD passed in39.12seconds with fixture cleanup and zero generation. This character-image batch is published/deployed at1216368e; actual deployed REST no-store and registered MCP include_urls reference/thumbnail reads passed with fixture removal; nonprojected thumbnail forms and full voice/composite semantics remain open.
+  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; this image/video batch is published/deployed atb3d25237. Registered HTTP MCP37tools, REST native URL/raw video and MCP lookup/image download passed actual deployed read checks. Character reference/thumbnail detail is now implemented in the working tree with ordered workflow-parent/primary-image joins and SDK/CLI/MCP/REST wiring. The tagged live detail BDD passed in39.12seconds with fixture cleanup and zero generation. This character-image batch is published/deployed at1216368e; actual deployed REST no-store and registered MCP include_urls reference/thumbnail reads passed with fixture removal; Candidate primary images omitted from the media projection and independently
+projected thumbnails now have strict owned workflow/GetMedia adapters; unresolved
+workflow variants and composite semantics remain open. Saved-user voice fresh
+performance/dialogue/preset/playback details are published at3d35e1d; live saved
+user playback coverage remains R12. R01 caption implementation is published and
+deployed atf802e754 with6037offline tests passing and the37.41s no-generation
+unsafe-caption canonical attachment proof.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial
   snapshot or absent row must not imply deletion.
+  Bounded native account project traversal is now implemented across SDK,
+  CLI `--all-pages/--max-pages`, direct MCP and REST `allPages/maxPages`.
+  Counts are unique returned identities; page caps preserve continuation.
+  Exhaustion is reported separately from `complete=None`; cycles/duplicates
+  refuse and no absent row triggers deletion. The live two-page read-only
+  BDD passed in9.04seconds, then repeated in13.86seconds with concurrency
+  explicitly pinned to one and zero generation. Attached media/history and
+  account-wide character/user-voice inventories remain open.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system

@@ -46,21 +46,42 @@ def character_image_handles(payload: Any, *, project_id: str, entity_id: str) ->
             or owned[3][2]
         ):
             raise ValueError("Character workflow ownership does not match")
-        primary: Any = cast(list[Any], owned[3])[4]
-        rows = [
-            row
-            for row in media
-            if row["workflow_id"] == workflow
-            and row["media_id"] == primary
-            and row["kind"] == "image"
-        ]
-        if len(rows) != 1:
-            raise ValueError("Character primary image is unresolved")
+        primary = validate_identifier(cast(list[Any], owned[3])[4])
+        # A missing projection is not evidence of missing media. This handle
+        # remains a candidate until strict GetMedia verifies its full triple/type.
+        rows = [row for row in media if row["media_id"] == primary]
+        if rows and (
+            len(rows) != 1 or rows[0]["workflow_id"] != workflow or rows[0]["kind"] != "image"
+        ):
+            raise ValueError("Character primary image projection contradicts ownership")
         handles.append({"workflow_id": workflow, "media_id": primary})
+    if len({handle["media_id"] for handle in handles}) != len(handles):
+        raise ValueError("Character primary identities are ambiguous")
     thumbnail = character.get("thumbnail_media_id")
     thumbnails = [handle for handle in handles if handle["media_id"] == thumbnail]
-    if thumbnail is not None and len(thumbnails) != 1:
-        raise ValueError("Character thumbnail ownership is unresolved")
+    if thumbnail is not None and not thumbnails:
+        rows = [row for row in media if row["media_id"] == thumbnail and row["kind"] == "image"]
+        if len(rows) != 1:
+            raise ValueError("Character thumbnail ownership is unresolved")
+        workflow = rows[0]["workflow_id"]
+        workflows = [
+            row for row in payload[1] if isinstance(row, list) and row and row[0] == workflow
+        ]
+        if len(workflows) != 1:
+            raise ValueError("Character thumbnail workflow is ambiguous")
+        owned = workflows[0]
+        if (
+            len(owned) < 6
+            or owned[4] != project
+            or owned[5] != entity
+            or not isinstance(owned[3], list)
+            or len(cast(list[Any], owned[3])) < 3
+            or owned[3][2]
+        ):
+            raise ValueError("Character thumbnail workflow ownership does not match")
+        thumbnails = [{"workflow_id": workflow, "media_id": thumbnail}]
+    if len({handle["media_id"] for handle in [*handles, *thumbnails]}) > 16:
+        raise ValueError("Character detail exceeds the bounded read budget")
     return {
         "character": character,
         "references": handles,
@@ -95,7 +116,14 @@ async def lookup_character(
         )
         result = dict(joined["character"])
         references: list[dict[str, str]] = []
-        for handle in joined["references"]:
+        thumbnail = joined["thumbnail"]
+        distinct = list(joined["references"])
+        if thumbnail is not None and not any(
+            row["media_id"] == thumbnail["media_id"] for row in distinct
+        ):
+            distinct.append(thumbnail)
+        urls: dict[str, str] = {}
+        for handle in distinct:
             detail = await native_rpc(
                 page,
                 "as29s",
@@ -110,13 +138,13 @@ async def lookup_character(
                 workflow_id=handle["workflow_id"],
                 kind="image",
             )
-            references.append({**handle, "preview_url": asset.url})
+            urls[handle["media_id"]] = asset.url
+        references = [
+            {**handle, "preview_url": urls[handle["media_id"]]} for handle in joined["references"]
+        ]
         result["image_references"] = references
-        thumbnail = joined["thumbnail"]
         if thumbnail is not None:
-            result["thumbnail_url"] = next(
-                row["preview_url"] for row in references if row["media_id"] == thumbnail["media_id"]
-            )
+            result["thumbnail_url"] = urls[thumbnail["media_id"]]
         voice = result.get("voice")
         if voice:
             if result.get("preset_voice_id"):

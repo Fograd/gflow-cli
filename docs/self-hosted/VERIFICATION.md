@@ -897,3 +897,43 @@ picker tokens still refuse. The locator is at most 120 safe contiguous character
 an empty locator uses the bare picker and refuses if its exact token is absent.
 Actual native empty-caption and generated canonical output acceptance remain
 unverified; this attachment result does not complete the R12 campaign.
+
+### R02 character projection variants — implementation
+
+A fresh character-owned active workflow's primary media ID is now a candidate
+when the project media projection omits it. It yields a URL only after strict
+GetMedia proves its exact project/media/workflow/image identity. A present
+contradictory projection still refuses. Independently projected character
+thumbnails require a unique typed image and active character-owned workflow;
+they remain separate from ordered references and share the sixteen-read budget.
+Focused tests cover omission, contradictory type/workflow, unrelated/archived
+thumbnail ownership, strict decoder refusal, extra thumbnail reads and budget.
+Native omission/independent-thumbnail live cohorts remain unverified for R12.
+No guessed GetWorkflow contract or vendor composite translation was added.
+
+R01 sourcef802e754 was published to all three GitHub branches and deployed on
+CC LXC after idle-queue checks. The full offline suite passed6037tests,5skips,
+15warnings in183.77seconds at89%coverage; services restarted active.
+
+### R03 bounded account project traversal — current batch
+
+The tagged real two-page traversal BDD passed once (1 passed, 2 warnings,
+9.04seconds) using the existing logged-in profile. It checked unique project
+identities, returned count, page count, honest cursor/exhaustion, unknown
+snapshot completeness, and zero generation requests. The account profile and
+IDs remain private. This does not establish complete attached media/history or
+account-wide character/user-voice synchronization.
+SDK/CLI/direct MCP/REST/private worker share bounded traversal, validation and
+continuation behavior. Focused combined lookup/traversal and adapter tests
+passed85tests in2.22seconds. Public transport uses one correlated page response.
+
+The traversal BDD was repeated with concurrency explicitly pinned to one so
+its generation guard covers the exact SDK page (1passed,2warnings,13.86seconds).
+The complete offline suite passed6068tests,5skips,15warnings in187.08seconds
+at89%coverage. Lint, formatting, types, repo hygiene, doc links, website privacy/
+synchronization and council-memory checks passed. Review found the test-page
+guard ambiguity and it was corrected before publication. Public mirror sweep:
+SDK/CLI/direct MCP/private REST worker carry identical controls; no queued
+mutation applies to this synchronous read; README/AGENTS/INDEX/USAGE/MCP,
+canonical/plugin skill and website documentation agree. Existing typed errors
+and exit codes remain unchanged.
