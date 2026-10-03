@@ -129,7 +129,8 @@ chosen provider; configured keys and solved tokens do not prove Google acceptanc
 - [x] Native image2K upscaling through CLI, REST and MCP, with accepted live output.
 - [x] Auto sizing from local references and owned native image UUID dimensions on
   SDK/CLI/MCP. Native UUID sizing passed a read-only live test; accepted Auto
-  generation remains part of R01/R12.
+  generation passed through the local-reference CLI; native UUID and registered
+  MCP/REST acceptance remain part of R01/R12.
 - [x] Automatic video-edit end from measured source duration, with explicit
   overrides and SDK/CLI/MCP/REST wiring. Read-only duration verification passed;
   edited-video rendering remains part of R12.
@@ -150,15 +151,20 @@ separately under R12; an existing command or passing mock is insufficient eviden
   Current evidence: expanded chat removed the mode chip before the old recovery
   checked it. A bounded close-then-reprobe fix passed the live zero-submit BDD
   (one pass, two warnings,15.21seconds); classic settings became visible. The
-  grid draft is still not deployed, and accepted Auto/reference generation is
-  still pending. Next: finish recovery regressions/gates, then exact asset
-  discovery and one justified bounded image test.
+  recovery is published/deployed at64974ba0. A count-one local-reference Auto CLI
+  BDD passed (one pass, one skip, three deselected, two warnings,55.37seconds),
+  with a decoded image and expected aspect metadata. The grid draft is still
+  not deployed; native UUID/canonical-reference and registered MCP/REST accepted
+  output remain pending. Next: exact asset discovery and reference verification.
 - [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
   video, voice, character-reference and thumbnail lookup beyond the local
   registry, including unregistered native image references/Auto on REST.
   Correlate account/project/media/type, use bounded trusted downloads and retain
   explicit local/native scope. Add useapi composite-ID translation only where a
-  verified mapping exists; never guess one.
+  verified mapping exists; never guess one. Source audit confirms REST rejects
+  unregistered UUIDs before the existing SDK owned-reference/Auto helpers can run;
+  next implementation must carry native IDs separately under an explicit selected
+  account/project, preserving managed paths and reference order.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial

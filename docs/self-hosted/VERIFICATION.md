@@ -532,5 +532,19 @@ passed5855tests with5skips and15warnings in181.22seconds, with88.96%coverage.
 Whole-tree Ruff/format and strict Pyright were clean; CLI/MCP parity gates
 passed61tests. Private-value scanning found zero staged keys or live fixture IDs.
 
-This development change is not yet published/deployed. Accepted image generation,
-exact older-grid discovery, and comprehensive feature parity remain unfinished.
+Source64974ba0 was published atomically to all three fork references, then
+fast-forwarded into production CC LXC with zero active REST/MCP jobs. Locked
+dependencies synchronized; API/MCP restarted active and the CapSolver GUI stayed
+active. Unauthenticated/authenticated API capabilities returned401/200, and an
+authenticated MCP session listed35tools. The pinned peer review found no concrete
+blocker; private memory-history review remained LIMITED because the connector
+returned UNAUTHORIZED, while public memory/source evidence was checked.
+
+After that recovery, one authorized local-reference count-one Auto CLI BDD passed:
+one pass, one skipped MCP example, three deselected, two warnings in55.37seconds.
+The image decoded and requested/resolved/policy aspect metadata matched. No
+CapSolver task was required for this test. The first test-selection filter matched
+no tests and consumed no allowance; the corrected selection consumed image slot2.
+Slots1and2 are used; slot3 remains. This proves the CLI local-reference Auto path,
+not native UUID/canonical grounding or registered MCP/REST generation acceptance.
+Exact older-grid discovery and comprehensive feature parity remain unfinished.
