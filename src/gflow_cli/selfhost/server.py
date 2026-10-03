@@ -1201,7 +1201,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if payload.get("localOnly") is not True:
             if payload.get("localOnly") not in (None, False):
                 raise HTTPException(422, "localOnly must be a boolean")
-            project = uuid_value(payload.get("projectId"), "projectId")
+            project = uuid_value(
+                payload.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+            )
             values = payload.get("mediaGenerationIds")
             if not isinstance(values, list) or not 1 <= len(cast(list[Any], values)) <= 100:
                 raise HTTPException(422, "Remote archive requires 1 to 100 mediaGenerationIds")

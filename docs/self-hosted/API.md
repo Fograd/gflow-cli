@@ -209,9 +209,8 @@ Account registration accepts `profile`, `email`, `projectId`, `enabled` and
 and an existing local profile; this is operator attestation, not a Google probe.
 Removing registration refuses active jobs and keeps the browser profile. Local
 asset deletion with `localOnly:true` requires `mediaGenerationIds` (up to 100) or
-`projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE requires projectId and 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. Explicit `operation:"delete"` selects permanent individual deletion after fresh
-ownership checks and preserves unselected siblings. Already-gone idempotence is
-not implemented. The new permanent-delete path awaits final E2E verification.
+`projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE accepts an optional projectId (defaulting to the selected account's registered project) and requires 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. Explicit `operation:"delete"` selects permanent individual deletion after fresh
+ownership checks and preserves unselected siblings. Receipt-backed retries accept IDs already deleted by this fork after fresh account/project and exact NOT_FOUND checks, without another mutation. Arbitrary absent UUIDs refuse. The free synthetic deletion/retry lifecycle is verified; see [confirmed retries](NATIVE_MEDIA.md#confirmed-deletion-retries-r09). Explicit invalid projectId values refuse rather than selecting a default.
 
 ## Callbacks
 

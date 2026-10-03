@@ -51,3 +51,6 @@ For mixed batches, only freshly present IDs enter one permanent deletion RPC. An
 This is narrower than [useAPI's already-gone contract](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email): its identifiers encode ownership, whereas this fork's raw UUIDs do not. Media removed outside this fork or before receipt support cannot be accepted merely because it is absent. Native audio deletion is a fork extension; useAPI's media endpoint documents image/video only.
 
 Free owned-synthetic batch/retry BDD passed1test,2warnings in43.96seconds: three uploads, two deletion writes, zero writes for the all-gone repeat, only the third UUID in the mixed-batch write, originals preserved. No generation or CAPTCHA task occurred. Final exact-envelope/account-index/page-readiness guard regressions are verified offline separately.
+
+
+HTTP DELETE /assets/{handle} accepts an omitted projectId and uses that selected account's registered project. Explicit null, malformed or non-string projectId refuses. This default applies to the self-hosted HTTP adapter; SDK/CLI/direct MCP still require their explicit project argument. Ownership checks and archive/delete selection still apply.

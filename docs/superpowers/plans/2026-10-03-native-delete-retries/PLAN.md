@@ -6,5 +6,5 @@ Predict: Architect/Security/UX CAUTION8 mitigated by fresh exact account identit
 - [x] Preserve CLI/MCP deleted lists; add REST deletedCount and separate already-deleted IDs.
 - [x] Free owned synthetic batch/retry BDD; no original deletion or paid generation.
 - [x] Docs and six mirrors, full gates/council:6337pass/89%, final GO.
-- [ ] Publish and idledeploy.
+- [x] Publish and idledeploy at80e5768f; deployed REST/MCP repeat proof made zero mutation calls.
 Arbitrary IDs already removed outside this fork remain unprovable, not parity-complete. Never infer absence from truncated inventories.

@@ -1086,3 +1086,15 @@ Free realaccount/projectreceipt-scope probe passed withoutmutations. Free owned-
 R09 initial full run6336passed withone older RPC-selection fixture failure: it supplied opaque text while mocking only decodedframes. Replaced that fixture with real matching/mismatching RPC envelopes, preserving selection/duplicate assertions. Focused70passed in2.01seconds; finalfullsuite6337passed,5skipped,15warnings in231.06seconds with89%coverage. D0/whole-sourcepyrightpassed; final Arch/SecGO and Perf/UXGO after publicprojection correction. RESTfields survive actualStore/publicGET plus repeatedsyncprojection; all-gone googleLibraryModified=false.
 
 R10 second-account live setup: user completed pro2login. Fresh same-browserGoogleprincipal matched recordedprofile, differed frompro1, projectaccesspassed and nativecreditstier2 confirmedPro. Registered pro2 underseparatepublichandle withzero generation. Third-account hostedloginpreparedseparately; identity/project/tierproof remains pending. No cookies/identityvalues published.
+
+### R09 deployed retry and R10 three-account session evidence
+Deployed REST and registered MCP repeated two previously confirmed deleted IDs: accepted count2, zero Google mutation. Original media preserved.
+
+All three distinct Pro profiles were verified and registered privately. Three simultaneous deployed health jobs completed successfully; peak concurrently started3, generation requests0. This proves session access and independent health work, not rendered generation or long-term session renewal.
+
+A single cookie transfer from the second profile into a separate candidate profile was rejected with HTTP400. The source account mapping/profile was preserved. A subsequent source probe timed out and reached the public Flow page; saved-account selection plus the user's completed login restored project access. The cause of that session loss is not established. No further cookie-copy retries were attempted. Successful cookie import and automatic atomic refresh remain unverified.
+
+### R11 selected-account project default
+HTTP-only native DELETE now resolves an omitted projectId from the selected account registration. Routing tests cover selection between two different account projects and explicit null/malformed/boolean refusal. Native ownership and receipt proof remain unchanged. No new generation/provider requests.
+
+R11 project-default full offline gates:6342passed,5skipped,15warnings in188.81seconds,89%coverage. Hygiene/links/PII/website/council memory/ruff/format/type checks passed. Architect/Security and docs review GO. HTTP-only default resolution does not change native transport; SDK/CLI/MCP requirements and all six surface axes remain unchanged.

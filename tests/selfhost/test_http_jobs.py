@@ -336,3 +336,60 @@ def test_malformed_delete_retry_metadata_is_not_published(override):
     }
     result = result_record(response, kind="assets/delete")
     assert "deletedCount" not in result and "receiptPersisted" not in result
+
+
+def test_native_delete_defaults_to_selected_account_project(tmp_path):
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        response = client.request(
+            "DELETE",
+            "/v1/google-flow/assets/fixture",
+            headers=AUTH,
+            json={
+                "mediaGenerationIds": ["22222222-2222-4222-8222-222222222222"],
+                "operation": "delete",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201
+        row = client.app.state.store.get_record(response.json()["jobId"])
+        assert row["request"]["projectId"] == PROJECT
+        assert response.json()["request"]["projectId"] == PROJECT
+
+
+@pytest.mark.parametrize("project", [None, "bad", True])
+def test_explicit_invalid_delete_project_does_not_use_default(tmp_path, project):
+    with TestClient(create_app(cfg(tmp_path), start_workers=False)) as client:
+        response = client.request(
+            "DELETE",
+            "/v1/google-flow/assets/fixture",
+            headers=AUTH,
+            json={
+                "mediaGenerationIds": ["22222222-2222-4222-8222-222222222222"],
+                "operation": "delete",
+                "projectId": project,
+                "async": True,
+            },
+        )
+        assert response.status_code == 422
+        assert not client.app.state.store.jobs()
+
+
+def test_native_delete_default_project_is_scoped_to_selected_account(tmp_path):
+    settings = cfg(tmp_path)
+    other_project = "33333333-3333-4333-8333-333333333333"
+    settings.accounts["pro2"] = {"email": "second-fixture", "project": other_project}
+    with TestClient(create_app(settings, start_workers=False)) as client:
+        response = client.request(
+            "DELETE",
+            "/v1/google-flow/assets/second-fixture",
+            headers=AUTH,
+            json={
+                "mediaGenerationIds": ["22222222-2222-4222-8222-222222222222"],
+                "operation": "delete",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201
+        row = client.app.state.store.get_record(response.json()["jobId"])
+        assert row["request"]["projectId"] == other_project
+        assert row["request"]["projectId"] != PROJECT
