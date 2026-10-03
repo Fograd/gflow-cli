@@ -128,6 +128,8 @@ def resolve_reference_markers(
         if slot not in canonical_slots or not isinstance(value, ReferenceSlot):
             raise ReferenceContractError("Unsupported reference body slot")
         kind = canonical_slots[slot][0]
+        if surface == "video" and slot.startswith("referenceImage_") and value.kind == "character":
+            kind = "character"
         if value.kind != kind:
             raise ReferenceContractError(f"{slot} has the wrong reference kind")
         identifier = _identifier(value.identifier, kind)

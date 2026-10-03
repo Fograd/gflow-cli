@@ -722,3 +722,25 @@ Native video edit audio references accept active owned native audio media UUIDs,
 including uploaded audio without saved-TTS visibility. Max3 and exact fresh
 project/workflow/exclusive-audio proof apply before generation. Preset names
 and character IDs remain separate R04 work; rendered acceptance remains R12.
+
+### R04 native character reference video
+SDK reference_character_ids, CLI video reference-native --character-ref and
+registered MCP gflow_generate_native_reference_video character_ref accept owned
+character UUIDs. REST POST /videos with model=omni-flash accepts character_N,
+or mixed image/character UUIDs in referenceImage_N. The worker classifies those
+UUIDs from the same fresh project payload, preserving original slot indices;
+@referenceImage_3 can bind an entity without becoming @character_1.
+
+Characters use Q4a field10 and structured VI entity arm3, distinct from likenesses.
+Actual active entity-owned projected image links and supported linked audio
+metadata determine their weights. Native character/image/audio capacities are
+checked before token mint or output checkpoint. Linked character audio counts
+against a positive audio pool; zero audio capacity follows the frontend visual
+character policy and never permits explicit audio inputs. Missing limits or
+ambiguous/archived/unrelated references refuse. No entity copying occurs during
+generation preflight.
+
+This adds R2V character transport, not rendered acceptance. The free fixture
+BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
+inputs and direct system-preset audio remain subsequent R04 work. Unprojected
+reference images require further ownership proof and are not guessed.

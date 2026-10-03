@@ -402,3 +402,9 @@ to native `project list`; MCP mirrors `include_catalogs/max_projects`.
 Cap1–20 defaults20. Returns four typed URL-free per-project catalogs and known
 counts, unread listed IDs and later-page cursor separately. Completeness remains
 unknown. One leased page/180seconds; no cache or missing-object deletion.
+
+Native R2V characters: video reference-native --character-ref, SDK reference_character_ids,
+MCP character_ref, REST character_N or mixed referenceImage_N UUID slots.
+Fresh active entity-owned image/audio weights and native capacity pools apply;
+slot positions survive classification. V2V characters and rendered acceptance
+remain separate R04/R12 work. See docs/self-hosted/NATIVE_REFERENCE_VIDEO.md.

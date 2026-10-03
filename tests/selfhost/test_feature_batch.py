@@ -240,3 +240,42 @@ def test_native_edit_omitted_end_is_deferred_to_owned_worker_metadata(tmp_path):
         assert job["kind"] == "videos/edit"
         assert "endFrameIndex_1" not in payload
         assert payload["startFrameIndex_1"] == 0
+
+
+def test_native_reference_holes_preserve_canonical_slots(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "model": "omni-flash",
+                "prompt": "Use @referenceImage_3",
+                "referenceImage_3": M,
+                "async": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        job = client.app.state.store.claim("pro1")
+        assert json.loads(job["payload"])["referenceSlotIds"] == {"referenceImage_3": M}
+
+
+def test_explicit_native_character_reference_routes_worker(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "model": "omni-flash",
+                "prompt": "Use @character_2",
+                "character_2": M,
+                "async": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        payload = json.loads(client.app.state.store.claim("pro1")["payload"])
+        assert payload["referenceCharacterIds"] == [M]
+        assert payload["referenceSlotIds"] == {"character_2": M}

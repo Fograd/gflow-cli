@@ -973,3 +973,21 @@ The audio batch full offline suite passed6121tests,5skips,15warnings in
 187.74seconds at89%coverage. All required gates and three council reviews
 passed. Actual deployed R03 REST and registered MCP catalog inclusion each
 returned one typed project catalog; no generation was requested.
+
+### R04 character reference-video transport — current batch
+
+Source-derived Q4a entity vector and VI entity marker are mirrored across
+SDK/CLI/direct registered MCP/REST/privateworker. Fresh project character
+reference weights use exact active owned projected image/audio links and native
+model pools; canonical referenceImage_N indices survive mixed entity/image
+classification. Free copied-character BDD passed1test,2warnings in42.07seconds,
+with zero generation, fixture cleanup and original images preserved. This proves
+metadata grounding/DTO construction, not accepted character-conditioned video.
+
+Audio source452f3e10 was published to all three GitHub refs and deployed on CC
+LXC with idle queues and active REST/MCP services.
+
+The R2V character batch full offline suite passed6147tests,5skips,15warnings
+in181.33seconds at89%coverage. Required gates passed. Council caught cross-kind
+raw entity duplicates and mixed entity/media UUID collisions; both now refuse
+before model discovery with red/green regressions. Final council GO received.

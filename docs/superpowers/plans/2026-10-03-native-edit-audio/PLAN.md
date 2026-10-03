@@ -7,5 +7,5 @@ Scenario: ownership/type/duplicate/archive refusal before mint, same-page one sn
 - [x] Shared strict audio preflight and video edit integration; existing counts/order/checkpoints preserved.
 - [x] CLI/MCP/REST/privateworker documentation and adapter tests.
 - [x] Read-only BDD, full gates and council.
-- [ ] Publication and idle deployment.
+- [x] Publication and idle deployment at452f3e10; both services active.
 Source frontend E4a field10 uses iQ generic AUDIO references; it is not restricted to saved voices. System presets and characters remain next R04 slices; no paid dispatch in this batch.

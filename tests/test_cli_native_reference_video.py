@@ -43,3 +43,17 @@ async def test_private_worker_bad_duration_never_creates_client(monkeypatch, tmp
             "profile", P, {"prompt": "Test", "referenceImageIds": [M], "duration": True}, tmp_path
         )
     constructor.assert_not_called()
+
+
+def test_cli_character_refs_forward_unchanged(monkeypatch):
+    import gflow_cli.cli_native_reference_video as module
+
+    monkeypatch.setattr(module, "_resolve_profile", lambda x: x)
+    mocked = AsyncMock(return_value={"results": []})
+    monkeypatch.setattr(module, "run_reference_video", mocked)
+    result = CliRunner().invoke(
+        reference_native_command,
+        ["--project", P, "--prompt", "Use @character_1", "--character-ref", M, "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert mocked.call_args.args[2]["referenceCharacterIds"] == (M,)

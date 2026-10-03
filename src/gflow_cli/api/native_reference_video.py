@@ -7,6 +7,7 @@ from __future__ import annotations
 
 # Private helpers are shared within the native RPC adapter boundary.
 # pyright: reportPrivateUsage=false, reportUnnecessaryIsInstance=false
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
@@ -18,6 +19,7 @@ from gflow_cli.api.native_extension import (
     assigned_id,
     parse_extension_models,
 )
+from gflow_cli.api.native_video_characters import character_reference_counts, reference_capacity
 from gflow_cli.api.reference_markers import ReferenceSlot, TextSpan, resolve_reference_markers
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
 from gflow_cli.api.transports.migrated_composer import (
@@ -61,20 +63,26 @@ def new_reference_started(project: str, count: int) -> NativeReferenceVideoStart
 
 
 def _references(
-    images: tuple[str, ...], audio: tuple[str, ...]
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    images: tuple[str, ...], audio: tuple[str, ...], characters: tuple[str, ...] = ()
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     if (
         not isinstance(images, tuple)
         or not isinstance(audio, tuple)
         or len(images) > 7
-        or not (images or audio)
+        or not isinstance(characters, tuple)
+        or len(characters) > 7
+        or not (images or audio or characters)
         or len(audio) > 5
     ):
         raise ConfigurationError(
             detail="Native video requires ingredients: at most seven images/five audio assets"
         )
-    result = tuple(_uuid(x) for x in images), tuple(_uuid(x) for x in audio)
-    if len(set(result[0] + result[1])) != len(result[0] + result[1]):
+    result = (
+        tuple(_uuid(x) for x in images),
+        tuple(_uuid(x) for x in audio),
+        tuple(_uuid(x) for x in characters),
+    )
+    if len(set(result[0] + result[1] + result[2])) != len(result[0] + result[1] + result[2]):
         raise ConfigurationError(detail="Native video attachment identifiers must be distinct")
     return result
 
@@ -85,13 +93,15 @@ def reference_args(
     prompt: str,
     image_ids: tuple[str, ...],
     audio_ids: tuple[str, ...] = (),
+    character_ids: tuple[str, ...] = (),
+    reference_slots: Mapping[str, ReferenceSlot] | None = None,
     model_key: str,
     aspect: str,
     resolution: str,
     token: str,
 ) -> list[Any]:
     """Q4a: prompt1/images2/key3/aspect4/metadata6/audio8/resolution12."""
-    images, audio = _references(image_ids, audio_ids)
+    images, audio, characters = _references(image_ids, audio_ids, character_ids)
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 10000:
         raise ConfigurationError(detail="Native video requires a bounded nonempty prompt")
     if (
@@ -122,8 +132,15 @@ def reference_args(
         raise ConfigurationError(detail="Native video assignment handles must be distinct")
     slots = {f"referenceImage_{i}": ReferenceSlot("image", v) for i, v in enumerate(images, 1)}
     slots.update({f"referenceAudio_{i}": ReferenceSlot("audio", v) for i, v in enumerate(audio, 1)})
+    slots.update(
+        {f"character_{i}": ReferenceSlot("character", v) for i, v in enumerate(characters, 1)}
+    )
+    if reference_slots is not None:
+        slots = dict(reference_slots)
     try:
         plan = resolve_reference_markers(prompt, surface="video", slots=slots)
+        if (plan.image_ids, plan.audio_ids, plan.character_ids) != (images, audio, characters):
+            raise ValueError("Reference slot identities do not match ordered attachments")
     except ValueError:
         raise ConfigurationError(
             detail="Native video reference markers do not match supplied ingredients"
@@ -139,10 +156,10 @@ def reference_args(
             parts.append([None, [[span.identifier, ""]]])
         elif span.kind == "audio":
             parts.append([None, [None, [span.identifier, ""]]])
+        elif span.kind == "character":
+            parts.append([None, [None, None, [span.identifier, ""]]])
         else:
-            raise ConfigurationError(
-                detail="Native reference video supports only image and audio markers"
-            )
+            raise ConfigurationError(detail="Native reference video marker kind is unsupported")
     text: list[Any] = [None, None, [parts]]
     rows: list[Any] = []
     for media, workflow in zip(started.media_seeds, started.workflow_seeds, strict=True):
@@ -156,8 +173,10 @@ def reference_args(
             None,
             [[v] for v in audio],
         ]
+        if characters:
+            row.extend([None, [[v] for v in characters]])
         if resolution != "720p":
-            row.extend([None, None, None, [{"360p": 4, "1080p": 2, "4k": 3}[resolution]]])
+            row.extend([None] * (11 - len(row)) + [[{"360p": 4, "1080p": 2, "4k": 3}[resolution]]])
         rows.append(row)
     return [
         rows,
@@ -234,6 +253,8 @@ async def generate_native_reference_video(
     prompt: str,
     reference_image_ids: tuple[str, ...] = (),
     reference_audio_ids: tuple[str, ...] = (),
+    reference_character_ids: tuple[str, ...] = (),
+    reference_slot_ids: Mapping[str, str] | None = None,
     model_key: str | None = None,
     count: int = 1,
     aspect: str = "16:9",
@@ -241,13 +262,30 @@ async def generate_native_reference_video(
     resolution: str = "720p",
     on_started: Callable[[NativeReferenceVideoStarted], Awaitable[None]] | None = None,
 ) -> NativeReferenceVideoStarted:
-    images, audio = _references(reference_image_ids, reference_audio_ids)
+    images, audio, characters = _references(
+        reference_image_ids, reference_audio_ids, reference_character_ids
+    )
+    slots = None
+    if reference_slot_ids is not None:
+        slots = {
+            key: ReferenceSlot(
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_")
+                else "image",
+                value,
+            )
+            for key, value in reference_slot_ids.items()
+        }
     started = new_reference_started(project_id, count)
     reference_args(
         started,
         prompt=prompt,
         image_ids=images,
         audio_ids=audio,
+        character_ids=characters,
+        reference_slots=slots,
         model_key=model_key or "discovery",
         aspect=aspect,
         resolution=resolution,
@@ -257,9 +295,33 @@ async def generate_native_reference_video(
         raise ConfigurationError(detail="Native duration must match an available model usage")
     page = await client._checkout_page()
     try:
-        validate_reference_assets(
-            await read_project_payload(page, started.project_id), started.project_id, images, audio
-        )
+        payload = await read_project_payload(page, started.project_id)
+        if slots is not None:
+            from gflow_cli.api.transports.migrated_catalog import parse_native_characters
+
+            owned_entities = {
+                _uuid(row["entity_id"])
+                for row in parse_native_characters(payload, started.project_id)
+            }
+            media_ids = {_uuid(row[0]) for row in payload[2]}
+            if any(value.identifier in owned_entities & media_ids for value in slots.values()):
+                raise ConfigurationError(
+                    detail="Native reference identity is ambiguous across entity/media kinds"
+                )
+            slots = {
+                key: ReferenceSlot(
+                    "character"
+                    if value.kind == "image" and value.identifier in owned_entities
+                    else value.kind,
+                    value.identifier,
+                )
+                for key, value in slots.items()
+            }
+            plan = resolve_reference_markers(prompt, surface="video", slots=slots)
+            images, audio, characters = plan.image_ids, plan.audio_ids, plan.character_ids
+            _references(images, audio, characters)
+        validate_reference_assets(payload, started.project_id, images, audio)
+        weights = character_reference_counts(payload, started.project_id, characters)
         models = await _read_native(page, "HTrJv", [], started.project_id)
         tier = await _read_native(page, "nzlxg", [], started.project_id)
         options = parse_extension_models(
@@ -268,22 +330,23 @@ async def generate_native_reference_video(
         from gflow_cli.api.transports.batchexecute import _at
 
         # Capability extensions are decoded directly from the same source model rows.
-        capabilities: dict[str, tuple[Any, Any, Any]] = {}
+        capabilities: dict[str, tuple[Any, Any, Any, Any]] = {}
         for family in cast(list[Any], _at(models, 0, 4) or []):
             for usage in cast(list[Any], _at(family, 1) or []):
                 capabilities[_at(usage, 0)] = (
                     _at(usage, 21, 2),
                     _at(usage, 21, 0),
+                    _at(usage, 21, 1),
                     _at(usage, 23, 0),
                 )
         selected: list[dict[str, Any]] = []
         for row in options:
-            max_images, max_audio, resolutions = capabilities.get(
-                row["model_key"], (None, None, None)
+            max_images, max_audio, max_characters, resolutions = capabilities.get(
+                row["model_key"], (None, None, None, None)
             )
-            if type(max_images) is not int or len(images) > max_images:
-                continue
-            if audio and (type(max_audio) is not int or len(audio) > max_audio):
+            if not reference_capacity(
+                len(images), len(audio), weights, (max_audio, max_characters, max_images)
+            ):
                 continue
             if {"16:9": 2, "9:16": 1, "1:1": 0}[aspect] not in (row.get("aspect_enums") or []):
                 continue
@@ -317,6 +380,8 @@ async def generate_native_reference_video(
             prompt=prompt,
             image_ids=images,
             audio_ids=audio,
+            character_ids=characters,
+            reference_slots=slots,
             model_key=key,
             aspect=aspect,
             resolution=resolution,

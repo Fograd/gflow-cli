@@ -1912,6 +1912,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         }
         allowed.update(f"referenceImage_{i}" for i in range(1, 8))
         allowed.update(f"referenceAudio_{i}" for i in range(1, 6))
+        allowed.update(f"character_{i}" for i in range(1, 8))
         check_unknown(payload, allowed)
         if payload.get("model", "omni-flash") != "omni-flash":
             raise HTTPException(422, "Audio ingredients currently require Omni Flash")
@@ -1926,6 +1927,30 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             for i in range(1, 6)
             if payload.get(f"referenceAudio_{i}")
         ]
+        characters = [
+            uuid_value(payload[f"character_{i}"], f"character_{i}")
+            for i in range(1, 8)
+            if payload.get(f"character_{i}")
+        ]
+        slot_ids = {
+            key: uuid_value(payload[key], key)
+            for family, cap in (("referenceImage", 7), ("referenceAudio", 5), ("character", 7))
+            for i in range(1, cap + 1)
+            if payload.get(key := f"{family}_{i}")
+        }
+        from gflow_cli.api.reference_markers import ReferenceSlot
+
+        slots = {
+            key: ReferenceSlot(
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_")
+                else "image",
+                value,
+            )
+            for key, value in slot_ids.items()
+        }
         from gflow_cli.api.native_reference_video import new_reference_started, reference_args
         from gflow_cli.errors import GFlowError
 
@@ -1935,6 +1960,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 prompt=payload.get("prompt", ""),
                 image_ids=tuple(images),
                 audio_ids=tuple(audio),
+                character_ids=tuple(characters),
+                reference_slots=slots,
                 model_key=payload.get("modelKey") or "discover-native-model",
                 aspect=payload.setdefault("aspectRatio", "16:9"),
                 resolution=payload.setdefault("resolution", "720p"),
@@ -1950,6 +1977,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "and supported count, aspect, duration/resolution controls",
             ) from None
         payload["referenceImageIds"], payload["referenceAudioIds"] = images, audio
+        payload["referenceCharacterIds"] = characters
+        payload["referenceSlotIds"] = slot_ids
         return await submit(request, "videos/reference", payload, profile)
 
     async def native_video_edit(
@@ -2022,9 +2051,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     async def videos(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
         if "referenceVideo_1" in payload:
             return await native_video_edit(request, payload)
-        if any(payload.get(f"referenceAudio_{i}") for i in range(1, 6)) or (
-            payload.get("model") == "omni-flash"
-            and any(payload.get(f"referenceImage_{i}") for i in range(1, 8))
+        if (
+            any(payload.get(f"character_{i}") for i in range(1, 8))
+            or any(payload.get(f"referenceAudio_{i}") for i in range(1, 6))
+            or (
+                payload.get("model") == "omni-flash"
+                and any(payload.get(f"referenceImage_{i}") for i in range(1, 8))
+            )
         ):
             return await native_reference_video(request, payload)
         if not cfg.allow_video:

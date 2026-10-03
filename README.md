@@ -279,3 +279,9 @@ saved-voice catalogs with `--include-catalogs --max-projects 1`. SDK and direct
 MCP use `include_catalogs/max_projects`; REST uses `includeCatalogs/maxProjects`.
 Returned counts, unread listed IDs and later-page cursor are separate; complete
 account history and absence-based deletion are not implied.
+
+Native R2V characters: video reference-native --character-ref, SDK reference_character_ids,
+MCP character_ref, REST character_N or mixed referenceImage_N UUID slots.
+Fresh active entity-owned image/audio weights and native capacity pools apply;
+slot positions survive classification. V2V characters and rendered acceptance
+remain separate R04/R12 work. See docs/self-hosted/NATIVE_REFERENCE_VIDEO.md.

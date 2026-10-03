@@ -3084,7 +3084,7 @@ async def gflow_list_edit_models(project: str, profile: str = "default") -> dict
 
 @server.tool(
     name="gflow_generate_native_reference_video",
-    description="Generate native Omni Flash video with up to7 image/5 audio ingredients; "
+    description="Generate native Omni Flash video with owned image/audio/character ingredients; "
     "the chosen account model imposes its own limits. Optional native model_key, "
     "duration/resolution; downloads MP4 outputs. Consumes video credits.",
 )
@@ -3094,6 +3094,7 @@ async def gflow_generate_native_reference_video(
     prompt: str,
     image_ref: list[str] | None = None,
     audio_ref: list[str] | None = None,
+    character_ref: list[str] | None = None,
     model_key: str | None = None,
     count: int = 1,
     aspect: str = "16:9",
@@ -3108,11 +3109,13 @@ async def gflow_generate_native_reference_video(
     if not is_uuid(project):
         return _bad_param("Invalid project", "project must be a UUID")
     images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    characters = tuple(character_ref or [])
     reference_args(
         new_reference_started(project, count),
         prompt=prompt,
         image_ids=images,
         audio_ids=audio,
+        character_ids=characters,
         model_key=model_key or "discover-native-model",
         aspect=aspect,
         resolution=resolution,
@@ -3137,6 +3140,7 @@ async def gflow_generate_native_reference_video(
                 prompt=prompt,
                 reference_image_ids=images,
                 reference_audio_ids=audio,
+                reference_character_ids=characters,
                 model_key=model_key,
                 count=count,
                 aspect=aspect,

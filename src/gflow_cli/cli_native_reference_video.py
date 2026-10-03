@@ -18,6 +18,9 @@ from gflow_cli.selfhost.reference_video_worker import run_reference_video
 @click.option("--image-ref", multiple=True, help="Owned image UUID; repeat up to seven times.")
 @click.option("--audio-ref", multiple=True, help="Owned audio UUID; repeat up to five times.")
 @click.option(
+    "--character-ref", multiple=True, help="Owned character UUID; native combined limits apply."
+)
+@click.option(
     "--model-key", default=None, help="Discovered native key; default selects available Omni Flash."
 )
 @click.option("--count", type=click.IntRange(1, 4), default=1)
@@ -32,6 +35,7 @@ def reference_native_command(
     prompt: str,
     image_ref: tuple[str, ...],
     audio_ref: tuple[str, ...],
+    character_ref: tuple[str, ...],
     model_key: str | None,
     count: int,
     aspect: str,
@@ -47,6 +51,7 @@ def reference_native_command(
         "prompt": prompt,
         "referenceImageIds": image_ref,
         "referenceAudioIds": audio_ref,
+        "referenceCharacterIds": character_ref,
         "modelKey": model_key,
         "count": count,
         "aspectRatio": aspect,

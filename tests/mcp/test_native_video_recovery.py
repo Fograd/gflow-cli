@@ -112,6 +112,7 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
             prompt="Create",
             reference_image_ids=(M,),
             reference_audio_ids=(),
+            reference_character_ids=(),
             model_key=None,
             count=1,
             aspect="16:9",

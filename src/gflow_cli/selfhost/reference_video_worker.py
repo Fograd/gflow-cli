@@ -12,6 +12,7 @@ from gflow_cli._cli_helpers import run_with_handlers
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.native_reference_video import (
     NativeReferenceVideoStarted,
+    ReferenceSlot,
     generate_native_reference_video,
     new_reference_started,
     reference_args,
@@ -26,12 +27,31 @@ async def run_reference_video(
 ) -> dict[str, Any]:
     images = tuple(payload.get("referenceImageIds", ()))
     audio = tuple(payload.get("referenceAudioIds", ()))
+    characters = tuple(payload.get("referenceCharacterIds", ()))
+    slot_ids = payload.get("referenceSlotIds")
+    slots = (
+        None
+        if slot_ids is None
+        else {
+            key: ReferenceSlot(
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_")
+                else "image",
+                value,
+            )
+            for key, value in slot_ids.items()
+        }
+    )
     preflight = new_reference_started(project, payload.get("count", 1))
     reference_args(
         preflight,
         prompt=payload["prompt"],
         image_ids=images,
         audio_ids=audio,
+        character_ids=characters,
+        reference_slots=slots,
         model_key=payload.get("modelKey") or "discovery",
         aspect=payload.get("aspectRatio", "16:9"),
         resolution=payload.get("resolution", "720p"),
@@ -65,6 +85,8 @@ async def run_reference_video(
             prompt=payload["prompt"],
             reference_image_ids=images,
             reference_audio_ids=audio,
+            reference_character_ids=characters,
+            reference_slot_ids=slot_ids,
             model_key=payload.get("modelKey"),
             count=payload.get("count", 1),
             aspect=payload.get("aspectRatio", "16:9"),
