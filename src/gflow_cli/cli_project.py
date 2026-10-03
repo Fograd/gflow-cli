@@ -285,6 +285,8 @@ def rename_subcommand(project_id: str, new_title: str, profile: str | None, as_j
 from gflow_cli.cli_native_media import (  # noqa: E402
     archive_command,
     delete_media_command,
+    download_media_command,
+    get_media_command,
     upload_video_command,
 )  # noqa: E402
 
@@ -292,3 +294,6 @@ project.add_command(upload_video_command)
 project.add_command(archive_command)
 
 project.add_command(delete_media_command)
+
+project.add_command(get_media_command)
+project.add_command(download_media_command)

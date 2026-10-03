@@ -136,6 +136,8 @@ if TYPE_CHECKING:
     )
     from gflow_cli.api.image_aspect_policy import ImageAspectDecision
     from gflow_cli.api.native_video_edit import NativeVideoEditStarted
+    from gflow_cli.api.transports.native_asset_download import DownloadedNativeAsset
+    from gflow_cli.api.transports.native_asset_lookup import NativeAsset
     from gflow_cli.api.video import (
         GenerateVideoRequest,
         VideoResult,
@@ -3611,6 +3613,20 @@ class FlowApiClient:
         from gflow_cli.api.native_catalogs import media_snapshot
 
         return await media_snapshot(self, project_id)
+
+    async def get_native_asset(self, project_id: str, media_id: str) -> NativeAsset:
+        """Resolve an owned image/video and transient download URL from fresh metadata."""
+        from gflow_cli.api.native_assets import get_native_asset
+
+        return await get_native_asset(self, project_id, media_id)
+
+    async def download_native_asset(
+        self, project_id: str, media_id: str, out_dir: Path
+    ) -> DownloadedNativeAsset:
+        """Download fresh owned native image/video content without generating or upscaling."""
+        from gflow_cli.api.native_assets import download_native_asset
+
+        return await download_native_asset(self, project_id, media_id, out_dir)
 
     async def list_native_voices(self, project_id: str) -> dict[str, Any]:
         """Read measured native system presets; bundled static defaults remain separate."""

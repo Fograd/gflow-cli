@@ -7,7 +7,9 @@ from typing import Any
 from gflow_cli.api.transports.batchexecute import parse_frames
 
 
-async def native_rpc(page: Any, rpc: str, args: list[Any], source_path: str) -> Any:
+async def native_rpc(
+    page: Any, rpc: str, args: list[Any], source_path: str, *, require_single: bool = False
+) -> Any:
     if rpc not in {"UpteDb", "C4BZMd", "rzMKMb", "cz8Z4b", "Sc7aEb", "as29s"}:
         raise ValueError("Unsupported native metadata RPC")
     if source_path != "/u/0/" and not source_path.startswith("/project/"):
@@ -43,7 +45,9 @@ async def native_rpc(page: Any, rpc: str, args: list[Any], source_path: str) -> 
     )
     if result["status"] != 200:
         raise ValueError(f"Native Flow operation failed with HTTP {result['status']}")
-    for name, data in parse_frames(result["text"]):
-        if name == rpc:
-            return data
+    replies = [data for name, data in parse_frames(result["text"]) if name == rpc]
+    if require_single and len(replies) != 1:
+        raise ValueError("Native metadata requires exactly one matching RPC response")
+    if replies:
+        return replies[0]
     raise ValueError("Native Flow operation was not acknowledged; inspect before retrying")

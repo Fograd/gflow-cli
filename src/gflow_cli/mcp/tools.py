@@ -3139,3 +3139,56 @@ async def gflow_list_reference_video_models(
         ) as client:
             models = await client.list_native_reference_video_models(project, with_audio=with_audio)
     return {"status": "ok", "project_id": project, "models": models}
+
+
+@server.tool(
+    name="gflow_get_native_asset",
+    description="Read owned native image/video and confidential fresh URL; synchronous.",
+)
+@_guarded
+async def gflow_get_native_asset(
+    project: str, media_id: str, profile: str = _DEFAULT_PROFILE
+) -> dict[str, Any]:
+    """Read selected-project native image/video; URL is ephemeral and confidential.
+
+    Args:
+        project: Native project UUID.
+        media_id: Native image/video UUID; not a local artifact or character/voice.
+        profile: Owning saved profile. No account scanning.
+    """
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid native asset", "Project and media identifiers must be UUIDs")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    from gflow_cli.services.native_assets import read_asset
+
+    async with _profile_lock(resolved):
+        return {"status": "ok", **await read_asset(resolved, project, media_id)}
+
+
+@server.tool(
+    name="gflow_download_native_asset",
+    description="Download verified native image/video without generation or upscale.",
+)
+@_guarded
+async def gflow_download_native_asset(
+    project: str, media_id: str, output_dir: str, profile: str = _DEFAULT_PROFILE
+) -> dict[str, Any]:
+    """Download fresh owned native media; video content validation requires ffprobe.
+
+    Args:
+        project: Native project UUID.
+        media_id: Native image/video UUID.
+        output_dir: Local output directory; existing files are never overwritten.
+        profile: Owning saved profile. No account scanning.
+    """
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid native asset", "Project and media identifiers must be UUIDs")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    from gflow_cli.services.native_assets import read_asset
+
+    async with _profile_lock(resolved):
+        return {"status": "ok", **await read_asset(resolved, project, media_id, Path(output_dir))}

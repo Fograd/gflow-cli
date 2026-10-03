@@ -151,7 +151,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 elif path.startswith("/v1/google-flow/assets/projects/"):
                     allowed = {"limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/") and not path.endswith("/download"):
-                    allowed = {"raw"}
+                    allowed = {"raw", "source", "email", "projectId"}
             if request.method == "DELETE" and path.startswith("/v1/google-flow/characters/"):
                 allowed = {"email", "projectId"}
             if request.method == "DELETE" and path.startswith("/v1/google-flow/voices/"):
@@ -1162,8 +1162,111 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "Managed asset not found") from None
         return FileResponse(path, media_type=row["mime"], filename=path.name)
 
+    async def native_asset_read(request: Request, media_id: str) -> Any:
+        from gflow_cli.api.transports.native_asset_lookup import media_url
+
+        raw = request.query_params.get("raw")
+        if raw is not None and raw not in ("true", "1"):
+            raise HTTPException(400, "When supplied, raw must be true or 1")
+        email = request.query_params.get("email")
+        if not email:
+            raise HTTPException(422, "Native asset lookup requires an explicit configured account")
+        profile = pick_account(email, [])
+        project = uuid_value(
+            request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        identifier = uuid_value(media_id, "mediaGenerationId")
+        payload = {"project_id": project, "media_id": identifier}
+        code, output = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "asset-get",
+                profile,
+                json.dumps(payload),
+            ],
+            120,
+        )
+        try:
+            result = parse_json_output(output)
+        except ValueError:
+            raise HTTPException(
+                502, "Native asset read worker returned no valid response"
+            ) from None
+        if (
+            code
+            or result.get("status") != "ok"
+            or result.get("mediaGenerationId") != identifier
+            or result.get("projectId") != project
+            or result.get("kind") not in ("image", "video")
+        ):
+            raise HTTPException(502, "Native asset is unresolved in the selected project")
+        try:
+            url = media_url(result.get("url"), result["kind"])
+        except ValueError:
+            raise HTTPException(502, "Native asset download URL is unavailable") from None
+        if raw is None:
+            return JSONResponse(
+                {"url": url, "mediaGenerationId": identifier}, headers={"Cache-Control": "no-store"}
+            )
+        if result["kind"] != "video":
+            raise HTTPException(400, "Native raw asset retrieval supports video only")
+        directory = cfg.root / "output" / ("native-download-" + uuid.uuid4().hex)
+        successful = False
+        try:
+            code, output = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.native_worker",
+                    "asset-download",
+                    profile,
+                    json.dumps({**payload, "output_dir": str(directory)}),
+                ],
+                210,
+            )
+            try:
+                downloaded = parse_json_output(output)
+            except ValueError:
+                raise HTTPException(
+                    502, "Native video download worker returned no valid response"
+                ) from None
+            if (
+                code
+                or downloaded.get("status") != "ok"
+                or downloaded.get("mediaGenerationId") != identifier
+                or downloaded.get("projectId") != project
+                or downloaded.get("kind") != "video"
+                or downloaded.get("mimeType") != "video/mp4"
+            ):
+                raise HTTPException(502, "Native video download validation failed")
+            try:
+                path = contained_file(downloaded["path"], directory)
+            except (KeyError, ValueError):
+                raise HTTPException(502, "Native video download path is unavailable") from None
+            from gflow_cli.selfhost.native_asset_response import EphemeralFileResponse
+
+            response = EphemeralFileResponse(path, directory)
+            successful = True
+            return response
+        finally:
+            if not successful:
+                import shutil
+
+                shutil.rmtree(directory, ignore_errors=True)
+
     @app.get(prefix + "/assets/{media_id}")
     async def get_asset(request: Request, media_id: str) -> Any:
+        source = request.query_params.get("source", "local")
+        if source not in ("local", "google"):
+            raise HTTPException(422, "Asset source requires local or google")
+        if source == "google":
+            return await native_asset_read(request, media_id)
+        if set(request.query_params) - {"source", "raw"}:
+            raise HTTPException(
+                422, "Local asset lookup does not accept native account/project controls"
+            )
         raw = request.query_params.get("raw", "false")
         if raw not in ("true", "false", "1", "0"):
             raise HTTPException(422, "raw must be true or false")

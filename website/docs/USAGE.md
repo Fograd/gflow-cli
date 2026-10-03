@@ -2351,3 +2351,16 @@ Project delete-media uses repeated --media-id and --confirm-delete for permanent
 Native Omni edit: `video edit-models` reads available model keys; `video edit-native` edits one existing owned video slice; omitted end uses measured source duration at virtual24fps, rounded down and capped240. See [Video edit](VIDEO_EDIT.md) for optional image/audio refs and pending paid acceptance.
 
 Native credit inspection: set `GFLOW_CLI_FLOW_HOST=flow.google.com` for CLI/MCP credit tools; [mapped fields and limits](NATIVE_CREDITS.md).
+
+### Fresh native media lookup and download
+
+`gflow project get-media --project "$PROJECT_ID" --media-id "$MEDIA_ID" --profile pro1 --json`
+reads exact owned image/video metadata and a confidential fresh URL.
+`gflow project download-media --project "$PROJECT_ID" --media-id "$MEDIA_ID" --output-dir ./out --profile pro1 --json`
+downloads verified content without generation or upscaling; existing files are
+never overwritten. These synchronous reads use the selected profile/project and
+do not change local catalog ownership. URL output is an ephemeral bearer secret,
+so avoid saving it in logs or shared transcripts. Video validation requires ffprobe.
+See [self-hosted retrieval and limits](self-hosted/API.md#fresh-native-imagevideo-retrieval).
+
+Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.

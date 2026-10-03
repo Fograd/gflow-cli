@@ -754,3 +754,59 @@ fresh protected URLs/downloads and verified useapi composite-ID translation.
 The completed local implementation plan was consolidated into this ledger,
 PARITY.md, API.md and the cited migrated-wire memory. No additional paid image
 generation or CAPTCHA solve was performed.
+
+##2026-10-03 — R02 fresh native image/video retrieval batch
+
+Goal-turn classification: progress. The preceding roadmap-only verification did
+not implement a new feature; this run revalidated clean9e859f2e source/deployment
+and took the next available R02 action. The full R01–R13 objective remains active.
+
+Implemented current existing-GetMedia identity/type decoding, separate from the
+historical generation decoder. A fresh selected-project snapshot and strict one
+as29s frame must match media/project/workflow and exclusive image/video plus
+generated/uploaded unions. One bounded page checkout avoids concurrency-one
+deadlock. Native UUID lookup never synthesizes local Store ownership.
+
+Protected URL/download fields are measured from current public source and owned
+live uploaded image/video metadata. SDK get_native_asset/download_native_asset,
+CLI project get-media/download-media, direct MCP gflow_get_native_asset/
+gflow_download_native_asset, and REST GETassets source=google now mirror this
+read capability. URLs are explicit confidential synchronous output/no-store,
+excluded from durable generation queues; useAPI GET is synchronous. REST native
+raw=true/1 is video-only and invalid supplied raw controls return400.
+Local managed metadata/download defaults remain separate.
+
+Downloads use trusted exact HTTPS media URLs, no redirects/browser cookies,
+bounded time/bytes, decoded type/dimensions, positive available metadata size and
+exclusive output publication. Limits32MiB image/256MiB video. HTTPX's bearer URL
+INFO logging is filtered per task, with an INFO-enabled privacy regression.
+Temporary REST output cleanup wraps the ASGI response in finally, including
+Range400/416, send failure and cancellation. Expected output errors are typed;
+invalid/empty private worker replies are masked502.
+
+Evidence:
+- Red decoder/download scaffolds failed on absent modules before implementation;
+  native REST scaffold failed6cases plus1auth pass before adapter wiring.
+- Focused final codec/SDK/CLI/MCP/REST/cleanup tests:64passed in2.61s.
+- Read-only initial content probe: JPEG1024x1024,233225bytes; MP4 H.2641280x1280,
+  8908bytes. Both uploaded variants, with no guarded write requested.
+- Tagged zero-write BDD: initial1pass/2warnings15.57s; final1pass/2warnings18.92s,
+  concurrency one, decoded image/video content, exact identities and dimensions.
+  No generation, upload, archive, restore, deletion, solver or paid allowance used.
+- Complete offline sweep:6000passed,5skipped,212deselected,15warnings573.97s,
+  89%reported coverage. Repo/doc/site/mirror/public-memory/Ruff/format/Pyright green.
+- D0 staged hygiene:1512tracked files; docs229files all links resolving.
+- SDK/MCP registry source inspection:37registered tools, including both new reads.
+- Staged privacy scan38files:0configured private-key/account/project/media hits.
+
+Council: source/tree8aaef7464638d8682d6b9dc91b83613812bf650a received GO for
+security/transport/public-memory and source correctness/lifecycle/mirror scope.
+Documentation CAUTION findings (tool count, limits, scope, final timing) were
+corrected; doc-only treecd038921cd29212b6010e4816ffa57c2ca1d05fb received GO.
+Private connector memory was unavailable and was not audited. Public source
+and memory carry the reviewed identity, URL, logging and cleanup lessons.
+
+Publication/deployment follow after this checked batch. R02 remains open for
+voice/character-reference/thumbnail detail, composite translation and exact error
+equivalence. Generated-arm URLs have source/codec proof, not live acceptance.
+R12 final representative generation campaign remains pending.

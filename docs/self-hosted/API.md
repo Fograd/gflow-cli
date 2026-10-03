@@ -46,7 +46,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
-| `GET /assets/{id}`, `/assets/{id}/download` | Metadata and protected bytes for this server's managed assets |
+| `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
 | `GET /assets/projects/{handle}` | Local catalog by default; source=google reads paginated native account projects |
 | `GET /assets/media/{handle}` | Managed catalog by default; source=google reads selected-project native timeline |
 | `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
@@ -201,7 +201,7 @@ survive synchronous response, job polling and callbacks. Read [video editing](..
 for CLI/MCP and SDK equivalents.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
-and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`
+and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`; source=google native lookup also accepts email/projectId and requires explicit account selection
 for protected bytes. Unknown or repeated query keys are rejected. Default catalogs are local. Native timeline rows carry media_id/workflow_id, caption, archived and batch_media_ids plus mediaGenerationId/projectId aliases; they do not claim merged attached-media history or inferred media types.
 
 Account registration accepts `profile`, `email`, `projectId`, `enabled` and
@@ -378,7 +378,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 35 tools: the prior 24 plus 11 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+The registered MCP surface contains 37 tools: the prior 24 plus 13 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -425,3 +425,48 @@ the exact upload name and image dimensions. Earlier acknowledged upload IDs are
 retained if a later upload or prompt binding fails. Inspect those returned
 recovery handles before resubmission; no upload is automatically replayed.
 Accepted mixed/native REST and MCP output remains part of final E2E verification.
+
+## Fresh native image/video retrieval
+
+GET /assets/{mediaUUID}?source=google&email={configuredEmail}&projectId={projectUUID}
+returns exactly `{"url": "...", "mediaGenerationId": "..."}` after a fresh owned
+project snapshot and exact GetMedia identity/type check. The email is mandatory;
+projectId defaults to that configured account's project. No account scan or local
+asset registration occurs. Signed URLs are confidential, transient bearer links;
+responses use Cache-Control: no-store. No universal URL lifetime is assumed.
+
+Adding raw=true or raw=1 streams verified video/mp4. An explicitly supplied
+raw=false, raw=0 or any other value returns400; images with raw return400.
+Raw downloads have a256MiB limit and require ffprobe. Temporary server output is
+removed after response completion, Range refusal, send failure or cancellation.
+The default source=local retains the managed-registry metadata/download extension
+and its existing raw controls, including image bytes.
+
+The image/video URL fields match the current frontend's source-size download
+accessor, including generated and uploaded variants. Downloads retain the fresh
+URL, reject redirects/untrusted hosts, verify content/dimensions and compare the
+metadata byte count when available. This does not upscale or guarantee that
+Google preserved uploaded bytes unchanged. Unresolved incomplete inventory,
+mismatched identities or invalid worker output return a masked502; this does not
+establish permanent nonexistence or exact useAPI404 equivalence.
+
+Portable mirrors:
+- SDK: get_native_asset(project_id, media_id), download_native_asset(project_id, media_id, out_dir).
+- CLI: gflow project get-media --project UUID --media-id UUID --profile PROFILE --json.
+- CLI: gflow project download-media --project UUID --media-id UUID --output-dir DIR --profile PROFILE --json.
+- MCP: gflow_get_native_asset(project, media_id, profile), gflow_download_native_asset(project, media_id, output_dir, profile).
+
+These are synchronous reads, matching useAPI asset GET. They do not enqueue
+generation jobs or persist protected URLs in a durable queue. Existing generation
+direct/queued MCP routes remain separate. CLI/MCP downloads may retrieve images
+as a fork extension; existing output files are never overwritten. Video decoding
+requires ffprobe; image decoding uses Pillow. Invalid output destinations return
+typed errors. Audio/voice/character-reference/thumbnail detail and composite
+useAPI handle translation remain separate roadmap tasks.
+
+A zero-generation BDD passed image/video download with concurrency one in18.92s.
+The live samples were uploaded variants; generated URL arms have public-source
+and codec evidence, with representative live coverage still owed under R12.
+See [the measured source contract](../superpowers/spikes/2026-10-03-native-asset-download-contract.md).
+
+Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.

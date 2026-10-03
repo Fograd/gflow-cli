@@ -384,3 +384,5 @@ aspect, duration and resolution are checked against the current catalog. MCP
 mirrors are `gflow_list_reference_video_models` and
 `gflow_generate_native_reference_video`. Paid acceptance awaits final E2E. Read
 `docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.
+
+Native reads: project get-media --project UUID --media-id UUID returns confidential fresh image/video URL metadata. project download-media additionally requires --output-dir DIR and validates downloaded content (ffprobe for video), never overwrites files or generates/upscales. MCP mirrors gflow_get_native_asset and gflow_download_native_asset execute directly; these GET reads do not persist signed URLs in generation queues.

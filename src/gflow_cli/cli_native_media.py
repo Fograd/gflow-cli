@@ -112,3 +112,58 @@ def delete_media_command(
             console.print("Permanently deleted " + ", ".join(result["deleted"]), markup=False)
 
     run_with_handlers(act, cli_command="project delete-media", as_json=as_json)
+
+
+@click.command("get-media")
+@click.option("--project", required=True)
+@click.option("--media-id", required=True)
+@click.option("--profile", default=None)
+@click.option("--json", "as_json", is_flag=True)
+def get_media_command(project: str, media_id: str, profile: str | None, as_json: bool) -> None:
+    """Read fresh owned image/video metadata and confidential download URL."""
+    from gflow_cli.api.transports.native_voices import validate_identifier
+    from gflow_cli.services.native_assets import read_asset
+
+    try:
+        project, media_id = validate_identifier(project), validate_identifier(media_id)
+    except ValueError:
+        raise click.UsageError("Project and media identifiers must be UUIDs") from None
+    resolved = _resolve_profile(profile)
+
+    async def act() -> None:
+        result = await read_asset(resolved, project, media_id)
+        if as_json:
+            json_output.emit({"status": "ok", **result})
+        else:
+            console.print(result["url"], markup=False)
+
+    run_with_handlers(act, cli_command="project get-media", as_json=as_json)
+
+
+@click.command("download-media")
+@click.option("--project", required=True)
+@click.option("--media-id", required=True)
+@click.option("--output-dir", type=click.Path(path_type=Path), required=True)
+@click.option("--profile", default=None)
+@click.option("--json", "as_json", is_flag=True)
+def download_media_command(
+    project: str, media_id: str, output_dir: Path, profile: str | None, as_json: bool
+) -> None:
+    """Download verified native image/video; requires ffprobe for video validation."""
+    from gflow_cli.api.transports.native_voices import validate_identifier
+    from gflow_cli.services.native_assets import read_asset
+
+    try:
+        project, media_id = validate_identifier(project), validate_identifier(media_id)
+    except ValueError:
+        raise click.UsageError("Project and media identifiers must be UUIDs") from None
+    resolved = _resolve_profile(profile)
+
+    async def act() -> None:
+        result = await read_asset(resolved, project, media_id, output_dir)
+        if as_json:
+            json_output.emit({"status": "ok", **result})
+        else:
+            console.print(result["path"], markup=False)
+
+    run_with_handlers(act, cli_command="project download-media", as_json=as_json)

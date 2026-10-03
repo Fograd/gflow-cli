@@ -614,7 +614,7 @@ See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MED
 
 ## Current feature proof boundary
 
-The source registers 35 tools, comprising the prior 24 and 11 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
+The source registers 37 tools, comprising the prior 24 and 13 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -632,3 +632,22 @@ Auto sizing still uses the first actual reference and the documented local
 approximation. Native UUID Auto requires an explicit project and fresh dimensions;
 it never substitutes a later reference when the first cannot resolve.
 Canonical accepted mixed/native output remains a separate E2E proof obligation.
+
+### Fresh native asset read tools
+
+`gflow_get_native_asset(project, media_id, profile="default")` reads a fresh
+selected-project snapshot and exact current image/video metadata, returning
+native identities, dimensions and a confidential transient URL.
+`gflow_download_native_asset(project, media_id, output_dir, profile="default")`
+downloads verified image/video content, returning the contained local path,
+byte count, digest and MIME/dimensions. Existing output files are not overwritten;
+video content validation requires ffprobe. No generation, upscaling, solver or
+library mutation is performed.
+
+These are synchronous direct reads, matching useAPI GET semantics. Protected
+URLs are deliberately excluded from durable generation queues/history; existing
+direct/queued generation tools remain separate. Character/audio/voice-reference
+detail is a different capability. CLI mirrors are project get-media and
+project download-media. See [self-hosted native retrieval](self-hosted/API.md#fresh-native-imagevideo-retrieval).
+
+Native portable download byte limits are32MiB for images and256MiB for videos. These are byte limits, separate from Google account resolution entitlements.

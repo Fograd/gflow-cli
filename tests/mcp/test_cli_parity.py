@@ -78,6 +78,8 @@ CLI_TO_MCP: dict[str, str] = {
     "video upscale": "gflow_upscale_video",
     "project list": "gflow_list_projects",
     "project media": "gflow_project_media",
+    "project get-media": "gflow_get_native_asset",
+    "project download-media": "gflow_download_native_asset",
     "project upload-video": "gflow_upload_video",
     "project archive": "gflow_archive_media",
     "instructions list": "gflow_instructions_list",

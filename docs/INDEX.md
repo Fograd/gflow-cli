@@ -212,3 +212,5 @@ Slash commands for Claude Code, stored in `.claude/commands/gflow/`. All prefixe
 | [Native credits](NATIVE_CREDITS.md) | Native total credit balance and observed tier enums | Inspecting migrated account credits |
 | [Native standalone extension](self-hosted/NATIVE_VIDEO_EXTENSION.md) | Native continuation generation and model discovery | Extending an existing Google Flow clip |
 | [Native reference video](self-hosted/NATIVE_REFERENCE_VIDEO.md) | Owned image/audio ingredient video generation | Audio-only or mixed reference generation |
+
+Native asset lookup/download: [usage](USAGE.md#fresh-native-media-lookup-and-download), [MCP](MCP.md#fresh-native-asset-read-tools), [self-hosted API](self-hosted/API.md#fresh-native-imagevideo-retrieval).

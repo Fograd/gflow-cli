@@ -30,10 +30,12 @@ from gflow_cli.api.transports.migrated_resources import (
 from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError
 from gflow_cli.config import get_settings
 from gflow_cli.errors import (
+    ConfigurationError,
     ContentPolicyError,
     NativeMediaMutationUnknownError,
     VoiceMutationUnknownError,
     WafRejectionError,
+    WireFormatError,
 )
 
 
@@ -74,6 +76,26 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
+        if verb in {"asset-get", "asset-download"}:
+            from gflow_cli.services.native_assets import asset_payload
+
+            asset = await client.get_native_asset(project_id, str(payload["media_id"]))
+            if verb == "asset-get":
+                return {"status": "ok", **asset_payload(asset)}
+            if asset.kind != "video":
+                raise ValueError("Native raw asset retrieval supports video only")
+            from gflow_cli.api.transports.native_asset_download import download_asset
+
+            downloaded_asset = await download_asset(asset, Path(payload["output_dir"]))
+            return {
+                "status": "ok",
+                "mediaGenerationId": downloaded_asset.media_id,
+                "projectId": downloaded_asset.project_id,
+                "kind": downloaded_asset.kind,
+                "path": str(downloaded_asset.path),
+                "mimeType": downloaded_asset.mime_type,
+                "bytes": downloaded_asset.bytes,
+            }
         if verb == "reference-models":
             return {
                 "status": "ok",
@@ -238,6 +260,15 @@ def main() -> None:
             "code": "upload_rights_required",
             "detail": "Affirm upload ownership with X-Flow-Rights-Confirmed: true or confirm "
             "once in the logged-in browser; no video ingestion was submitted",
+        }
+    except (WireFormatError, ConfigurationError, ValueError, TimeoutError):
+        if sys.argv[1] not in {"asset-get", "asset-download"}:
+            raise
+        exit_code = 7
+        result = {
+            "status": "error",
+            "code": "native_asset_read_failed",
+            "detail": "Native asset read unavailable in the selected project",
         }
     sys.stdout.write(json.dumps(result) + "\n")
     if exit_code:

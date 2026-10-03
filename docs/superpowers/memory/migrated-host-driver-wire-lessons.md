@@ -229,7 +229,7 @@ Resolve only the first reference: bounded local PNG/JPEG bytes or fresh selected
 project owned active typed-image dimensions. Native UUID resolution needs an
 explicit project; reject absent/malformed dimensions without falling back to
 later references. MCP resolves before direct/queued generation and retains
-requested/resolved/policy metadata. Managed REST refs require the registry; the R02 draft separately routes
+requested/resolved/policy metadata. Managed REST refs require the registry; the R02 implementation separately routes
 unregistered owned native UUIDs only under an explicit configured account.
 
 Native edit duration uses the frontend AP video branch: video field2 LI, field3
@@ -286,3 +286,25 @@ Known upload handles survive later upload/attachment failure and cancellation;
 generation submission must stay outside that upload exception wrapper.
 The corrected live no-generation BDD proved upload, exact owned canonical
 attachment and archive, not accepted image output. See [verification](../../self-hosted/VERIFICATION.md).
+
+Existing asset lookup is distinct from generation acknowledgement. Current as29s
+reads require fresh selected-project media/project/workflow and exclusive image/
+video evidence; do not use historical workflow-first generation_record, first
+response, caption or a synthetic Store row. Use one page checkout for snapshot
+and detail; calling an SDK snapshot from an already borrowed single-page pool
+deadlocks. Strict detail reads require exactly one matching RPC frame.
+
+The current public _.KI download accessor selects generated/uploaded variants
+separately (image6,0,13 or6,1,3; video7,0,8 or7,4,2). Common metadata5,10 is a
+thumbnail, not an original-media fallback. Decode bytes and dimensions and check
+positive metadata5,13 byte counts when available. Do not infer other integers as
+file sizes or rewrite signed URLs with export suffixes.
+
+HTTPX INFO logs contain full bearer URLs unless explicitly filtered. The native
+download uses per-task context filtering, without a global temporary log-level
+race. URL results are explicit synchronous output, never durable queue/history
+records. FileResponse background cleanup misses Range400/416 and send failures;
+temporary download cleanup must wrap its ASGI call in finally. No-overwrite
+filesystem failures need typed adapter errors. See
+[measured source/download contract](../spikes/2026-10-03-native-asset-download-contract.md)
+and [verification](../../self-hosted/VERIFICATION.md).

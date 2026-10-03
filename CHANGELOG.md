@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Fresh selected-project native image/video lookup and verified downloads are available through SDK, project get-media/download-media, direct MCP and REST source=google. Native REST URL responses are confidential/no-store; raw=true/1 is video-only. Downloads use bounded trusted URLs, content/dimension/available-byte checks and exclusive output writes; no generation/upscale or synthetic local ownership.
+
 - Canonical image slots preserve mixed native UUID/local-file caller order through SDK, CLI, direct and queued MCP, and self-hosted REST. Unregistered REST native references require an explicit configured account. Native-first Auto resolves fresh dimensions in that account worker before generation.
 - Toolbar image upload acknowledgement follows the current typed nested media/workflow response and exact chooser request, project and display name. Earlier acknowledged upload IDs survive later upload or canonical binding failures, including cancellation; uploads are never automatically replayed.
 

@@ -28,7 +28,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. One paid CapSolver trial recorded 1 solved / 1 submitted / 0 accepted without retry. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
-| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Implemented managed registry metadata/download and raw bytes. Arbitrary remote IDs are not a complete remote lookup; unknown upload handles are inspection-only and not registered as successful assets. |
+| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Composite handles, character/voice/thumbnail detail and exact404 equivalence remain open. |
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | Implemented local catalog default and source=google native 21-item opaque-cursor snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | Implemented managed local catalog default and source=google selected-project native timeline snapshots, including typed image/video arms. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Already-gone idempotence and all batch shapes are not claimed. |
@@ -72,7 +72,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
-Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes35 tools.
+Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes37 tools.
 The same checked-out project page mints generation tokens. Preassigned identities
 are derived from invocation-owned seeds, checkpointed before dispatch and
 correlated with acknowledgements; ambiguous writes are not automatically replayed.
@@ -164,7 +164,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   gap; canonical grounding and accepted output still need their own proof.
 - [ ] **R02 — Native media lookup and fresh URLs.** Remaining work is owned
   image/video/voice/character-reference/thumbnail lookup beyond the local registry,
-  typed fresh protected URLs and bounded trusted downloads. Correlate account,
+  remaining typed detail/thumbnail variants and verified composite translation. Image/video UUID URL/download adapters are implemented in the current batch with selected-account/project ownership and no Store synthesis. Correlate account,
   project, media and type; keep local/native scope explicit. Translate useapi
   composite IDs only with a verified mapping.
   Native/mixed image generation routing is published/deployed at44c42366: unregistered native
@@ -182,7 +182,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   in39.95seconds with zero generation requests; the final complete offline suite
   passed5934tests with5skips at89.00%coverage. These establish implementation and
   attachment, not accepted mixed/native REST or registered MCP output; R12 retains
-  those acceptance requirements. Native URL/download lookup is the next R02 task.
+  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; publication/deployment evidence is recorded in the ledger.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial
