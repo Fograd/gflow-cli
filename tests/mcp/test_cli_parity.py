@@ -247,6 +247,7 @@ _CLI_ONLY_PARAMS: frozenset[str] = frozenset(
 #: Keep this small -- a rename with no reason is drift, not translation.
 _PARAM_ALIASES: dict[str, str] = {
     "file": "path",
+    "captcha_token_file": "captcha_token",  # CLI reads a private file; MCP receives its contents
     "project_id": "project",
     "name": "display_name",  # metadata commands; selector tools retain raw name
     "assume_yes": "confirm_delete",  # explicit deletion authorization

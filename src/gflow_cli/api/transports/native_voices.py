@@ -325,6 +325,12 @@ async def _rpc(page: Any, project: str, rpc: str, args: list[Any]) -> Any:
 async def _mint_audio_token(page: Any) -> str:
     import asyncio
 
+    from gflow_cli.api.native_captcha import take_native_captcha_token
+
+    supplied = take_native_captcha_token(getattr(page, "url", None), AUDIO_ACTION)
+    if supplied is not None:
+        return supplied
+
     token = await asyncio.wait_for(
         page.evaluate(
             """async () => {

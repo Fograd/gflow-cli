@@ -598,15 +598,15 @@ the durable self-hosted REST job queue is a separate surface.
 |---|---|---|
 | `gflow_list_saved_voices` | `project`, optional `profile` | Project-scoped saved TTS metadata |
 | `gflow_get_saved_voice` | `voice_id`, `project`, optional `profile` | Fresh owned audio URL |
-| `gflow_create_saved_voice` | `display_name`, `preset_voice`, `dialog`, `performance`, `project`, optional `profile` | One TTS preview and metadata saves |
+| `gflow_create_saved_voice` | `display_name`, `preset_voice`, `dialog`, `performance`, `project`, optional `profile`, `captcha_token` | One TTS preview and metadata saves |
 | `gflow_delete_saved_voice` | `voice_id`, `project`, `confirm_delete=true`, optional `profile` | Permanent owned saved-voice deletion |
 | `gflow_delete_native_media` | `media_ids`, `project`, `confirm_delete=true`, optional `profile` | Individual permanent deletion; preserves siblings |
 | `gflow_list_extension_models` | `project`, optional `profile` | Native extension model keys |
-| `gflow_extend_native_video` | `media_id`, `prompt`, `project`; optional `model_key`, `count`, `aspect`, `trim_start_frame`, `trim_end_frame`, `out_dir`, `profile` | Native standalone extension |
+| `gflow_extend_native_video` | `media_id`, `prompt`, `project`; optional `model_key`, `count`, `aspect`, `trim_start_frame`, `trim_end_frame`, `out_dir`, `profile`, `captcha_token` | Native standalone extension |
 | `gflow_list_edit_models` | `project`, optional `profile` | Native Omni edit model keys |
-| `gflow_edit_native_video` | `media_id`, `prompt`, `model_key`, `end_frame`, `project`; optional `start_frame`, `image_ref`, `audio_ref`, `character_ref`, `out_dir`, `profile` | One Omni edit; virtual 24fps trim |
+| `gflow_edit_native_video` | `media_id`, `prompt`, `model_key`, `project`; optional `end_frame`, `start_frame`, `image_ref`, `audio_ref`, `character_ref`, `out_dir`, `profile`, `captcha_token` | One Omni edit; virtual 24fps trim |
 | `gflow_list_reference_video_models` | `project`, optional `with_audio`, `profile` | Native ingredient model keys and budgets |
-| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `character_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile` | Existing image/audio/character UUID or available audio-preset ingredients; at least one required |
+| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `character_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile`, `captcha_token` | Existing image/audio/character UUID or available audio-preset ingredients; at least one required |
 
 See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MEDIA.md),
 [extension](self-hosted/NATIVE_VIDEO_EXTENSION.md), [editing](VIDEO_EDIT.md), and
@@ -760,3 +760,15 @@ and charge explicit presets against the observed native model audio capacity.
 Unknown names, URLs/arbitrary paths, missing/duplicate catalog entries and
 zero/unknown audio capacity refuse. UUID ownership/type rules remain unchanged.
 This is reference transport/preflight support; accepted rendered speech is R12.
+
+
+### Supplied tokens for native video and saved TTS
+Native CLI reference-native/edit-native/extend-native and voice create accept
+--captcha-token-file (private owned regular mode600 file).
+Their direct MCP twins accept optional captcha_token; the SDK uses a scoped
+native_captcha_token helper bound to the exact project/action and one use.
+REST native /videos, /videos/extend and /voices use captchaToken with private
+offqueue file storage. No token is returned or persisted in normal job results.
+Provider controls remain guarded501 and acceptance remains unverified.
+See [native CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) for exact scope,
+limitations, cleanup, verification and troubleshooting.

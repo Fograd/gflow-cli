@@ -46,6 +46,15 @@ async def generate(profile: str, project: str, request_path: Path) -> None:
 async def run_extension(
     profile: str, project: str, payload: dict[str, Any], out: Path
 ) -> dict[str, Any]:
+    from gflow_cli.selfhost.native_captcha import private_native_captcha
+
+    with private_native_captcha(payload, project, "VIDEO_GENERATION"):
+        return await _run_extension(profile, project, payload, out)
+
+
+async def _run_extension(
+    profile: str, project: str, payload: dict[str, Any], out: Path
+) -> dict[str, Any]:
     # Reject malformed requests before creating the browser client.
     validation = new_extension_started(
         project, payload["mediaGenerationId"], payload.get("count", 1)

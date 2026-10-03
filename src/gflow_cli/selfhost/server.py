@@ -323,6 +323,26 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     ) -> dict[str, Any] | JSONResponse:
         from gflow_cli.selfhost.http_jobs import error_record, http_status, result_record
 
+        if kind in {"videos/extend", "videos/edit", "videos/reference", "voices/create"} and any(
+            key in payload for key in ("captchaToken", "captchaOrder", "captchaRetry")
+        ):
+            from gflow_cli.selfhost.captcha_routes import prepare_image_controls
+
+            raw_token = payload.get("captchaToken")
+            if "captchaToken" in payload:
+                from gflow_cli.api.native_captcha import validate_native_captcha_token
+                from gflow_cli.errors import ConfigurationError
+
+                try:
+                    validate_native_captcha_token(raw_token)
+                except ConfigurationError:
+                    raise HTTPException(
+                        422, "captchaToken requires one bounded token without whitespace"
+                    ) from None
+            prepare_image_controls(payload, cfg.root, persist_token=False)
+            if "captchaOrder" in payload or "captchaRetry" in payload:
+                raise HTTPException(501, "Provider replacement-token acceptance remains unverified")
+            captcha_token = raw_token if isinstance(raw_token, str) else None
         asynchronous = payload.get("async", False)
         job = await enqueue(request, kind, payload, profile, captcha_token)
         identifier = job["jobId"]
@@ -666,6 +686,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "images/canonical-characters",
                 "images/aspectRatio-auto-local-policy",
                 "images/supplied-captcha-token",
+                "native-reference-video/supplied-captcha-token",
+                "native-edit-video/supplied-captcha-token",
+                "native-extension/supplied-captcha-token",
+                "native-tts/supplied-captcha-token",
                 "images",
                 "images/upscale",
                 "assets/upload",
@@ -1714,6 +1738,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(
             payload,
             {
+                "captchaToken",
+                "captchaOrder",
+                "captchaRetry",
                 "email",
                 "projectId",
                 "displayName",
@@ -1859,6 +1886,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(
             payload,
             {
+                "captchaToken",
+                "captchaOrder",
+                "captchaRetry",
                 "email",
                 "projectId",
                 "mediaGenerationId",
@@ -1908,6 +1938,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
         allowed = {
+            "captchaToken",
+            "captchaOrder",
+            "captchaRetry",
             "email",
             "projectId",
             "prompt",
@@ -2000,6 +2033,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
         allowed = {
+            "captchaToken",
+            "captchaOrder",
+            "captchaRetry",
             "email",
             "projectId",
             "referenceVideo_1",

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, cast
 
+from gflow_cli.api.native_captcha import take_native_captcha_token
 from gflow_cli.errors import RecaptchaError
 
 __all__ = ["RecaptchaError", "TokenMinter", "discover_site_key"]
@@ -106,6 +107,9 @@ class TokenMinter:
         Tokens are single-use and expire in ~2 minutes — call this immediately
         before the API request that consumes the token.
         """
+        supplied = take_native_captcha_token(getattr(self._page, "url", None), action)
+        if supplied is not None:
+            return supplied
         site_key = await self.site_key()
         try:
             # Cast to a permissive callable so the optional patchright-only

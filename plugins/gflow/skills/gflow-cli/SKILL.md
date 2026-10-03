@@ -416,3 +416,10 @@ voices/lowercase resources through existing CLI/MCP/SDK/REST fields. Aliases
 normalize before duplicate checks; fresh unique native preset availability and
 actual audio capacities apply before mint. Arbitrary paths/URLs refuse. UUID
 ownership stays strict. Reference preflight does not prove rendered speech.
+
+
+Native supplied CAPTCHA: scoped SDK native_captcha_token, private-file CLI
+--captcha-token-file on reference-native/edit-native/extend-native/voice create,
+direct MCP captcha_token and REST captchaToken share single-use project/action
+binding. Token files/values are private; no fallback or uncertain retry.
+Provider acceptance remains unverified. See docs/self-hosted/NATIVE_CAPTCHA.md.

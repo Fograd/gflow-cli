@@ -38,6 +38,7 @@ from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
+from gflow_cli.api.native_captcha import native_captcha_or_none
 from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
@@ -2792,7 +2793,7 @@ async def gflow_get_saved_voice(
 @server.tool(
     name="gflow_create_saved_voice",
     description="Generate a TTS preview from a system preset and save a named voice. "
-    "Consumes generation credits; dialog and performance each 1..120 characters.",
+    "Consumes credits; dialog/performance each 1..120. Optional single-use captcha_token.",
 )
 @_guarded
 async def gflow_create_saved_voice(
@@ -2802,16 +2803,18 @@ async def gflow_create_saved_voice(
     dialog: str,
     performance: str,
     profile: str = "default",
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
-    return await _saved_voice_tool(
-        "create",
-        project,
-        profile,
-        display_name=display_name,
-        preset_voice=preset_voice,
-        dialog=dialog,
-        performance=performance,
-    )
+    with native_captcha_or_none(captcha_token, project_id=project, action="AUDIO_GENERATION"):
+        return await _saved_voice_tool(
+            "create",
+            project,
+            profile,
+            display_name=display_name,
+            preset_voice=preset_voice,
+            dialog=dialog,
+            performance=performance,
+        )
 
 
 @server.tool(
@@ -2891,54 +2894,61 @@ async def gflow_extend_native_video(
     trim_end_frame: int | None = None,
     out_dir: str | None = None,
     profile: str = "default",
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
-    from gflow_cli.api.native_extension import (
-        NativeExtensionUnknownError,
-        extension_args,
-        new_extension_started,
-    )
+    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
+        from gflow_cli.api.native_extension import (
+            NativeExtensionUnknownError,
+            extension_args,
+            new_extension_started,
+        )
 
-    if not is_uuid(project) or not is_uuid(media_id):
-        return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
-    if type(count) is not int or not 1 <= count <= 4:
-        return _bad_param("Invalid video extension count", "count must be1..4")
-    extension_args(
-        new_extension_started(project, media_id, count),
-        prompt=prompt,
-        model_key=model_key or "validation-native-model",
-        aspect=aspect or "16:9",
-        token="validation-only",
-        trim_start_frame=trim_start_frame,
-        trim_end_frame=trim_end_frame,
-    )
-    resolved = _resolve_and_validate_profile(profile)
-    if isinstance(resolved, dict):
-        return resolved
-    if not await _rate_limiter.acquire():
-        return _rate_limited_envelope()
-    settings = get_settings()
-    target = Path(out_dir) if out_dir else settings.output_dir
-    target.mkdir(parents=True, exist_ok=True)
-    async with _profile_lock(resolved):
-        async with FlowApiClient(
-            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
-        ) as client:
-            started = await client.extend_native_video(
-                project_id=project,
-                media_id=media_id,
-                prompt=prompt,
-                model_key=model_key,
-                count=count,
-                aspect=aspect,
-                trim_start_frame=trim_start_frame,
-                trim_end_frame=trim_end_frame,
-                on_started=_native_video_checkpoint(target, "extend"),
-            )
-            records = await client.wait_native_extension(started)
-            results = await _download_native_video_results(
-                client, records, target, NativeExtensionUnknownError(started)
-            )
-    return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
+        if not is_uuid(project) or not is_uuid(media_id):
+            return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
+        if type(count) is not int or not 1 <= count <= 4:
+            return _bad_param("Invalid video extension count", "count must be1..4")
+        extension_args(
+            new_extension_started(project, media_id, count),
+            prompt=prompt,
+            model_key=model_key or "validation-native-model",
+            aspect=aspect or "16:9",
+            token="validation-only",
+            trim_start_frame=trim_start_frame,
+            trim_end_frame=trim_end_frame,
+        )
+        resolved = _resolve_and_validate_profile(profile)
+        if isinstance(resolved, dict):
+            return resolved
+        if not await _rate_limiter.acquire():
+            return _rate_limited_envelope()
+        settings = get_settings()
+        target = Path(out_dir) if out_dir else settings.output_dir
+        target.mkdir(parents=True, exist_ok=True)
+        async with _profile_lock(resolved):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                started = await client.extend_native_video(
+                    project_id=project,
+                    media_id=media_id,
+                    prompt=prompt,
+                    model_key=model_key,
+                    count=count,
+                    aspect=aspect,
+                    trim_start_frame=trim_start_frame,
+                    trim_end_frame=trim_end_frame,
+                    on_started=_native_video_checkpoint(target, "extend"),
+                )
+                records = await client.wait_native_extension(started)
+                results = await _download_native_video_results(
+                    client, records, target, NativeExtensionUnknownError(started)
+                )
+        return {
+            "status": "ok",
+            "project_id": project,
+            "source_media_id": media_id,
+            "results": results,
+        }
 
 
 @server.tool(
@@ -2993,7 +3003,7 @@ async def gflow_delete_native_media(
     "up to5 owned images,3 audio UUID/preset refs and owned characters with native limits. "
     "Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
-    "Consumes video credits.",
+    "Consumes video credits; optional confidential single-use captcha_token.",
 )
 @_guarded
 async def gflow_edit_native_video(
@@ -3008,63 +3018,65 @@ async def gflow_edit_native_video(
     character_ref: list[str] | None = None,
     out_dir: str | None = None,
     profile: str = "default",
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
-    from gflow_cli.api.native_extension import new_extension_started
-    from gflow_cli.api.native_video_edit import NativeVideoEditUnknownError, video_edit_args
+    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
+        from gflow_cli.api.native_extension import new_extension_started
+        from gflow_cli.api.native_video_edit import NativeVideoEditUnknownError, video_edit_args
 
-    if not is_uuid(project) or not is_uuid(media_id):
-        return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
-    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
-    characters = tuple(character_ref or [])
-    video_edit_args(
-        new_extension_started(project, media_id, 1),
-        prompt=prompt,
-        model_key=model_key,
-        aspect="16:9",
-        token="validation-only",
-        start_frame=start_frame,
-        end_frame=end_frame if end_frame is not None else 240,
-        image_ids=images,
-        audio_ids=audio,
-        character_ids=characters,
-    )
-    resolved = _resolve_and_validate_profile(profile)
-    if isinstance(resolved, dict):
-        return resolved
-    if not await _rate_limiter.acquire():
-        return _rate_limited_envelope()
-    settings = get_settings()
-    target = Path(out_dir) if out_dir else settings.output_dir
-    target.mkdir(parents=True, exist_ok=True)
-    async with _profile_lock(resolved):
-        async with FlowApiClient(
-            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
-        ) as client:
-            started = await client.edit_native_video(
-                project_id=project,
-                media_id=media_id,
-                prompt=prompt,
-                model_key=model_key,
-                start_frame=start_frame,
-                end_frame=end_frame,
-                image_ids=images,
-                audio_ids=audio,
-                character_ids=characters,
-                on_started=_native_video_checkpoint(target, "edit"),
-            )
-            records = await client.wait_native_video_edit(started)
-            results = await _download_native_video_results(
-                client, records, target, NativeVideoEditUnknownError(started)
-            )
-    return {
-        "status": "ok",
-        "project_id": project,
-        "source_media_id": media_id,
-        "results": results,
-        "startFrameIndex": started.start_frame,
-        "endFrameIndex": started.end_frame,
-        "sourceDurationSeconds": started.source_duration_seconds,
-    }
+        if not is_uuid(project) or not is_uuid(media_id):
+            return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
+        images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+        characters = tuple(character_ref or [])
+        video_edit_args(
+            new_extension_started(project, media_id, 1),
+            prompt=prompt,
+            model_key=model_key,
+            aspect="16:9",
+            token="validation-only",
+            start_frame=start_frame,
+            end_frame=end_frame if end_frame is not None else 240,
+            image_ids=images,
+            audio_ids=audio,
+            character_ids=characters,
+        )
+        resolved = _resolve_and_validate_profile(profile)
+        if isinstance(resolved, dict):
+            return resolved
+        if not await _rate_limiter.acquire():
+            return _rate_limited_envelope()
+        settings = get_settings()
+        target = Path(out_dir) if out_dir else settings.output_dir
+        target.mkdir(parents=True, exist_ok=True)
+        async with _profile_lock(resolved):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                started = await client.edit_native_video(
+                    project_id=project,
+                    media_id=media_id,
+                    prompt=prompt,
+                    model_key=model_key,
+                    start_frame=start_frame,
+                    end_frame=end_frame,
+                    image_ids=images,
+                    audio_ids=audio,
+                    character_ids=characters,
+                    on_started=_native_video_checkpoint(target, "edit"),
+                )
+                records = await client.wait_native_video_edit(started)
+                results = await _download_native_video_results(
+                    client, records, target, NativeVideoEditUnknownError(started)
+                )
+        return {
+            "status": "ok",
+            "project_id": project,
+            "source_media_id": media_id,
+            "results": results,
+            "startFrameIndex": started.start_frame,
+            "endFrameIndex": started.end_frame,
+            "sourceDurationSeconds": started.source_duration_seconds,
+        }
 
 
 @server.tool(
@@ -3091,7 +3103,8 @@ async def gflow_list_edit_models(project: str, profile: str = "default") -> dict
     name="gflow_generate_native_reference_video",
     description="Generate Omni Flash with owned image/audio/character or system-preset refs; "
     "the chosen account model imposes its own limits. Optional native model_key, "
-    "duration/resolution; downloads MP4 outputs. Consumes video credits.",
+    "duration/resolution; downloads MP4 outputs. Consumes video credits; "
+    "optional confidential single-use captcha_token.",
 )
 @_guarded
 async def gflow_generate_native_reference_video(
@@ -3107,65 +3120,67 @@ async def gflow_generate_native_reference_video(
     resolution: str = "720p",
     out_dir: str | None = None,
     profile: str = "default",
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
-    from gflow_cli.api.native_reference_video import new_reference_started, reference_args
-    from gflow_cli.errors import NativeVideoGenerationUnknownError
+    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
+        from gflow_cli.api.native_reference_video import new_reference_started, reference_args
+        from gflow_cli.errors import NativeVideoGenerationUnknownError
 
-    if not is_uuid(project):
-        return _bad_param("Invalid project", "project must be a UUID")
-    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
-    characters = tuple(character_ref or [])
-    reference_args(
-        new_reference_started(project, count),
-        prompt=prompt,
-        image_ids=images,
-        audio_ids=audio,
-        character_ids=characters,
-        model_key=model_key or "discover-native-model",
-        aspect=aspect,
-        resolution=resolution,
-        token="validation-only",
-    )
-    if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
-        return _bad_param("Invalid duration", "duration must match an available native model")
-    resolved = _resolve_and_validate_profile(profile)
-    if isinstance(resolved, dict):
-        return resolved
-    if not await _rate_limiter.acquire():
-        return _rate_limited_envelope()
-    settings = get_settings()
-    target = Path(out_dir) if out_dir else settings.output_dir
-    target.mkdir(parents=True, exist_ok=True)
-    async with _profile_lock(resolved):
-        async with FlowApiClient(
-            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
-        ) as client:
-            started = await client.generate_native_reference_video(
-                project_id=project,
-                prompt=prompt,
-                reference_image_ids=images,
-                reference_audio_ids=audio,
-                reference_character_ids=characters,
-                model_key=model_key,
-                count=count,
-                aspect=aspect,
-                duration=duration,
-                resolution=resolution,
-                on_started=_native_video_checkpoint(target, "reference"),
-            )
-            records = await client.wait_native_reference_video(started)
-            results = await _download_native_video_results(
-                client,
-                records,
-                target,
-                NativeVideoGenerationUnknownError(
-                    project_id=started.project_id,
-                    media_ids=started.media_ids,
-                    workflow_ids=started.workflow_ids,
-                    phase="video_poll",
-                ),
-            )
-    return {"status": "ok", "project_id": project, "results": results}
+        if not is_uuid(project):
+            return _bad_param("Invalid project", "project must be a UUID")
+        images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+        characters = tuple(character_ref or [])
+        reference_args(
+            new_reference_started(project, count),
+            prompt=prompt,
+            image_ids=images,
+            audio_ids=audio,
+            character_ids=characters,
+            model_key=model_key or "discover-native-model",
+            aspect=aspect,
+            resolution=resolution,
+            token="validation-only",
+        )
+        if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
+            return _bad_param("Invalid duration", "duration must match an available native model")
+        resolved = _resolve_and_validate_profile(profile)
+        if isinstance(resolved, dict):
+            return resolved
+        if not await _rate_limiter.acquire():
+            return _rate_limited_envelope()
+        settings = get_settings()
+        target = Path(out_dir) if out_dir else settings.output_dir
+        target.mkdir(parents=True, exist_ok=True)
+        async with _profile_lock(resolved):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                started = await client.generate_native_reference_video(
+                    project_id=project,
+                    prompt=prompt,
+                    reference_image_ids=images,
+                    reference_audio_ids=audio,
+                    reference_character_ids=characters,
+                    model_key=model_key,
+                    count=count,
+                    aspect=aspect,
+                    duration=duration,
+                    resolution=resolution,
+                    on_started=_native_video_checkpoint(target, "reference"),
+                )
+                records = await client.wait_native_reference_video(started)
+                results = await _download_native_video_results(
+                    client,
+                    records,
+                    target,
+                    NativeVideoGenerationUnknownError(
+                        project_id=started.project_id,
+                        media_ids=started.media_ids,
+                        workflow_ids=started.workflow_ids,
+                        phase="video_poll",
+                    ),
+                )
+        return {"status": "ok", "project_id": project, "results": results}
 
 
 @server.tool(

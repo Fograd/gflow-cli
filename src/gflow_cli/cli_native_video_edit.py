@@ -16,6 +16,7 @@ from gflow_cli.api.native_video_edit import (
     edit_native_video,
     wait_native_video_edit,
 )
+from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.config import get_settings
 
 
@@ -41,6 +42,7 @@ from gflow_cli.config import get_settings
 @click.option("--profile", default=None)
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
 @click.option("--json", "as_json", is_flag=True)
+@native_captcha_option("VIDEO_GENERATION")
 def edit_native_command(
     media_id: str,
     project: str,

@@ -1047,3 +1047,19 @@ for the current text/reference/frames/edit/extension builder. Existing refusal
 is preserved and the limits are documented in the primary codec inspection.
 No browser mutation or generation was used. R07 tracks the separate promotion
 contract; R05 completion means bounded discovery, not unsupported output parity.
+
+
+### R06 native supplied-token interception — current batch
+Native reference/edit/extension/TTS share a single-use project/action-bound
+supplied-token scope across SDK/CLI/direct MCP/REST/privateworkers. No token
+enters durable payloads, results or argv; private REST file pointers are scoped
+to the configured directory and files are consumed/removed safely.
+Focused lifecycle/isolation/CLI/MCP/REST/worker tests passed47 in1.02seconds.
+Live free synthetic-video interception BDD passed1test,2warnings in35.73seconds:
+R2V/edit reached pre-dispatch checkpoints using supplied synthetic tokens and
+the native audio minter consumed its matching audio scope. No generation RPC
+reached Google; the synthetic video was archived and originals preserved.
+External token acceptance, UI-video/image-upscale and provider-backed paths
+remain incomplete R06/R07/R12 work. No provider task or paid generation was sent.
+
+R06 final offline gates:6249passed,5skipped,15warnings in188.64seconds,89%coverage. Whole source pyright0errors; hygiene, links, PII, website mirrors, council memory, ruff andformat checks passed. Council Architect/Security/Performance/UX/docs GO with documented limits. CLI-privatefile to MCP-token parity is explicitly translated and tested.

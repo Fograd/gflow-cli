@@ -167,6 +167,18 @@ def image_reference_inputs(
 
 
 async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str, Any]:
+    from gflow_cli.selfhost.native_captcha import native_secret_path
+
+    payload = json.loads(job["payload"])
+    path = native_secret_path(payload, cfg.root)
+    try:
+        return await _execute(cfg, store, job)
+    finally:
+        if path is not None:
+            path.unlink(missing_ok=True)
+
+
+async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str, Any]:
     payload = json.loads(job["payload"])
     profile = job["profile"]
     project = payload["project"]
@@ -235,6 +247,8 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         creating = job["kind"] == "voices/create"
         native_payload = {"project_id": project}
         if creating:
+            if "captchaSecret" in payload:
+                native_payload["captchaSecret"] = payload["captchaSecret"]
             native_payload.update(
                 display_name=payload["displayName"],
                 preset_voice=payload["voice"],

@@ -227,3 +227,5 @@ Bounded native account project traversal and its continuation/count semantics:
 Observed media/workflow/character/saved-voice catalogs across discovered account
 projects: [usage](USAGE.md#observed-catalogs-across-native-account-projects) and
 [API](self-hosted/API.md#account-project-catalogs).
+
+- [Native supplied CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) — SDK scope, CLI/MCP/REST, private lifecycle and acceptance limits.

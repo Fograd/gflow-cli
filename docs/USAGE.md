@@ -2458,3 +2458,15 @@ and charge explicit presets against the observed native model audio capacity.
 Unknown names, URLs/arbitrary paths, missing/duplicate catalog entries and
 zero/unknown audio capacity refuse. UUID ownership/type rules remain unchanged.
 This is reference transport/preflight support; accepted rendered speech is R12.
+
+
+### Supplied tokens for native video and saved TTS
+Native CLI reference-native/edit-native/extend-native and voice create accept
+--captcha-token-file (private owned regular mode600 file).
+Their direct MCP twins accept optional captcha_token; the SDK uses a scoped
+native_captcha_token helper bound to the exact project/action and one use.
+REST native /videos, /videos/extend and /voices use captchaToken with private
+offqueue file storage. No token is returned or persisted in normal job results.
+Provider controls remain guarded501 and acceptance remains unverified.
+See [native CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) for exact scope,
+limitations, cleanup, verification and troubleshooting.

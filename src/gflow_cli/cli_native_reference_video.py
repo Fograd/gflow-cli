@@ -8,6 +8,7 @@ import click
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
+from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.errors import NativeVideoGenerationUnknownError
 from gflow_cli.selfhost.reference_video_worker import run_reference_video
 
@@ -32,6 +33,7 @@ from gflow_cli.selfhost.reference_video_worker import run_reference_video
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/reference-video"))
 @click.option("--json", "as_json", is_flag=True)
+@native_captcha_option("VIDEO_GENERATION")
 def reference_native_command(
     project: str,
     prompt: str,

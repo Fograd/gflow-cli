@@ -11,6 +11,7 @@ from gflow_cli import json_output
 from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
 from gflow_cli.api.native_voices import validate_create
 from gflow_cli.api.transports.native_voices import validate_identifier
+from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.errors import ConfigurationError
 from gflow_cli.services.native_voices import saved_voice_operation
 
@@ -90,6 +91,7 @@ def show_command(project: str, voice_id: str, profile: str | None, as_json: bool
 @click.option("--performance", required=True)
 @click.option("--profile", default=None)
 @click.option("--json", "as_json", is_flag=True)
+@native_captcha_option("AUDIO_GENERATION")
 def create_command(
     project: str,
     display_name: str,

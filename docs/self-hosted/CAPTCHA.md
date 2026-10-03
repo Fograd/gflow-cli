@@ -74,3 +74,7 @@ A fresh same-page TokenMinter replacement was submitted in a live BDD but Google
 Actual CapSolver proof: one paid task solved, one replacement request submitted to Google, zero accepted images (`solveStarted=1`, `solved=1`, `submitted=1`, `accepted=0`). Google rejected unusual activity (gRPC 7/HTTP 403); no retry was made. Public provider generation continues to return HTTP 501 and GUI generationEnabled remains false. A provider solution is distinct from Google acceptance.
 
 Statistics record `rejected` only for a typed Google WAF refusal during generation. Post-submission timeouts, unknown errors and download failures record `unknown`; they are not labelled rejection. `accepted` is counted after a successful download, so it is a conservative completed-image observation. These counters never trigger automatic solving or generation retries.
+
+Native reference/edit/extension/TTS supplied-token scopes are now implemented;
+see [exact native scope and verification](NATIVE_CAPTCHA.md). Provider-backed
+Google acceptance remains unverified and generation remains guarded.

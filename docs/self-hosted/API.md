@@ -590,3 +590,13 @@ and charge explicit presets against the observed native model audio capacity.
 Unknown names, URLs/arbitrary paths, missing/duplicate catalog entries and
 zero/unknown audio capacity refuse. UUID ownership/type rules remain unchanged.
 This is reference transport/preflight support; accepted rendered speech is R12.
+
+
+### Native supplied CAPTCHA tokens
+Native reference/edit POST /videos, POST /videos/extend and POST /voices accept
+captchaToken (20–20000 characters, one use). It is mutually exclusive with
+captchaOrder/captchaRetry, which remain guarded501 after validation. Raw tokens
+stay outside durable job JSON and are consumed through private worker files.
+Exact native project/action/host binding and no fallback/replay apply.
+Image-upscale/UI-video and export controls are outside this batch.
+See [native CAPTCHA controls](NATIVE_CAPTCHA.md).

@@ -9,6 +9,7 @@ import click
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
 from gflow_cli.api.native_extension import NativeExtensionUnknownError
+from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.selfhost.extension_worker import run_extension
 
 
@@ -28,6 +29,7 @@ from gflow_cli.selfhost.extension_worker import run_extension
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/extensions"))
 @click.option("--json", "as_json", is_flag=True)
+@native_captcha_option("VIDEO_GENERATION")
 def extend_native_command(
     media_id: str,
     project: str,

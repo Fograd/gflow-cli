@@ -39,6 +39,17 @@ from gflow_cli.errors import (
 
 
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
+    from gflow_cli.selfhost.native_captcha import private_native_captcha
+
+    if verb == "voice-saved-create":
+        with private_native_captcha(payload, str(payload["project_id"]), "AUDIO_GENERATION"):
+            return await _execute(verb, profile, payload)
+    if "captchaSecret" in payload:
+        raise ConfigurationError(detail="CAPTCHA controls require a native generation operation")
+    return await _execute(verb, profile, payload)
+
+
+async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     if get_settings().flow_host == "labs.google":
         raise ValueError("Native resource operations require the migrated Flow host")
     if verb == "session-health":
