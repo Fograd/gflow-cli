@@ -364,8 +364,9 @@ pointed a provider test at an empty profile; it failed before solving or Google
 generation. Its checkpoint remains separate from the measured authenticated
 CapSolver trial. An earlier private plugin import error also submitted nothing.
 
-Across the earlier image trial and this video trial, CapSolver recorded2solved,
-2submitted,0accepted and2rejected operations. A solved token is not Google
+Across the earlier image trial and this video trial, the private ledgers show2solved,
+2submitted,0accepted and2rejected operations. API counters remain scoped to their
+self-hosted instance and do not retroactively aggregate separate manual trials. A solved token is not Google
 acceptance. Provider-backed public generation remains guarded; keys, tokens,
 signed URLs and raw captures remain outside Git. No additional extension/edit
 generation or rendered-audio reference request was sent after the same-account
@@ -399,3 +400,35 @@ one new worker checkpoint block. The new extension/edit duplicate was extracted
 into a shared writer, preserving filenames, recovery fields and mode600.
 The focused worker regression passed after this small source change. No extra
 generation or solver request was used for these corrections.
+
+The frozen feature baseline then passed the complete offline suite:
+**5,764passed,5skipped,15warnings;88.63% coverage**, in243.56seconds.
+Actual authenticated staged HTTP reads returned5extension models,2edit models,
+13reference models and an empty saved-user-voice catalog. Actual Streamable HTTP
+registration returned35MCPtools. These reads perform no generation or solving.
+An initial staging client used an unsupported profile query parameter and
+received501 before browser work; the corrected client used the documented email
+selector. This was a test-client correction, not a server feature failure.
+
+## Final review response-contract corrections
+
+The pinned baseline review found two public result defects: successful saved-TTS
+job responses dropped the new voice IDs, and uncertain voice/video failures
+dropped public recovery IDs. Narrow route/shape-specific projection now preserves
+acknowledged UUID identities and bounded voice metadata through synchronous
+delivery, polling and callbacks. Invalid, foreign-project and private fields
+remain excluded; explicit Google refusals stay distinct from uncertainty.
+The focused HTTP outcome regression returned51passed.
+
+MCP extension/edit/reference also now write invocation-specific private started
+journals before dispatch and retain typed output identities if playback/download
+fails. Missing URL, download failure and cancellation cases across the three
+tools returned13focused passes. Cancellation still propagates. These corrections
+required no new generation or solver call. Private council-memory slugs were
+unavailable to reviewers; that limits memory-history review rather than live
+generation proof. Source and public spike/verification records were reviewed.
+
+The final changed HTTP/MCP/worker domains and mirror regression returned
+**770passed in44.06seconds** after the review corrections. Whole-tree Ruff,
+format verification and strict Pyright were clean on those final source changes.
+No accepted video/TTS output or full vendor parity is inferred from these gates.

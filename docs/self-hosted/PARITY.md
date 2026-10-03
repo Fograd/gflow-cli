@@ -58,8 +58,8 @@ implementations and9 have source-derived paths now wired but key final acceptanc
 proof pending (account import, video generation/upscale/GIF/standalone extension,
 and the four saved-user-TTS contracts). This is not a completion percentage or
 exact compatibility claim. Earlier scoped implementations can also lack vendor
-options or require representative live proof. Current new code is not yet a
-published/deployed feature claim.
+options or require representative live proof. Publication/deployment checkpoints
+and live acceptance are recorded separately in the verification ledger.
 
 | Newly wired capability | Current boundary |
 |---|---|

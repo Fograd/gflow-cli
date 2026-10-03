@@ -6,6 +6,7 @@ import math
 import re
 from datetime import UTC, datetime
 from typing import Any, cast
+from uuid import UUID
 
 _ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
 _DOWNLOAD = re.compile(r"/v1/google-flow/assets/[A-Za-z0-9_-]{1,160}/download")
@@ -23,7 +24,13 @@ _REQUEST_STRINGS = {
     "mediaGenerationId",
 }
 _REQUEST_NUMBERS = {"count", "duration", "seed"}
-_ERROR_CODES = {
+_NATIVE_UNKNOWN_CODES = {
+    "voice_mutation_outcome_unknown",
+    "native_video_generation_outcome_unknown",
+    "native_video_edit_outcome_unknown",
+    "native_video_extension_outcome_unknown",
+}
+_ERROR_CODES = _NATIVE_UNKNOWN_CODES | {
     "gflow_command_failed",
     "submission_outcome_unknown",
     "invalid_operation_result",
@@ -157,7 +164,80 @@ def _media(item: dict[str, Any]) -> dict[str, Any]:
     return safe
 
 
-def result_record(result: dict[str, Any]) -> dict[str, Any]:
+def _uuid_value(value: Any) -> str | None:
+    if not isinstance(value, str) or len(value) != 36:
+        return None
+    try:
+        canonical = str(UUID(value))
+        return canonical if canonical == value.lower() else None
+    except ValueError:
+        return None
+
+
+def _native_unknown_handles(result: dict[str, Any]) -> dict[str, Any]:
+    raw = result.get("error")
+    if not isinstance(raw, dict):
+        return {}
+    raw = cast(dict[str, Any], raw)
+    code = raw.get("code")
+    if (
+        not isinstance(code, str)
+        or code not in _NATIVE_UNKNOWN_CODES
+        or raw.get("outcome_unknown") is not True
+    ):
+        return {}
+    if _uuid_value(result.get("projectId")) is None:
+        return {}
+    if "project_id" in raw and raw["project_id"] != result["projectId"]:
+        return {}
+    media = raw.get("known_media_ids" if code == "voice_mutation_outcome_unknown" else "media_ids")
+    workflows = raw.get("workflow_ids")
+    limit = 1 if code == "voice_mutation_outcome_unknown" else 4
+    if not isinstance(media, list) or not isinstance(workflows, list):
+        return {}
+    media, workflows = cast(list[Any], media), cast(list[Any], workflows)
+    if not 1 <= len(media) <= limit or len(media) != len(workflows):
+        return {}
+    canonical_media = [_uuid_value(value) for value in media]
+    canonical_workflows = [_uuid_value(value) for value in workflows]
+    if None in canonical_media or None in canonical_workflows:
+        return {}
+    if len(set(canonical_media + canonical_workflows)) != 2 * len(media):
+        return {}
+    return {"knownMediaGenerationIds": canonical_media, "knownWorkflowIds": canonical_workflows}
+
+
+def _saved_voice_result(result: dict[str, Any], kind: str | None) -> dict[str, Any]:
+    # Sync delivery reprojects Store.public, so a missing kind is accepted only
+    # with the complete acknowledged voice identity shape. Other routes fail closed.
+    if kind not in (None, "voices/create") or result.get("source") != "user":
+        return {}
+    identifier = _uuid_value(result.get("ref"))
+    workflow = _uuid_value(result.get("workflowId"))
+    project = _uuid_value(result.get("projectId"))
+    if identifier is None or workflow is None or project is None:
+        return {}
+    if result.get("mediaId") != identifier or result.get("voice") != identifier:
+        return {}
+    name = result.get("displayName")
+    if not isinstance(name, str) or not 1 <= len(name) <= 200 or "\x00" in name:
+        return {}
+    safe: dict[str, Any] = {
+        "ref": identifier,
+        "mediaId": identifier,
+        "voice": identifier,
+        "workflowId": workflow,
+        "source": "user",
+        "displayName": name,
+    }
+    for key, limit in (("baseVoice", 100), ("dialog", 120), ("voicePerformance", 120)):
+        value = result.get(key)
+        if isinstance(value, str) and len(value) <= limit and "\x00" not in value:
+            safe[key] = value
+    return safe
+
+
+def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[str, Any]:
     safe: dict[str, Any] = {}
     media = result.get("media")
     if isinstance(media, list):
@@ -251,6 +331,8 @@ def result_record(result: dict[str, Any]) -> dict[str, Any]:
         from gflow_cli.selfhost.session_health import public_health_observation
 
         safe["sessionHealth"] = public_health_observation(result["sessionHealth"])
+    safe.update(_saved_voice_result(result, kind))
+    safe.update(_native_unknown_handles(result))
     return safe
 
 
@@ -260,7 +342,10 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     code = raw.get("code")
     code = code if isinstance(code, str) and code in _ERROR_CODES else "operation_failed"
     unknown = (
-        state == "interrupted" or code == "submission_outcome_unknown" or raw.get("exit_code") == 9
+        state == "interrupted"
+        or code == "submission_outcome_unknown"
+        or raw.get("exit_code") == 9
+        or (code in _NATIVE_UNKNOWN_CODES and raw.get("outcome_unknown") is True)
     )
     detail = (
         "Submission outcome is unknown; inspect this job and Flow before another request."
@@ -299,6 +384,19 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
             safe["errorDetails"]["operation"] = operation
         if isinstance(phase, str) and phase in allowed_phases:
             safe["errorDetails"]["phase"] = phase
+        if code in _NATIVE_UNKNOWN_CODES:
+            native_phases = (
+                {"preview", "save", "delete"}
+                if code == "voice_mutation_outcome_unknown"
+                else {"video_submit", "video_poll"}
+            )
+            if isinstance(phase, str) and phase in native_phases:
+                safe["errorDetails"]["phase"] = phase
+            handles = _native_unknown_handles(result)
+            safe.update(handles)
+            if handles:
+                safe["errorDetails"]["media_ids"] = handles["knownMediaGenerationIds"]
+                safe["errorDetails"]["workflow_ids"] = handles["knownWorkflowIds"]
     return safe
 
 
@@ -325,7 +423,7 @@ def job_record(row: Any, payload: dict[str, Any], result: dict[str, Any]) -> dic
         "request": request_record(payload),
     }
     record.update(aspect_metadata(payload))
-    safe_result = result_record(result)
+    safe_result = result_record(result, kind=row["kind"])
     if safe_result:
         record["response"] = safe_result
         # Preserve existing protected-media and recovery consumers, without raw worker fields.

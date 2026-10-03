@@ -365,3 +365,12 @@ exact source evidence and the pending live-acceptance boundary.
 The registered MCP surface contains 35 tools: the prior 24 plus 11 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
+
+Saved-TTS creation jobs preserve acknowledged ref/mediaId/voice and workflowId
+UUIDs, source=user, displayName and bounded voice metadata in synchronous
+responses, job polling and callbacks. These identifiers can be supplied to the
+saved-voice detail, deletion and character-binding adapters. A native ambiguous
+voice/video error instead carries outcomeUnknown=true with validated
+knownMediaGenerationIds/knownWorkflowIds for inspection; it remains nonretryable.
+A positively identified Google unusual-activity refusal returns403 without
+outcomeUnknown. No raw worker diagnostics or credentials are projected.

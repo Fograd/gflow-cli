@@ -300,6 +300,11 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
                     "retryable": False,
                     "outcome_unknown": True,
                     **(
+                        {"phase": error["phase"]}
+                        if error.get("phase") in ("video_submit", "video_poll")
+                        else {}
+                    ),
+                    **(
                         {key: error[key] for key in ("media_ids", "workflow_ids") if key in error}
                         if error.get("project_id") == project
                         else {}

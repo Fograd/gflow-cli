@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import time
 import uuid
 import weakref
@@ -2746,6 +2747,51 @@ async def gflow_delete_saved_voice(
     )
 
 
+def _native_video_checkpoint(target: Path, operation: str) -> Callable[[Any], Awaitable[None]]:
+    path = target / f"mcp-{operation}-started-{uuid.uuid4().hex}.json"
+
+    async def checkpoint(started: Any) -> None:
+        record = {
+            "project_id": started.project_id,
+            "media_ids": list(started.media_ids),
+            "workflow_ids": list(started.workflow_ids),
+        }
+        source = getattr(started, "source_media_id", None)
+        if source is not None:
+            record["source_media_id"] = source
+        with path.open("x", encoding="utf-8") as stream:
+            path.chmod(0o600)
+            json.dump(record, stream)
+
+    return checkpoint
+
+
+async def _download_native_video_results(
+    client: FlowApiClient, records: Any, target: Path, unknown: GFlowError
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    try:
+        for record in records:
+            if not record.video_url:
+                raise unknown
+            path = target / f"{record.media_id}.mp4"
+            await client.download(record.video_url, path)
+            results.append(
+                {
+                    "media_id": record.media_id,
+                    "workflow_id": record.workflow_id,
+                    "path": str(path),
+                    "bytes": path.stat().st_size,
+                }
+            )
+    except asyncio.CancelledError:
+        # The pre-submit journal retains recovery IDs; cancellation stays cancellation.
+        raise
+    except Exception:
+        raise unknown from None
+    return results
+
+
 @server.tool(
     name="gflow_extend_native_video",
     description="Generate standalone continuation clips from an owned native video. "
@@ -2766,7 +2812,11 @@ async def gflow_extend_native_video(
     out_dir: str | None = None,
     profile: str = "default",
 ) -> dict[str, Any]:
-    from gflow_cli.api.native_extension import extension_args, new_extension_started
+    from gflow_cli.api.native_extension import (
+        NativeExtensionUnknownError,
+        extension_args,
+        new_extension_started,
+    )
 
     if not is_uuid(project) or not is_uuid(media_id):
         return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
@@ -2802,22 +2852,12 @@ async def gflow_extend_native_video(
                 aspect=aspect,
                 trim_start_frame=trim_start_frame,
                 trim_end_frame=trim_end_frame,
+                on_started=_native_video_checkpoint(target, "extend"),
             )
             records = await client.wait_native_extension(started)
-            results: list[dict[str, Any]] = []
-            for record in records:
-                path = target / f"{record.media_id}.mp4"
-                if not record.video_url:
-                    raise ConfigurationError(detail="Extension video URL unavailable")
-                await client.download(record.video_url, path)
-                results.append(
-                    {
-                        "media_id": record.media_id,
-                        "workflow_id": record.workflow_id,
-                        "path": str(path),
-                        "bytes": path.stat().st_size,
-                    }
-                )
+            results = await _download_native_video_results(
+                client, records, target, NativeExtensionUnknownError(started)
+            )
     return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
 
 
@@ -2887,7 +2927,7 @@ async def gflow_edit_native_video(
     profile: str = "default",
 ) -> dict[str, Any]:
     from gflow_cli.api.native_extension import new_extension_started
-    from gflow_cli.api.native_video_edit import video_edit_args
+    from gflow_cli.api.native_video_edit import NativeVideoEditUnknownError, video_edit_args
 
     if not is_uuid(project) or not is_uuid(media_id):
         return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
@@ -2924,22 +2964,12 @@ async def gflow_edit_native_video(
                 end_frame=end_frame,
                 image_ids=images,
                 audio_ids=audio,
+                on_started=_native_video_checkpoint(target, "edit"),
             )
             records = await client.wait_native_video_edit(started)
-            results: list[dict[str, Any]] = []
-            for record in records:
-                if record.video_url is None:
-                    raise ConfigurationError(detail="Edited video URL unavailable")
-                path = target / f"{record.media_id}.mp4"
-                await client.download(record.video_url, path)
-                results.append(
-                    {
-                        "media_id": record.media_id,
-                        "workflow_id": record.workflow_id,
-                        "path": str(path),
-                        "bytes": path.stat().st_size,
-                    }
-                )
+            results = await _download_native_video_results(
+                client, records, target, NativeVideoEditUnknownError(started)
+            )
     return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
 
 
@@ -2984,6 +3014,7 @@ async def gflow_generate_native_reference_video(
     profile: str = "default",
 ) -> dict[str, Any]:
     from gflow_cli.api.native_reference_video import new_reference_started, reference_args
+    from gflow_cli.errors import NativeVideoGenerationUnknownError
 
     if not is_uuid(project):
         return _bad_param("Invalid project", "project must be a UUID")
@@ -3022,22 +3053,20 @@ async def gflow_generate_native_reference_video(
                 aspect=aspect,
                 duration=duration,
                 resolution=resolution,
+                on_started=_native_video_checkpoint(target, "reference"),
             )
             records = await client.wait_native_reference_video(started)
-            results: list[dict[str, Any]] = []
-            for record in records:
-                if record.video_url is None:
-                    raise ConfigurationError(detail="Reference video URL unavailable")
-                path = target / f"{record.media_id}.mp4"
-                await client.download(record.video_url, path)
-                results.append(
-                    {
-                        "media_id": record.media_id,
-                        "workflow_id": record.workflow_id,
-                        "path": str(path),
-                        "bytes": path.stat().st_size,
-                    }
-                )
+            results = await _download_native_video_results(
+                client,
+                records,
+                target,
+                NativeVideoGenerationUnknownError(
+                    project_id=started.project_id,
+                    media_ids=started.media_ids,
+                    workflow_ids=started.workflow_ids,
+                    phase="video_poll",
+                ),
+            )
     return {"status": "ok", "project_id": project, "results": results}
 
 
