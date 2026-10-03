@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.native_extension import (
     _NATIVE_FETCH,
     _read_native,
@@ -355,6 +356,7 @@ async def generate_native_reference_video(
             result = await page.evaluate(
                 _NATIVE_FETCH,
                 {"rpc": "MZZa6b", "args": args, "source": f"/project/{started.project_id}"},
+                **page_owned_evaluate_kwargs(),
             )
             refusal = _submit_refusal(result["text"], ("MZZa6b",))
             if refusal is not None:
@@ -410,6 +412,7 @@ async def wait_native_reference_video(
                             "args": [media],
                             "source": f"/project/{started.project_id}",
                         },
+                        **page_owned_evaluate_kwargs(),
                     )
                     if result["status"] != 200 or rpc_errors(result["text"]):
                         raise _unknown(started, "video_poll")

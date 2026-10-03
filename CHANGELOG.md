@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add explicit HTTP image/video alias registration, fresh scoped reads and local-only removal. URL-safe opaque prefixes are not decoded vendor identity; character/voice/reference translation remains unsupported.
+- Native page-owned RPC/model evaluation uses Patchright main-world kwargs through the shared engine policy; generic evaluation and Playwright arguments remain unchanged. The live pro3 model-read BDD passed without generation; rendered acceptance remains separate.
+
 - Native read inventories merge timeline and attached media while preserving origin and attachment scope, expose typed upload classification and source creation times, and retain unknown completeness. HTTP native inventory has no implicit50-row cap.
 - Native SDK/CLI/direct MCP asset metadata reads support strictly owned active audio with null dimensions; downloads remain image/video only and HTTP assets reject audio. Bounded character detail can resolve missing-projection thumbnails with a proven owned parent. Live audio/video acceptance and full R02/R03 parity remain pending.
 

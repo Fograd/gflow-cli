@@ -14,7 +14,8 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.config import get_settings, reset_settings
+from gflow_cli.api.native_video_audio import normalize_audio_reference
+from gflow_cli.config import BrowserEngine, get_settings, reset_settings
 from gflow_cli.errors import ContentPolicyError, WafRejectionError
 
 pytestmark = [pytest.mark.e2e]
@@ -32,15 +33,19 @@ def private_checkpoint(case, **changes):
 
 def install_response_recorder(case, monkeypatch):
     """Record actual generation responses privately; never record request arguments."""
-    from playwright.async_api import Page
+    if get_settings().browser_engine == BrowserEngine.PATCHRIGHT:
+        from patchright.async_api import Page
+    else:
+        from playwright.async_api import Page
 
     original = Page.evaluate
     selected = {"no0P6", "MZZa6b", "fZytfe", "jIps6"}
     sequence = 0
 
-    async def evaluate(page, expression, arg=None):
+    async def evaluate(page, expression, *args, **kwargs):
         nonlocal sequence
-        result = await original(page, expression, arg=arg)
+        arg = kwargs.get("arg", args[0] if args else None)
+        result = await original(page, expression, *args, **kwargs)
         if isinstance(arg, dict) and arg.get("rpc") in selected:
             sequence += 1
             # Only response fields: never persist expression, args, headers or tokens.
@@ -128,7 +133,7 @@ def video_case(monkeypatch, mode):
             for x in json.loads(os.environ.get("GFLOW_CLI_E2E_NATIVE_VIDEO_IMAGES", "[]"))
         )
         case["audio"] = tuple(
-            str(UUID(x))
+            normalize_audio_reference(x)
             for x in json.loads(os.environ.get("GFLOW_CLI_E2E_NATIVE_VIDEO_AUDIO", "[]"))
         )
         case["characters"] = tuple(

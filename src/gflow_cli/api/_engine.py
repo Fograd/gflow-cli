@@ -192,17 +192,19 @@ def resolve_async_playwright(engine: BrowserEngine | str) -> Callable[[], Any]:
     return async_playwright
 
 
-def mint_evaluate_kwargs(engine: BrowserEngine | str | None = None) -> dict[str, Any]:
-    """Extra kwargs for the reCAPTCHA ``page.evaluate`` mint call.
+def page_owned_evaluate_kwargs(engine: BrowserEngine | str | None = None) -> dict[str, Any]:
+    """Use the main world for page-owned WIZ/grecaptcha globals under Patchright.
 
-    Patchright evaluates in an isolated world by default, where the page's
-    main-world ``grecaptcha`` global is undefined; force the main world so the
-    mint can see it. Playwright has no such kwarg, so returns ``{}``.
+    Ordinary DOM evaluations retain their engine defaults. Playwright does not
+    support isolated_context and therefore receives no extra keyword.
     """
     eng = engine if engine is not None else active_engine()
-    if eng == BrowserEngine.PATCHRIGHT:
-        return {"isolated_context": False}
-    return {}
+    return {"isolated_context": False} if eng == BrowserEngine.PATCHRIGHT else {}
+
+
+def mint_evaluate_kwargs(engine: BrowserEngine | str | None = None) -> dict[str, Any]:
+    """Compatibility helper for the existing page-owned reCAPTCHA mint policy."""
+    return page_owned_evaluate_kwargs(engine)
 
 
 def retryable_engine_errors() -> tuple[type[BaseException], ...]:

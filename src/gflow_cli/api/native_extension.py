@@ -11,6 +11,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
 from gflow_cli.api.transports.migrated_composer import (
@@ -237,7 +238,9 @@ async def extend_native_video(
             await on_started(started)
         try:
             result = await page.evaluate(
-                _NATIVE_FETCH, {"rpc": RPC, "args": args, "source": f"/project/{project_id}"}
+                _NATIVE_FETCH,
+                {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
+                **page_owned_evaluate_kwargs(),
             )
             refusal = _submit_refusal(result["text"], (RPC,))
             if refusal is not None:
@@ -308,6 +311,7 @@ async def wait_native_extension(
                         "args": [media],
                         "source": f"/project/{started.project_id}",
                     },
+                    **page_owned_evaluate_kwargs(),
                 )
                 if result["status"] != 200:
                     raise NativeExtensionUnknownError(started)
@@ -414,7 +418,9 @@ def parse_extension_models(
 
 async def _read_native(page: Any, rpc: str, args: list[Any], project: str) -> Any:
     result = await page.evaluate(
-        _NATIVE_FETCH, {"rpc": rpc, "args": args, "source": f"/project/{project}"}
+        _NATIVE_FETCH,
+        {"rpc": rpc, "args": args, "source": f"/project/{project}"},
+        **page_owned_evaluate_kwargs(),
     )
     if result["status"] != 200 or rpc_errors(result["text"]):
         raise ConfigurationError(detail="Native extension model metadata could not be read")

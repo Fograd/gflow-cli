@@ -34,6 +34,7 @@ from gflow_cli.selfhost.config import (
     Settings,
     validate_callback,
 )
+from gflow_cli.selfhost.native_aliases import NativeAlias, NativeAliasStore, alias_spec
 from gflow_cli.selfhost.runtime import (
     contained_file,
     deliver_callbacks,
@@ -80,6 +81,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     if not cfg.token:
         raise ValueError("Bearer token must be configured")
     store = Store(cfg.root)
+    aliases = NativeAliasStore(cfg.root)
     store.account_seed(cfg.accounts)
     cfg.accounts = {
         row["profile"]: {"email": row["email"], "project": row["project"]}
@@ -184,6 +186,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         openapi_url=None,
     )
     app.state.store = store
+    app.state.aliases = aliases
     app.add_middleware(BodyLimitMiddleware)
     prefix = "/v1/google-flow"
     from gflow_cli.selfhost.captcha_routes import mount
@@ -704,6 +707,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/upload-mp4",
                 "assets/media-native-timeline",
                 "assets/media-native-attached-inventory",
+                "assets/verified-composite-read-mappings",
                 "assets/media-native-upload-and-source-time",
                 "assets/archive-native-whole-batch",
                 "assets/delete-native-individual",
@@ -1301,6 +1305,115 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "Managed asset not found") from None
         return FileResponse(path, media_type=row["mime"], filename=path.name)
 
+    def verified_alias_account(binding: NativeAlias) -> None:
+        configured = cfg.accounts.get(binding.profile)
+        row = next((row for row in store.accounts() if row["profile"] == binding.profile), None)
+        if (
+            configured is None
+            or configured["email"] != binding.account
+            or row is None
+            or row["email"] != binding.account
+            or row["enabled"] != 1
+            or row["verified"] != 1
+        ):
+            raise HTTPException(
+                403, "Composite alias account is not currently verified and enabled"
+            )
+
+    async def native_alias_metadata(profile: str, project: str, identifier: str) -> dict[str, Any]:
+        code, output = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "asset-get",
+                profile,
+                json.dumps({"project_id": project, "media_id": identifier}),
+            ],
+            120,
+        )
+        try:
+            result = parse_json_output(output)
+        except ValueError:
+            raise HTTPException(502, "Native alias verification is unavailable") from None
+        if (
+            code
+            or result.get("status") != "ok"
+            or result.get("mediaGenerationId") != identifier
+            or result.get("projectId") != project
+        ):
+            raise HTTPException(502, "Native alias verification is unresolved")
+        return result
+
+    @app.post(prefix + "/assets/{email}/aliases", status_code=201)
+    async def register_native_alias(email: str, payload: dict[str, Any]) -> dict[str, Any]:
+        from gflow_cli.api.transports.native_asset_lookup import media_url
+
+        check_unknown(payload, {"alias", "mediaGenerationId", "projectId", "kind"})
+        value = payload.get("alias")
+        if not isinstance(value, str):
+            raise HTTPException(422, "Composite alias requires a supported image/video shape")
+        try:
+            kind, expected_media = alias_spec(value)
+        except ValueError:
+            raise HTTPException(
+                422, "Composite alias requires a supported image/video shape"
+            ) from None
+        if payload.get("kind") != kind:
+            raise HTTPException(422, "Composite alias kind does not match the supplied kind")
+        identifier = uuid_value(payload.get("mediaGenerationId"), "mediaGenerationId")
+        if identifier != expected_media:
+            raise HTTPException(422, "Composite alias does not match the explicit media UUID")
+        profile = pick_account(email, [])
+        project = uuid_value(
+            payload.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        binding = NativeAlias(payload["alias"], profile, email, project, identifier, kind)
+        verified_alias_account(binding)
+        existing = aliases.get(binding.alias)
+        if existing is not None and existing != binding:
+            raise HTTPException(409, "Composite alias conflicts with its existing binding")
+        result = await native_alias_metadata(profile, project, identifier)
+        if result.get("kind") != kind:
+            raise HTTPException(400, "Native media type does not match the composite alias")
+        try:
+            media_url(result.get("url"), kind)
+        except ValueError:
+            raise HTTPException(502, "Native alias verification URL is unavailable") from None
+        try:
+            aliases.register(binding)
+        except ValueError:
+            raise HTTPException(
+                409, "Composite alias conflicts with its existing binding"
+            ) from None
+        return {
+            "alias": binding.alias,
+            "mediaGenerationId": binding.alias,
+            "nativeMediaGenerationId": identifier,
+            "projectId": project,
+            "kind": kind,
+            "verified": True,
+            "scope": "self-hosted exact mapping verified by fresh native read",
+        }
+
+    @app.delete(prefix + "/assets/{email}/aliases/{alias}")
+    async def remove_native_alias(email: str, alias: str) -> dict[str, Any]:
+        profile = pick_account(email, [])
+        try:
+            removed = aliases.remove(alias, profile, email)
+        except ValueError:
+            raise HTTPException(
+                403, "Composite alias is invalid or belongs to another scope"
+            ) from None
+        if not removed:
+            raise HTTPException(404, "Composite alias is not registered")
+        return {
+            "alias": alias,
+            "removed": True,
+            "googleMediaDeleted": False,
+            "scope": "local-alias",
+        }
+
     async def native_asset_read(request: Request, media_id: str) -> Any:
         from gflow_cli.api.transports.native_asset_lookup import media_url
 
@@ -1308,13 +1421,33 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if raw is not None and raw not in ("true", "1"):
             raise HTTPException(400, "When supplied, raw must be true or 1")
         email = request.query_params.get("email")
-        if not email:
-            raise HTTPException(422, "Native asset lookup requires an explicit configured account")
-        profile = pick_account(email, [])
-        project = uuid_value(
-            request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
-        )
-        identifier = uuid_value(media_id, "mediaGenerationId")
+        binding: NativeAlias | None = None
+        if media_id.startswith("user:"):
+            try:
+                binding = aliases.get(media_id)
+            except ValueError:
+                raise HTTPException(400, "Composite alias shape is unsupported") from None
+            if binding is None:
+                raise HTTPException(404, "Composite alias is not registered")
+            verified_alias_account(binding)
+            if email is not None and email != binding.account:
+                raise HTTPException(403, "Composite alias belongs to another account")
+            if (
+                "projectId" in request.query_params
+                and uuid_value(request.query_params["projectId"], "projectId") != binding.project_id
+            ):
+                raise HTTPException(403, "Composite alias belongs to another project")
+            profile, project, identifier = binding.profile, binding.project_id, binding.media_id
+        else:
+            if not email:
+                raise HTTPException(
+                    422, "Native asset lookup requires an explicit configured account"
+                )
+            profile = pick_account(email, [])
+            project = uuid_value(
+                request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+            )
+            identifier = uuid_value(media_id, "mediaGenerationId")
         payload = {"project_id": project, "media_id": identifier}
         code, output = await subprocess_run(
             [
@@ -1351,6 +1484,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             or result.get("mediaGenerationId") != identifier
             or result.get("projectId") != project
             or result.get("kind") not in ("image", "video")
+            or (binding is not None and result.get("kind") != binding.kind)
         ):
             raise HTTPException(502, "Native asset is unresolved in the selected project")
         try:
@@ -1359,7 +1493,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(502, "Native asset download URL is unavailable") from None
         if raw is None:
             return JSONResponse(
-                {"url": url, "mediaGenerationId": identifier}, headers={"Cache-Control": "no-store"}
+                {"url": url, "mediaGenerationId": media_id}, headers={"Cache-Control": "no-store"}
             )
         if result["kind"] != "video":
             raise HTTPException(400, "Native raw asset retrieval supports video only")
@@ -1409,7 +1543,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.get(prefix + "/assets/{media_id}")
     async def get_asset(request: Request, media_id: str) -> Any:
-        source = request.query_params.get("source", "local")
+        source = request.query_params.get(
+            "source", "google" if media_id.startswith("user:") else "local"
+        )
         if source not in ("local", "google"):
             raise HTTPException(422, "Asset source requires local or google")
         if source == "google":

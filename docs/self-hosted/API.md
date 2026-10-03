@@ -636,3 +636,49 @@ The account and job metadata come from one SQLite read snapshot; aggregate count
 Deprecated HTTP image model aliases are normalized before validation and queue creation: nano-banana to nano-banana-2, imagen-4 to nano-banana-2-lite. Job request records expose the canonical model; Imagen itself is not restored by this alias. Direct SDK/CLI/MCP model aliases are unchanged.
 
 HTTP image aspect aliases landscape/portrait normalize to16:9/9:16 before validation and queueing. Explicit native video promotion accepts useapi's4K spelling and stores canonical4k. The video upscale default still exports; callers must choose operation=promotion for native Google promotion. Fresh tier/model/source checks still determine entitlement; case normalization does not grant Pro accounts4K access. SDK/CLI/MCP controls are unchanged.
+
+
+## Explicit native image/video aliases
+
+HTTP can register an exact opaque alias for an existing owned native image/video.
+POST /assets/{email}/aliases accepts alias, mediaGenerationId (native UUID), kind
+(image or video) and optional projectId (the configured project by default). It
+requires an enabled verified account and a fresh owned native metadata/type/URL
+check before storing the binding. Repeating the same binding rechecks ownership;
+a conflicting binding returns409. Registration returns201 with alias,
+mediaGenerationId (alias), nativeMediaGenerationId, projectId, kind and verified.
+No signed URL is persisted with the mapping.
+
+Supported syntax is user:OPAQUE-email:OPAQUE-image:UUID, or video:UUID. Prefixes
+use only ASCII letters, digits and . _ ~ -; user is1–128 characters and email
+is1–512, with a1024-character total cap. These are opaque local labels, not decoded
+useapi user/account identities. The media suffix must match the explicit UUID.
+Character/voice aliases, arbitrary vendor encodings and automatic generation or
+reference-argument translation are unsupported.
+
+```python
+media_uuid = "11111111-1111-4111-8111-111111111111" # replace with an owned image
+alias = f"user:local-email:account-one-image:{media_uuid}"
+registered = client.post("/assets/account-one/aliases", json={
+    "alias": alias, "mediaGenerationId": media_uuid, "kind": "image",
+})
+registered.raise_for_status()
+read = client.get(f"/assets/{alias}", params={"source": "google"})
+read.raise_for_status() # confidential transient URL; do not log it
+removed = client.delete(f"/assets/account-one/aliases/{alias}")
+removed.raise_for_status()
+```
+
+GET /assets/{alias}?source=google resolves only a registered exact binding and
+performs a fresh native read. Optional email/projectId must match the binding.
+The JSON response echoes the alias as mediaGenerationId and uses no-store.
+raw=true/1 remains video-only; other supplied raw values refuse. Unregistered
+aliases return404 for the local mapping, not proof that Google media is absent.
+Malformed read aliases return400; registration validation returns422. Ownership
+or scope failures refuse, and unresolved native metadata returns502.
+
+DELETE /assets/{email}/aliases/{alias} removes only the scoped local mapping,
+returning removed:true, googleMediaDeleted:false and scope:local-alias; unknown
+mappings return404 and foreign scope403. This does not delete Google media.
+SDK/CLI/MCP retain native UUID inputs. Full useapi composite/error equivalence
+remains unfinished R02 work.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.transports.batchexecute import (
     _wrb_rows,  # pyright: ignore[reportPrivateUsage]
     parse_frames,
@@ -55,6 +56,7 @@ async def native_rpc(
       } finally {clearTimeout(timer);}
     }""",
         {"rpc": rpc, "args": args, "source_path": source_path},
+        **page_owned_evaluate_kwargs(),
     )
     if result["status"] != 200:
         raise ValueError(f"Native Flow operation failed with HTTP {result['status']}")

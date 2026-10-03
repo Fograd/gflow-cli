@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, cast
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.transports.batchexecute import parse_frames
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import NativeMediaMutationUnknownError
@@ -174,6 +175,7 @@ async def trash_media(page: Any, project_id: str, media_ids: list[str]) -> list[
           return {status:r.status,text:await r.text()};
         }""",
             {"project": project_id, "payload": payload},
+            **page_owned_evaluate_kwargs(),
         )
     except asyncio.CancelledError as exc:
         vars(exc)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(

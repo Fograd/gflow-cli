@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Literal, cast
 from uuid import UUID
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.character import VOICE_NAMES
 
 PREVIEW_RPC = "no0P6"
@@ -303,6 +304,7 @@ async def _rpc(page: Any, project: str, rpc: str, args: list[Any]) -> Any:
           } finally {clearTimeout(timer);}
         }""",
         {"project": project, "rpc": rpc, "args": args},
+        **page_owned_evaluate_kwargs(),
     )
     if not isinstance(result, dict):
         raise ValueError("Saved voice operation acknowledgement is unavailable")
@@ -345,7 +347,8 @@ async def _mint_audio_token(page: Any) -> str:
               if(!api||!key||key==='explicit')throw Error('Native CAPTCHA unavailable');
               await new Promise(resolve=>api.ready(resolve));
               return await api.execute(key,{action:'AUDIO_GENERATION'});
-            }"""
+            }""",
+            **page_owned_evaluate_kwargs(),
         ),
         timeout=15,
     )

@@ -1141,3 +1141,38 @@ persistent reconciliation, saved-user audio playback and rendered reference/audi
 grounding remain distinct unfinished requirements. A private main-world correction
 enabled read-only Patchright model discovery; no production engine change or paid
 acceptance is claimed by that probe.
+
+
+## Explicit alias and page-context follow-up — 2026-10-04
+
+HTTP image/video aliases are explicitly registered against fresh native owned
+metadata, scoped to an enabled verified account/project. Prefixes are URL-safe
+opaque labels, not decoded vendor identity. Read revalidates; removal changes only
+the private local mapping. Character/voice and generation/reference alias inputs
+remain outside this batch. Offline alias tests are authored; final frozen-source coordinator gates remain
+pending. Real REST alias BDD passed2tests in61.34seconds using the current sandbox
+source and actual private worker: image/video registration, fresh read and removal
+made zero generations or Google mutations. Mapping cleanup was verified and a
+fresh raw-UUID read remained available after alias removal; this was not mocked.
+
+Patchright page-owned WIZ/RPC calls now share the main-world evaluation policy,
+while Playwright receives no engine-specific keyword and generic evaluation stays
+unchanged. The live pro3 page-context model-read BDD exited0 with zero generations.
+It does not prove output acceptance, audio upload or solver-token acceptance.
+Fresh deployed6a264 inventory observations: pro1=51, pro2=557, complete:null. Earlier
+cached53/556/565 observations remain historical evidence; counts can change and
+these project snapshots do not establish complete account generation history.
+
+
+R04 pro3 character fixture creation/read passed using an existing verified image
+with zero image generation. One Patchright abra_r2v_4s_360p character+preset trial
+requested one output at the observed four-credit model cost. Google explicitly
+refused with WafRejectionError/PUBLIC_ERROR_UNUSUAL_ACTIVITY: unknown=false,
+accepted outputs0. This is refusal/preflight evidence, not rendered acceptance.
+Conservative campaign reservations now stand at pro1 images1/videos0, pro2
+images0/videos1, pro3 images1/videos1; the user limit remains50images/2videos per
+account and refused/uncertain reservations count. R02/R03/R04 boxes remain open.
+Frozen-source gate passed:6484tests,5skipped,89%coverage in207.28seconds;
+hygiene, links, public PII, mirrors, council references, Ruff, formatting and strict
+source Pyright passed. Council ownership/privacy review returned GO. Publication
+and deployment are recorded separately from these checks.

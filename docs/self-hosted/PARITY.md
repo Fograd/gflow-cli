@@ -28,7 +28,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. One paid CapSolver trial recorded 1 solved / 1 submitted / 0 accepted without retry. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
-| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Composite handles, character/voice/thumbnail detail and exact404 equivalence remain open. |
+| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Character/voice composite translation, full thumbnail cohorts and exact404 equivalence remain open. |
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | Implemented local catalog default and source=google native 21-item opaque-cursor snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | Implemented managed local catalog default and source=google selected-project native timeline snapshots, including typed image/video arms. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Omitted projectId uses the selected account's configured project. Receipt-backed already-gone retries and mixed present/gone batches are verified; arbitrary absent UUIDs and all batch shapes are not claimed. |
@@ -203,8 +203,11 @@ unsafe-caption canonical attachment proof.
   resolve through exact GetMedia plus fresh active character-parent ownership.
   Fresh generated-image lookup/download/inventory membership passed on pro1
   (one new1024×1024 image). The existing zero-generation asset/character/catalog
-  BDD batch passed3tests in72.25seconds. Composite translation, exact error
-  equivalence and live saved-user audio acceptance remain open.
+  BDD batch passed3tests in72.25seconds. Explicit HTTP image/video alias bindings now require fresh ownership and exact
+  media/type checks; alias removal affects local mappings only. Opaque prefixes
+  do not decode vendor identity or translate generation/reference inputs. Broader
+  composite translation, exact error equivalence and live saved-user audio
+  acceptance remain open.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
   account-wide projects, attached media/history and character/user-voice
   inventories. Expose completeness and counts only when established; a partial
@@ -432,3 +435,15 @@ The native VIDEO_GENERATION CapSolver Enterprise v3 proxyless trial solved one t
 Permanent individual deletion passed its owned synthetic upload→delete lifecycle: one passed and four skipped in 28.91 seconds; all original active media remained active. The corrected canonical Charon TTS preview captured one no0P6 request and was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7): one failed and four skipped in 17.93 seconds. No audio or saved-voice binding lifecycle was accepted. Extension and edit generation were not additionally billed after the same account's reference-video/TTS refusals; their live model catalogs remain the proof, with rendered acceptance unverified.
 
 The final CLI local-Auto attempt failed at shared migrated composer readiness with exit 25 (FlowAgentUiError): one failed and four skipped in 54.38 seconds, no accepted image. MCP received no additional paid retry after this shared blocker. That generation failure is historical; the later read-only native UUID sizing BDD passed in7.68seconds against a1024×1024 owned image→1:1. Rendered Auto generation acceptance remains unverified; native Google Auto is unsupported.
+
+
+### Native page context and fresh inventory follow-up — 2026-10-04
+
+Page-owned WIZ/RPC evaluation now uses the existing engine-specific main-world
+policy for Patchright, without globally changing evaluation or Playwright kwargs.
+The pro3 affected-model-read BDD exited0 with zero generations. This establishes
+page-context native model discovery, not accepted rendering or CAPTCHA solving.
+Deployed6a264 native inventory subsequently returned pro1=51 and pro2=557 observed
+rows, complete:null. These later fresh observations supplement the earlier cached
+53/556/565 observations; neither establishes complete account history.
+R02/R03/R04 remain unchecked until their broader evidence requirements are met.

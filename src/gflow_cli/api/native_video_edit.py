@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gflow_cli.api._engine import mint_evaluate_kwargs
+from gflow_cli.api._engine import mint_evaluate_kwargs, page_owned_evaluate_kwargs
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.native_extension import (
     _NATIVE_FETCH,  # pyright: ignore[reportPrivateUsage]
@@ -414,7 +414,9 @@ async def edit_native_video(
             await on_started(started)
         try:
             result = await page.evaluate(
-                _NATIVE_FETCH, {"rpc": RPC, "args": args, "source": f"/project/{project_id}"}
+                _NATIVE_FETCH,
+                {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
+                **page_owned_evaluate_kwargs(),
             )
             refusal = _submit_refusal(result["text"], (RPC,))
             if refusal is not None:
