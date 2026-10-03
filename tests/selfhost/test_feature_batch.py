@@ -279,3 +279,50 @@ def test_explicit_native_character_reference_routes_worker(tmp_path):
         payload = json.loads(client.app.state.store.claim("pro1")["payload"])
         assert payload["referenceCharacterIds"] == [M]
         assert payload["referenceSlotIds"] == {"character_2": M}
+
+
+def test_native_edit_character_slots_preserve_indices(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "model": "omni-flash",
+                "modelKey": "edit",
+                "referenceVideo_1": M,
+                "character_2": "55555555-5555-4555-8555-555555555555",
+                "prompt": "@character_2",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        payload = json.loads(client.app.state.store.claim("pro1")["payload"])
+        assert payload["characterMediaIds"] == ["55555555-5555-4555-8555-555555555555"]
+        assert payload["referenceSlotIds"] == {
+            "character_2": "55555555-5555-4555-8555-555555555555"
+        }
+
+
+def test_native_edit_image_slot_holes_are_preserved(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "model": "omni-flash",
+                "modelKey": "edit",
+                "referenceVideo_1": M,
+                "referenceImage_3": "55555555-5555-4555-8555-555555555555",
+                "prompt": "@referenceImage_3",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        payload = json.loads(client.app.state.store.claim("pro1")["payload"])
+        assert payload["referenceSlotIds"] == {
+            "referenceImage_3": "55555555-5555-4555-8555-555555555555"
+        }

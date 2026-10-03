@@ -193,7 +193,7 @@ end1–240 and end greater than start. When omitted, end is derived from the mea
 owned source duration, rounded down to virtual24fps and capped at240. Missing or
 invalid duration fails before token mint/submission. Explicit end remains unchanged. Input references are existing selected-project
 media UUIDs: `referenceImage_1..5` and `referenceAudio_1..3`. Audio currently
-accepts active owned native audio media UUIDs, including uploaded audio without saved-TTS visibility. System preset names and character IDs remain separate R04 work. Count
+accepts active owned native audio media UUIDs, including uploaded audio without saved-TTS visibility. Characters use `character_1..7`, or mixed character/image UUIDs in `referenceImage_1..5`; canonical marker indices survive classification. Actual native combined reference capacities apply. Direct system preset names remain separate R04 work. Count
 is1 and aspect follows the source. The SDK performs fresh native ownership checks.
 Results retain resolved `startFrameIndex` and `endFrameIndex`;
 `sourceDurationSeconds` is present when measured for an omitted end. These fields
@@ -572,5 +572,6 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-inputs and direct system-preset audio remain subsequent R04 work. Unprojected
+transport now shares fresh classification and budgets; direct system-preset audio
+and rendered acceptance remain subsequent R04/R12 work. Unprojected
 reference images require further ownership proof and are not guessed.

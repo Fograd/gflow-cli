@@ -2990,7 +2990,8 @@ async def gflow_delete_native_media(
 @server.tool(
     name="gflow_edit_native_video",
     description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
-    "up to5 owned image refs and3 active owned native audio media refs. Explicit native "
+    "up to5 owned image refs,3 native audio refs and owned characters with combined limits. "
+    "Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
     "Consumes video credits.",
 )
@@ -3004,6 +3005,7 @@ async def gflow_edit_native_video(
     start_frame: int = 0,
     image_ref: list[str] | None = None,
     audio_ref: list[str] | None = None,
+    character_ref: list[str] | None = None,
     out_dir: str | None = None,
     profile: str = "default",
 ) -> dict[str, Any]:
@@ -3013,6 +3015,7 @@ async def gflow_edit_native_video(
     if not is_uuid(project) or not is_uuid(media_id):
         return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
     images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    characters = tuple(character_ref or [])
     video_edit_args(
         new_extension_started(project, media_id, 1),
         prompt=prompt,
@@ -3023,6 +3026,7 @@ async def gflow_edit_native_video(
         end_frame=end_frame if end_frame is not None else 240,
         image_ids=images,
         audio_ids=audio,
+        character_ids=characters,
     )
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
@@ -3045,6 +3049,7 @@ async def gflow_edit_native_video(
                 end_frame=end_frame,
                 image_ids=images,
                 audio_ids=audio,
+                character_ids=characters,
                 on_started=_native_video_checkpoint(target, "edit"),
             )
             records = await client.wait_native_video_edit(started)

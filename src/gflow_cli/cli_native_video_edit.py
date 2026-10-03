@@ -33,6 +33,9 @@ from gflow_cli.config import get_settings
 )
 @click.option("--image-ref", multiple=True, help="Same-project existing image UUID; up to5.")
 @click.option("--audio-ref", multiple=True, help="Active owned native audio media UUID; up to3.")
+@click.option(
+    "--character-ref", multiple=True, help="Owned character UUID; combined native limits apply."
+)
 @click.option("--profile", default=None)
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
 @click.option("--json", "as_json", is_flag=True)
@@ -45,6 +48,7 @@ def edit_native_command(
     end_frame: int | None,
     image_ref: tuple[str, ...],
     audio_ref: tuple[str, ...],
+    character_ref: tuple[str, ...],
     profile: str | None,
     out_dir: Path,
     as_json: bool,
@@ -84,6 +88,7 @@ def edit_native_command(
                     end_frame=end_frame,
                     image_ids=image_ref,
                     audio_ids=audio_ref,
+                    character_ids=character_ref,
                     on_started=checkpoint,
                 )
                 records = await wait_native_video_edit(client, started)

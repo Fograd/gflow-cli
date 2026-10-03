@@ -21,11 +21,22 @@ An explicit end remains unchanged and does not require duration metadata.
 Frames are the useapi virtual24fps window: start0–239/end1–240, end greater than
 start. `duration` and start/end images are not edit inputs.
 
-Optional repeated `--image-ref` accepts up to five active same-project existing
-image UUIDs; `--audio-ref` accepts up to three active owned same-project native audio media UUIDs. Saved TTS visibility is not required; system preset names and character IDs remain unwired here.
-System preset names, character refs and inline positional markers are not yet
-accepted by this dedicated form. The encoder uses source-proven image field9
-and audio field10. No local upload or unverified reference substitution occurs.
+Optional repeated `--image-ref` accepts up to five active same-project image
+UUIDs; `--audio-ref` accepts up to three active owned native audio media UUIDs.
+Saved TTS visibility is not required. `--character-ref` accepts up to seven
+active owned character entity UUIDs. These are outer bounds: fresh native model
+capacities also constrain the combined image, character and audio reference pools.
+Character weights use their proven active entity-owned image/audio links;
+missing or ambiguous ownership or model limits fails before token minting.
+
+The shared structured prompt codec preserves canonical markers such as
+`@referenceImage_3`, `@referenceAudio_1` and `@character_2`. CLI/MCP references
+use ordered lists. SDK `reference_slot_ids` and REST positional fields preserve
+holes and mixed image/character UUIDs in `referenceImage_N`; fresh classification
+retains the original marker. SDK `character_ids`, direct MCP `character_ref`,
+and REST `character_1..7` mirror the CLI. The durable REST worker forwards
+`characterMediaIds` and `referenceSlotIds`; no queued MCP edit twin is claimed.
+Direct system preset names remain unsupported as audio inputs.
 
 The SDK helper is `api.native_video_edit.edit_native_video(client, ...)`, followed
 by `wait_native_video_edit(client, started)`. The same checked-out project page
@@ -37,7 +48,7 @@ IDs before any manual resubmission. Cancellation propagates to the caller.
 
 The codec places source media/start/end in request field1, structured prompt in
 field2, model in field3, aspect in field4, output-seed metadata in field5, image
-refs in field9 and audio refs in field10. This differs from extension metadata
+refs in field9, audio refs in field10 and characters in field11. This differs from extension metadata
 field6. Focused tests prove encoding, active ownership refusal before token mint,
 checkpointing/one dispatch/correlated acknowledgement, and CLI argument refusal.
 No generated video or rendered speech is claimed by those tests.
@@ -55,3 +66,13 @@ Rerunnable read-only BDD: set GFLOW_CLI_E2E_NATIVE_VIDEO_PATH=duration-metadata 
 
 The actual read-only duration BDD passed1test with2warnings in8.22seconds.
 No video generation or solver task was submitted.
+
+### Character preflight evidence
+The free synthetic video/character BDD passed one test with two warnings in
+55.13 seconds. It exercised the actual SDK mixed referenceImage_3 character
+path, fresh active source/entity ownership and native model capacities, then
+stopped before token minting. Zero generation requests were sent; only its
+character/video fixtures were removed and original active media remained.
+Run tests/e2e/test_native_edit_characters_bdd.py with explicit private
+GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_EDIT_CHARACTERS=1.
+This proves live preflight, not accepted edited video or semantic grounding.

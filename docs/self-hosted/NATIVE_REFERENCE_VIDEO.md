@@ -68,5 +68,6 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-inputs and direct system-preset audio remain subsequent R04 work. Unprojected
+transport now shares fresh classification and budgets; direct system-preset audio
+and rendered acceptance remain subsequent R04/R12 work. Unprojected
 reference images require further ownership proof and are not guessed.

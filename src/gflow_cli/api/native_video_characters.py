@@ -37,8 +37,9 @@ def character_reference_counts(
         raw_workflows = {_uuid(row[0]): row for row in payload[1]}
         if len(raw_workflows) != len(payload[1]):
             raise ValueError
-        raw_entities = {_uuid(row[1]): row for row in payload[5]}
-        if len(raw_entities) != len(payload[5]):
+        raw_rows: list[Any] = payload[5] if payload[5] is not None else []
+        raw_entities = {_uuid(row[1]): row for row in raw_rows}
+        if len(raw_entities) != len(raw_rows):
             raise ValueError
         result: dict[str, tuple[int, int]] = {}
         for entity in selected:
@@ -132,3 +133,56 @@ def reference_capacity(
         ):
             return False
     return True
+
+
+def classify_video_slots(payload: Any, project: str, slot_ids: dict[str, str]) -> dict[str, Any]:
+    """Preserve body positions; classify fresh owned namespaces without substitutions."""
+    from gflow_cli.api.reference_markers import ReferenceSlot
+
+    try:
+        characters = parse_native_characters(payload, project)
+        raw_rows: list[Any] = payload[5] if payload[5] is not None else []
+        raw_entities = {_uuid(row[1]): row for row in raw_rows}
+        if len(raw_entities) != len(raw_rows):
+            raise ValueError
+        owned = {_uuid(row["entity_id"]) for row in characters}
+        media = {_uuid(row[0]) for row in payload[2]}
+        slots: dict[str, Any] = {}
+        for key, value in slot_ids.items():
+            value = _uuid(value)
+            if value in owned & media:
+                raise ValueError
+            kind = (
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_") or value in owned
+                else "image"
+            )
+            slots[key] = ReferenceSlot(kind, value)
+        return slots
+    except (ValueError, TypeError, IndexError, KeyError):
+        raise ConfigurationError(
+            detail="Native video slot identity or ownership is ambiguous"
+        ) from None
+
+
+def model_reference_limits(payload: Any, key: str) -> tuple[Any, Any, Any]:
+    """Native usage field22 pools: audio1, character2, image3; unknown stays unknown."""
+    from gflow_cli.api.transports.batchexecute import _at  # pyright: ignore[reportPrivateUsage]
+
+    values: list[tuple[Any, Any, Any]] = []
+    families = _at(payload, 0, 4)
+    if isinstance(families, list):
+        for family in cast(list[Any], families):
+            usages = _at(family, 1)
+            if not isinstance(usages, list):
+                continue
+            for usage in cast(list[Any], usages):
+                if _at(usage, 0) == key:
+                    values.append((_at(usage, 21, 0), _at(usage, 21, 1), _at(usage, 21, 2)))
+    if len(values) != 1:
+        raise ConfigurationError(
+            detail="Native reference model capacities were not uniquely observed"
+        )
+    return values[0]

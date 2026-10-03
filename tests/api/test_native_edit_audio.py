@@ -115,7 +115,16 @@ async def test_generic_audio_reaches_existing_single_dispatch(monkeypatch, saved
     monkeypatch.setattr(module, "new_extension_started", lambda *_: started)
     read = AsyncMock(return_value=payload)
     monkeypatch.setattr(module, "read_project_payload", read)
-    monkeypatch.setattr(module, "_read_native", AsyncMock(return_value=[None, None, None, 1]))
+    usage = [None] * 25
+    usage[0] = "edit-key"
+    usage[21] = [3, 2, 5]
+    monkeypatch.setattr(
+        module,
+        "_read_native",
+        AsyncMock(
+            side_effect=[[[None, None, None, None, [["Omni", [usage]]]]], [None, None, None, 1]]
+        ),
+    )
     monkeypatch.setattr(
         module, "parse_extension_models", lambda *_, **__: [{"model_key": "edit-key"}]
     )

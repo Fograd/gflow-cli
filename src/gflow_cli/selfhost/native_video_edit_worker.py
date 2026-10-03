@@ -32,6 +32,24 @@ async def run_edit(
 ) -> dict[str, Any]:
     # Reject malformed requests before creating the browser client.
     validation = new_extension_started(project, payload["referenceVideo_1"], 1)
+    from gflow_cli.api.reference_markers import ReferenceSlot
+
+    slot_ids = payload.get("referenceSlotIds")
+    slots = (
+        None
+        if not slot_ids
+        else {
+            key: ReferenceSlot(
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_")
+                else "image",
+                value,
+            )
+            for key, value in slot_ids.items()
+        }
+    )
     video_edit_args(
         validation,
         prompt=payload["prompt"],
@@ -42,6 +60,8 @@ async def run_edit(
         end_frame=payload.get("endFrameIndex_1", 240),
         image_ids=tuple(payload.get("imageMediaIds", [])),
         audio_ids=tuple(payload.get("audioMediaIds", [])),
+        character_ids=tuple(payload.get("characterMediaIds", [])),
+        reference_slots=slots,
     )
     out.mkdir(parents=True, exist_ok=True)
 
@@ -61,6 +81,8 @@ async def run_edit(
             end_frame=payload.get("endFrameIndex_1"),
             image_ids=tuple(payload.get("imageMediaIds", [])),
             audio_ids=tuple(payload.get("audioMediaIds", [])),
+            character_ids=tuple(payload.get("characterMediaIds", [])),
+            reference_slot_ids=slot_ids,
             on_started=checkpoint,
         )
         records = await wait_native_video_edit(client, started)

@@ -2002,6 +2002,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         }
         allowed.update(f"referenceImage_{i}" for i in range(1, 6))
         allowed.update(f"referenceAudio_{i}" for i in range(1, 4))
+        allowed.update(f"character_{i}" for i in range(1, 8))
         check_unknown(payload, allowed)
         if payload.get("model", "omni-flash") != "omni-flash":
             raise HTTPException(422, "referenceVideo_1 requires Omni Flash")
@@ -2019,6 +2020,34 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             for i in range(1, 4)
             if payload.get(f"referenceAudio_{i}")
         ]
+        characters = [
+            uuid_value(payload[f"character_{i}"], f"character_{i}")
+            for i in range(1, 8)
+            if payload.get(f"character_{i}")
+        ]
+        slot_ids = {
+            key: uuid_value(payload[key], key)
+            for family, cap in (("referenceImage", 5), ("referenceAudio", 3), ("character", 7))
+            for i in range(1, cap + 1)
+            if payload.get(key := f"{family}_{i}")
+        }
+        from gflow_cli.api.reference_markers import ReferenceSlot
+
+        slots = (
+            None
+            if not slot_ids
+            else {
+                key: ReferenceSlot(
+                    "audio"
+                    if key.startswith("referenceAudio_")
+                    else "character"
+                    if key.startswith("character_")
+                    else "image",
+                    value,
+                )
+                for key, value in slot_ids.items()
+            }
+        )
         from gflow_cli.api.native_extension import new_extension_started
         from gflow_cli.api.native_video_edit import video_edit_args
         from gflow_cli.errors import GFlowError
@@ -2037,6 +2066,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 end_frame=end_frame,
                 image_ids=tuple(images),
                 audio_ids=tuple(audio),
+                character_ids=tuple(characters),
+                reference_slots=slots,
             )
         except (ValueError, TypeError, GFlowError):
             raise HTTPException(
@@ -2045,6 +2076,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             ) from None
         payload["referenceVideo_1"] = media
         payload["imageMediaIds"], payload["audioMediaIds"] = images, audio
+        payload["characterMediaIds"] = characters
+        if slot_ids:
+            payload["referenceSlotIds"] = slot_ids
         return await submit(request, "videos/edit", payload, profile)
 
     @app.post(prefix + "/videos", response_model=None)

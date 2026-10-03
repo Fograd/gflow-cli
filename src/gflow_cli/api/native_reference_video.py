@@ -19,8 +19,13 @@ from gflow_cli.api.native_extension import (
     assigned_id,
     parse_extension_models,
 )
-from gflow_cli.api.native_video_characters import character_reference_counts, reference_capacity
-from gflow_cli.api.reference_markers import ReferenceSlot, TextSpan, resolve_reference_markers
+from gflow_cli.api.native_video_characters import (
+    character_reference_counts,
+    classify_video_slots,
+    reference_capacity,
+)
+from gflow_cli.api.native_video_prompt import encode_video_prompt
+from gflow_cli.api.reference_markers import ReferenceSlot, resolve_reference_markers
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
 from gflow_cli.api.transports.migrated_composer import (
     _submit_refusal,  # pyright: ignore[reportPrivateUsage]
@@ -130,37 +135,7 @@ def reference_args(
             raise ConfigurationError(detail="Native video assignment handles do not match")
     if len(set(started.media_ids + started.workflow_ids)) != count * 2:
         raise ConfigurationError(detail="Native video assignment handles must be distinct")
-    slots = {f"referenceImage_{i}": ReferenceSlot("image", v) for i, v in enumerate(images, 1)}
-    slots.update({f"referenceAudio_{i}": ReferenceSlot("audio", v) for i, v in enumerate(audio, 1)})
-    slots.update(
-        {f"character_{i}": ReferenceSlot("character", v) for i, v in enumerate(characters, 1)}
-    )
-    if reference_slots is not None:
-        slots = dict(reference_slots)
-    try:
-        plan = resolve_reference_markers(prompt, surface="video", slots=slots)
-        if (plan.image_ids, plan.audio_ids, plan.character_ids) != (images, audio, characters):
-            raise ValueError("Reference slot identities do not match ordered attachments")
-    except ValueError:
-        raise ConfigurationError(
-            detail="Native video reference markers do not match supplied ingredients"
-        ) from None
-    # WI text1/reference2; VI media1/audio2. Both reference messages name1/handle2.
-    # Deployed dKb permits an empty display handle; logical IDs remain authoritative.
-    parts: list[Any] = []
-    for span in plan.spans:
-        if isinstance(span, TextSpan):
-            if span.text:
-                parts.append([span.text])
-        elif span.kind == "image":
-            parts.append([None, [[span.identifier, ""]]])
-        elif span.kind == "audio":
-            parts.append([None, [None, [span.identifier, ""]]])
-        elif span.kind == "character":
-            parts.append([None, [None, None, [span.identifier, ""]]])
-        else:
-            raise ConfigurationError(detail="Native reference video marker kind is unsupported")
-    text: list[Any] = [None, None, [parts]]
+    text = encode_video_prompt(prompt, images, audio, characters, reference_slots)
     rows: list[Any] = []
     for media, workflow in zip(started.media_seeds, started.workflow_seeds, strict=True):
         row: list[Any] = [
@@ -296,27 +271,8 @@ async def generate_native_reference_video(
     page = await client._checkout_page()
     try:
         payload = await read_project_payload(page, started.project_id)
-        if slots is not None:
-            from gflow_cli.api.transports.migrated_catalog import parse_native_characters
-
-            owned_entities = {
-                _uuid(row["entity_id"])
-                for row in parse_native_characters(payload, started.project_id)
-            }
-            media_ids = {_uuid(row[0]) for row in payload[2]}
-            if any(value.identifier in owned_entities & media_ids for value in slots.values()):
-                raise ConfigurationError(
-                    detail="Native reference identity is ambiguous across entity/media kinds"
-                )
-            slots = {
-                key: ReferenceSlot(
-                    "character"
-                    if value.kind == "image" and value.identifier in owned_entities
-                    else value.kind,
-                    value.identifier,
-                )
-                for key, value in slots.items()
-            }
+        if reference_slot_ids is not None:
+            slots = classify_video_slots(payload, started.project_id, dict(reference_slot_ids))
             plan = resolve_reference_markers(prompt, surface="video", slots=slots)
             images, audio, characters = plan.image_ids, plan.audio_ids, plan.character_ids
             _references(images, audio, characters)

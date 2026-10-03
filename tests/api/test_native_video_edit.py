@@ -173,3 +173,28 @@ def test_model_catalog_requires_edit_not_extension():
     assert parse_extension_models(payload, tier=2) == []
     usage[7] = [[[[1, 14]]]]
     assert parse_extension_models(payload, tier=2, required_requirements=(1, 6, 20)) == []
+
+
+def test_video_edit_character_and_mixed_positional_chunks():
+    from gflow_cli.api.native_extension import new_extension_started
+    from gflow_cli.api.native_video_edit import video_edit_args
+    from gflow_cli.api.reference_markers import ReferenceSlot
+    from tests.api.transports.test_character_details import E, M, P
+
+    started = new_extension_started(P, M, 1)
+    row = video_edit_args(
+        started,
+        prompt="@referenceImage_3 and @referenceImage_1",
+        model_key="edit",
+        aspect="16:9",
+        token="test",
+        image_ids=(M,),
+        character_ids=(E,),
+        reference_slots={
+            "referenceImage_1": ReferenceSlot("image", M),
+            "referenceImage_3": ReferenceSlot("character", E),
+        },
+    )[0][0]
+    assert row[8] == [[None, M]] and row[9] == [] and row[10] == [[E]]
+    assert row[1][2][0] == [[None, [None, None, [E, ""]]], [" and "], [None, [[M, ""]]]]
+    assert row[4][4:] == [started.media_seeds[0], started.workflow_seeds[0]]

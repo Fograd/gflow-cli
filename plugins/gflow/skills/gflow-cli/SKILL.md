@@ -369,7 +369,7 @@ Use voice list/show/create/rm for saved preset-based TTS. Creation can consume c
 
 project delete-media --project UUID --media-id UUID --confirm-delete permanently targets only requested owned IDs after fresh reads. project archive remains reversible whole-batch trash. Preserve exit40 known/pending handles and inspect uncertain results before another mutation. Source-derived additions await final E2E acceptance.
 
-Native video edit: `video edit-models --project UUID` discovers account-native keys; `video edit-native SOURCE --project UUID --prompt TEXT --model-key KEY [--end-frame N]` submits one source-derived edit. Omitted end uses measured source duration at virtual24fps, rounded down and capped240; unavailable duration refuses before generation. Optional5image/3nativeaudio media UUID refs require active sameproject ownership; audio need not be saved-TTS visible. Presets/characters remain unwired. Paid acceptance remains pending; see docs/VIDEO_EDIT.md.
+Native video edit: `video edit-models --project UUID` discovers account-native keys; `video edit-native SOURCE --project UUID --prompt TEXT --model-key KEY [--end-frame N]` submits one source-derived edit. Omitted end uses measured source duration at virtual24fps, rounded down and capped240; unavailable duration refuses before generation. Optional5image/3nativeaudio media UUID refs require active sameproject ownership; audio need not be saved-TTS visible. Optional7character entity UUID refs and canonical positional image/audio/entity markers share fresh native combined capacities. Direct presets remain unwired. Paid acceptance remains pending; see docs/VIDEO_EDIT.md.
 
 Native standalone extension: `video extension-models --project UUID` discovers
 native keys; `video extend-native SOURCE --project UUID --prompt TEXT` supports
@@ -406,5 +406,6 @@ unknown. One leased page/180seconds; no cache or missing-object deletion.
 Native R2V characters: video reference-native --character-ref, SDK reference_character_ids,
 MCP character_ref, REST character_N or mixed referenceImage_N UUID slots.
 Fresh active entity-owned image/audio weights and native capacity pools apply;
-slot positions survive classification. V2V characters and rendered acceptance
+slot positions survive classification. V2V character transport now uses the same
+fresh ownership and native budgets; direct preset audio and rendered acceptance
 remain separate R04/R12 work. See docs/self-hosted/NATIVE_REFERENCE_VIDEO.md.

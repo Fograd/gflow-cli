@@ -106,6 +106,7 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
             end_frame=120,
             image_ids=(),
             audio_ids=(),
+            character_ids=(),
         ),
         "reference": dict(
             project_id=P,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Native Omni edit accepts active owned character references and canonical positional image/audio/entity grounding across SDK, CLI, direct MCP and durable REST jobs. Fresh native combined model budgets apply before token minting; direct system presets and rendered acceptance remain pending.
+
+
 ### Added
 - Saved-user-voice detail includes fresh canonical base preset and dialogue/performance metadata; strict native response matching and REST no-store playback.
 - Fresh native character reference-image and proven reference-thumbnail URLs in

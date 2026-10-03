@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
@@ -20,7 +21,9 @@ from gflow_cli.api.native_extension import (
     parse_extension_models,
     wait_native_extension,
 )
+from gflow_cli.api.native_video_prompt import encode_video_prompt
 from gflow_cli.api.recaptcha import TokenMinter
+from gflow_cli.api.reference_markers import ReferenceSlot, resolve_reference_markers
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
 from gflow_cli.api.transports.migrated_composer import (
     _submit_refusal,  # pyright: ignore[reportPrivateUsage]
@@ -127,6 +130,8 @@ def video_edit_args(
     end_frame: int = 240,
     image_ids: tuple[str, ...] = (),
     audio_ids: tuple[str, ...] = (),
+    character_ids: tuple[str, ...] = (),
+    reference_slots: Mapping[str, ReferenceSlot] | None = None,
 ) -> list[Any]:
     """E4a fields5 metadata,9 image refs,10 audio refs; unlike K4a extension."""
     if (
@@ -139,11 +144,20 @@ def video_edit_args(
         raise ConfigurationError(
             detail="Edit requires a positive virtual24fps frame window in0..240"
         )
-    if len(started.media_ids) != 1 or len(image_ids) > 5 or len(audio_ids) > 3:
+    if (
+        len(started.media_ids) != 1
+        or len(image_ids) > 5
+        or len(audio_ids) > 3
+        or len(character_ids) > 7
+    ):
         raise ConfigurationError(
             detail="Edit supports one output, five images and three audio references"
         )
-    for values in (image_ids, audio_ids):
+    if len(set(image_ids + audio_ids + character_ids)) != len(
+        image_ids + audio_ids + character_ids
+    ):
+        raise ConfigurationError(detail="Edit reference identities must be distinct")
+    for values in (image_ids, audio_ids, character_ids):
         if len(set(values)) != len(values):
             raise ConfigurationError(detail="Edit references must be distinct")
         for value in values:
@@ -160,7 +174,9 @@ def video_edit_args(
     row = args[0][0]
     metadata = row.pop(5)
     row[4] = metadata
-    if image_ids or audio_ids:
+    if image_ids or audio_ids or character_ids or reference_slots is not None:
+        row[1] = encode_video_prompt(prompt, image_ids, audio_ids, character_ids, reference_slots)
+    if image_ids or audio_ids or character_ids:
         row.extend(
             [
                 None,
@@ -170,6 +186,8 @@ def video_edit_args(
                 [[value] for value in audio_ids],
             ]
         )
+    if character_ids:
+        row.append([[value] for value in character_ids])
     return args
 
 
@@ -255,10 +273,32 @@ async def edit_native_video(
     end_frame: int | None = None,
     image_ids: tuple[str, ...] = (),
     audio_ids: tuple[str, ...] = (),
+    character_ids: tuple[str, ...] = (),
+    reference_slot_ids: dict[str, str] | None = None,
     on_started: Callable[[NativeExtensionStarted], Awaitable[None]] | None = None,
 ) -> NativeVideoEditStarted:
     """One source-owned edit dispatch, with preassigned recovery identities."""
     project_id, media_id = _uuid(project_id), _uuid(media_id)
+    image_ids, audio_ids, character_ids = (
+        tuple(_uuid(v) for v in image_ids),
+        tuple(_uuid(v) for v in audio_ids),
+        tuple(_uuid(v) for v in character_ids),
+    )
+    slots = (
+        None
+        if reference_slot_ids is None
+        else {
+            key: ReferenceSlot(
+                "audio"
+                if key.startswith("referenceAudio_")
+                else "character"
+                if key.startswith("character_")
+                else "image",
+                value,
+            )
+            for key, value in reference_slot_ids.items()
+        }
+    )
     started = new_extension_started(project_id, media_id, 1)
     video_edit_args(
         started,
@@ -272,12 +312,26 @@ async def edit_native_video(
         else 240,
         image_ids=image_ids,
         audio_ids=audio_ids,
+        character_ids=character_ids,
+        reference_slots=slots,
     )
     if getattr(client.settings, "flow_host", "auto") == "labs.google":
         raise ConfigurationError(detail="Native video edit requires migrated Flow")
     page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
     try:
         payload = await read_project_payload(page, project_id)
+        from gflow_cli.api.native_video_characters import (
+            character_reference_counts,
+            classify_video_slots,
+            model_reference_limits,
+            reference_capacity,
+        )
+
+        if reference_slot_ids is not None:
+            slots = classify_video_slots(payload, project_id, reference_slot_ids)
+            plan = resolve_reference_markers(prompt, surface="video", slots=slots)
+            image_ids, audio_ids, character_ids = plan.image_ids, plan.audio_ids, plan.character_ids
+        weights = character_reference_counts(payload, project_id, character_ids)
         rows = parse_media_snapshot(payload, project_id)["media"]
         active = {
             row["media_id"]
@@ -327,6 +381,12 @@ async def edit_native_video(
         )
         if not any(row["model_key"] == model_key for row in eligible):
             raise ConfigurationError(detail="Model key is not an available native edit model")
+        if image_ids or audio_ids or character_ids:
+            limits = model_reference_limits(models, model_key)
+            if not reference_capacity(len(image_ids), len(audio_ids), weights, limits):
+                raise ConfigurationError(
+                    detail="Edit ingredients exceed the native model capacities"
+                )
         token = await TokenMinter(page, mint_evaluate_kwargs=mint_evaluate_kwargs()).mint(
             "VIDEO_GENERATION"
         )
@@ -340,6 +400,8 @@ async def edit_native_video(
             end_frame=end_frame,
             image_ids=image_ids,
             audio_ids=audio_ids,
+            character_ids=character_ids,
+            reference_slots=slots,
         )
         if on_started:
             await on_started(started)

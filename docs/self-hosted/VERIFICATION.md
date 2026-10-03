@@ -991,3 +991,22 @@ The R2V character batch full offline suite passed6147tests,5skips,15warnings
 in181.33seconds at89%coverage. Required gates passed. Council caught cross-kind
 raw entity duplicates and mixed entity/media UUID collisions; both now refuse
 before model discovery with red/green regressions. Final council GO received.
+
+### R04 character video-edit transport — current batch
+The source-derived E4a character vector (field11) and canonical positional
+image/audio/entity prompt chunks now share R2V classification and native combined
+capacities across SDK/CLI/direct MCP/durable REST/privateworker. Source-only edits
+retain their old DTO and duration/checkpoint semantics.
+Free synthetic video/character preflight BDD passed1test,2warnings in55.13seconds.
+The actual SDK mixed referenceImage_3 entity path reached the token boundary,
+with no token mint or generation dispatch. Fixture cleanup preserved original
+active media. The initial harness guard mistakenly blocked archive cleanup;
+it was corrected and the earlier synthetic fixture was freshly checked/archived.
+Rendered acceptance and direct system-preset audio remain R04/R12 gaps.
+
+The V2V character batch full offline suite passed6164tests,5skips,15warnings
+in187.07seconds at89%coverage. Required gates passed; architecture/security,
+performance/UX and documentation council returned GO on pinned staged trees.
+Six mirror axes checked: SDK/CLI/direct MCP/REST worker forwarding; tool schema/
+help; agent/skill parity; unchanged error/exit surfaces; no templates/env changes;
+canonical docs plus generated website. Queued MCP edit is not a shipped surface.

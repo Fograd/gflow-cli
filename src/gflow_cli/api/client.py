@@ -3513,6 +3513,8 @@ class FlowApiClient:
         start_frame: int = 0,
         image_ids: tuple[str, ...] = (),
         audio_ids: tuple[str, ...] = (),
+        character_ids: tuple[str, ...] = (),
+        reference_slot_ids: dict[str, str] | None = None,
         on_started: Any = None,
     ) -> NativeVideoEditStarted:
         """One source-derived native edit; omitted end uses measured duration, no replay."""
@@ -3528,6 +3530,8 @@ class FlowApiClient:
             end_frame=end_frame,
             image_ids=image_ids,
             audio_ids=audio_ids,
+            character_ids=character_ids,
+            reference_slot_ids=reference_slot_ids,
             on_started=on_started,
         )
 

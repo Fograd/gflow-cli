@@ -604,9 +604,9 @@ the durable self-hosted REST job queue is a separate surface.
 | `gflow_list_extension_models` | `project`, optional `profile` | Native extension model keys |
 | `gflow_extend_native_video` | `media_id`, `prompt`, `project`; optional `model_key`, `count`, `aspect`, `trim_start_frame`, `trim_end_frame`, `out_dir`, `profile` | Native standalone extension |
 | `gflow_list_edit_models` | `project`, optional `profile` | Native Omni edit model keys |
-| `gflow_edit_native_video` | `media_id`, `prompt`, `model_key`, `end_frame`, `project`; optional `start_frame`, `image_ref`, `audio_ref`, `out_dir`, `profile` | One Omni edit; virtual 24fps trim |
+| `gflow_edit_native_video` | `media_id`, `prompt`, `model_key`, `end_frame`, `project`; optional `start_frame`, `image_ref`, `audio_ref`, `character_ref`, `out_dir`, `profile` | One Omni edit; virtual 24fps trim |
 | `gflow_list_reference_video_models` | `project`, optional `with_audio`, `profile` | Native ingredient model keys and budgets |
-| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile` | Existing image/audio UUID ingredients; at least one required |
+| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `character_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile` | Existing image/audio/character UUID ingredients; at least one required |
 
 See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MEDIA.md),
 [extension](self-hosted/NATIVE_VIDEO_EXTENSION.md), [editing](VIDEO_EDIT.md), and
@@ -742,5 +742,6 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-inputs and direct system-preset audio remain subsequent R04 work. Unprojected
+transport now shares fresh classification and budgets; direct system-preset audio
+and rendered acceptance remain subsequent R04/R12 work. Unprojected
 reference images require further ownership proof and are not guessed.
