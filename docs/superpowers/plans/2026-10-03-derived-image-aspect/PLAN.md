@@ -77,3 +77,32 @@ then deliberately aborted before route continuation; the owned fixture was delet
 The separately authorized one-image SDK acceptance proof passed: 1 BDD in 104.75s,
 exactly one submit, decoded 1024×1024JPEG 270277 bytes, private remote checkpoint,
 and owned character cleanup. No other generation was attempted. Pro1 was released.
+
+## Public UUID adapter hydration follow-up
+
+The first real CLI canonical-reference invocation refused before image submission
+(exit 36): SDK ownership validation retained a bare reference's untrusted/empty
+picker metadata. Its uniquely owned character was removed and source images remained.
+No additional image was generated. CLI, registered MCP and deployed HTTP acceptance
+remain pending their own separately coordinated count-one tests.
+
+- [x] Red regressions show bare UUID hydration, invalid captions and duplicate media
+  previously passed unchanged or failed composer eligibility.
+- [x] Reuse the same fresh snapshot to populate validated reference captions and
+  `in_project`; preserve ordered IDs and exact canonical spans. Refuse missing, blank,
+  oversized or ambiguous active-workflow captions and duplicated media identities.
+- [x] SDK fault test confirms refusal precedes token mint, checkpoint and submit.
+- [ ] Live adapter acceptance after the hydration fix is deployed.
+
+Captions locate picker entries; they do not prove ownership. The native correlated
+image guard still verifies actual media/entity IDs and ordered prompt chunks.
+
+Picker eligibility is narrower than the snapshot parser's 4096-character caption
+bound: `_picker_query` currently accepts at most 120 characters, strips leading/
+trailing whitespace, and refuses `@` plus Unicode control/format and line/paragraph
+separator characters. Normalized caption collisions can therefore still refuse at
+the picker before submission. Native selected-ID and positional guards remain
+mandatory. Adapter live preflight checks this narrower boundary; harmonizing it
+with SDK preflight is a separate follow-up, not part of the frozen hydration fix.
+
+Isolated hydration checkpoint verification: 5506 passed, 30 skipped, 15 warnings; 90.62% coverage in 223.67s. All source files match the independently reviewed isolated tree; whole-tree Ruff/strict Pyright and hygiene/docs/privacy/mirror/council gates passed. One pre-dispatch CLI refusal established the need for hydration; this offline gate is not wrapper acceptance.

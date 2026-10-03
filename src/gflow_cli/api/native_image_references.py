@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
-from gflow_cli.api.image import GenerateImageRequest, reference_cap_for
+from gflow_cli.api.image import GenerateImageRequest, ImageRef, reference_cap_for
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters
 from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
@@ -47,6 +47,31 @@ def _measured_inner_image_arm(candidate: object) -> bool:
         and isinstance(arm[1], list)
         and len(cast(list[Any], arm[1])) == 7
     )
+
+
+def _hydrate_owned_images(
+    refs: tuple[ImageRef, ...],
+    media: list[dict[str, Any]],
+    timeline: list[dict[str, Any]],
+    by_image: dict[str, str],
+) -> tuple[ImageRef, ...]:
+    """Hydrate only identities already proven active/exclusive in this snapshot."""
+    hydrated: list[ImageRef] = []
+    for ref in refs:
+        identifier = str(UUID(ref.name))
+        if sum(str(UUID(row["media_id"])) == identifier for row in media) != 1:
+            raise ValueError("Ambiguous native image identity")
+        workflow = by_image[identifier]
+        matches = [row for row in timeline if str(UUID(row["workflow_id"])) == workflow]
+        if len(matches) != 1:
+            raise ValueError("Ambiguous native image workflow")
+        caption = matches[0].get("caption")
+        if not isinstance(caption, str) or not caption.strip() or len(caption) > 4096:
+            raise ValueError("Native image caption unavailable")
+        if sum(row.get("caption") == caption and not row["archived"] for row in timeline) != 1:
+            raise ValueError("Ambiguous native image caption")
+        hydrated.append(replace(ref, display_name=caption, in_project=True))
+    return tuple(hydrated)
 
 
 async def validate_native_image_references(
@@ -149,6 +174,7 @@ async def validate_native_image_references(
             raise ConfigurationError(
                 detail=f"Native image reference budget exceeded; model allows {cap} image slots"
             )
+        hydrated_refs = _hydrate_owned_images(request.refs, media, timeline, by_image)
         plan = request.reference_prompt_plan
         if plan is not None:
             from gflow_cli.api.reference_markers import (
@@ -184,6 +210,7 @@ async def validate_native_image_references(
                 raise ConfigurationError(detail=str(exc)) from exc
         return replace(
             request,
+            refs=hydrated_refs,
             reference_entities=entities,
             reference_entity_names=tuple(names),
             reference_prompt_plan=plan,

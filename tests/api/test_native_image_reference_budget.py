@@ -48,8 +48,8 @@ def _fixtures(monkeypatch, *, second_kind="image", archived=False, workflows=Non
         subject,
         "project_media",
         lambda *args: [
-            {"workflow_id": W1, "project_id": P, "archived": False},
-            {"workflow_id": W2, "project_id": P, "archived": archived},
+            {"workflow_id": W1, "project_id": P, "archived": False, "caption": "First owned"},
+            {"workflow_id": W2, "project_id": P, "archived": archived, "caption": "Second owned"},
         ],
     )
     monkeypatch.setattr(subject, "read_project_payload", AsyncMock(return_value=[None, None, []]))
@@ -275,3 +275,154 @@ async def test_measured_dimensionless_forms_and_ambiguous_arms(monkeypatch, arm,
         with pytest.raises(ConfigurationError):
             await subject.validate_native_image_references(client, P, request)
     client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+async def test_bare_uuid_hydrated_from_same_snapshot_becomes_composer_eligible(monkeypatch):
+    from gflow_cli.api.image import ImageRef
+    from gflow_cli.api.reference_markers import ReferenceSlot, prepare_image_slot_request
+    from gflow_cli.api.transports.migrated_composer import _unported_image_form
+
+    client = _fixtures(monkeypatch, workflows=[W1])
+    request = prepare_image_slot_request(
+        GenerateImageRequest(
+            prompt="Use @reference_1 beside @character_1 and @reference_1.",
+            refs=(ImageRef(M2, display_name="Untrusted", in_project=True), ImageRef(M1)),
+            reference_entities=(E,),
+        ),
+        {
+            "reference_1": ReferenceSlot("image", M2),
+            "reference_2": ReferenceSlot("image", M1),
+            "character_1": ReferenceSlot("character", E, 1),
+        },
+    )
+    result = await subject.validate_native_image_references(client, P, request)
+    assert [ref.name for ref in result.refs] == [M2, M1]
+    assert [ref.display_name for ref in result.refs] == ["Second owned", "First owned"]
+    assert all(ref.in_project for ref in result.refs)
+    assert _unported_image_form(result) is None
+    assert result.prompt == request.prompt
+    assert result.reference_prompt_plan.spans == request.reference_prompt_plan.spans
+    assert request.refs[0].display_name == "Untrusted" and not request.refs[1].in_project
+    subject.read_project_payload.assert_awaited_once_with("page", P)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "caption",
+    [None, "", "  ", 42, "x" * 4097],
+    ids=["missing", "empty", "blank", "nontext", "oversize"],
+)
+async def test_requested_image_missing_or_invalid_caption_fails_closed(monkeypatch, caption):
+    from gflow_cli.api.image import ImageRef
+
+    client = _fixtures(monkeypatch)
+    monkeypatch.setattr(
+        subject,
+        "project_media",
+        lambda *args: [{"workflow_id": W1, "project_id": P, "archived": False, "caption": caption}],
+    )
+    with pytest.raises(ConfigurationError):
+        await subject.validate_native_image_references(
+            client,
+            P,
+            GenerateImageRequest(
+                prompt="x", refs=(ImageRef(M1, display_name="Forged", in_project=True),)
+            ),
+        )
+    client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "defect", ["video", "archived", "foreign", "duplicate_workflow", "duplicate_media"]
+)
+async def test_claimed_in_project_flag_cannot_bypass_fresh_image_proof(monkeypatch, defect):
+    from gflow_cli.api.image import ImageRef
+
+    client = _fixtures(monkeypatch)
+    timeline = [
+        {
+            "workflow_id": W1,
+            "project_id": P,
+            "archived": defect == "archived",
+            "caption": "First owned",
+        }
+    ]
+    media = [
+        {
+            "media_id": M1,
+            "project_id": P if defect != "foreign" else E,
+            "workflow_id": W1,
+            "kind": "video" if defect == "video" else "image",
+            "width": 1024,
+            "height": 1024,
+        }
+    ]
+    if defect == "duplicate_workflow":
+        timeline.append(dict(timeline[0], caption="Ambiguous"))
+    if defect == "duplicate_media":
+        media.append(dict(media[0]))
+    monkeypatch.setattr(subject, "project_media", lambda *args: timeline)
+    monkeypatch.setattr(subject, "parse_media_snapshot", lambda *args: {"media": media})
+    with pytest.raises(ConfigurationError):
+        await subject.validate_native_image_references(
+            client,
+            P,
+            GenerateImageRequest(
+                prompt="x", refs=(ImageRef(M1, display_name="Forged", in_project=True),)
+            ),
+        )
+    client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+async def test_caption_collision_between_active_workflows_refuses_before_submit(monkeypatch):
+    from gflow_cli.api.image import ImageRef
+
+    client = _fixtures(monkeypatch)
+    monkeypatch.setattr(
+        subject,
+        "project_media",
+        lambda *args: [
+            {"workflow_id": W1, "project_id": P, "archived": False, "caption": "Same"},
+            {"workflow_id": W2, "project_id": P, "archived": False, "caption": "Same"},
+        ],
+    )
+    with pytest.raises(ConfigurationError):
+        await subject.validate_native_image_references(
+            client, P, GenerateImageRequest(prompt="x", refs=(ImageRef(M1),))
+        )
+
+
+@pytest.mark.asyncio
+async def test_caption_refusal_through_sdk_precedes_mint_checkpoint_and_submit(monkeypatch):
+    from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.api.image import ImageRef
+
+    fake = _fixtures(monkeypatch, workflows=[W1])
+    monkeypatch.setattr(
+        subject,
+        "project_media",
+        lambda *args: [{"workflow_id": W1, "project_id": P, "archived": False, "caption": ""}],
+    )
+    client = object.__new__(FlowApiClient)
+    client._checkout_page = fake._checkout_page
+    client._checkin_page = fake._checkin_page
+    client._uses_native_characters = Mock(return_value=True)
+    client._mint_recaptcha_token = AsyncMock()
+    submit = AsyncMock()
+    client.transport = SimpleNamespace(generate_images=submit)
+    checkpoint = Mock()
+    with pytest.raises(ConfigurationError):
+        await client._drive_images_generation_unseeded(
+            project_id=P,
+            req=GenerateImageRequest(
+                prompt="portrait", refs=(ImageRef(M1),), reference_entities=(E,)
+            ),
+            recaptcha_action="imageGeneration",
+            on_checkpoint=checkpoint,
+        )
+    client._mint_recaptcha_token.assert_not_awaited()
+    submit.assert_not_awaited()
+    checkpoint.assert_not_called()

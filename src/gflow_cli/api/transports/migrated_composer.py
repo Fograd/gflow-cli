@@ -591,8 +591,8 @@ def _unported_image_form(request: GenerateImageRequest) -> str | None:
     if request.refs and request.ref_paths:
         return "existing-image references mixed with local files"
     if any(not ref.in_project for ref in request.refs):
-        # Only an image this run generated in this project is referenced in place (#913);
-        # a UUID ref from the catalog or MCP is not ported here.
+        # Eligibility comes from a same-project generated acknowledgement or
+        # fresh native ownership proof; bare catalog/MCP flags are not proof.
         return "a reference given by Flow media UUID"
     if any(not ref.display_name for ref in request.refs):
         # Found by its Flow caption, then matched by thumbnail; Flow returned none.
