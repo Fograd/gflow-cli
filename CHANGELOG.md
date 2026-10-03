@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Portable native MP4 uploads require explicit per-request rights confirmation, including the HTTP header; private stable snapshots precede browser creation. SDK, CLI and registered MCP expose upload and reversible whole-batch archive. Possible writes retain bounded known/pending handles in a nonretryable exit40 error, including cleanup and cancellation failures.
 - Browser-owned image generation submits once; a lost native acknowledgement
   returns a nonretryable unknown outcome with any known media/workflow handles.
   It never repeats the browser action automatically. Non-browser HTTP transport

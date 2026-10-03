@@ -201,3 +201,4 @@ Slash commands for Claude Code, stored in `.claude/commands/gflow/`. All prefixe
 
 - [Surface coverage matrix](self-hosted/SURFACE_MATRIX.md): REST, SDK, CLI, MCP and queued feature scopes.
 - [Image download recovery](self-hosted/IMAGE_RECOVERY.md): preserve native handles and completed downloads after failure without resubmitting generation.
+- [Native MP4 upload and archive](self-hosted/NATIVE_MEDIA.md): SDK, CLI, MCP and REST consent, local bounds and uncertain-write recovery.

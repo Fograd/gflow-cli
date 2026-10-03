@@ -3364,6 +3364,39 @@ class FlowApiClient:
         )
         return to_character(result["character"])
 
+    async def upload_native_video(
+        self, *, project_id: str, path: Path, rights_confirmed: bool = False
+    ) -> dict[str, Any]:
+        """Snapshot and upload an MP4 once; explicit per-request rights are required."""
+        from gflow_cli.api.native_media import upload_snapshot_context, validate_upload
+
+        project = validate_upload(project_id, rights_confirmed)
+        outcome: dict[str, Any] = {}
+        with upload_snapshot_context(
+            path, project=project, rights_confirmed=rights_confirmed, outcome=outcome
+        ) as private:
+            outcome.update(await self._upload_native_video_snapshot(project, private))
+        return outcome
+
+    async def _upload_native_video_snapshot(self, project_id: str, path: Path) -> dict[str, Any]:
+        """Internal seam: caller retains an active private snapshot context."""
+        from gflow_cli.api.native_media import upload_snapshot, validate_project
+
+        return await upload_snapshot(self, validate_project(project_id), path)
+
+    async def archive_native_media(
+        self,
+        *,
+        project_id: str,
+        media_ids: list[str] | tuple[str, ...],
+        confirm_archive: bool = False,
+    ) -> dict[str, Any]:
+        """Reversibly archive entire owned batches, once, after fresh native preflight."""
+        from gflow_cli.api.native_media import archive, validate_archive
+
+        project, identifiers = validate_archive(project_id, media_ids, confirm_archive)
+        return await archive(self, project, identifiers)
+
     async def create_entity(self, project_id: str) -> str:
         """Mint a fresh CHARACTER entity for *project_id*. Returns the new entityId.
 

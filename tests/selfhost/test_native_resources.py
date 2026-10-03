@@ -37,7 +37,15 @@ def test_cross_project_timeline_refused():
 
 
 def test_trash_refuses_unrequested_sibling_media():
-    rows = [{"media_id": M, "workflow_id": W, "project_id": P, "batch_media_ids": [M, W]}]
+    rows = [
+        {
+            "media_id": M,
+            "workflow_id": W,
+            "project_id": P,
+            "batch_media_ids": [M, W],
+            "archived": False,
+        }
+    ]
     with pytest.raises(ValueError, match="select every media"):
         trash_payload([M], rows, P)
 

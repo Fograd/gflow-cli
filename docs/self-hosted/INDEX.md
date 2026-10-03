@@ -21,3 +21,5 @@ For upstream CLI/MCP features, see [the upstream documentation index](../INDEX.m
 - [HTTP job semantics](HTTP_JOB_SEMANTICS.md): async, bounded synchronous waiting, polling and callback projection.
 
 - [Private session import](COOKIE_IMPORT.md): accepted DevTools table subset, staged profile verification and privacy boundaries.
+
+- [Native MP4 upload and reversible archive](NATIVE_MEDIA.md): SDK/CLI/MCP/HTTP consent, private snapshots, whole-batch scope and typed recovery.

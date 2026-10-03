@@ -855,6 +855,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(
                 422, "X-Flow-Rights-Confirmed requires true or false on MP4 uploads only"
             )
+        if mime == "video/mp4" and rights != "true":
+            raise HTTPException(422, "MP4 uploads require X-Flow-Rights-Confirmed: true")
         profile = pick_account(email, [])
         data = bytearray()
         async for part in request.stream():

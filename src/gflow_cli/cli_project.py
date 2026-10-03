@@ -280,3 +280,9 @@ def rename_subcommand(project_id: str, new_title: str, profile: str | None, as_j
             )
 
     run_with_handlers(_act, cli_command="project rename", as_json=as_json)
+
+
+from gflow_cli.cli_native_media import archive_command, upload_video_command  # noqa: E402
+
+project.add_command(upload_video_command)
+project.add_command(archive_command)

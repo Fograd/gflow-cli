@@ -196,7 +196,14 @@ def result_record(result: dict[str, Any]) -> dict[str, Any]:
     if isinstance(ids, list):
         safe["knownMediaGenerationIds"] = [
             value
-            for value in cast(list[Any], ids)[:10]
+            for value in cast(list[Any], ids)[:100]
+            if isinstance(value, str) and _ID.fullmatch(value)
+        ]
+    pending = result.get("pendingMediaGenerationIds")
+    if isinstance(pending, list):
+        safe["pendingMediaGenerationIds"] = [
+            value
+            for value in cast(list[Any], pending)[:100]
             if isinstance(value, str) and _ID.fullmatch(value)
         ]
     workflow_ids = result.get("knownWorkflowIds")
@@ -273,7 +280,15 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
         from gflow_cli.selfhost.unknown_image import PHASES
 
         phase = raw.get("phase")
-        if isinstance(phase, str) and phase in PHASES:
+        operation = raw.get("operation")
+        allowed_phases = PHASES | (
+            {"dispatch", "response", "cancelled"}
+            if operation in ("upload", "archive")
+            else set[str]()
+        )
+        if operation in ("upload", "archive"):
+            safe["errorDetails"]["operation"] = operation
+        if isinstance(phase, str) and phase in allowed_phases:
             safe["errorDetails"]["phase"] = phase
     return safe
 

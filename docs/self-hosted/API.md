@@ -74,7 +74,7 @@ documented self-hosted extension where useapi does not advertise it. Read
 
 Raw uploads return HTTP200 with
 `mediaGenerationId: { "mediaGenerationId": "Google UUID" }` and `email`.
-MP4 uploads accept `X-Flow-Rights-Confirmed: true` or `false` (exact lowercase); absent means false. Only send true when you can confirm rights for this upload. It permits the native worker to accept a Google rights notice for that request; it is not an account preference. A notice without permission produces `upload_rights_required`; confirm in the browser or submit a new request/new idempotency key with true if entitled. The rights boolean participates in idempotency. The header is rejected on image uploads.
+MP4 uploads require the exact lowercase header `X-Flow-Rights-Confirmed: true` for every request; absent, false or malformed values fail 422 before queue creation. Only send true when you can confirm rights for this upload. The assertion is per request, never an account preference, and participates in idempotency. The header is rejected on image uploads. This strict consent requirement is a deliberate fork difference from the earlier conditional-notice behavior.
 
 References must be IDs issued by this service. The registry retains account,
 project and saved bytes. useapi's opaque identifiers cannot be used directly.
@@ -234,12 +234,12 @@ characters = client.get("/characters", params={"email": "account-one", "source":
 voices = client.get("/voices", params={"email": "account-one", "source": "system", "catalog": "google"})
 ```
 
-Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; use in generation is unsupported. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Custom voice creation/clone/delete and user voice listings remain unsupported.
+Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; Canonical SDK image grounding has one accepted native proof. CLI/MCP/HTTP image acceptance remains pending after safe picker refusals; video grounding remains a gap. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Custom voice creation/clone/delete and user voice listings remain unsupported.
 
 
-Limited native character operations: POST `/characters` accepts `displayName` (1–200 characters), optional `personalityNotes` (at most 2000 characters) and one `imageReference_1` and optional `imageReference_2`, each a registered PNG/JPEG in the selected project, plus optional account/project controls. The adapter validates both saved PNG/JPEG images, account/project ownership and active native workflows before creating any entity, then creates the character and copies the reference through the measured native binding operation. The copied workflow is distinct from the source and the original stays active. A merely local/raw-upload reference without that native workflow is refused. Initial `personalityNotes` (at most 2000 characters) is supported through a validated metadata update after copying the reference. Two references use the measured portrait slot0/body slot1 convention; both originals remain active. Voice assignment remains unsupported (501).
+Limited native character operations: POST `/characters` accepts `displayName` (1–200 characters), optional `personalityNotes` (at most 2000 characters) and one `imageReference_1` and optional `imageReference_2`, each a registered PNG/JPEG in the selected project, plus optional account/project controls. The adapter validates both saved PNG/JPEG images, account/project ownership and active native workflows before creating any entity, then creates the character and copies the reference through the measured native binding operation. The copied workflow is distinct from the source and the original stays active. A merely local/raw-upload reference without that native workflow is refused. Initial `personalityNotes` (at most 2000 characters) is supported through a validated metadata update after copying the reference. Two references use the measured portrait slot0/body slot1 convention; both originals remain active. Optional voice accepts a case-insensitive system preset name; assignment is verified metadata, while rendered speech and custom voices remain gaps.
 
-PATCH `/characters/{ref}` accepts `displayName` and/or `personalityNotes` (at most 2000 characters), with `email`/`projectId` controls. DELETE and GET detail use query account/project controls; when multiple accounts are enabled, detail/mutations require an explicit account. GET detail includes `personalityNotes`, without signed URLs or voice data. These operations are native project extensions rather than exact account-wide useapi semantics.
+PATCH `/characters/{ref}` accepts `displayName`, `personalityNotes` (at most 2000 characters) and/or system preset `voice`, with `email`/`projectId` controls. DELETE and GET detail use query account/project controls; when multiple accounts are enabled, detail/mutations require an explicit account. GET detail includes `personalityNotes`, with optional assigned preset voice metadata and without signed URLs. These operations are native project extensions rather than exact account-wide useapi semantics.
 
 Character mutations are direct calls with a bounded worker timeout, not durable queued/idempotent jobs. An unconfirmed failure returns HTTP 502: inspect Flow before explicit retry because the mutation may have succeeded. The server does not automatically retry them. Preserve the documented unsupported fields and remaining creation restrictions before treating this as complete character CRUD parity.
 
@@ -276,17 +276,11 @@ For two references, add `imageReference_2` to the create request. Both must belo
 
 ### Automatic image aspect
 
-`aspectRatio:auto` currently returns HTTP501 before job submission: the native automatic-aspect UI/wire contract has not been measured. An [abort-only investigation](../superpowers/spikes/2026-10-02-image-auto-aspect.md) verified an owned reference and explicit square aspect, but its chooser selector failed; that result is inconclusive about native Auto availability. Use an explicit image ratio. The adapter does not silently infer a different ratio.
+REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP Auto and native Auto remain gaps; use explicit ratios there.
 
+### Historical voice transition investigation
 
-### Voice assignment evidence boundary
-
-Voice assignment still returns 501 in this adapter. Two guarded empty-dialogue
-preset probes did not complete the picker-to-character transition: the selected
-button candidate was unverified, the dialog stayed open and blocked the header
-commit. This is not evidence that Google lacks voice assignment. No TTS was
-generated and both owned test characters were removed. See the
-[redacted transition evidence](../superpowers/spikes/2026-10-02-native-voice-picker-transition.md).
+Earlier guarded empty-dialogue probes did not complete the picker-to-character transition. That historical uncertainty was superseded by the measured native preset assignment and deployed HTTP lifecycle below. No rendered speech proof or custom voice support follows from metadata assignment.
 
 ### Native system preset assignment
 
@@ -309,3 +303,5 @@ Account cookie import is implemented with staged identity/access verification; a
 rejected clone was safely refused. A successful live imported-session proof is
 pending. Cookies/session values are intentionally never returned. Read the
 [cookie import guide](COOKIE_IMPORT.md) for accepted table fields and rollback.
+
+MP4 ingestion now requires X-Flow-Rights-Confirmed: true for every request; missing or false consent fails 422 before queue creation. It is not an account-wide preference. Typed native-media uncertainty preserves bounded known/pending inspection handles and prevents success registration or automatic replay. See [native media operations](NATIVE_MEDIA.md).

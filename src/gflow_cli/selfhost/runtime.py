@@ -170,6 +170,18 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             cfg.timeout,
         )
         if code:
+            if len(raw) <= 65536:
+                from gflow_cli.selfhost.unknown_native_media import unknown_native_media_result
+
+                try:
+                    unknown = unknown_native_media_result(
+                        parse_json_output(raw), code, project, "archive", store.get(job["id"])
+                    )
+                    if unknown is not None:
+                        store.checkpoint(job["id"], unknown)
+                        return unknown
+                except (ValueError, TypeError, KeyError):
+                    pass
             return {"error": {"code": "native_archive_failed", "retryable": False}}
         result = parse_json_output(raw)
         if result.get("status") != "ok":
@@ -359,6 +371,18 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         if request_path:
             request_path.unlink(missing_ok=True)
     if code:
+        if kind == "assets" and payload["mime"] == "video/mp4" and len(raw) <= 65536:
+            from gflow_cli.selfhost.unknown_native_media import unknown_native_media_result
+
+            try:
+                unknown = unknown_native_media_result(
+                    parse_json_output(raw), code, project, "upload", store.get(job["id"])
+                )
+                if unknown is not None:
+                    store.checkpoint(job["id"], unknown)
+                    return unknown
+            except (ValueError, TypeError, KeyError):
+                pass
         if kind == "images" and len(raw) <= 65536:
             # Import only allow-listed recovery handles/contained paths; never raw errors.
             try:

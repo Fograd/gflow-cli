@@ -79,11 +79,23 @@ network/timeout/close errors, cancellation, and interrupted read-only recovery.
 Fake browser-context tests also exercise importer close/cancellation and fallback.
 An isolated real HTTP service on CC LXC subsequently passed the native queue
 check: HTTP401 without authentication, HTTP201 for asynchronous acceptance,
-then completed with OK actual project access. Production-service smoke
-verification remains a separate deployment step.
+then completed with OK actual project access. The published checkpoint was then deployed on CC LXC and the production
+HTTP queue passed the same check after reopening the persistent profile.
 
 The shared health helper was subsequently exercised against the original hosted
 account after manual identity verification: OK/project_access_verified,
 profilePreserved true, refreshAttempted false. That is real native project-access
 evidence. The isolated real HTTP queue proof confirmed those same flags without
-generation; production-service smoke verification is separate.
+generation. The production-service smoke subsequently passed as well.
+
+Production proof: authenticated capability discovery advertises the new routes;
+HTTP401 without bearer, async HTTP201, completed OK/project_access_verified,
+profilePreserved true and refreshAttempted false. The registered MCP service
+exposed 22 tools, including the updated image reference and native voice schema.
+No generation or CAPTCHA task was performed by the health/protocol checks.
+
+Four subsequent SDK, CLI, registered-MCP and HTTP synthetic upload/archive BDD
+runs reused the original saved login, with fresh native project reads confirming
+access after each lifecycle. No further manual identity challenge was required
+during those tests. This is observed session reuse, not a guarantee that Google
+will never ask for verification again.

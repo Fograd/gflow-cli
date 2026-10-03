@@ -400,3 +400,5 @@ that produced them stays local.
 ## Claude Code-specific notes
 
 [CLAUDE.md](CLAUDE.md) carries the auto-load instructions Claude Code reads natively. It cross-references this file for the universal rules; Claude-Code-specific session protocol (skills, slash commands, memory) stays in CLAUDE.md.
+
+Portable native media commands: project upload-video (explicit per-upload rights), project archive (explicit reversible whole-batch confirmation), mirrored by direct MCP tools. Typed native media uncertainty uses exit40; never replay uncertain writes.

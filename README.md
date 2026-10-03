@@ -238,3 +238,5 @@ explicit confirmation. References need verified local catalog copies in the
 selected profile/project. See the [character guide](docs/CHARACTER.md#native-characters-from-existing-images-flow-october-2026)
 and [MCP tool reference](docs/MCP.md#native-existing-image-character-tools) for
 examples, validation and recovery from partial mutations.
+
+The fork also exposes portable [native MP4 upload and reversible whole-batch archive](docs/self-hosted/NATIVE_MEDIA.md), with per-request consent and safe recovery identities. Live proof for each new adapter is recorded separately.

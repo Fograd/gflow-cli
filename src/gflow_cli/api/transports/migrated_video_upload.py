@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any, cast
@@ -15,6 +16,8 @@ from gflow_cli.api.transports.migrated_composer import (
     UPLOAD_MENU_ITEM,
     MigratedComposer,
 )
+from gflow_cli.api.transports.native_video_snapshot import snapshot_video
+from gflow_cli.errors import NativeMediaMutationUnknownError
 
 
 class UploadRightsRequiredError(ValueError):
@@ -64,11 +67,39 @@ def parse_upload_reply(text: str, project_id: str) -> str:
 async def upload_video(
     page: Any, project_id: str, path: Path, *, rights_confirmed: bool = False
 ) -> tuple[str, str]:
+    """Prepare a private stable snapshot before any page action."""
+    if rights_confirmed is not True:
+        raise UploadRightsRequiredError("Explicit per-request upload rights must be true")
+    if not is_uuid(project_id):
+        raise ValueError("Invalid project identifier")
+    uploaded: tuple[str, str] | None = None
+    try:
+        with snapshot_video(path, rights_confirmed=rights_confirmed) as private:
+            uploaded = await _upload_video_snapshot(
+                page, project_id, private, rights_confirmed=True
+            )
+        return uploaded
+    except Exception:
+        if uploaded is not None:
+            raise NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="response",
+                project_id=project_id,
+                known_media_ids=(uploaded[0],),
+            ) from None
+        raise
+
+
+async def _upload_video_snapshot(
+    page: Any, project_id: str, path: Path, *, rights_confirmed: bool = False
+) -> tuple[str, str]:
     """Upload through Flow's chooser; the account owner handles any rights dialog.
 
     Video ingestion is a resumable upload endpoint, not the image maseQ RPC. Never
     auto-accept the rights confirmation without an explicit per-request ownership assertion.
     """
+    if rights_confirmed is not True:
+        raise UploadRightsRequiredError("Explicit per-request upload rights must be true")
     if not is_uuid(project_id):
         raise ValueError("Invalid project identifier")
     validate_video(path)
@@ -76,7 +107,21 @@ async def upload_video(
     caption = f"{path.stem}-{uuid4().hex[:8]}.mp4"
     reply: asyncio.Future[str] = asyncio.get_running_loop().create_future()
 
+    dispatched = False
+    known_media: str | None = None
+
+    def on_request(request: Any) -> None:
+        nonlocal dispatched
+        url = urlsplit(str(request.url))
+        if (
+            url.hostname == "flow.google.com"
+            and url.path == f"/upload/v1/flow/upload/video/{project_id}"
+            and request.method == "POST"
+        ):
+            dispatched = True
+
     async def on_response(response: Any) -> None:
+        nonlocal known_media
         url = urlsplit(str(response.url))
         if (
             url.hostname != "flow.google.com"
@@ -93,12 +138,14 @@ async def upload_video(
             if response.status != 200:
                 raise ValueError(f"Native video upload failed with HTTP {response.status}")
             media_id = parse_upload_reply(text, project_id)
+            known_media = media_id
             if not reply.done():
                 reply.set_result(media_id)
         except Exception as exc:
             if not reply.done():
                 reply.set_exception(exc)
 
+    page.on("request", on_request)
     page.on("response", on_response)
     try:
         await page.locator(TOOLBAR_ADD).first.click(timeout=5000)
@@ -128,5 +175,54 @@ async def upload_video(
                 dialogs_before = await dialogs.count()
             await asyncio.sleep(0.1)
         return await asyncio.wait_for(reply, timeout=max(0.1, deadline - time.monotonic())), caption
+    except asyncio.CancelledError as exc:
+        if dispatched:
+            vars(exc)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="cancelled",
+                project_id=project_id,
+                known_media_ids=(known_media,) if known_media else (),
+            )
+        raise
+    except Exception:
+        if dispatched:
+            raise NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="response",
+                project_id=project_id,
+                known_media_ids=(known_media,) if known_media else (),
+            ) from None
+        raise
     finally:
-        page.remove_listener("response", on_response)
+        original = sys.exc_info()[1]
+        cleanup_error: BaseException | None = None
+        for event, callback in (("request", on_request), ("response", on_response)):
+            try:
+                page.remove_listener(event, callback)
+            except BaseException as error:
+                cleanup_error = cleanup_error or error
+        if reply.done() and not reply.cancelled():
+            reply.exception()
+        if cleanup_error is not None:
+            if original is not None:
+                original.add_note("Native upload listener cleanup remains incomplete")
+            elif isinstance(cleanup_error, asyncio.CancelledError):
+                if dispatched:
+                    vars(cleanup_error)["gflow_native_media_unknown"] = (
+                        NativeMediaMutationUnknownError(
+                            operation="upload",
+                            phase="cancelled",
+                            project_id=project_id,
+                            known_media_ids=(known_media,) if known_media else (),
+                        )
+                    )
+                raise cleanup_error
+            elif dispatched or known_media:
+                raise NativeMediaMutationUnknownError(
+                    operation="upload",
+                    phase="response",
+                    project_id=project_id,
+                    known_media_ids=(known_media,) if known_media else (),
+                ) from None
+            else:
+                raise ValueError("Native upload listener cleanup incomplete") from None

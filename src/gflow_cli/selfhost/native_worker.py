@@ -26,10 +26,10 @@ from gflow_cli.api.transports.migrated_projects import list_projects
 from gflow_cli.api.transports.migrated_resources import (
     read_project,
     read_project_payload,
-    trash_media,
 )
-from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError, upload_video
+from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError
 from gflow_cli.config import get_settings
+from gflow_cli.errors import NativeMediaMutationUnknownError
 
 
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -43,6 +43,31 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
             "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
         }
     project_id = "" if verb == "projects-list" else str(payload["project_id"])
+    if verb == "upload-video":
+        from gflow_cli.api.native_media import upload_snapshot_context, validate_upload
+
+        project = validate_upload(project_id, payload.get("rights_confirmed", False))
+        result: dict[str, Any] = {}
+        from gflow_cli.services.native_media import upload_private_snapshot
+
+        with upload_snapshot_context(
+            Path(payload["path"]), project=project, rights_confirmed=True, outcome=result
+        ) as private:
+            result.update(await upload_private_snapshot(profile, project, private))
+        return {"status": "ok", **result, "kind": "video"}
+    if verb == "media-delete":
+        from gflow_cli.api.native_media import validate_archive
+
+        project, identifiers = validate_archive(project_id, payload.get("media_ids"), True)
+        from gflow_cli.services.native_media import archive_media
+
+        result = await archive_media(profile, project, identifiers)
+        return {
+            "status": "ok",
+            **result,
+            "deleted": result["archived_media_ids"],
+            "operation": "archive",
+        }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
@@ -76,39 +101,9 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
                     else parse_native_voices(data)
                 )
                 return {"status": "ok", "project_id": project_id, key: rows}
-            if verb == "upload-video":
-                rights = payload.get("rights_confirmed", False)
-                if not isinstance(rights, bool):
-                    raise ValueError("rights_confirmed must be a boolean")
-                media_id, caption = await upload_video(
-                    page,
-                    project_id,
-                    Path(payload["path"]),
-                    rights_confirmed=rights,
-                )
-                return {
-                    "status": "ok",
-                    "media_id": media_id,
-                    "project_id": project_id,
-                    "caption": caption,
-                    "kind": "video",
-                }
             if verb == "media-list":
                 media = await read_project(page, project_id)
                 return {"status": "ok", "project_id": project_id, "media": media}
-            if verb == "media-delete":
-                if not isinstance(payload["media_ids"], list):
-                    raise ValueError("media_ids must be a list")
-                ids = cast("list[Any]", payload["media_ids"])
-                if not all(isinstance(mid, str) for mid in ids):
-                    raise ValueError("media_ids must be a list of UUID strings")
-                deleted = await trash_media(page, project_id, cast("list[str]", ids))
-                return {
-                    "status": "ok",
-                    "project_id": project_id,
-                    "deleted": deleted,
-                    "operation": "archive",
-                }
             raise ValueError("Unsupported native worker operation")
         finally:
             client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
@@ -120,8 +115,21 @@ def main() -> None:
     data = json.loads(sys.argv[3])
     if not isinstance(data, dict):
         raise SystemExit("Worker payload must be an object")
+    exit_code = 0
     try:
         result = asyncio.run(execute(sys.argv[1], sys.argv[2], cast("dict[str, Any]", data)))
+    except NativeMediaMutationUnknownError as exc:
+        exit_code = 40
+        result = {
+            "status": "error",
+            "code": "native_media_mutation_outcome_unknown",
+            "error": {
+                **exc.to_problem_details(),
+                "class": type(exc).__name__,
+                "exit_code": 40,
+                "retryable": False,
+            },
+        }
     except CharacterBindingError as exc:
         result = {
             "status": "error",
@@ -161,6 +169,8 @@ def main() -> None:
             "once in the logged-in browser; no video ingestion was submitted",
         }
     sys.stdout.write(json.dumps(result) + "\n")
+    if exit_code:
+        raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":

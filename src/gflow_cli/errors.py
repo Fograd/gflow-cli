@@ -24,6 +24,7 @@ __all__ = [
     "ChainPartialError",
     "CharacterMutationUnknownError",
     "ImageGenerationUnknownError",
+    "NativeMediaMutationUnknownError",
     "CharacterBatchPartialError",
     "ConfigurationError",
     "ContentPolicyError",
@@ -86,6 +87,8 @@ class ProblemDetails(TypedDict, total=False):
     phase: str
     media_ids: list[str]
     workflow_ids: list[str]
+    known_media_ids: list[str]
+    pending_media_ids: list[str]
     failed_before_mutation: bool
     completed_character_refs: list[str]
     incident: dict[str, str]  # gflow extension — remote-safe {id, capture_status} ONLY
@@ -220,6 +223,61 @@ class ImageGenerationUnknownError(GFlowError):
             out["media_ids"] = list(self.media_ids)
         if self.workflow_ids:
             out["workflow_ids"] = list(self.workflow_ids)
+        return out
+
+
+class NativeMediaMutationUnknownError(GFlowError):
+    """A native upload/archive may have applied; inspect handles before resubmission."""
+
+    problem_type = "https://gflow-cli.dev/errors/native-media-mutation-unknown"
+    title = "Native media mutation outcome unknown"
+    _default_remediation = (
+        "Inspect the selected Flow project and returned media handles before retrying; "
+        "no automatic upload or archive retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        operation: Literal["upload", "archive"],
+        phase: Literal["dispatch", "response", "cancelled"],
+        project_id: str,
+        known_media_ids: tuple[str, ...] = (),
+        pending_media_ids: tuple[str, ...] = (),
+    ) -> None:
+        if operation not in {"upload", "archive"} or phase not in {
+            "dispatch",
+            "response",
+            "cancelled",
+        }:
+            raise ValueError("Native media recovery metadata has an invalid operation or phase")
+
+        def handles(values: tuple[str, ...]) -> tuple[str, ...]:
+            if not isinstance(cast(object, values), tuple) or len(values) > 100:
+                raise ValueError("Native media recovery supports at most 100 UUID handles")
+            try:
+                return tuple(dict.fromkeys(str(UUID(value)) for value in values))
+            except (ValueError, AttributeError, TypeError):
+                raise ValueError("Native media recovery requires UUID handles") from None
+
+        project = handles((project_id,))[0]
+        known, pending = handles(known_media_ids), handles(pending_media_ids)
+        if set(known) & set(pending):
+            raise ValueError("Native media recovery handle sets must be disjoint")
+        super().__init__(route=f"native-media.{operation}", retryable=False)
+        self.operation, self.phase, self.project_id = operation, phase, project
+        self.known_media_ids, self.pending_media_ids = known, pending
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(
+            outcome_unknown=True,
+            operation=self.operation,
+            phase=self.phase,
+            project_id=self.project_id,
+            known_media_ids=list(self.known_media_ids),
+            pending_media_ids=list(self.pending_media_ids),
+        )
         return out
 
 
@@ -1598,6 +1656,7 @@ EXIT_CODE_MAP: dict[type[GFlowError], int] = {
     CharacterBatchPartialError: 40,
     CharacterMutationUnknownError: 40,
     ImageGenerationUnknownError: 40,
+    NativeMediaMutationUnknownError: 40,
     ConfigurationError: 11,
     AuthExpiredError: 3,
     RateLimitError: 4,

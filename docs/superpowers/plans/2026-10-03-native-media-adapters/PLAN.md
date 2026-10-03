@@ -25,13 +25,19 @@ failure; unknown batch siblings/mixed owners/duplicate IDs; partial archive ack;
 CLI/MCP signatures and queued payload symmetry; safe literal output and private
 paths; actual credit-free synthetic upload/list/archive BDD with owned cleanup.
 
-- [ ] Red bounded file snapshot/rights/UUID and archive-preflight tests.
-- [ ] Shared typed SDK methods and nonretryable unknown/partial acknowledgements.
-- [ ] Native transport uses validated snapshot and strict pre-request consent;
-  original REST path retains documented semantics through the shared helper.
-- [ ] CLI and MCP mirrors with explicit reversible scope and safe recovery handles.
-- [ ] Offline BDD, six mirror axes and actual SDK/CLI/MCP credit-free probe.
-- [ ] Docs, review, whole-tree gates and publication.
+- [x] Red bounded file snapshot/rights/UUID and archive-preflight tests.
+- [x] Shared typed SDK methods and nonretryable unknown/partial acknowledgements.
+- [x] Native transport uses validated snapshot and strict pre-request consent;
+  REST MP4 uploads now require exact true consent before enqueue, a documented fork strengthening.
+- [x] CLI and MCP mirrors with explicit reversible scope and safe recovery handles.
+- [x] Offline BDD, six mirror axes and actual SDK/CLI/MCP/HTTP credit-free probes.
+- [x] Docs and independent source/recovery reviews; full offline regression5,612passed/28skipped/90.75% in212.90s.
+- [ ] Publish reviewed checkpoint and deploy cleanly to CC LXC; verify actual production schemas/session.
 
 No video/TTS generation credits are required. Uploaded synthetic video proves
 ingestion/archive, not Veo export, video editing or higher resolution promotion.
+
+
+Historical isolated offline checkpoint: 100 focused SDK/CLI/MCP/HTTP/projection/parity cases passed in 5.14s, then three native-worker cases passed. Registered MCP coercion was reproduced with ordinary bool annotations and fixed using StrictBool; six registered-tool negative validation cases reject false/int/string before profile/service. Scoped Ruff and strict Pyright pass. Source methods preserve acknowledged handles over snapshot cleanup, checkin and client teardown failures; cancellation remains cancellation.
+
+Live synthetic BDD scaffolding has explicit e2e/free-resource tags, one selected surface/budget and a persistent exclusive allowance. It uses registered MCP protocol, records early private acknowledgement checkpoints, and never replays an attempted archive during cleanup. Default collection deselects four cases; explicit E2E selection without credentials skips four. SDK synthetic lifecycle passed in 54.80 seconds and public CLI lifecycle in 57.56 seconds, with originals preserved and no generation/replay. Registered MCP protocol lifecycle passed in 67.96 seconds with originals preserved and no generation/replay; its isolated server was stopped. Corrected-prefix HTTP lifecycle passed in 51.86 seconds: exactly one completed upload job and one completed native archive job, originals preserved, no generation/replay. The earlier wrong-base 404 attempt created zero jobs and its allowance was preserved separately. All four public surface lifecycle proofs passed; final full regression remains pending the root coordinator. No paid generation was run.

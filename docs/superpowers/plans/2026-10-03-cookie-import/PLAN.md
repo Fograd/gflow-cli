@@ -27,7 +27,7 @@ expected account mismatch; cancellation closes browser and releases lease.
 - [x] CLI/MCP import adapters or explicitly justified interactive-only scope, six mirror axes.
 - [ ] Free native browser BDD using a private isolated copied session; no source profile mutation.
 - [x] Documentation, quality gates and independent review.
-- [ ] Publish and deploy; root continues remaining parity work.
+- [x] Publish and deploy; root continues remaining parity work.
 
 No secrets, cookie examples with real values, private identifiers, HAR or session
 captures may be committed. No secret-rich useapi response is mirrored: responses
@@ -43,3 +43,5 @@ was not established. User completed that challenge; real original-project access
 was verified. Successful live cookie import remains an explicit proof gap.
 
 Frozen-source full regression: 5495 passed, 28 skipped, 15 warnings, 90.62% coverage in 238.49s. Whole-tree Ruff/strict Pyright and documentation/privacy/mirror gates passed.
+
+Published/deployed fd56b2e6. Production queued health and registered MCP protocol passed; no generation in that deployment smoke. Successful cookie transfer remains unproven.

@@ -60,3 +60,5 @@ HTTP with exact class/type/exit/project contract validation, safe bounded UUID
 handles, phase and nonretryable unknown flag. The checkpoint merges earlier
 verified media and downloads instead of discarding them. Negative contract and
 secret-redaction tests passed, without any Google submission.
+
+Published/deployed fd56b2e6. Production HTTP queue passed401/201/completedOK/project_access_verified and the registered MCP schema read passed. No generation, refresh or solver.

@@ -572,3 +572,10 @@ not implied. Offline adapter tests pass; new live CLI/MCP proof is pending.
 Image CLI leaf commands accept `--reference-syntax slots`; MCP image generation accepts `reference_syntax="slots"`. The default `names` retains saved asset-name expansion. Slot mode uses ordered image and character inputs as `@reference_1..10` and `@character_1..7`, matches tokens case-insensitively, preserves repeated positions and requires matching inputs. Unknown token families and email text stay literal. Queue codecs retain and validate the immutable plan; they do not strip markers into text that appears grounded.
 
 Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite cap remains 3. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Canonical video positional syntax is not yet implemented.
+
+
+### Native MP4 upload and reversible archive
+
+CLI project upload-video FILE --project UUID --rights-confirmed --profile PROFILE --json and project archive --project UUID --media-id UUID --confirm-archive --profile PROFILE --json perform direct native operations without generation or replay. MCP mirrors are gflow_upload_video(path, project, rights_confirmed=True, profile) and gflow_archive_media(media_ids, project, confirm_archive=True, profile). Upload snapshots a stable regular MP4 before browser creation; archive verifies every active owned batch sibling before the first write. Both require explicit per-request confirmation. Typed exit40 preserves safe known/pending media identities when a write or its cleanup is uncertain. Complete native membership is not inferred from a partial timeline.
+
+See [native media operations](self-hosted/NATIVE_MEDIA.md) for bounds, consent and recovery.

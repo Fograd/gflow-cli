@@ -23,7 +23,7 @@ retry behavior and explicit pre-dispatch refusals.
 - [x] Literal canonical prompts without references avoid unnecessary ownership reads.
 - [x] Real native image BDD after session restoration, separate from fault mocks.
 - [x] Whole-tree checks, independent review and documentation.
-- [ ] Publish and deploy the frozen verified checkpoint.
+- [x] Publish and deploy the frozen verified checkpoint.
 
 Offline fault tests validate our lifecycle and do not prove Google availability.
 Known handle recovery does not automatically regenerate missing outputs.
@@ -52,3 +52,5 @@ the successful live proof does not simulate or establish Google's billing on fau
 Independent review exposed one additional recovery defect: a post-dispatch page navigation or closed-page URL read could lose the pinned project or mask submission uncertainty. Both native callers now pass the validated project; the observer snapshots it before dispatch and uses it for guard and recovery. Six red-to-green navigation/closed-page DTO/timeout/cancellation cases preserve project and known handles. Focused composer/positional/entity suite: 157 passed in 28.48s; Ruff and strict Pyright clean. No browser or generation was used for these fault regressions.
 
 Frozen-source full regression: 5495 passed, 28 skipped, 15 warnings, 90.62% coverage in 238.49s. Whole-tree Ruff/strict Pyright and documentation/privacy/mirror gates passed.
+
+Published/deployed fd56b2e6. Production queued health and registered MCP protocol passed; no generation in that deployment smoke.

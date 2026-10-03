@@ -67,6 +67,8 @@ CLI_TO_MCP: dict[str, str] = {
     "video upscale": "gflow_upscale_video",
     "project list": "gflow_list_projects",
     "project media": "gflow_project_media",
+    "project upload-video": "gflow_upload_video",
+    "project archive": "gflow_archive_media",
     "instructions list": "gflow_instructions_list",
     "instructions add": "gflow_instructions_add",
     "instructions enable": "gflow_instructions_set_enabled",  # enabled=True
@@ -231,6 +233,7 @@ _CLI_ONLY_PARAMS: frozenset[str] = frozenset(
 #: `reference_images` on the generate tools but stays `refs` on instructions_add.
 #: Keep this small -- a rename with no reason is drift, not translation.
 _PARAM_ALIASES: dict[str, str] = {
+    "file": "path",
     "project_id": "project",
     "name": "display_name",  # metadata commands; selector tools retain raw name
     "assume_yes": "confirm_delete",  # explicit deletion authorization

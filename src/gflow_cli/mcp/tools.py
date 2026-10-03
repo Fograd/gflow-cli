@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import structlog
+from pydantic import StrictBool
 
 from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
@@ -2031,6 +2032,69 @@ async def gflow_project_media(
 
 
 @server.tool(
+    name="gflow_upload_video",
+    description="Upload one regular MP4; explicit per-request rights, no generation or replay.",
+)
+@_guarded
+async def gflow_upload_video(
+    path: str, project: str, rights_confirmed: StrictBool = False, profile: str = _DEFAULT_PROFILE
+) -> dict[str, Any]:
+    """Upload an identified MP4 from a private snapshot.
+
+    Args:
+        path: Local regular MP4 path, identified not fully decoded.
+        project: Native project UUID.
+        rights_confirmed: Must be exactly true for this upload.
+        profile: Owning saved profile.
+    """
+    from gflow_cli.api.native_media import upload_snapshot_context, validate_upload
+    from gflow_cli.services.native_media import upload_private_snapshot
+
+    selected = validate_upload(project, rights_confirmed)
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    result: dict[str, Any] = {}
+    async with _profile_lock(resolved):
+        with upload_snapshot_context(
+            Path(path), project=selected, rights_confirmed=rights_confirmed, outcome=result
+        ) as private:
+            result.update(await upload_private_snapshot(resolved, selected, private))
+    return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_archive_media",
+    description="Reversibly move complete owned media batches to trash; explicit confirmation.",
+)
+@_guarded
+async def gflow_archive_media(
+    media_ids: list[str],
+    project: str,
+    confirm_archive: StrictBool = False,
+    profile: str = _DEFAULT_PROFILE,
+) -> dict[str, Any]:
+    """Archive complete native batches without automatic mutation replay.
+
+    Args:
+        media_ids: One to 100 distinct active owned media UUIDs, including every sibling.
+        project: Native project UUID.
+        confirm_archive: Must be exactly true; operation is reversible move to trash.
+        profile: Owning saved profile.
+    """
+    from gflow_cli.api.native_media import validate_archive
+    from gflow_cli.services.native_media import archive_media
+
+    selected, identifiers = validate_archive(project, media_ids, confirm_archive)
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    async with _profile_lock(resolved):
+        result = await archive_media(resolved, selected, identifiers)
+    return {"status": "ok", **result}
+
+
+@server.tool(
     name="gflow_auth_status",
     description=(
         "Non-interactive, credit-free Flow session probe (#497). Call this "
@@ -2522,6 +2586,8 @@ __all__ = [
     "gflow_list_tools",
     "gflow_list_projects",
     "gflow_project_media",
+    "gflow_upload_video",
+    "gflow_archive_media",
     "gflow_download_media",
     "gflow_upscale_image",
     "gflow_upscale_video",

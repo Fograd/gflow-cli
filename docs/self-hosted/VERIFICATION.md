@@ -241,3 +241,80 @@ the successful SDK proof; it is not implied by this offline gate.
 The original hosted profile remained reusable after manual identity verification.
 The new health action is on demand and serialized, not a periodic login refresh.
 Publication and production-service smoke are recorded after deployment.
+
+## Published deployment and production session check
+
+Checkpoint fd56b2e6 was published to the fork's develop and self-hosted feature
+branches and deployed by a clean fast-forward on CC LXC. Both API and MCP services
+restarted; the queue was idle and the original profile lease was available.
+The additive account schema upgrade preserves existing registration and history.
+
+The production HTTP health proof passed: no bearer401; updated authenticated
+capabilities; async201; completed OK/project_access_verified with the original
+profile preserved and no refresh. The authenticated registered MCP protocol
+exposed22tools and the new image-reference/native-voice parameters. No generation
+or solver operation was invoked by these checks. A test-client mistake (missing
+MCP bearer and assuming the older three-stream tuple) was corrected in the
+private smoke client; it required no product or account change.
+
+## Portable native MP4 upload/archive acceptance — 2026-10-03
+
+Four opt-in real-browser BDD runs passed individually against the original saved
+profile: SDK54.80s, public CLI57.56s, actual authenticated registered MCP67.96s,
+and HTTP51.86s. Each uploaded one owned synthetic one-second MP4 and reversibly
+archived only that new fixture. Fresh native reads verified every original active
+media identity remained active. No image/video/TTS generation or solver task was
+part of these operations, and no upload or archive was automatically replayed.
+
+MCP used the actual Streamable HTTP protocol against an isolated new-source
+server. HTTP used a fresh private durable queue, with exactly one completed assets
+job and one completed assets/archive job. An initial private HTTP test bootstrap
+used the wrong URL prefix and returned404; its database had zero jobs. Its logs
+and allowance were retained, and the corrected proof used a separate allowance.
+No production account or source mutation was needed to correct that test client.
+
+Independent review reproduced and fixed two cleanup holes: a listener-removal
+failure after upload acknowledgement could lose its known media ID, and a file
+descriptor close failure could hide cancellation and skip snapshot cleanup.
+Known handles now survive these secondary failures; cancellation retains its
+identity and typed private recovery metadata. Strict registered MCP booleans
+refuse integer/string coercion before the service is called.
+
+Archive proof is for the measured singleton upload workflows. Fresh membership
+checks fail closed for missing or ambiguous siblings; this does not establish
+every possible multi-output batch or individual permanent-deletion compatibility.
+Native video generation, export promotion and speech remain separate proof
+obligations. The original login was reused throughout without another manual
+identity challenge; permanent prevention of Google's security checks is not
+claimed.
+
+## Portable media publication quality gate
+
+Final frozen production source and offline-test regression: **5,612 passed,
+28 skipped, 15 warnings;90.75% code coverage**, in **212.90 seconds**. Code
+coverage does not measure Google acceptance or full useapi compatibility.
+Whole-tree Ruff and strict Pyright pass. The first sweep found an old error
+taxonomy test using a free-form positional constructor for every class; it now
+constructs the new recovery error with validated keyword fields. Product error
+validation was not weakened. Focused taxonomy checks and the full rerun pass.
+
+Independent source and documentation reviews covered shared SDK/service
+operations, strict registered MCP consent, CLI/worker/HTTP projections, bounded
+private snapshots, whole-batch ownership and secondary cleanup faults. The HTTP
+test initially failed to checkpoint its final archived flag; its final native
+read and completed durable archive job had verified the operation. The test now
+checkpoints immediately after acknowledgement. The private original checkpoint
+was preserved and any later correction explicitly labeled post-run verification.
+No mutation was replayed to repair an evidence file.
+
+Six mirror axes: CLI and direct MCP share validated native operations, while REST
+uses the durable serial worker; these mutations have no replayable MCP queue.
+Registered signatures and docs require explicit per-request confirmation. README,
+AGENTS, indexes and both agent-skill copies describe the commands. Safe exit40
+taxonomy and HTTP known/pending identities match usage docs. No normal operator
+environment setting was added. CHANGELOG, canonical docs and website mirrors
+describe the stricter MP4 consent contract and measured scope.
+
+The duplication proxy found only two unchanged experimental transport blocks.
+Fork publishing and production deployment are recorded separately after their
+actual completion; no remote CI or Sonar result is inferred from these local gates.

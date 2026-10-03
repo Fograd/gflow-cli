@@ -361,6 +361,13 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
                 operation="delete",
                 character_ref="22222222-2222-4222-8222-222222222222",
             )
+        elif cls is errors_mod.NativeMediaMutationUnknownError:
+            # Recovery fields are validated; arbitrary detail text is not accepted.
+            instance = cls(
+                project_id="11111111-1111-4111-8111-111111111111",
+                operation="upload",
+                phase="response",
+            )
         elif cls is errors_mod.ImageGenerationUnknownError:
             # This safe typed outcome accepts handles, never arbitrary details.
             instance = cls()
