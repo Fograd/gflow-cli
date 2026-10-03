@@ -15,9 +15,11 @@ Conditions resolved by the regression matrix below. Live acceptance stays separa
 - [x] Add failing hydration/SDK-to-picker regressions and tagged no-submit live scenario.
 - [x] Remove only the caption collision guard; preserve all other validation.
 - [x] Run focused matrices, live BDD and required repository gates.
-- [ ] Document exact scope, pinned review, publish and deploy.
+- [x] Document exact scope, pinned review, publish and deploy.
 
 ## Risks and mitigations
 Repeated labels could conceal wrong assets: fresh UUID ownership + unique token + outgoing ID.
 Unsafe captions remain refused: do not sanitize or truncate them.
 Offline proof cannot establish accepted generation: record live no-submit/acceptance separately.
+
+Sourcefd22da6a published/deployed after pinned review; REST401/200 and MCP35tools verified.

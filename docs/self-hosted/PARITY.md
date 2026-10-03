@@ -158,7 +158,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   (one pass, two warnings,9.95seconds), and is published/deployed atbd6f71c5. Native
   UUID/canonical-reference and registered MCP/REST accepted
   output remain pending. The SDK global caption-uniqueness restriction is removed
-  in the current development change; a tagged live repeated-caption hydration/
+  in published/deployed sourcefd22da6a; a tagged live repeated-caption hydration/
   attachment BDD passed (one pass, one deselected, two warnings,31.33seconds)
   without generation. Unsafe captions remain a separate measured picker-contract
   gap; canonical grounding and accepted output still need their own proof.

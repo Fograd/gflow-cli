@@ -607,5 +607,8 @@ test because the invocation's PATH did not contain uv. The corrected invocation
 passed5876tests with5skips and15warnings in186.53seconds, with88.94%coverage.
 Whole-tree Ruff/format and strict Pyright passed. Repository/doc/site/privacy and
 public-memory checks passed; the duplication proxy reported only unchanged
-experimental transport blocks. This is source/test verification; deployment is
-recorded separately after publication.
+experimental transport blocks. Sourcefd22da6a passed pinned peer review, was published to all three fork
+references and deployed to the clean CC LXC checkout after both queues reported
+zero active jobs. Locked dependencies synchronized; both services are active.
+REST capabilities returned401/200for unauthenticated/authenticated requests, and
+authenticated MCP initialization listed35tools. The CapSolver GUI stayed active.
