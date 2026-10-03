@@ -116,6 +116,15 @@ class FakePage:
 
     async def evaluate(self, script: str, arg: Any = None) -> Any:
         if "data-media-id" in script:
+            if isinstance(arg, dict):
+                if arg["action"] == "restore":
+                    return True
+                found = {
+                    identifier: self.grid[identifier]
+                    for identifier in arg["ids"]
+                    if identifier in self.grid and self.reloads >= self.grid_after
+                }
+                return {"valid": True, "tokens": found, "can_scroll": False, "moved": False}
             return self.grid.get(arg, "") if self.reloads >= self.grid_after else ""
 
         if arg == PICKER_OPTION:
@@ -264,9 +273,11 @@ async def test_a_character_chip_is_not_taken_for_the_image() -> None:
     # A caption query can also match a character entity; only a media chip is the image.
     page: Any = FakePage(grid={PARENT: "tokNew"}, options=[("c", "tokNew")])
 
+    original = page.evaluate
+
     async def entity_chips(script: str, arg: Any = None) -> Any:
         if "data-media-id" in script:
-            return page.grid.get(arg, "")
+            return await original(script, arg)
         if arg == PICKER_OPTION:
             page.searches += 1
             return [token for _caption, token in page.options()]

@@ -235,6 +235,65 @@ _GRID_TOKEN_JS = (
     " const m = (e.getAttribute('src') || '').match(/\\/asb\\/([A-Za-z0-9_-]+)/);"
     " return m ? m[1] : ''; } } return ''; }"
 )
+# Temporary per-document discovery state; never a cross-navigation token cache.
+_GRID_DISCOVERY_JS = r"""({action,key,ids}) => {
+ const images=()=>[...document.querySelectorAll('img[data-media-id]')];
+ const choose=()=>{
+  const nodes=new Set();
+  for(const img of images()) for(let e=img.parentElement;e;e=e.parentElement) {
+   if(e.clientHeight>100 && e.scrollHeight>e.clientHeight+100 &&
+      ['auto','scroll'].includes(getComputedStyle(e).overflowY)) {nodes.add(e);break;}
+  }
+  return nodes.size===1?[...nodes][0]:null;
+ };
+ if(action==='begin') {
+  if(location.hostname!=='flow.google.com' ||
+     !/^\/project\/[0-9a-f-]{36}(?:\/|$)/i.test(location.pathname))
+   return {valid:false,tokens:{}};
+  const container=choose();
+  window[key]={url:location.href,container,top:container?container.scrollTop:0};
+ }
+ const state=window[key];
+ if(!state || state.url!==location.href) {
+  if(action==='restore') delete window[key];
+  return {valid:false,tokens:{}};
+ }
+ if(action==='restore') {
+  delete window[key];
+  if(state.container) {
+   if(!state.container.isConnected) return false;
+   state.container.scrollTop=state.top;
+  }
+  return true;
+ }
+ if(!state.container && action==='scan') {
+  state.container=choose();
+  if(state.container) state.top=state.container.scrollTop;
+ }
+ const container=state.container;
+ if(container && !container.isConnected) return {valid:false,tokens:{}};
+ let moved=false;
+ if(action==='top' && container) {moved=container.scrollTop!==0;container.scrollTop=0;}
+ if(action==='step' && container) {
+  const before=container.scrollTop;
+  container.scrollTop=Math.min(before+container.clientHeight*.8,
+                              container.scrollHeight-container.clientHeight);
+  moved=container.scrollTop!==before;
+ }
+ const tokens={};let valid=true;
+ for(const id of ids) {
+  const rows=images().filter(e=>e.getAttribute('data-media-id')===id);
+  if(rows.length>1) {valid=false;continue;}
+  if(rows.length===1) {
+   const match=(rows[0].getAttribute('src')||'').match(/\/asb\/([A-Za-z0-9_-]+)/);
+   if(match) tokens[id]=match[1];
+  }
+ }
+ return {valid,tokens,can_scroll:!!container,moved};
+}"""
+_GRID_DISCOVERY_S = 20.0
+_GRID_DISCOVERY_STEPS = 12
+
 #: The `/asb/<token>` of each picker option, in display order.
 _OPTION_TOKENS_JS = (
     "(sel) => [...document.querySelectorAll(sel)].map(o => {"
@@ -243,7 +302,8 @@ _OPTION_TOKENS_JS = (
     " return m ? m[1] : ''; })"
 )
 #: Budget for a just-generated image to become mentionable, across editor reloads
-#: (#913). Checked after each attempt, so a row can overrun it by one attempt.
+#: (#913). The enclosing deadline cancels in-flight attempts; restoration may add
+#: up to two seconds of bounded cleanup.
 EXISTING_REF_WAIT_S = 90.0
 #: Pause before each editor reload while waiting for it.
 EXISTING_REF_RELOAD_PAUSE_S = 5.0
@@ -2214,6 +2274,21 @@ class MigratedComposer:
     async def reference_existing(
         self, page: Page, project_id: str, request: GenerateImageRequest
     ) -> tuple[str, ...]:
+        """Reference owned images with an enclosing, non-extending discovery deadline."""
+        timeout = asyncio.timeout(EXISTING_REF_WAIT_S)
+        try:
+            async with timeout:
+                return await self._reference_existing_until(page, project_id, request)
+        except TimeoutError as exc:
+            if not timeout.expired():
+                raise
+            raise ReferenceNotFoundError(
+                detail="Native image reference grid/picker discovery exceeded its overall deadline"
+            ) from exc
+
+    async def _reference_existing_until(
+        self, page: Page, project_id: str, request: GenerateImageRequest
+    ) -> tuple[str, ...]:
         """Apply the image settings and mention ``request.refs`` in place, reloading on a miss.
 
         A just-generated image can be missing from this page load's grid or picker
@@ -2239,26 +2314,88 @@ class MigratedComposer:
     async def await_existing_references(
         self, page: Page, refs: tuple[ImageRef, ...]
     ) -> dict[str, str]:
-        """Each reference's grid thumbnail token in this page load; a missing one raises.
+        """Discover exact-ID tokens in the current document, restoring grid position."""
+        if not refs:
+            return {}
+        key = "__gflow_grid_" + uuid4().hex
+        ids = [ref.name for ref in refs]
+        tokens: dict[str, str] = {}
+        primary: BaseException | None = None
+        timeout = asyncio.timeout(_GRID_DISCOVERY_S)
+        try:
+            async with timeout:
 
-        Measured (live e2e, 2026-10-01): the project grid is the asset list fetched when
-        the editor loads, and it is not updated in place. A row that opened the editor a
-        second after its parent was generated polled for 30 s without the tile; the next
-        row, after a reload, found it at once. :meth:`reference_existing` reloads.
-        """
-        tokens = {
-            ref.name: str(await page.evaluate(_GRID_TOKEN_JS, ref.name) or "") for ref in refs
-        }
-        missing = [media_id for media_id, token in tokens.items() if not token]
-        if missing:
-            log.info("migrated.existing_reference_not_listed", missing=len(missing))
-            raise ReferenceNotFoundError(
-                detail=(
-                    f"migrated host: image {missing[0]} is not in this project's grid, so "
-                    "it cannot be referenced in place"
-                ),
-            )
-        return tokens
+                async def measure(action: str) -> dict[str, Any]:
+                    data = cast(
+                        dict[str, Any],
+                        await page.evaluate(
+                            _GRID_DISCOVERY_JS, {"action": action, "key": key, "ids": ids}
+                        ),
+                    )
+                    if data.get("valid") is not True:
+                        raise ReferenceNotFoundError(detail="Native grid identity became ambiguous")
+                    for media_id, token in data.get("tokens", {}).items():
+                        if media_id not in ids or not isinstance(token, str) or not token:
+                            raise ReferenceNotFoundError(detail="Native grid token was invalid")
+                        if media_id in tokens and tokens[media_id] != token:
+                            raise ReferenceNotFoundError(detail="Native grid token changed")
+                        tokens[media_id] = token
+                    if len(set(tokens.values())) != len(tokens):
+                        raise ReferenceNotFoundError(detail="Native media share an ambiguous token")
+                    return data
+
+                data = await measure("begin")
+                if len(tokens) != len(set(ids)):
+                    # Give a just-mounted grid a bounded readiness opportunity.
+                    await page.wait_for_timeout(250)
+                    data = await measure("scan")
+                if len(tokens) != len(set(ids)) and data.get("can_scroll") is True:
+                    await measure("top")
+                    await page.wait_for_timeout(250)
+                    data = await measure("scan")
+                    for _ in range(_GRID_DISCOVERY_STEPS):
+                        if len(tokens) == len(set(ids)):
+                            break
+                        step = await measure("step")
+                        await page.wait_for_timeout(250)
+                        data = await measure("scan")
+                        if step.get("moved") is not True or data.get("can_scroll") is not True:
+                            break
+                if len(tokens) != len(set(ids)):
+                    missing = next(identifier for identifier in ids if identifier not in tokens)
+                    raise ReferenceNotFoundError(
+                        detail=(
+                            f"Native image {missing} "
+                            "was not found within bounded project grid discovery"
+                        )
+                    )
+                return tokens
+        except TimeoutError as exc:
+            if not timeout.expired():
+                primary = exc
+                raise
+            primary = ReferenceNotFoundError(detail="Native project grid discovery timed out")
+            raise primary from exc
+        except BaseException as exc:
+            primary = exc
+            raise
+        finally:
+            try:
+                async with asyncio.timeout(2):
+                    restored = await page.evaluate(
+                        _GRID_DISCOVERY_JS, {"action": "restore", "key": key, "ids": ids}
+                    )
+                if restored is not True and primary is None:
+                    raise ReferenceNotFoundError(
+                        detail="Native project grid position could not restore"
+                    )
+            except BaseException as exc:
+                if primary is None:
+                    if isinstance(exc, asyncio.CancelledError):
+                        raise
+                    raise ReferenceNotFoundError(
+                        detail="Native project grid position could not restore"
+                    ) from exc
 
     async def attach_existing_references(
         self, page: Page, refs: tuple[ImageRef, ...], tokens: dict[str, str]

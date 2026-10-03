@@ -153,9 +153,13 @@ separately under R12; an existing command or passing mock is insufficient eviden
   (one pass, two warnings,15.21seconds); classic settings became visible. The
   recovery is published/deployed at64974ba0. A count-one local-reference Auto CLI
   BDD passed (one pass, one skip, three deselected, two warnings,55.37seconds),
-  with a decoded image and expected aspect metadata. The grid draft is still
-  not deployed; native UUID/canonical-reference and registered MCP/REST accepted
-  output remain pending. Next: exact asset discovery and reference verification.
+  with a decoded image and expected aspect metadata. The bounded grid draft now
+  passes13offline tests plus a live active-image discovery/restoration BDD
+  (one pass, two warnings,9.95seconds), but is not yet deployed. Native
+  UUID/canonical-reference and registered MCP/REST accepted
+  output remain pending. Next: publish/deploy bounded discovery, then address the
+  SDK's globally unique-caption restriction under exact-token/final-ID guards.
+  Unsafe captions remain a separate measured picker-contract gap.
 - [ ] **R02 — Native media lookup and fresh URLs.** Support owned Google image,
   video, voice, character-reference and thumbnail lookup beyond the local
   registry, including unregistered native image references/Auto on REST.

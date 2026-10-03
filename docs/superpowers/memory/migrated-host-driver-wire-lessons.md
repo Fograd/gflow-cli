@@ -248,3 +248,13 @@ before declaring an agent-only cohort; toggle only fresh aria-pressed=true.
 One tagged live BDD restored classic readiness with no generation requests.
 This does not prove accepted image generation or exact-grid reference discovery.
 See [verification](../../self-hosted/VERIFICATION.md).
+
+Native grid discovery must join exact media UUIDs to stable distinct asb tokens in
+one current document. Measure the unique scrollable ancestor, bound overlapping
+viewport steps, and restore position on success/error/cancellation. The operation
+budgets are20s inside a90s parent reference/reload budget, with up to2s restoration
+cleanup. A fresh snapshot can include inactive workflows; select live-test fixtures
+from one active owned workflow with positively measured image dimensions. The tagged
+live BDD proved one unmounted active-image lookup/restoration, not complete gallery
+coverage, picker attachment or accepted generation. Keep those proofs separate.
+See [verification](../../self-hosted/VERIFICATION.md).

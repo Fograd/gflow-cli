@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Existing native image references use bounded exact-ID grid discovery across mounted windows, restoring scroll position and rejecting ambiguous tokens. A parent deadline bounds discovery and reload together; up to two seconds of restoration cleanup remains allowed.
+
 - Migrated composer recovery closes a uniquely identified expanded chat panel before diagnosing a missing mode chip. A freshly pressed chip can restore classic settings; unpressed or genuinely absent chips never enable agent mode.
 
 - Image Auto resolves the first owned native image UUID from fresh project dimensions on CLI/direct and queued MCP. Missing dimensions fail before generation; the approximation policy is unchanged.

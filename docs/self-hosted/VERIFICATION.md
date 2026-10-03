@@ -548,3 +548,32 @@ no tests and consumed no allowance; the corrected selection consumed image slot2
 Slots1and2 are used; slot3 remains. This proves the CLI local-reference Auto path,
 not native UUID/canonical grounding or registered MCP/REST generation acceptance.
 Exact older-grid discovery and comprehensive feature parity remain unfinished.
+
+## Bounded native grid discovery draft
+
+The frozen exact-ID grid draft was integrated into the development worktree after
+its eight regressions failed against the old implementation. Thirteen focused
+discovery/real-DOM tests then passed in5.29seconds; the existing composer suite
+passed135tests in28.38seconds. A separate read-only live probe located the original
+reference among24mounted images and measured the unique scrollable page container.
+
+The tagged no-submit grid BDD passed once with two deprecation warnings in9.95seconds.
+It selected a fresh typed image with one active owned workflow outside the mounted
+set, discovered its exact token, restored the original scroll position and removed
+temporary per-document state. No upload, generation or solver was requested.
+The first scenario selected from a broader snapshot and failed discovery; fixture
+selection now excludes inactive/ambiguous workflows and unresolved dimensions.
+One subsequent harness attempt omitted the required project_media project argument
+and failed before discovery; it was corrected before the successful run.
+
+The draft remains unpublished while remaining regression review and required gates
+run. Discovery/restoration proof does not establish accepted canonical grounding,
+all-gallery completeness or generation through every public adapter.
+
+The final boundary suite passed17tests in7.72seconds, and the combined existing
+reference/discovery suite passed35tests in9.84seconds. The first full sweep found
+eight obsolete scalar-grid test doubles; these now model the measured action/token
+protocol, while retaining picker collision, reload, missing-tile and character-chip
+checks. Missing-reference diagnostics retain the requested media ID.
+The corrected full sweep passed5874tests with5skips and15warnings in184.48seconds
+at88.95%coverage. Whole-tree Ruff/format and strict Pyright were clean.
