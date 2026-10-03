@@ -326,3 +326,42 @@ def test_native_edit_image_slot_holes_are_preserved(tmp_path):
         assert payload["referenceSlotIds"] == {
             "referenceImage_3": "55555555-5555-4555-8555-555555555555"
         }
+
+
+def test_preset_audio_forms_and_slot_holes_reach_native_jobs(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        for edit in (False, True):
+            body = {
+                "prompt": "Use @referenceAudio_3",
+                "model": "omni-flash",
+                "referenceAudio_3": "voices/charon",
+                "async": True,
+            }
+            if edit:
+                body.update({"referenceVideo_1": M, "modelKey": "edit", "endFrameIndex_1": 24})
+            result = client.post("/v1/google-flow/videos", headers=AUTH, json=body)
+            assert result.status_code == 201, result.text
+            job = client.app.state.store.claim("pro1")
+            payload = json.loads(job["payload"])
+            assert payload["referenceSlotIds"] == {"referenceAudio_3": "Charon"}
+            assert payload["audioMediaIds" if edit else "referenceAudioIds"] == ["Charon"]
+            client.app.state.store.finish(result.json()["jobId"], "completed", {})
+
+
+def test_duplicate_or_unknown_presets_never_queue(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        for extra in (
+            {"referenceAudio_1": "Charon", "referenceAudio_3": "voices/charon"},
+            {"referenceAudio_1": "https://example.com/charon"},
+        ):
+            result = client.post(
+                "/v1/google-flow/videos",
+                headers=AUTH,
+                json={"prompt": "Speak", "model": "omni-flash", "async": True, **extra},
+            )
+            assert result.status_code == 422, result.text
+        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []

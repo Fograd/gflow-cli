@@ -21,6 +21,11 @@ from gflow_cli.api.native_extension import (
     parse_extension_models,
     wait_native_extension,
 )
+from gflow_cli.api.native_video_audio import (
+    audio_wire_id,
+    normalize_audio_reference,
+    validate_audio_presets,
+)
 from gflow_cli.api.native_video_prompt import encode_video_prompt
 from gflow_cli.api.recaptcha import TokenMinter
 from gflow_cli.api.reference_markers import ReferenceSlot, resolve_reference_markers
@@ -153,11 +158,12 @@ def video_edit_args(
         raise ConfigurationError(
             detail="Edit supports one output, five images and three audio references"
         )
+    audio_ids = tuple(normalize_audio_reference(value) for value in audio_ids)
     if len(set(image_ids + audio_ids + character_ids)) != len(
         image_ids + audio_ids + character_ids
     ):
         raise ConfigurationError(detail="Edit reference identities must be distinct")
-    for values in (image_ids, audio_ids, character_ids):
+    for values in (image_ids, character_ids):
         if len(set(values)) != len(values):
             raise ConfigurationError(detail="Edit references must be distinct")
         for value in values:
@@ -183,7 +189,7 @@ def video_edit_args(
                 None,
                 None,
                 [[None, value] for value in image_ids],
-                [[value] for value in audio_ids],
+                [[audio_wire_id(value)] for value in audio_ids],
             ]
         )
     if character_ids:
@@ -281,7 +287,7 @@ async def edit_native_video(
     project_id, media_id = _uuid(project_id), _uuid(media_id)
     image_ids, audio_ids, character_ids = (
         tuple(_uuid(v) for v in image_ids),
-        tuple(_uuid(v) for v in audio_ids),
+        tuple(normalize_audio_reference(v) for v in audio_ids),
         tuple(_uuid(v) for v in character_ids),
     )
     slots = (
@@ -350,7 +356,8 @@ async def edit_native_video(
             for ref in image_ids
         ):
             raise ConfigurationError(detail="Edit image reference requires an owned typed image")
-        validate_edit_audio(payload, project_id, audio_ids)
+        owned_audio = validate_audio_presets(payload, audio_ids)
+        validate_edit_audio(payload, project_id, owned_audio)
         width, height = source.get("width"), source.get("height")
         aspect = next(
             (

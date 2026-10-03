@@ -32,7 +32,9 @@ from gflow_cli.config import get_settings
     help="Default: floor(source seconds ×24), capped240.",
 )
 @click.option("--image-ref", multiple=True, help="Same-project existing image UUID; up to5.")
-@click.option("--audio-ref", multiple=True, help="Active owned native audio media UUID; up to3.")
+@click.option(
+    "--audio-ref", multiple=True, help="Owned native audio UUID or available system preset; up to3."
+)
 @click.option(
     "--character-ref", multiple=True, help="Owned character UUID; combined native limits apply."
 )

@@ -36,7 +36,7 @@ holes and mixed image/character UUIDs in `referenceImage_N`; fresh classificatio
 retains the original marker. SDK `character_ids`, direct MCP `character_ref`,
 and REST `character_1..7` mirror the CLI. The durable REST worker forwards
 `characterMediaIds` and `referenceSlotIds`; no queued MCP edit twin is claimed.
-Direct system preset names remain unsupported as audio inputs.
+Available system presets are also audio inputs: use a known name such as `Charon` or the exact native resource `voices/charon`. Both normalize to one identity; equivalent-form duplicates refuse. Fresh native system-catalog availability is required before minting; bundled recognition alone is insufficient. UUIDs retain strict active owned audio validation. Explicit presets consume the native audio pool, including refusal at zero/unknown capacity. Arbitrary URLs/resource prefixes are not accepted.
 
 The SDK helper is `api.native_video_edit.edit_native_video(client, ...)`, followed
 by `wait_native_video_edit(client, started)`. The same checked-out project page
@@ -76,3 +76,15 @@ character/video fixtures were removed and original active media remained.
 Run tests/e2e/test_native_edit_characters_bdd.py with explicit private
 GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_EDIT_CHARACTERS=1.
 This proves live preflight, not accepted edited video or semantic grounding.
+
+### System-preset preflight evidence
+
+The free synthetic-video preset preflight BDD passed1test,2warnings in45.63seconds.
+Both actual SDK R2V and V2V positional referenceAudio_3 preset paths reached
+their token boundaries; no token was minted and zero generation requests were
+sent. Only the synthetic upload was archived; original active media remained.
+Run tests/e2e/test_native_preset_audio_bdd.py with explicit private
+GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_PRESET_AUDIO=1.
+Native catalog presentation uses capitalized names; normalized uniqueness is
+case-insensitive, while the wire resource is lowercase.
+This proves live preflight, not accepted rendered video or speech.

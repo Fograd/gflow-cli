@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from gflow_cli.api.native_video_audio import audio_wire_id, normalize_audio_reference
 from gflow_cli.api.reference_markers import ReferenceSlot, TextSpan, resolve_reference_markers
 from gflow_cli.errors import ConfigurationError
 
@@ -16,13 +17,23 @@ def encode_video_prompt(
     characters: tuple[str, ...],
     reference_slots: Mapping[str, ReferenceSlot] | None = None,
 ) -> list[Any]:
+    audio = tuple(normalize_audio_reference(value) for value in audio)
     slots = {f"referenceImage_{i}": ReferenceSlot("image", v) for i, v in enumerate(images, 1)}
     slots.update({f"referenceAudio_{i}": ReferenceSlot("audio", v) for i, v in enumerate(audio, 1)})
     slots.update(
         {f"character_{i}": ReferenceSlot("character", v) for i, v in enumerate(characters, 1)}
     )
     if reference_slots is not None:
-        slots = dict(reference_slots)
+        slots = {
+            key: ReferenceSlot(
+                slot.kind,
+                normalize_audio_reference(slot.identifier)
+                if slot.kind == "audio"
+                else slot.identifier,
+                slot.image_count,
+            )
+            for key, slot in reference_slots.items()
+        }
     try:
         plan = resolve_reference_markers(prompt, surface="video", slots=slots)
         if (plan.image_ids, plan.audio_ids, plan.character_ids) != (images, audio, characters):
@@ -41,7 +52,7 @@ def encode_video_prompt(
         elif span.kind == "image":
             parts.append([None, [[span.identifier, ""]]])
         elif span.kind == "audio":
-            parts.append([None, [None, [span.identifier, ""]]])
+            parts.append([None, [None, [audio_wire_id(span.identifier), ""]]])
         elif span.kind == "character":
             parts.append([None, [None, None, [span.identifier, ""]]])
         else:

@@ -68,6 +68,18 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-transport now shares fresh classification and budgets; direct system-preset audio
-and rendered acceptance remain subsequent R04/R12 work. Unprojected
+transport now shares fresh classification and budgets. Available direct system
+presets are also audio ingredients; rendered acceptance remains R12 work. Unprojected
 reference images require further ownership proof and are not guessed.
+
+### System-preset preflight evidence
+
+The free synthetic-video preset preflight BDD passed1test,2warnings in45.63seconds.
+Both actual SDK R2V and V2V positional referenceAudio_3 preset paths reached
+their token boundaries; no token was minted and zero generation requests were
+sent. Only the synthetic upload was archived; original active media remained.
+Run tests/e2e/test_native_preset_audio_bdd.py with explicit private
+GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_PRESET_AUDIO=1.
+Native catalog presentation uses capitalized names; normalized uniqueness is
+case-insensitive, while the wire resource is lowercase.
+This proves live preflight, not accepted rendered video or speech.

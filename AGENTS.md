@@ -434,5 +434,12 @@ Native R2V characters: video reference-native --character-ref, SDK reference_cha
 MCP character_ref, REST character_N or mixed referenceImage_N UUID slots.
 Fresh active entity-owned image/audio weights and native capacity pools apply;
 slot positions survive classification. V2V character transport now uses the same
-fresh ownership and native budgets; direct preset audio and rendered acceptance
-remain separate R04/R12 work. See docs/self-hosted/NATIVE_REFERENCE_VIDEO.md.
+fresh ownership and native budgets. Available preset inputs require fresh native
+catalog proof. Rendered acceptance remains R12. See docs/self-hosted/NATIVE_REFERENCE_VIDEO.md.
+
+
+Native R2V/V2V audio refs also accept available system preset names or exact
+voices/lowercase resources through existing CLI/MCP/SDK/REST fields. Aliases
+normalize before duplicate checks; fresh unique native preset availability and
+actual audio capacities apply before mint. Arbitrary paths/URLs refuse. UUID
+ownership stays strict. Reference preflight does not prove rendered speech.

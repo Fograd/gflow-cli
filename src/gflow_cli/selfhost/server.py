@@ -1681,6 +1681,17 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         result["characters"] = [character_item(row) for row in result["characters"]]
         return result
 
+    def video_audio_value(value: object) -> str:
+        from gflow_cli.api.native_video_audio import normalize_audio_reference
+        from gflow_cli.errors import ConfigurationError
+
+        try:
+            return normalize_audio_reference(value)
+        except ConfigurationError:
+            raise HTTPException(
+                422, "Audio reference requires a UUID or recognized system preset"
+            ) from None
+
     def saved_voice_item(row: dict[str, Any]) -> dict[str, Any]:
         return {
             "ref": row["ref"],
@@ -1923,7 +1934,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if payload.get(f"referenceImage_{i}")
         ]
         audio = [
-            uuid_value(payload[f"referenceAudio_{i}"], f"referenceAudio_{i}")
+            video_audio_value(payload[f"referenceAudio_{i}"])
             for i in range(1, 6)
             if payload.get(f"referenceAudio_{i}")
         ]
@@ -1933,7 +1944,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if payload.get(f"character_{i}")
         ]
         slot_ids = {
-            key: uuid_value(payload[key], key)
+            key: video_audio_value(payload[key])
+            if key.startswith("referenceAudio_")
+            else uuid_value(payload[key], key)
             for family, cap in (("referenceImage", 7), ("referenceAudio", 5), ("character", 7))
             for i in range(1, cap + 1)
             if payload.get(key := f"{family}_{i}")
@@ -2016,7 +2029,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if payload.get(f"referenceImage_{i}")
         ]
         audio = [
-            uuid_value(payload[f"referenceAudio_{i}"], f"referenceAudio_{i}")
+            video_audio_value(payload[f"referenceAudio_{i}"])
             for i in range(1, 4)
             if payload.get(f"referenceAudio_{i}")
         ]
@@ -2026,7 +2039,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if payload.get(f"character_{i}")
         ]
         slot_ids = {
-            key: uuid_value(payload[key], key)
+            key: video_audio_value(payload[key])
+            if key.startswith("referenceAudio_")
+            else uuid_value(payload[key], key)
             for family, cap in (("referenceImage", 5), ("referenceAudio", 3), ("character", 7))
             for i in range(1, cap + 1)
             if payload.get(key := f"{family}_{i}")

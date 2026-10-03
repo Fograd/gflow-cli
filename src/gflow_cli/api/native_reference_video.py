@@ -19,6 +19,11 @@ from gflow_cli.api.native_extension import (
     assigned_id,
     parse_extension_models,
 )
+from gflow_cli.api.native_video_audio import (
+    audio_wire_id,
+    normalize_audio_reference,
+    validate_audio_presets,
+)
 from gflow_cli.api.native_video_characters import (
     character_reference_counts,
     classify_video_slots,
@@ -84,7 +89,7 @@ def _references(
         )
     result = (
         tuple(_uuid(x) for x in images),
-        tuple(_uuid(x) for x in audio),
+        tuple(normalize_audio_reference(x) for x in audio),
         tuple(_uuid(x) for x in characters),
     )
     if len(set(result[0] + result[1] + result[2])) != len(result[0] + result[1] + result[2]):
@@ -146,7 +151,7 @@ def reference_args(
             None,
             [None, None, None, None, media, workflow],
             None,
-            [[v] for v in audio],
+            [[audio_wire_id(v)] for v in audio],
         ]
         if characters:
             row.extend([None, [[v] for v in characters]])
@@ -276,7 +281,8 @@ async def generate_native_reference_video(
             plan = resolve_reference_markers(prompt, surface="video", slots=slots)
             images, audio, characters = plan.image_ids, plan.audio_ids, plan.character_ids
             _references(images, audio, characters)
-        validate_reference_assets(payload, started.project_id, images, audio)
+        owned_audio = validate_audio_presets(payload, audio)
+        validate_reference_assets(payload, started.project_id, images, owned_audio)
         weights = character_reference_counts(payload, started.project_id, characters)
         models = await _read_native(page, "HTrJv", [], started.project_id)
         tier = await _read_native(page, "nzlxg", [], started.project_id)

@@ -606,7 +606,7 @@ the durable self-hosted REST job queue is a separate surface.
 | `gflow_list_edit_models` | `project`, optional `profile` | Native Omni edit model keys |
 | `gflow_edit_native_video` | `media_id`, `prompt`, `model_key`, `end_frame`, `project`; optional `start_frame`, `image_ref`, `audio_ref`, `character_ref`, `out_dir`, `profile` | One Omni edit; virtual 24fps trim |
 | `gflow_list_reference_video_models` | `project`, optional `with_audio`, `profile` | Native ingredient model keys and budgets |
-| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `character_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile` | Existing image/audio/character UUID ingredients; at least one required |
+| `gflow_generate_native_reference_video` | `prompt`, `project`; optional `image_ref`, `audio_ref`, `character_ref`, `model_key`, `count`, `aspect`, `duration`, `resolution`, `out_dir`, `profile` | Existing image/audio/character UUID or available audio-preset ingredients; at least one required |
 
 See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MEDIA.md),
 [extension](self-hosted/NATIVE_VIDEO_EXTENSION.md), [editing](VIDEO_EDIT.md), and
@@ -742,6 +742,21 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-transport now shares fresh classification and budgets; direct system-preset audio
-and rendered acceptance remain subsequent R04/R12 work. Unprojected
+transport now shares fresh classification and budgets. Available direct system
+presets are also audio ingredients; rendered acceptance remains R12 work. Unprojected
 reference images require further ownership proof and are not guessed.
+
+
+### Native video system-preset audio references
+Existing audio-reference inputs accept active owned audio UUIDs or available
+system presets. CLI --audio-ref Charon, SDK audio_ids/reference_audio_ids, direct
+MCP audio_ref and REST referenceAudio_N accept known names (case-insensitive)
+or exact voices/charon-style lowercase resources. Canonical audio-slot indices
+are preserved, including REST/SDK holes. Equivalent aliases count as the same
+identity and duplicates refuse.
+Both R2V and V2V verify a unique current native preset-catalog entry before mint,
+encode the bare lowercase resource in audio vectors and inline audio chunks,
+and charge explicit presets against the observed native model audio capacity.
+Unknown names, URLs/arbitrary paths, missing/duplicate catalog entries and
+zero/unknown audio capacity refuse. UUID ownership/type rules remain unchanged.
+This is reference transport/preflight support; accepted rendered speech is R12.

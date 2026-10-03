@@ -16,7 +16,9 @@ from gflow_cli.selfhost.reference_video_worker import run_reference_video
 @click.option("--project", required=True)
 @click.option("--prompt", required=True)
 @click.option("--image-ref", multiple=True, help="Owned image UUID; repeat up to seven times.")
-@click.option("--audio-ref", multiple=True, help="Owned audio UUID; repeat up to five times.")
+@click.option(
+    "--audio-ref", multiple=True, help="Owned audio UUID or available system preset; up to five."
+)
 @click.option(
     "--character-ref", multiple=True, help="Owned character UUID; native combined limits apply."
 )

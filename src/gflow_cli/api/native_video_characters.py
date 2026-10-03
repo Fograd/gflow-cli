@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from gflow_cli.api.character import VOICE_NAMES
 from gflow_cli.api.native_catalogs import parse_media_snapshot
+from gflow_cli.api.native_video_audio import normalize_audio_reference
 from gflow_cli.api.native_video_edit import validate_edit_audio
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters
 from gflow_cli.api.transports.migrated_resources import project_media
@@ -149,7 +150,11 @@ def classify_video_slots(payload: Any, project: str, slot_ids: dict[str, str]) -
         media = {_uuid(row[0]) for row in payload[2]}
         slots: dict[str, Any] = {}
         for key, value in slot_ids.items():
-            value = _uuid(value)
+            value = (
+                normalize_audio_reference(value)
+                if key.startswith("referenceAudio_")
+                else _uuid(value)
+            )
             if value in owned & media:
                 raise ValueError
             kind = (

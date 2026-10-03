@@ -193,7 +193,7 @@ end1–240 and end greater than start. When omitted, end is derived from the mea
 owned source duration, rounded down to virtual24fps and capped at240. Missing or
 invalid duration fails before token mint/submission. Explicit end remains unchanged. Input references are existing selected-project
 media UUIDs: `referenceImage_1..5` and `referenceAudio_1..3`. Audio currently
-accepts active owned native audio media UUIDs, including uploaded audio without saved-TTS visibility. Characters use `character_1..7`, or mixed character/image UUIDs in `referenceImage_1..5`; canonical marker indices survive classification. Actual native combined reference capacities apply. Direct system preset names remain separate R04 work. Count
+accepts active owned native audio media UUIDs, including uploaded audio without saved-TTS visibility. Characters use `character_1..7`, or mixed character/image UUIDs in `referenceImage_1..5`; canonical marker indices survive classification. Actual native combined reference capacities apply. Available system presets are also accepted, with fresh native catalog proof and actual audio capacities. Count
 is1 and aspect follows the source. The SDK performs fresh native ownership checks.
 Results retain resolved `startFrameIndex` and `endFrameIndex`;
 `sourceDurationSeconds` is present when measured for an omitted end. These fields
@@ -572,6 +572,21 @@ generation preflight.
 
 This adds R2V character transport, not rendered acceptance. The free fixture
 BDD passed42.07seconds with zero generation and fixture cleanup. V2V character
-transport now shares fresh classification and budgets; direct system-preset audio
-and rendered acceptance remain subsequent R04/R12 work. Unprojected
+transport now shares fresh classification and budgets. Available direct system
+presets are also audio ingredients; rendered acceptance remains R12 work. Unprojected
 reference images require further ownership proof and are not guessed.
+
+
+### Native video system-preset audio references
+Existing audio-reference inputs accept active owned audio UUIDs or available
+system presets. CLI --audio-ref Charon, SDK audio_ids/reference_audio_ids, direct
+MCP audio_ref and REST referenceAudio_N accept known names (case-insensitive)
+or exact voices/charon-style lowercase resources. Canonical audio-slot indices
+are preserved, including REST/SDK holes. Equivalent aliases count as the same
+identity and duplicates refuse.
+Both R2V and V2V verify a unique current native preset-catalog entry before mint,
+encode the bare lowercase resource in audio vectors and inline audio chunks,
+and charge explicit presets against the observed native model audio capacity.
+Unknown names, URLs/arbitrary paths, missing/duplicate catalog entries and
+zero/unknown audio capacity refuse. UUID ownership/type rules remain unchanged.
+This is reference transport/preflight support; accepted rendered speech is R12.

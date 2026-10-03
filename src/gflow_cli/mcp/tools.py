@@ -2990,7 +2990,7 @@ async def gflow_delete_native_media(
 @server.tool(
     name="gflow_edit_native_video",
     description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
-    "up to5 owned image refs,3 native audio refs and owned characters with combined limits. "
+    "up to5 owned images,3 audio UUID/preset refs and owned characters with native limits. "
     "Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
     "Consumes video credits.",
@@ -3089,7 +3089,7 @@ async def gflow_list_edit_models(project: str, profile: str = "default") -> dict
 
 @server.tool(
     name="gflow_generate_native_reference_video",
-    description="Generate native Omni Flash video with owned image/audio/character ingredients; "
+    description="Generate Omni Flash with owned image/audio/character or system-preset refs; "
     "the chosen account model imposes its own limits. Optional native model_key, "
     "duration/resolution; downloads MP4 outputs. Consumes video credits.",
 )

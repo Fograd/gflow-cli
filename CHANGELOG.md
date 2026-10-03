@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Native reference/edit video audio inputs accept available system presets with strict name/resource normalization, fresh catalog proof and actual model audio capacities. Owned UUID validation and source-only behavior remain unchanged.
 - Native Omni edit accepts active owned character references and canonical positional image/audio/entity grounding across SDK, CLI, direct MCP and durable REST jobs. Fresh native combined model budgets apply before token minting; direct system presets and rendered acceptance remain pending.
 
 

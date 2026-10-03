@@ -34,7 +34,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Already-gone idempotence and all batch shapes are not claimed. |
 | [POST images](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images) | See image parameter matrix | Implemented text/local-reference generation, seeds and explicit canonical image slots with weighted fresh native character ownership. One positional SDK image was accepted; CLI/MCP/HTTP positional acceptance remains pending after safe picker refusals. Provider controls remain HTTP 501; see image matrix and picker limits. |
 | [POST images/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images-upscale) | `mediaGenerationId`, `resolution` default2k; captcha controls; encoded JPEG | Native 2K CLI/HTTP/MCP upscale live verified. 4K dispatch is implemented but Pro entitlement refuses it; accepted 4K requires appropriate entitlement and remains unverified. CAPTCHA overrides are not complete upscale parity. |
-| [POST videos](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos) | See video parameter matrix | Text/start-end adapters and dedicated native image/audio R2V and Omni V2V adapters are wired across SDK/CLI/MCP/REST, with model discovery, typed ownership and output checkpoints. Video is disabled by default; paid acceptance is pending. Source-derived R2V character/positional grounding is wired; rendered acceptance, direct preset audio, numerical seeds and CAPTCHA overrides remain gaps. |
+| [POST videos](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos) | See video parameter matrix | Text/start-end adapters and dedicated native image/audio R2V and Omni V2V adapters are wired across SDK/CLI/MCP/REST, with model discovery, typed ownership and output checkpoints. Video is disabled by default; paid acceptance is pending. Source-derived R2V character/positional grounding is wired; rendered acceptance, numerical seeds and CAPTCHA overrides remain gaps. |
 | [POST videos/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-upscale) | `mediaGenerationId`; resolution720p/1080p/4K default1080p; async/callback/captcha | Current fork has CLI `video upscale` and HTTP `/videos/upscale` adapters for native 1080p export and original 720p download. These are exports, not verified resolution promotion; 4K is unported and paid live video export proof remains pending. |
 | [POST videos/gif](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-gif) | `mediaGenerationId`; synchronous `encodedGif` | Implemented CLI 270p/native GIF export and HTTP encodedGif adapter. GIF export is not a paid live video proof; promotion/source-video acceptance remains unverified. |
 | [POST videos/extend](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-extend) | `mediaGenerationId`, `prompt`, `model`, count 1–4, seed, async/callback/captcha | Standalone native extension is wired across SDK/CLI/MCP/REST with native model discovery, source ownership, independent output IDs and polling/download. Accepted paid extension output remains unverified; legacy scene-combining extension is separate. |
@@ -97,9 +97,9 @@ Focused source/codec tests establish implementation, not Google acceptance.
   inventories and full native library synchronization. Snapshot absence is not deletion.
 - Exact already-gone individual-delete compatibility; registry/operator scope and
   native deletion acknowledgement remain distinct from useapi opaque IDs.
-- Full ten-image model budgets: the measured Lite cap stays3; arbitrary
-  direct system-preset inputs on the dedicated V2V form. Native audio and
-  character inputs are implemented; rendered acceptance remains pending.
+- Full ten-image model budgets: the measured Lite cap stays3. Native audio,
+  available system presets and character inputs are implemented on dedicated
+  V2V; rendered acceptance remains pending.
   Image Auto supports owned native UUID dimensions on CLI/MCP; unregistered native
   UUID lookup on REST and native Google Auto remain separate gaps.
 - Successful live cookie-table import and automatic refresh are not established.
@@ -229,8 +229,12 @@ unsafe-caption canonical attachment proof.
   transport now shares fresh classification, actual reference weights and model
   limits across SDK/CLI/direct MCP/REST/privateworker. The free synthetic video/
   character preflight BDD passed55.13seconds before token mint, with0generation,
-  fixture cleanup and originals preserved. Direct system presets and
-  rendered grounding remain open.
+  fixture cleanup and originals preserved. Direct system presets now normalize
+  known names/exact native resources, require fresh unique native catalog proof
+  and consume actual audio pools across R2V/V2V and all existing interfaces.
+  Free system-preset R2V/V2V preflight BDD passed45.63seconds at both token
+  boundaries, with0generation, synthetic cleanup and originals preserved.
+  Rendered grounding remains open for R12.
 - [ ] **R05 — Native video controls.** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the

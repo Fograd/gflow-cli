@@ -1010,3 +1010,29 @@ performance/UX and documentation council returned GO on pinned staged trees.
 Six mirror axes checked: SDK/CLI/direct MCP/REST worker forwarding; tool schema/
 help; agent/skill parity; unchanged error/exit surfaces; no templates/env changes;
 canonical docs plus generated website. Queued MCP edit is not a shipped surface.
+
+### R04 direct system-preset audio — current batch
+Known preset names or exact voices/lowercase resources normalize to a single
+internal identity; DTO vectors and inline audio chunks carry bare lowercase
+native IDs. Fresh unique preset-catalog proof and actual audio capacities apply
+before mint. UUID inputs retain existing ownership checks; arbitrary URLs/paths
+and duplicate aliases refuse. Existing SDK/CLI/direct MCP/REST/privateworkers
+share these controls and canonical slot positions.
+Focused codec/ownership/capacity/interface/worker tests passed56 in1.87seconds.
+
+The free synthetic-video preset preflight BDD passed1test,2warnings in45.63seconds.
+Both actual SDK R2V and V2V positional referenceAudio_3 preset paths reached
+their token boundaries; no token was minted and zero generation requests were
+sent. Only the synthetic upload was archived; original active media remained.
+Run tests/e2e/test_native_preset_audio_bdd.py with explicit private
+GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_PRESET_AUDIO=1.
+Native catalog presentation uses capitalized names; normalized uniqueness is
+case-insensitive, while the wire resource is lowercase.
+This proves live preflight, not accepted rendered video or speech.
+
+The preset-audio full offline suite passed6200tests,5skips,15warnings in
+221.94seconds at89%coverage. Required gates and three council reviews passed.
+The final docs clarify metadata proof versus rendering and include presets in
+the MCP summary. Six mirror axes checked; no new exit code/env/template and no
+queued MCP native-edit twin. V2V character source7cab5163 was published to all
+three GitHub refs and deployed on CC LXC with queues idle and both services active.
