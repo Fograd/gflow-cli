@@ -1036,3 +1036,14 @@ The final docs clarify metadata proof versus rendering and include presets in
 the MCP summary. Six mirror axes checked; no new exit code/env/template and no
 queued MCP native-edit twin. V2V character source7cab5163 was published to all
 three GitHub refs and deployed on CC LXC with queues idle and both services active.
+
+### R05 bounded native video-control discovery
+Current public frontend build poKdDH1IwKU.2018.O reinspection confirms MXa
+collapses4:3/3:4 into landscape/portrait. Native square support remains account/
+model/source constrained. t7a numerical c.seed occurs once, only on native
+UPSAMPLE_VIDEO field4; generation metadata UUID assignment seeds are different.
+No supported numeric generation seed or distinct4:3/3:4 contract was established
+for the current text/reference/frames/edit/extension builder. Existing refusal
+is preserved and the limits are documented in the primary codec inspection.
+No browser mutation or generation was used. R07 tracks the separate promotion
+contract; R05 completion means bounded discovery, not unsupported output parity.

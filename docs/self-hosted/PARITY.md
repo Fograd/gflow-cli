@@ -235,11 +235,18 @@ unsafe-caption canonical attachment proof.
   Free system-preset R2V/V2V preflight BDD passed45.63seconds at both token
   boundaries, with0generation, synthetic cleanup and originals preserved.
   Rendered grounding remains open for R12.
-- [ ] **R05 — Native video controls.** Find and wire numerical video seeds and
+- [x] **R05 — Native video controls (bounded discovery, limits recorded).** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the
   wrong shape. Record a source-backed limitation if investigation cannot
   establish a working contract, and continue other items.
+  Current build poKdDH1IwKU.2018.O independently confirms the ratio collapse.
+  Its source-derived generation builder has no numerical seed in text/reference/
+  frames/edit/extension branches; metadata assignment UUID seeds are distinct.
+  Numerical seed is observed only on UPSAMPLE_VIDEO field4, tracked in R07.
+  Unsupported native generation controls remain explicit refusals. This closes
+  bounded R05 discovery, not useapi seed/five-ratio output equivalence; see the
+  linked primary codec inspection above.
 - [ ] **R06 — CapSolver and CAPTCHA control coverage.** Complete supplied-token
   and CapSolver selection/control wiring for image/video/upscale/extension/TTS
   paths where applicable. Investigate the rejected replacement-token integration
