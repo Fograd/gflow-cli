@@ -167,7 +167,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   typed fresh protected URLs and bounded trusted downloads. Correlate account,
   project, media and type; keep local/native scope explicit. Translate useapi
   composite IDs only with a verified mapping.
-  Native/mixed image generation routing is now implemented: unregistered native
+  Native/mixed image generation routing is published/deployed at44c42366: unregistered native
   UUIDs require an explicit configured REST account; server-owned ordered source
   records preserve managed paths and original slots through the private worker.
   CLI/direct and queued MCP share the same ordered plan/local alias contract.

@@ -728,3 +728,29 @@ account security and the corrected upload/recovery boundary; the prior cleanup
 CAUTION was cleared on staged treea27cfdf2. The27-file staged privacy scan found
 zero configured solver-key or private account/project/media identifier matches.
 Publication/deployment revision and runtime verification follow separately.
+
+## R02 reference-routing publication and deployment
+
+Feature source44c423660e34e7529ccf7114474533a5aee473ca was atomically published
+to develop, feature/self-hosted-flow-api and feature/useapi-parity-2026-10-03.
+The clean CC LXC production checkout fast-forwarded after REST created/running
+and MCP pending/processing counts were bothzero, checked again with services
+stopped. Locked dependencies synchronized and both services are active.
+
+Deployed LAN REST capabilities returned401without authentication and200with
+authentication. Authenticated MCP initialization listed35tools including image
+generation. The CapSolver GUI returned200. The initial queue check used state
+for the MCP table; source inspection confirmed its column is status and both
+corrected counts passed before stopping services. The initial MCP probe assumed
+an older three-stream return; the installed client returns two, and the corrected
+initialization/tool-list check passed. No service change was needed for either
+verification-harness correction.
+
+The published/deployed batch implements ordered native/managed image references
+and native-first Auto routing; its live proof is upload/canonical attachment/
+archive with zero generation requests. Accepted native/mixed REST or registered
+MCP images remain R12 requirements. R02 remains open for typed native asset lookup,
+fresh protected URLs/downloads and verified useapi composite-ID translation.
+The completed local implementation plan was consolidated into this ledger,
+PARITY.md, API.md and the cited migrated-wire memory. No additional paid image
+generation or CAPTCHA solve was performed.
