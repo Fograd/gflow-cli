@@ -64,9 +64,16 @@ from gflow_cli.api.transports.batchexecute import (
     parse_frames,
     rpc_errors,
 )
+from gflow_cli.api.transports.image_entity_grounding import entity_submit_problem
 from gflow_cli.api.transports.migrated_image_overrides import (
     ImageOverrides,
     active_overrides,
+)
+from gflow_cli.api.transports.native_image_prompt import (
+    NativeImageBinding,
+    NativePromptChunk,
+    materialize_reference_prompt,
+    prompt_submit_problem,
 )
 from gflow_cli.api.video import (
     I2V_DEFAULT_MODEL,
@@ -83,6 +90,7 @@ from gflow_cli.errors import (
     ContentPolicyError,
     FlowAgentUiError,
     FlowHostMigratedError,
+    ImageGenerationUnknownError,
     InsufficientCreditsError,
     MediaUploadRejectedError,
     ReferenceNotFoundError,
@@ -589,8 +597,11 @@ def _unported_image_form(request: GenerateImageRequest) -> str | None:
     if any(not ref.display_name for ref in request.refs):
         # Found by its Flow caption, then matched by thumbnail; Flow returned none.
         return "a reference to an image Flow returned without a caption"
-    if request.reference_entities:
-        return "character references"
+    if request.reference_entities and (
+        len(request.reference_entities) != len(request.reference_entity_names)
+        or any(not name for name in request.reference_entity_names)
+    ):
+        return "character references without aligned picker names"
     if request.instructions:
         return "Agent instructions"
     if request.model not in IMAGE_MODEL_MENU_MATCHERS:
@@ -949,6 +960,12 @@ async def _guard_image_submit(
     *,
     page: Any = None,
     override: ImageOverrides | None = None,
+    entity_ids: tuple[str, ...] = (),
+    entity_names: tuple[str, ...] = (),
+    project_id: str | None = None,
+    expected_prompt: tuple[NativePromptChunk, ...] | None = None,
+    on_submit: Callable[[], None] | None = None,
+    on_abort: Callable[[str], None] | None = None,
 ) -> str | None:
     """Abort an ``ogiZ0b`` submit that does not carry its references, before Flow acts.
 
@@ -957,7 +974,15 @@ async def _guard_image_submit(
     SCENARIO #15). Returns the problem when aborted, ``None`` when let through.
     """
     problem = _image_body_problem(_post_data(request), reference_ids, model)
+    if problem is None and expected_prompt is not None:
+        problem = prompt_submit_problem(_post_data(request), project_id or "", expected_prompt)
+    elif problem is None and entity_ids:
+        problem = entity_submit_problem(
+            _post_data(request), project_id or "", entity_ids, entity_names
+        )
     if problem is not None:
+        if on_abort is not None:
+            on_abort(problem)
         await route.abort()
         return problem
     override = override or active_overrides.get()
@@ -966,10 +991,17 @@ async def _guard_image_submit(
             rewritten = await override.apply(page, request.post_data or "")
         except Exception as exc:
             log.warning("migrated.image_override_failed", error_class=type(exc).__name__)
+            problem = "migrated host: image overrides could not be safely applied"
+            if on_abort is not None:
+                on_abort(problem)
             await route.abort()
-            return "migrated host: image overrides could not be safely applied"
+            return problem
+        if on_submit is not None:
+            on_submit()
         await route.continue_(post_data=rewritten)
     else:
+        if on_submit is not None:
+            on_submit()
         await route.continue_()
     return None
 
@@ -2226,7 +2258,15 @@ class MigratedComposer:
         return media_ids
 
     async def _mention_by_token(
-        self, page: Page, query: str, token: str, media_id: str, *, expect_chips: int
+        self,
+        page: Page,
+        query: str,
+        token: str,
+        media_id: str,
+        *,
+        expect_chips: int,
+        at_end: bool = False,
+        trailing_space: bool = True,
     ) -> None:
         """One search in this page load; a miss closes the picker and raises.
 
@@ -2236,6 +2276,8 @@ class MigratedComposer:
         :meth:`reference_existing`, which reloads.
         """
         await page.locator(COMPOSER).first.click(timeout=5000)
+        if at_end:
+            await self._caret_at_end(page)
         await page.keyboard.type("@", delay=120)
         await page.wait_for_timeout(2200)
         await page.keyboard.type(query, delay=100)
@@ -2252,7 +2294,8 @@ class MigratedComposer:
             chips = await self.read_chips(page)
             # A query can also match a character; only a media chip is this image.
             if len(chips) == expect_chips and chips[-1].get("reference_type") == "media":
-                await page.keyboard.type(" ", delay=80)
+                if trailing_space:
+                    await page.keyboard.type(" ", delay=80)
                 return
         else:
             log.info("migrated.mention_miss", offered=len(tokens), by="token")
@@ -2278,21 +2321,24 @@ class MigratedComposer:
         leaves the picker open and inserts nothing (measured 2026-09-05), which is the
         failure that would otherwise generate a clip with no references on it.
         """
-        media_ids: list[str] = []
-        display_names: list[str] = []
-        for path in paths:
-            # Mentioned by the name the upload was LISTED under, never the source file's:
-            # reference images are re-used across runs by design (#792, _unique_display_name).
-            media_id, display_name = await self._upload_via_toolbar(page, project_id, path)
-            media_ids.append(media_id)
-            display_names.append(display_name)
+        bindings = await self.upload_reference_bindings(page, project_id, paths)
         # Compose after every upload: the file chooser takes keyboard focus, so mentions
         # cannot be interleaved with uploading.
         await self.clear_composer(page)
-        for i, name in enumerate(display_names):
-            await self._mention_by_name(page, name, expect_chips=i + 1)
+        for i, binding in enumerate(bindings):
+            await self._mention_by_name(page, binding.name, expect_chips=i + 1)
+        media_ids = tuple(binding.media_id for binding in bindings)
         log.info("migrated.references_attached", count=len(paths), media_ids=media_ids)
-        return tuple(media_ids)
+        return media_ids
+
+    async def upload_reference_bindings(
+        self, page: Page, project_id: str, paths: tuple[Path, ...]
+    ) -> tuple[NativeImageBinding, ...]:
+        bindings: list[NativeImageBinding] = []
+        for path in paths:
+            media_id, name = await self._upload_via_toolbar(page, project_id, path)
+            bindings.append(NativeImageBinding(media_id, name))
+        return tuple(bindings)
 
     async def attach_character_entities(
         self,
@@ -2369,7 +2415,23 @@ class MigratedComposer:
             MENTION_CHIP,
         )
 
-    async def _mention_by_name(self, page: Page, name: str, *, expect_chips: int) -> None:
+    @staticmethod
+    async def _caret_at_end(page: Page) -> None:
+        await page.locator(COMPOSER).first.evaluate(
+            "e => { e.focus(); const r = document.createRange(); r.selectNodeContents(e);"
+            "r.collapse(false); const s = window.getSelection();"
+            "s.removeAllRanges(); s.addRange(r); }"
+        )
+
+    async def _mention_by_name(
+        self,
+        page: Page,
+        name: str,
+        *,
+        expect_chips: int,
+        at_end: bool = False,
+        trailing_space: bool = True,
+    ) -> None:
         """Insert one mention chip for *name*, and verify it landed.
 
         Retries like :meth:`_pick_frame_by_name` does, and for the same measured reason:
@@ -2389,6 +2451,8 @@ class MigratedComposer:
             # and every later gesture is a no-op. `send_prompt` keeps insert_text on
             # purpose — a newline in prompt text must not submit — so they cannot share a
             # path.
+            if at_end:
+                await self._caret_at_end(page)
             await page.keyboard.type("@", delay=120)
             await page.wait_for_timeout(2200)
             await page.keyboard.type(name, delay=100)
@@ -2398,7 +2462,8 @@ class MigratedComposer:
             await page.wait_for_timeout(2500)
             chips = await self.read_chips(page)
             if len(chips) == expect_chips:
-                await page.keyboard.type(" ", delay=80)
+                if trailing_space:
+                    await page.keyboard.type(" ", delay=80)
                 return
             log.info(
                 "migrated.mention_miss",
@@ -2951,28 +3016,52 @@ class MigratedComposer:
         page: Page,
         request: GenerateImageRequest,
         *,
+        project_id: str | None = None,
         reference_ids: tuple[str, ...] = (),
+        expected_prompt: tuple[NativePromptChunk, ...] | None = None,
     ) -> list[GeneratedImage]:
         """Submit Image mode and decode the completed ``ogiZ0b`` reply."""
         # Complete all UI gates before registering network observers or clicking
         # Generate. A deterministic DOM failure therefore cannot spend a request or
         # enter the transport retry loop.
         submit = await self._pre_submit_gate(page)
+        # Recovery and wire ownership cannot depend on a page after dispatch.
+        submission_project = project_id or extract_project_id(page.url)
         loop = asyncio.get_running_loop()
         result: asyncio.Future[list[GeneratedImage]] = loop.create_future()
         route_error: asyncio.Future[WireFormatError] = loop.create_future()
+        submitted = False
+        clicked = False
+        guard_aborted = False
+        known_media: tuple[str, ...] = ()
+        known_workflows: tuple[str, ...] = ()
 
-        def on_request(raw_request: Any) -> None:
-            url = str(getattr(raw_request, "url", ""))
-            if _rpcid(url) != IMAGE_SUBMIT_RPC or route_error.done():
-                return
-            problem = _image_body_problem(_post_data(raw_request), reference_ids, request.model)
-            if problem is not None:
+        def mark_submit() -> None:
+            nonlocal submitted
+            submitted = True
+
+        def unknown(
+            phase: Literal["image_submit", "image_response", "image_cancelled"],
+        ) -> ImageGenerationUnknownError:
+            from gflow_cli.api.transports.migrated_video_upload import is_uuid  # noqa: PLC0415
+
+            return ImageGenerationUnknownError(
+                project_id=submission_project if is_uuid(submission_project) else None,
+                media_ids=tuple(value for value in known_media if is_uuid(value))[:4],
+                workflow_ids=tuple(value for value in known_workflows if is_uuid(value))[:4],
+                phase=phase,
+            )
+
+        def mark_abort(problem: str) -> None:
+            nonlocal guard_aborted
+            guard_aborted = True
+            if not route_error.done():
                 route_error.set_result(
                     WireFormatError(detail=problem, route=f"batchexecute:{IMAGE_SUBMIT_RPC}")
                 )
 
         async def on_response(response: Any) -> None:
+            nonlocal known_media, known_workflows
             url = str(getattr(response, "url", ""))
             if _rpcid(url) != IMAGE_SUBMIT_RPC or result.done():
                 return
@@ -3010,6 +3099,8 @@ class MigratedComposer:
                         detail="migrated image submit returned no ogiZ0b frame",
                         route=f"batchexecute:{IMAGE_SUBMIT_RPC}",
                     )
+                known_media = tuple(record.media_id for record in records)
+                known_workflows = tuple(record.workflow_id for record in records)
                 images = [
                     GeneratedImage(
                         media_name=record.media_id,
@@ -3039,25 +3130,37 @@ class MigratedComposer:
             return _rpcid(url) == IMAGE_SUBMIT_RPC
 
         async def guard(route: Any, raw_request: Any) -> None:
+            nonlocal guard_aborted
             problem = await _guard_image_submit(
-                route, raw_request, reference_ids, request.model, page=page, override=override
+                route,
+                raw_request,
+                reference_ids,
+                request.model,
+                page=page,
+                override=override,
+                entity_ids=request.reference_entities,
+                entity_names=request.reference_entity_names,
+                project_id=submission_project,
+                expected_prompt=expected_prompt,
+                on_submit=mark_submit,
+                on_abort=mark_abort,
             )
             log.info(
                 "migrated.image_submit_guarded",
                 outcome="aborted" if problem else "passed",
                 references=len(reference_ids),
             )
+            if problem is not None:
+                guard_aborted = True
             if problem is not None and not route_error.done():
                 route_error.set_result(
                     WireFormatError(detail=problem, route=f"batchexecute:{IMAGE_SUBMIT_RPC}")
                 )
 
         override = active_overrides.get()
-        page.on("request", on_request)
         page.on("response", on_response)
         try:
-            if reference_ids or active_overrides.get() is not None:
-                await page.route(is_image_submit, guard)
+            await page.route(is_image_submit, guard)
             enable_deadline = time.monotonic() + SUBMIT_ENABLE_BUDGET_S
             while not await submit.is_enabled():
                 if time.monotonic() >= enable_deadline:
@@ -3067,6 +3170,7 @@ class MigratedComposer:
                     )
                 await asyncio.sleep(SUBMIT_ENABLE_POLL_S)
             await self._click(page, submit, named=SUBMIT_BUTTON, timeout=5000)
+            clicked = True
             done, _ = await asyncio.wait(
                 {result, route_error},
                 timeout=IMAGE_REPLY_BUDGET_S,
@@ -3082,6 +3186,20 @@ class MigratedComposer:
                     )
                 )
             return result.result()
+        except asyncio.CancelledError as exc:
+            if submitted or (clicked and not guard_aborted):
+                exc.add_note("Native image submission may have started; do not retry automatically")
+                vars(exc)["gflow_image_generation_unknown"] = unknown("image_cancelled")
+            raise
+        except (WafRejectionError, ContentPolicyError):
+            raise
+        except Exception as exc:
+            if submitted or (clicked and not guard_aborted):
+                phase: Literal["image_response", "image_submit"] = (
+                    "image_response" if result.done() else "image_submit"
+                )
+                raise unknown(phase) from exc
+            raise
         finally:
             # Consume the future's exception even on the paths that never read it
             # (a route error raised first, a timeout): otherwise asyncio logs
@@ -3091,13 +3209,11 @@ class MigratedComposer:
                 result.exception()
             if override is not None:
                 override.stop_capture(page)
-            page.remove_listener("request", on_request)
             page.remove_listener("response", on_response)
-            if reference_ids or active_overrides.get() is not None:
-                try:
-                    await page.unroute(is_image_submit, guard)
-                except Exception as exc:  # noqa: BLE001 - must not mask the real outcome
-                    log.debug("migrated.image_submit_unroute_failed", error=type(exc).__name__)
+            try:
+                await page.unroute(is_image_submit, guard)
+            except Exception as exc:  # noqa: BLE001 - must not mask the real outcome
+                log.debug("migrated.image_submit_unroute_failed", error=type(exc).__name__)
 
     @staticmethod
     async def _await_terminal(
@@ -3345,6 +3461,47 @@ async def run_images(
         )
     composer = MigratedComposer(out_dir=out_dir)
     await composer.ensure_editor(page, pid)
+    plan = request.reference_prompt_plan
+    if plan is not None:
+        if (
+            plan.surface != "image"
+            or plan.audio_ids
+            or plan.video_ids
+            or tuple(plan.character_ids) != request.reference_entities
+            or (request.refs and tuple(plan.image_ids) != tuple(ref.name for ref in request.refs))
+            or (request.ref_paths and len(plan.image_ids) != len(request.ref_paths))
+            or (plan.image_ids and not request.refs and not request.ref_paths)
+        ):
+            raise ConfigurationError(
+                detail="Native prompt plan attachments do not match the request"
+            )
+        image_bindings: dict[str, NativeImageBinding] = {}
+        if request.refs:
+            await composer.reference_existing(page, pid, request)
+            tokens = await composer.await_existing_references(page, request.refs)
+            image_bindings = {
+                ref.name: NativeImageBinding(ref.name, ref.display_name or "", tokens[ref.name])
+                for ref in request.refs
+            }
+        else:
+            await composer.apply_image_settings(page, request)
+        if request.ref_paths:
+            uploaded = await composer.upload_reference_bindings(page, pid, request.ref_paths)
+            image_bindings = dict(zip(plan.image_ids, uploaded, strict=True))
+        expected = await materialize_reference_prompt(
+            page,
+            composer,
+            plan,
+            image_bindings,
+            dict(zip(request.reference_entities, request.reference_entity_names, strict=True)),
+        )
+        return await composer.submit_images_and_observe(
+            page,
+            request,
+            project_id=pid,
+            reference_ids=tuple(binding.media_id for binding in image_bindings.values()),
+            expected_prompt=expected,
+        )
     reference_ids: tuple[str, ...] = ()
     if request.refs:
         # Images already in this project (a manifest's `batch:N`, #913): referenced in
@@ -3362,10 +3519,20 @@ async def run_images(
                     f"{len(chips)} mention chip(s) were bound before submit"
                 )
             )
-    await composer.send_prompt(page, request.prompt, append=bool(reference_ids))
+    if request.reference_entities:
+        await composer.attach_character_entities(
+            page,
+            entity_ids=request.reference_entities,
+            names=request.reference_entity_names,
+            clear=not bool(reference_ids),
+        )
+    await composer.send_prompt(
+        page, request.prompt, append=bool(reference_ids or request.reference_entities)
+    )
     return await composer.submit_images_and_observe(
         page,
         request,
+        project_id=pid,
         reference_ids=reference_ids,
     )
 

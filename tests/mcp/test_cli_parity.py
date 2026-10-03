@@ -99,6 +99,10 @@ _MCP_EXEMPT: dict[str, str] = {
     "auth": "interactive session management — needs a human browser login flow",
     "auth list": "interactive session management",
     "auth login": "interactive session management",
+    "auth import-cookies": (
+        "operator credential import from a private file into a new headed browser profile; "
+        "cookie values are not accepted by MCP, and this is never a queued job"
+    ),
     "auth logout": "interactive session management",
     "auth use": "interactive session management",
     "mcp run": "the MCP server bootstrap itself",

@@ -361,6 +361,9 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
                 operation="delete",
                 character_ref="22222222-2222-4222-8222-222222222222",
             )
+        elif cls is errors_mod.ImageGenerationUnknownError:
+            # This safe typed outcome accepts handles, never arbitrary details.
+            instance = cls()
         else:
             instance = cls("x")
         error_type, _ = _classify_failure(instance)

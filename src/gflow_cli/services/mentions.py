@@ -369,7 +369,11 @@ async def resolve_and_apply(
     """
     r: Any = req
 
-    tokens = parse_mentions(r.prompt)
+    slot_mode = path == "image" and (
+        getattr(r, "reference_syntax", "names") == "slots"
+        or getattr(r, "reference_prompt_plan", None) is not None
+    )
+    tokens = [] if slot_mode else parse_mentions(r.prompt)
     if tokens:
         if not project_id:
             raise ConfigurationError(
@@ -430,4 +434,14 @@ async def resolve_and_apply(
             tool=applied_tool,
         )
 
+    if slot_mode:
+        from gflow_cli.api.reference_markers import (
+            ReferenceContractError,
+            prepare_ordered_image_slots,
+        )
+
+        try:
+            r = prepare_ordered_image_slots(r)
+        except ReferenceContractError as exc:
+            raise ConfigurationError(detail=str(exc)) from exc
     return cast("_ReqT", r)

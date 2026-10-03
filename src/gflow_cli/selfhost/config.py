@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import os
 import uuid
 from dataclasses import dataclass
@@ -34,7 +35,15 @@ class Settings:
     callbacks: tuple[str, ...] = ()
     timeout: int = 900
     allow_video: bool = False
-    sync_wait: float = 85
+    sync_wait: float = 600
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.sync_wait) not in (int, float)
+            or not math.isfinite(self.sync_wait)
+            or not 0 <= self.sync_wait <= 900
+        ):
+            raise ValueError("Sync wait must be finite and between 0 and 900 seconds")
 
     @classmethod
     def environment(cls) -> Settings:
@@ -59,9 +68,11 @@ class Settings:
             accounts[profile] = cast(dict[str, str], account)
         home = Path(os.environ.get("GFLOW_CLI_HOME", str(Path.home() / ".local/share/gflow-cli")))
         root = Path(os.environ.get("GFLOW_SELFHOST_ROOT", str(home / "selfhost"))).resolve()
-        sync_wait = float(os.environ.get("GFLOW_SELFHOST_SYNC_WAIT_SECONDS", "85"))
-        if not 0 <= sync_wait <= 85:
-            raise ValueError("GFLOW_SELFHOST_SYNC_WAIT_SECONDS must be between 0 and 85")
+        sync_wait = float(os.environ.get("GFLOW_SELFHOST_SYNC_WAIT_SECONDS", "600"))
+        if not math.isfinite(sync_wait) or not 0 <= sync_wait <= 900:
+            raise ValueError(
+                "GFLOW_SELFHOST_SYNC_WAIT_SECONDS must be finite and between 0 and 900"
+            )
         return cls(
             token=token,
             root=root,

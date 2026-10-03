@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from uuid import UUID
 
 if TYPE_CHECKING:
     from gflow_cli.diagnostics import IncidentRef
@@ -22,6 +23,7 @@ __all__ = [
     "ChainManifestError",
     "ChainPartialError",
     "CharacterMutationUnknownError",
+    "ImageGenerationUnknownError",
     "CharacterBatchPartialError",
     "ConfigurationError",
     "ContentPolicyError",
@@ -80,6 +82,10 @@ class ProblemDetails(TypedDict, total=False):
     character_ref: str
     project_id: str
     operation: str
+    outcome_unknown: bool
+    phase: str
+    media_ids: list[str]
+    workflow_ids: list[str]
     failed_before_mutation: bool
     completed_character_refs: list[str]
     incident: dict[str, str]  # gflow extension — remote-safe {id, capture_status} ONLY
@@ -166,6 +172,54 @@ class GFlowError(Exception):
                 "id": self.incident_ref.id,
                 "capture_status": self.incident_ref.capture_status,
             }
+        return out
+
+
+class ImageGenerationUnknownError(GFlowError):
+    """An image request may have started; never automatically submit it again."""
+
+    problem_type = "https://gflow-cli.dev/errors/image-generation-unknown"
+    title = "Image generation outcome unknown"
+    _default_remediation = (
+        "Inspect this Flow project and any returned media IDs before retrying; "
+        "no automatic generation retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        project_id: str | None = None,
+        media_ids: tuple[str, ...] = (),
+        workflow_ids: tuple[str, ...] = (),
+        phase: Literal[
+            "image_submit", "image_dispatch", "image_response", "image_cancelled"
+        ] = "image_submit",
+    ) -> None:
+        def safe_uuid(value: str) -> str:
+            try:
+                return str(UUID(value))
+            except (ValueError, AttributeError, TypeError):
+                raise ValueError("Unknown image outcome requires safe UUID handles") from None
+
+        if phase not in {"image_submit", "image_dispatch", "image_response", "image_cancelled"}:
+            raise ValueError("Unknown image outcome has an invalid phase")
+        if len(media_ids) > 4 or len(workflow_ids) > 4:
+            raise ValueError("Unknown image outcome exceeds four output handles")
+        super().__init__(route="image.generate", retryable=False)
+        self.project_id = safe_uuid(project_id) if project_id is not None else None
+        self.media_ids = tuple(dict.fromkeys(safe_uuid(value) for value in media_ids))
+        self.workflow_ids = tuple(dict.fromkeys(safe_uuid(value) for value in workflow_ids))
+        self.phase = phase
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(outcome_unknown=True, phase=self.phase)
+        if self.project_id is not None:
+            out["project_id"] = self.project_id
+        if self.media_ids:
+            out["media_ids"] = list(self.media_ids)
+        if self.workflow_ids:
+            out["workflow_ids"] = list(self.workflow_ids)
         return out
 
 
@@ -1543,6 +1597,7 @@ EXIT_CODE_MAP: dict[type[GFlowError], int] = {
     SyncPartialError: 34,
     CharacterBatchPartialError: 40,
     CharacterMutationUnknownError: 40,
+    ImageGenerationUnknownError: 40,
     ConfigurationError: 11,
     AuthExpiredError: 3,
     RateLimitError: 4,

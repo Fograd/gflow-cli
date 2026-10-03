@@ -5,10 +5,10 @@ optional. Adding a key does not silently change the default generation path.
 
 ## Configuration
 
-Authenticated `POST /v 1/google-flow/accounts/captcha-providers` accepts only
+Authenticated `POST /v1/google-flow/accounts/captcha-providers` accepts only
 `CapSolver` and `2Captcha` string keys. An empty string removes that key. GET on
 the same path returns `***configured***`, never the key. The implementation
-atomically updates only `GFLOW_CAPSOLVER_KEY` and `GFLOW_2 CAPTCHA_KEY` in the
+atomically updates only `GFLOW_CAPSOLVER_KEY` and `GFLOW_2CAPTCHA_KEY` in the
 service user's `~/.config/homelab/secrets.env`, retaining other lines and mode 600.
 Only ordinary alphanumeric, underscore and hyphen API keys are accepted.
 
@@ -31,7 +31,7 @@ A Google rejection does not trigger automatic generation. Tokens are single-use;
 callers must not reuse them for another job.
 
 The supplied-token hook replaces both observed token contexts in the validated
-`ogiZ 0 b` request. It checks project, output count and envelope shape before
+`ogiZ0b` request. It checks project, output count and envelope shape before
 submission; an unfamiliar shape aborts. Tokens never enter durable job JSON:
 a private temporary file is consumed and removed by the worker. The browser still
 mints its own token, then the outgoing request uses the supplied override. The
@@ -42,7 +42,7 @@ image generation and native seed enforcement are independently live verified.
 The provider clients below are implemented and tested as preparation; they are
 not enabled by the public generation endpoint until actual third-party replacement acceptance is proven.
 
-Clients use Enterprise v 3 tasks according to
+Clients use Enterprise v3 tasks according to
 [CapSolver's documentation](https://docs.capsolver.com/en/guide/captcha/ReCaptchaV3/)
 and [2Captcha's documentation](https://2captcha.com/api-docs/recaptcha-v3).
 A solve has a bounded deadline and creates one task. The whole provider

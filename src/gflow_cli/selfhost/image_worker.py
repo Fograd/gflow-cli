@@ -10,7 +10,6 @@ from typing import Any, cast
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _make_provider_dir, run_with_handlers
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.image import Aspect, GenerateImageRequest, Model
 from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
 from gflow_cli.config import get_settings
 from gflow_cli.errors import WafRejectionError, WireFormatError
@@ -65,13 +64,16 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
             return solution.token
         raise SolverError("All configured providers failed before Google submission")
 
-    refs = tuple(Path(path) for path in payload.get("refPaths", []))
-    request = GenerateImageRequest(
-        prompt=payload["prompt"],
-        aspect=Aspect.from_cli(payload["aspectRatio"]),
-        model=Model.from_cli(payload["model"]),
-        ref_paths=refs,
-        count=payload["count"],
+    from gflow_cli.worker.codec import build_image_request
+
+    request = build_image_request(
+        {
+            **payload,
+            "ref_paths": payload.get("refPaths", []),
+            "aspect": payload["aspectRatio"],
+            "reference_entities": payload.get("reference_prompt_plan", {}).get("character_ids", []),
+            "reference_syntax": payload.get("reference_syntax", "names"),
+        }
     )
     override = ImageOverrides(
         project=project,

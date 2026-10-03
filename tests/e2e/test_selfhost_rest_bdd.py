@@ -38,8 +38,8 @@ def endpoint(workflow: dict[str, Any]) -> None:
 
 def completed(workflow: dict[str, Any], path: str, payload: dict[str, Any]) -> dict[str, Any]:
     with httpx.Client(timeout=120, trust_env=False, headers=workflow["headers"]) as client:
-        accepted = client.post(workflow["url"] + path, json=payload)
-        assert accepted.status_code == 200
+        accepted = client.post(workflow["url"] + path, json={**payload, "async": True})
+        assert accepted.status_code == 201
         job = accepted.json()["jobId"]
         deadline = time.monotonic() + 240
         while time.monotonic() < deadline:
@@ -48,7 +48,7 @@ def completed(workflow: dict[str, Any], path: str, payload: dict[str, Any]) -> d
             result = response.json()
             assert result["status"] not in ("failed", "interrupted")
             if result["status"] == "completed":
-                return result
+                return {"jobId": job, **result["response"]}
             time.sleep(1)
     pytest.fail("REST job did not complete within 240 seconds")
 

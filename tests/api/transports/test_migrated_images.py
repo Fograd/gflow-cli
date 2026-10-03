@@ -116,7 +116,7 @@ def test_unported_image_forms_are_named_and_refused_pre_submit() -> None:
         _unported_image_form(
             _request(reference_entities=("entity-1",), reference_entity_names=("Hero",)),
         )
-        == "character references"
+        is None
     )
     assert (
         _unported_image_form(_request(instructions=(AgentInstruction(text="keep it blue"),)))

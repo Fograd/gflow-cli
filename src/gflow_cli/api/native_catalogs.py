@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from gflow_cli.api.transports.migrated_catalog import parse_native_voices
 from gflow_cli.api.transports.migrated_projects import MAX_CURSOR_LENGTH, list_projects
 from gflow_cli.api.transports.migrated_resources import read_project_payload
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
@@ -110,6 +111,39 @@ async def media_snapshot(client: FlowApiClient, project_id: str) -> dict[str, An
     except ValueError as exc:
         raise WireFormatError(
             detail="Native media listing has an invalid shape", route="media.native"
+        ) from exc
+    finally:
+        client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
+
+
+async def voices_snapshot(client: FlowApiClient, project_id: str) -> dict[str, Any]:
+    """Read measured native system presets; custom voices and completeness unknown."""
+    _native_only(client)
+    if not is_uuid(project_id):
+        raise ConfigurationError(detail="Native project identifier must be a UUID")
+    page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
+    try:
+        rows = parse_native_voices(await read_project_payload(page, project_id))
+        voices = [
+            {
+                "name": row["voice"],
+                "description": row["description"],
+                "sample_url": row.get("sample_url"),
+                "source": "system",
+            }
+            for row in rows
+        ]
+        return {
+            "voices": voices,
+            "project_id": project_id,
+            "catalog": "google",
+            "returned_count": len(voices),
+            "complete": None,
+            "scope": "native project system preset voice snapshot; completeness unknown",
+        }
+    except ValueError as exc:
+        raise WireFormatError(
+            detail="Native voice listing has an invalid shape", route="voices.native"
         ) from exc
     finally:
         client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]

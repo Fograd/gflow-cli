@@ -15,12 +15,13 @@ import sys
 import time
 import uuid
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -54,7 +55,13 @@ class BodyLimitMiddleware:
         upload = scope.get("method") == "POST" and (
             path == "/v1/google-flow/assets" or path.startswith("/v1/google-flow/assets/")
         )
-        limit = MAX_ASSET if upload else 65536
+        limit = (
+            MAX_ASSET
+            if upload
+            else 2 * 1024 * 1024
+            if scope.get("method") == "POST" and path == "/v1/google-flow/accounts"
+            else 65536
+        )
 
         async def limited_receive() -> Message:
             nonlocal size
@@ -68,6 +75,7 @@ class BodyLimitMiddleware:
 
 
 def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
+    cfg.__post_init__()
     if not cfg.token:
         raise ValueError("Bearer token must be configured")
     store = Store(cfg.root)
@@ -213,7 +221,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         except ValueError:
             raise HTTPException(422, f"{label} must be a bare Google Flow UUID") from None
 
-    async def submit(
+    async def enqueue(
         request: Request,
         kind: str,
         payload: dict[str, Any],
@@ -223,6 +231,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         asynchronous = payload.pop("async", False)
         if type(asynchronous) is not bool:
             raise HTTPException(422, "async must be a boolean")
+        if "replyRef" in payload and (
+            not isinstance(payload["replyRef"], str) or len(payload["replyRef"]) > 4096
+        ):
+            raise HTTPException(422, "replyRef must be a string of at most 4096 characters")
+        payload["_delivery_async"] = asynchronous
         if "replyUrl" in payload and not isinstance(payload["replyUrl"], str):
             raise HTTPException(422, "replyUrl must be a string")
         if payload.get("replyUrl"):
@@ -238,7 +251,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             profile = existing["profile"]
             default_project = json.loads(existing["payload"])["project"]
         else:
+            if profile not in cfg.accounts:
+                raise HTTPException(409, "Account registration changed before submission")
             default_project = cfg.accounts[profile]["project"]
+        if profile not in cfg.accounts:
+            raise HTTPException(
+                409, "Account registration changed; inspect the account before retrying"
+            )
         payload["project"] = uuid_value(payload.get("projectId") or default_project, "projectId")
         owned_secret: Path | None = None
         if captcha_token is not None and existing is None:
@@ -268,13 +287,56 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 owned_secret.unlink(missing_ok=True)
             raise
 
-        if asynchronous or cfg.sync_wait <= 0:
-            return job
-        deadline = time.monotonic() + cfg.sync_wait
-        while job["status"] in ("created", "running") and time.monotonic() < deadline:
-            await asyncio.sleep(0.1)
-            job = store.get(job["jobId"])
         return job
+
+    async def submit(
+        request: Request,
+        kind: str,
+        payload: dict[str, Any],
+        profile: str,
+        captcha_token: str | None = None,
+    ) -> dict[str, Any] | JSONResponse:
+        from gflow_cli.selfhost.http_jobs import error_record, http_status, result_record
+
+        asynchronous = payload.get("async", False)
+        job = await enqueue(request, kind, payload, profile, captcha_token)
+        identifier = job["jobId"]
+        location = f"{prefix}/jobs/{identifier}"
+        if asynchronous:
+            return JSONResponse(
+                store.get_record(identifier), status_code=201, headers={"Location": location}
+            )
+        budget = min(cfg.sync_wait, 180 if kind == "videos/concatenate" else 600)
+        deadline = time.monotonic() + budget
+        while job["status"] in ("created", "running") and time.monotonic() < deadline:
+            await asyncio.sleep(min(0.25, max(0, deadline - time.monotonic())))
+            job = store.get(identifier)
+        # A final read handles completion racing the wait deadline.
+        job = store.get(identifier)
+        if job["status"] == "completed":
+            return {"jobId": identifier, "status": "completed", **result_record(job)}
+        if job["status"] in ("failed", "interrupted"):
+            return JSONResponse(
+                {"jobId": identifier, **result_record(job), **error_record(job, job["status"])},
+                status_code=http_status(job, job["status"]),
+                headers={"Location": location},
+            )
+        return JSONResponse(
+            {
+                **result_record(job),
+                "jobId": identifier,
+                "jobid": identifier,
+                "status": store.get_record(identifier)["status"],
+                "error": (
+                    "Synchronous wait expired; poll this existing job before another submission."
+                ),
+                "code": 408,
+                "processingContinues": True,
+                "retryable": False,
+            },
+            status_code=408,
+            headers={"Location": location},
+        )
 
     def pagination(request: Request) -> tuple[int, str | None]:
         try:
@@ -312,12 +374,194 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "projectId": row["project"],
             "health": "OK" if row["enabled"] == 1 and row["verified"] else "LOGIN_REQUIRED",
             "enabled": bool(row["enabled"]),
-            "healthSource": "operator-attested local profile registration",
+            "healthSource": (
+                "verified imported identity and native project access"
+                if row["verification_source"] == "native-cookie-verified"
+                else "operator-attested local profile registration"
+            ),
+            "verificationSource": row["verification_source"],
+            "created": datetime.fromtimestamp(row["created"], UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
             "scope": "local-profile-registration",
         }
 
-    @app.post(prefix + "/accounts")
-    async def register_account(payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/accounts/{email}/health", response_model=None)
+    async def account_health(
+        request: Request, email: str, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
+        # This read-only operation shares the durable serial queue with generation.
+        # Never open a competing browser from a request handler or change auth flags.
+        check_unknown(payload, {"async", "replyRef", "replyUrl"})
+        profile = pick_account(email, [])
+        payload["email"] = cfg.accounts[profile]["email"]
+        payload["projectId"] = cfg.accounts[profile]["project"]
+        return await submit(request, "accounts/health", payload, profile)
+
+    async def register_cookie_account(payload: dict[str, Any]) -> JSONResponse:
+        from gflow_cli.auth import default_profile_root, profile_dir
+        from gflow_cli.errors import AuthMissingError, ConfigurationError, ProfileLockedError
+        from gflow_cli.profile_lease import ProfileLease
+        from gflow_cli.selfhost.account_import import reverify_imported_project
+        from gflow_cli.selfhost.account_marker import read_verified_account
+        from gflow_cli.selfhost.profile_import import (
+            discard_imported_profile,
+            import_cookie_profile,
+        )
+        from gflow_cli.selfhost.session_import import CookieTableError, parse_cookie_table
+
+        check_unknown(payload, {"cookies", "email", "profile", "projectId"})
+        try:
+            table = parse_cookie_table(payload.get("cookies"))
+        except CookieTableError:
+            raise HTTPException(400, "Invalid or expired DevTools cookie table") from None
+        email = payload.get("email")
+        if email is not None and (not isinstance(email, str) or not 1 <= len(email) <= 254):
+            raise HTTPException(400, "email requires a valid account handle")
+        profile = payload.get("profile", "cookie_" + uuid.uuid4().hex)
+        if not isinstance(profile, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", profile):
+            raise HTTPException(400, "profile requires a safe new profile name")
+        target = profile_dir(profile)
+        if (
+            target.exists()
+            or target.is_symlink()
+            or target.parent.resolve() != default_profile_root().resolve()
+        ):
+            raise HTTPException(409, "Cookie import requires a new profile")
+        old = store.account_lookup(email) if email else None
+        project = uuid_value(payload["projectId"], "projectId") if "projectId" in payload else None
+        if old and project is not None and project != old["project"]:
+            raise HTTPException(400, "Cookie refresh preserves the existing project")
+        expected_email = email
+        if old:
+            if store.profile_busy(old["profile"]):
+                raise HTTPException(409, "Account has an accepted or running job")
+            try:
+                async with ProfileLease(profile_dir(old["profile"])):
+                    expected_email = read_verified_account(profile_dir(old["profile"]))
+            except ProfileLockedError:
+                raise HTTPException(409, "Original account profile is in use") from None
+            if expected_email is None:
+                raise HTTPException(
+                    400, "Original account identity is unavailable; complete login first"
+                )
+            project = old["project"]
+        elif expected_email is not None and not re.fullmatch(
+            r'[^\s"<>]{1,128}@[^\s"<>]{1,125}', expected_email
+        ):
+            raise HTTPException(400, "A new imported account requires an actual email identity")
+        imported = None
+        activated = False
+        cleanup_pending = False
+        failure: HTTPException | None = None
+        try:
+            imported = await import_cookie_profile(
+                table, profile, expected_email=expected_email, project_id=project
+            )
+            if imported.profile != profile:
+                raise ConfigurationError(detail="Import returned an unrelated profile")
+            if old is None:
+                # Cookies-only requests identify an existing account from proven identity,
+                # including legacy public aliases whose private marker matches it.
+                matches: list[dict[str, Any]] = []
+                for account_row in store.accounts():
+                    actual = read_verified_account(profile_dir(account_row["profile"]))
+                    if actual and actual.casefold() == imported.email.casefold():
+                        matches.append(account_row)
+                if len(matches) > 1:
+                    raise ValueError("Imported identity matches multiple account registrations")
+                old = matches[0] if matches else store.account_lookup(imported.email)
+                if old:
+                    if store.profile_busy(old["profile"]):
+                        raise ValueError("Original account became busy during import")
+                    if imported.project_id != old["project"]:
+                        imported = await reverify_imported_project(imported, old["project"])
+            if (
+                old
+                and expected_email is not None
+                and imported.email.casefold() != expected_email.casefold()
+            ):
+                raise AuthMissingError(
+                    detail="Imported identity does not match the original account"
+                )
+            selected_email = old["email"] if old else imported.email
+            selected_project = old["project"] if old else imported.project_id
+            async with AsyncExitStack() as leases:
+                names: set[str] = {profile}
+                if old:
+                    names.add(str(old["profile"]))
+                for name in sorted(names):
+                    await leases.enter_async_context(ProfileLease(profile_dir(name)))
+                if (
+                    not imported.matches_private_state(target)
+                    or read_verified_account(target) != imported.email
+                ):
+                    raise ValueError("Imported profile changed before activation")
+                if old:
+                    actual = read_verified_account(profile_dir(old["profile"]))
+                    if not actual or actual.casefold() != imported.email.casefold():
+                        raise ValueError("Original account identity changed during import")
+                store.account_activate_import(
+                    profile, selected_email, selected_project, expected_old=old
+                )
+                activated = True
+                if old:
+                    cfg.accounts.pop(old["profile"], None)
+                cfg.accounts[profile] = {"email": selected_email, "project": selected_project}
+            old_task = worker_tasks.pop(old["profile"], None) if old else None
+            # Publish the new worker before any cancellable await after activation.
+            # A disconnected refresh request must not leave its durable account idle.
+            if start_workers:
+                worker_tasks[profile] = asyncio.create_task(worker(cfg, store, profile))
+            if old_task:
+                old_task.cancel()
+                await asyncio.gather(old_task, return_exceptions=True)
+            row = store.account_lookup(selected_email)
+            assert row is not None
+            return JSONResponse(
+                {
+                    **account_metadata(row),
+                    "cookieCount": imported.cookie_count,
+                    "browserProfileDeleted": False,
+                },
+                status_code=200 if old else 201,
+            )
+        except ProfileLockedError:
+            failure = HTTPException(
+                409, "An account profile is in use; registration was not changed"
+            )
+            raise failure from None
+        except (ValueError, sqlite3.IntegrityError):
+            failure = HTTPException(
+                409, "Account changed or became busy during import; registration preserved"
+            )
+            raise failure from None
+        except (ConfigurationError, AuthMissingError):
+            failure = HTTPException(
+                400, "Cookies did not verify the expected identity and Flow project access"
+            )
+            raise failure from None
+        finally:
+            if imported is not None and imported.profile == profile and not activated:
+                try:
+                    cleanup_pending = not await discard_imported_profile(imported)
+                except Exception:
+                    cleanup_pending = True
+                # Changed or leased candidates are retained safely, never force-deleted.
+                if cleanup_pending:
+                    app.state.cookie_cleanup_pending = True
+                    if failure is not None:
+                        # FastAPI accepts JSON detail although its attribute is typed str.
+                        cast(Any, failure).detail = {
+                            "message": failure.detail,
+                            "cleanupPending": True,
+                            "candidateProfile": profile,
+                        }
+
+    @app.post(prefix + "/accounts", response_model=None)
+    async def register_account(payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+        if "cookies" in payload:
+            return await register_cookie_account(payload)
         check_unknown(payload, {"profile", "email", "projectId", "enabled", "verified"})
         profile, email = payload.get("profile"), payload.get("email")
         if not isinstance(profile, str) or not re.fullmatch(r"[\w-]{1,128}", profile):
@@ -334,7 +578,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
         location = profile_dir(profile).resolve()
         if not location.is_relative_to(default_profile_root().resolve()) or not location.is_dir():
-            raise HTTPException(422, "Profile does not exist; complete local Chrome login first")
+            raise HTTPException(
+                422, "Profile does not exist; complete local hosted-browser login first"
+            )
         if store.profile_busy(profile):
             raise HTTPException(409, "Profile has an accepted or running job")
         try:
@@ -384,11 +630,16 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         return {
             "implemented": [
                 "accounts/read",
+                "accounts/cookie-import",
+                "accounts/project-access-health",
                 "accounts/register-local",
                 "accounts/unregister-local",
                 "captcha-providers/configuration",
                 "captcha-stats",
                 "images/seed",
+                "images/canonical-references",
+                "images/canonical-characters",
+                "images/aspectRatio-auto-local-policy",
                 "images/supplied-captcha-token",
                 "images",
                 "images/upscale",
@@ -426,19 +677,26 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             ],
             "notImplemented": [
                 "videos/seed",
-                "aspectRatio/auto",
+                "images/aspectRatio-auto-native",
                 "voices/custom",
                 "images/provider-captcha-generation",
                 "captcha-google-refusal-retries",
                 "videos/extend",
-                "accounts/cookie-import",
                 "assets/delete-native-individual",
             ],
+            "localPolicies": {
+                "images/aspectRatio-auto": {
+                    "policy": "derived-first-reference-nearest-supported-v1",
+                    "nativeGoogleAuto": False,
+                    "requires": "first-owned-image-reference",
+                }
+            },
+            "verificationPending": ["accounts/cookie-import-live-acceptance"],
             "verification": "Adapters require live verification per account and operation",
         }
 
-    @app.post(prefix + "/images")
-    async def images(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/images", response_model=None)
+    async def images(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
         allowed = {
             "prompt",
             "email",
@@ -455,21 +713,16 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "captchaOrder",
         }
         allowed.update(f"reference_{i}" for i in range(1, 11))
+        allowed.update(f"character_{i}" for i in range(1, 8))
         check_unknown(payload, allowed)
         if (
             not isinstance(payload.get("prompt"), str)
             or not 1 <= len(payload["prompt"].strip()) <= 4000
         ):
             raise HTTPException(422, "prompt requires 1 to 4000 characters")
-        if re.search(
-            r"@(reference(?:Image|Audio|Video)?|character|audio)_\d+", payload["prompt"], re.I
-        ):
-            feature_missing("inline useapi reference markers")
         model = payload.setdefault("model", "nano-banana-2-lite")
         if not isinstance(model, str) or model not in MODEL_ALIASES:
             raise HTTPException(422, "Unsupported image model")
-        if payload.setdefault("aspectRatio", "16:9") not in ("16:9", "4:3", "1:1", "3:4", "9:16"):
-            feature_missing("aspectRatio")
         count = payload.setdefault("count", 4)
         if type(count) is not int or not 1 <= count <= 4:
             raise HTTPException(422, "count requires an integer from 1 to 4")
@@ -479,6 +732,29 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if key in payload:
                 payload[key] = uuid_value(payload[key], key)
                 refs.append(payload[key])
+        from gflow_cli.api.reference_markers import (
+            ReferenceContractError,
+            ReferenceSlot,
+            reference_plan_record,
+            resolve_reference_markers,
+        )
+
+        slots = {
+            f"reference_{i}": ReferenceSlot("image", payload[f"reference_{i}"])
+            for i in range(1, 11)
+            if f"reference_{i}" in payload
+        }
+        for i in range(1, 8):
+            key = f"character_{i}"
+            if key in payload:
+                payload[key] = uuid_value(payload[key], key)
+                slots[key] = ReferenceSlot("character", payload[key])
+        try:
+            plan = resolve_reference_markers(payload["prompt"], slots=slots, surface="image")
+        except ReferenceContractError:
+            raise HTTPException(400, "Invalid or unresolved image reference marker") from None
+        payload["reference_syntax"] = "slots"
+        payload["reference_prompt_plan"] = reference_plan_record(plan)
         if "seed" in payload and (
             type(payload["seed"]) is not int or not 0 <= payload["seed"] <= 2147483647 - count + 1
         ):
@@ -488,6 +764,34 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         profile = pick_account(payload.get("email"), refs)
         if any(store.asset_get(ref)["mime"] not in ("image/png", "image/jpeg") for ref in refs):
             raise HTTPException(422, "Image references must be PNG or JPEG assets")
+        default_aspect = (
+            "auto" if refs and model in ("nano-banana-2", "nano-banana-pro") else "16:9"
+        )
+        requested_aspect = payload.setdefault("aspectRatio", default_aspect)
+        if requested_aspect == "auto":
+            if not refs:
+                raise HTTPException(422, "aspectRatio auto requires an actual reference image")
+            from gflow_cli.api.image_aspect_policy import derive_aspect_from_file
+
+            first = store.asset_get(refs[0])
+            if first["profile"] != profile:
+                raise HTTPException(422, "Auto reference must belong to the selected account")
+            uuid_value(first["project"], "Registered reference project")
+            try:
+                path = contained_file(first["path"], cfg.root)
+                decision = await run_in_threadpool(derive_aspect_from_file, path)
+            except ValueError:
+                raise HTTPException(
+                    422, "Auto requires a valid managed PNG or JPEG reference"
+                ) from None
+            payload.update(
+                aspectRatio=decision.resolved_aspect,
+                requestedAspectRatio=decision.requested_aspect,
+                resolvedAspectRatio=decision.resolved_aspect,
+                aspectPolicy=decision.policy,
+            )
+        elif requested_aspect not in ("16:9", "4:3", "1:1", "3:4", "9:16"):
+            feature_missing("aspectRatio")
         from gflow_cli.selfhost.captcha_routes import prepare_image_controls
 
         supplied_token = payload.get("captchaToken")
@@ -504,8 +808,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             captcha_token=supplied_token if isinstance(supplied_token, str) else None,
         )
 
-    @app.post(prefix + "/images/upscale")
-    async def upscale(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/images/upscale", response_model=None)
+    async def upscale(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
             {
@@ -576,7 +880,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         upload_payload: dict[str, Any] = {"input": str(path), "mime": mime}
         if mime == "video/mp4":
             upload_payload["rightsConfirmed"] = rights == "true"
-        job = await submit(request, "assets", upload_payload, profile)
+        job = await enqueue(request, "assets", upload_payload, profile)
         # Keep tee's synchronous upload contract; disconnection leaves the job durable.
         deadline = time.monotonic() + cfg.timeout
         while time.monotonic() < deadline:
@@ -598,7 +902,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     async def jobs(request: Request) -> dict[str, Any]:
         limit, cursor = pagination(request)
         status = request.query_params.get("status")
-        if status and status not in ("created", "running", "completed", "failed", "interrupted"):
+        if status and status not in (
+            "created",
+            "started",
+            "running",
+            "completed",
+            "failed",
+            "interrupted",
+        ):
             raise HTTPException(422, "Unknown job status")
         email = request.query_params.get("email")
         profile = pick_account(email, []) if email else None
@@ -607,7 +918,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 limit=limit,
                 cursor=cursor,
                 profile=profile,
-                status=status,
+                status="running" if status == "started" else status,
                 kind=request.query_params.get("kind"),
             )
         except ValueError:
@@ -616,7 +927,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     @app.get(prefix + "/jobs/{job_id}")
     async def get_job(job_id: str) -> dict[str, Any]:
         try:
-            return store.get(job_id)
+            return store.get_record(job_id)
         except KeyError:
             raise HTTPException(404, "Job not found") from None
 
@@ -737,10 +1048,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         ]
         return {**page_slice(request, items, "media"), "scope": "selfhost-managed assets"}
 
-    @app.delete(prefix + "/assets/{email}")
+    @app.delete(prefix + "/assets/{email}", response_model=None)
     async def delete_assets(
         request: Request, email: str, payload: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
             {"mediaGenerationIds", "projectId", "localOnly", "async", "replyUrl", "replyRef"},
@@ -1142,9 +1453,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "System voice not found")
         return match
 
-    @app.post(prefix + "/videos")
-    @app.post(prefix + "/videos/extend")
-    async def videos(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/videos", response_model=None)
+    @app.post(prefix + "/videos/extend", response_model=None)
+    async def videos(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
         if request.url.path.endswith("/extend"):
             feature_missing("video extension result mapping")
         if not cfg.allow_video:
@@ -1226,8 +1537,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             ) from None
         return await submit(request, "videos", payload, profile)
 
-    @app.post(prefix + "/videos/concatenate")
-    async def concatenate(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/videos/concatenate", response_model=None)
+    async def concatenate(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
         check_unknown(payload, {"media", "email", "replyUrl", "replyRef", "async"})
         items = payload.get("media")
         if not isinstance(items, list) or not 2 <= len(cast(list[Any], items)) <= 10:
@@ -1267,9 +1580,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         payload["media"] = normalised
         return await submit(request, "videos/concatenate", payload, profile)
 
-    @app.post(prefix + "/videos/upscale")
-    @app.post(prefix + "/videos/gif")
-    async def export_video(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/videos/upscale", response_model=None)
+    @app.post(prefix + "/videos/gif", response_model=None)
+    async def export_video(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
         kind = "videos/gif" if request.url.path.endswith("/gif") else "videos/upscale"
         check_unknown(
             payload,

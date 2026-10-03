@@ -144,6 +144,15 @@ def _validate_entity_ids(
     return value
 
 
+def _preflight_image_slots(request: GenerateImageRequest) -> None:
+    from gflow_cli.api.reference_markers import ReferenceContractError, prepare_ordered_image_slots
+
+    try:
+        prepare_ordered_image_slots(request)
+    except ReferenceContractError as exc:
+        raise click.UsageError(str(exc)) from None
+
+
 def _project_and_entity_options(*, single_prompt: bool) -> Callable[[_CmdFn], _CmdFn]:
     """Shared `--project` / `--reference-entity` / `--reference-entity-name` options.
 
@@ -153,6 +162,16 @@ def _project_and_entity_options(*, single_prompt: bool) -> Callable[[_CmdFn], _C
     note = " Single-prompt only." if single_prompt else ""
 
     def decorator(func: _CmdFn) -> _CmdFn:
+        func = click.option(
+            "--reference-syntax",
+            type=click.Choice(["names", "slots"]),
+            default="names",
+            show_default=True,
+            help=(
+                "names resolves saved @AssetName; slots preserves ordered "
+                "@reference_N/@character_N."
+            ),
+        )(func)
         func = click.option(
             "--reference-entity-name",
             "reference_entity_names",
@@ -948,10 +967,13 @@ def t2i(  # NOSONAR
     as_json: bool,
     instructions: tuple[str, ...],
     seed: int | None = None,
+    reference_syntax: str = "names",
 ) -> None:
     """Generate image(s) from one or more text prompts."""
     is_multi_prompt = len(prompts) > 1 or prompts_file is not None or read_stdin
     _validate_t2i_input(prompts, prompts_file, read_stdin)
+    if reference_syntax == "slots" and is_multi_prompt:
+        raise click.UsageError("--reference-syntax slots requires a single prompt")
     if seed is not None and (is_multi_prompt or seed > 2147483647 - count + 1):
         raise click.UsageError(
             "--seed requires a single prompt and seed+count within signed 32-bit range"
@@ -1000,6 +1022,16 @@ def t2i(  # NOSONAR
                 msg,
             )
         prompt = prompts[0]
+        if reference_syntax == "slots":
+            _preflight_image_slots(
+                GenerateImageRequest(
+                    prompt=prompt,
+                    model=Model.from_cli(model),
+                    count=count,
+                    reference_entities=reference_entities,
+                    reference_syntax=reference_syntax,
+                )
+            )
         profile_name = _resolve_profile(profile)
         provider_dir = _make_provider_dir(profile_name)
         settings = get_settings()
@@ -1010,6 +1042,7 @@ def t2i(  # NOSONAR
                 headless=settings.headless,
                 req=GenerateImageRequest(
                     prompt=prompt,
+                    reference_syntax=reference_syntax,
                     seed=seed,
                     count=count,
                     aspect=Aspect.from_cli(aspect),
@@ -1618,6 +1651,7 @@ class _I2IParams:
     instructions: tuple[AgentInstruction, ...] | None = None
     ui_mode: UiMode | None = None
     seed: int | None = None
+    reference_syntax: str = "names"
 
 
 @image.command(
@@ -1744,6 +1778,7 @@ def i2i(  # NOSONAR
     instructions: tuple[str, ...],
     ui_mode: str | None,
     seed: int | None = None,
+    reference_syntax: str = "names",
 ) -> None:
     """Generate image(s) from PROMPT + reference image(s) (image-to-image)."""
     if seed is not None and seed > 2147483647 - count + 1:
@@ -1769,11 +1804,24 @@ def i2i(  # NOSONAR
         msg = f"{model_enum.value} accepts at most {cap} reference item(s); got {n_refs}"
         raise click.UsageError(msg)
 
+    if reference_syntax == "slots":
+        _preflight_image_slots(
+            GenerateImageRequest(
+                prompt=prompt,
+                model=model_enum,
+                count=count,
+                refs=tuple(ref for ref in classified_refs if isinstance(ref, ImageRef)),
+                ref_paths=tuple(ref for ref in classified_refs if isinstance(ref, Path)),
+                reference_entities=reference_entities,
+                reference_syntax=reference_syntax,
+            )
+        )
     profile_name = _resolve_profile(profile)
     provider_dir = _make_provider_dir(profile_name)
     settings = get_settings()
     i2i_params = _I2IParams(
         prompt=prompt,
+        reference_syntax=reference_syntax,
         seed=seed,
         classified_refs=classified_refs,
         aspect=Aspect.from_cli(aspect),
@@ -1858,6 +1906,7 @@ async def _run_i2i(
             local_ref_paths = tuple(r for r in params.classified_refs if isinstance(r, Path))
             req = GenerateImageRequest(
                 prompt=params.prompt,
+                reference_syntax=params.reference_syntax,
                 seed=params.seed,
                 count=count,
                 aspect=params.aspect,

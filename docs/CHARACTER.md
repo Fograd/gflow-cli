@@ -602,8 +602,9 @@ this does not prove rendered speech or support custom voice creation.
 
 The older `character create --face-prompt ... --body-prompt ...` command retains
 its generated-portrait workflow. Existing-image creation is a separate command.
-`character voices` displays the bundled preset catalog; it does not fetch a
-native account catalog.
+`character voices` displays the bundled preset catalog; add --catalog google --project PROJECT_UUID --profile NAME to read the
+native system preset snapshot without generation. Completeness and custom voice
+support remain unknown.
 
 These native mutations execute directly and are not queued or replayed. If
 Google acknowledges creation but a later copy/update fails, CLI exit **40** and
@@ -624,3 +625,13 @@ No generation or solver was invoked.
 Native reference verification uses Pillow, installed automatically with the base
 package. Existing-image character commands do not require the optional video
 chain extra.
+
+### Native preset voice discovery
+
+The default character voices command reads the bundled catalog offline.
+Explicit --catalog google --project PROJECT_UUID --profile NAME --json reads
+native system presets without generation. SDK list_native_voices(project_id)
+and MCP gflow_character_voices(catalog="google", project=..., profile=...)
+use the same snapshot semantics: complete is null, returned_count describes
+this scoped system preset snapshot. Custom voice CRUD and rendered TTS are
+not implied. Offline adapter tests pass; new live CLI/MCP proof is pending.

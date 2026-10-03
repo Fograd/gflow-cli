@@ -35,6 +35,13 @@ from gflow_cli.config import get_settings
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
     if get_settings().flow_host == "labs.google":
         raise ValueError("Native resource operations require the migrated Flow host")
+    if verb == "session-health":
+        from gflow_cli.selfhost.session_health import probe_project_access
+
+        return {
+            "status": "ok",
+            "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
+        }
     project_id = "" if verb == "projects-list" else str(payload["project_id"])
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]

@@ -206,7 +206,7 @@ def build_image_request(payload: dict[str, Any]) -> GenerateImageRequest:
     reference_entity_names = tuple(payload.get("reference_entity_names", []))
     count = payload.get("count", 1)
 
-    return GenerateImageRequest(
+    request = GenerateImageRequest(
         prompt=prompt,
         aspect=aspect,
         model=model,
@@ -214,11 +214,33 @@ def build_image_request(payload: dict[str, Any]) -> GenerateImageRequest:
         ref_paths=ref_paths,
         reference_entities=reference_entities,
         reference_entity_names=reference_entity_names,
+        reference_syntax=payload.get("reference_syntax", "names"),
         count=count,
         seed=payload.get("seed"),
         instructions=_parse_agent_instructions(payload.get("instructions")),
         ui_mode=UiMode(payload["ui_mode"]) if payload.get("ui_mode") else None,
     )
+
+    if "reference_prompt_plan" in payload:
+        from dataclasses import replace
+
+        from gflow_cli.api.reference_markers import (
+            decode_image_reference_plan,
+            validate_image_slot_plan,
+        )
+
+        request = replace(
+            request,
+            reference_prompt_plan=decode_image_reference_plan(
+                payload["reference_prompt_plan"], request.prompt
+            ),
+        )
+        request = validate_image_slot_plan(request)
+    if request.reference_syntax == "slots":
+        from gflow_cli.api.reference_markers import prepare_ordered_image_slots
+
+        request = prepare_ordered_image_slots(request)
+    return request
 
 
 def build_video_request(payload: dict[str, Any]) -> GenerateVideoRequest:

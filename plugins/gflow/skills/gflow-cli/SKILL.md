@@ -326,3 +326,32 @@ forwarding the returned opaque cursor. `gflow project media --project <UUID>
 Both return unknown completeness and perform no local sync or absence deletion.
 MCP twins are `gflow_list_projects(source="google", cursor=...)` (omit limit,
 use offset 0) and `gflow_project_media(project=<UUID>)`. No generation/solver calls.
+
+### Native preset voice discovery
+
+The default character voices command reads the bundled catalog offline.
+Explicit --catalog google --project PROJECT_UUID --profile NAME --json reads
+native system presets without generation. SDK list_native_voices(project_id)
+and MCP gflow_character_voices(catalog="google", project=..., profile=...)
+use the same snapshot semantics: complete is null, returned_count describes
+this scoped system preset snapshot. Custom voice CRUD and rendered TTS are
+not implied. Offline adapter tests pass; new live CLI/MCP proof is pending.
+
+### Private session import
+
+The CLI-only auth import-cookies command accepts --cookies-file /private/cookies.tsv,
+--profile NEW_NAME, optional --expected-email EXPECTED_ACCOUNT and --project UUID,
+and --json safe metadata. It stages a new automation profile and requires actual
+Google identity and Flow access before activation; parsing a cookie table is not
+proof of authentication. Existing profiles are preserved. Keep the file private
+and never paste cookie values into command arguments or logs. See the
+[self-hosted cookie import guide](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/COOKIE_IMPORT.md).
+Use Vivaldi for personal browser setup; the current remote automation profile
+continues to use its configured headed Chrome engine.
+
+
+### Explicit image reference slot syntax
+
+Image CLI leaf commands accept `--reference-syntax slots`; MCP image generation accepts `reference_syntax="slots"`. The default `names` retains saved asset-name expansion. Slot mode uses ordered image and character inputs as `@reference_1..10` and `@character_1..7`, matches tokens case-insensitively, preserves repeated positions and requires matching inputs. Unknown token families and email text stay literal. Queue codecs retain and validate the immutable plan; they do not strip markers into text that appears grounded.
+
+Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite cap remains 3. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Canonical video positional syntax is not yet implemented.

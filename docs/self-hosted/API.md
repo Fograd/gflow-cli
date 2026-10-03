@@ -19,7 +19,7 @@ Use TLS or an SSH tunnel across untrusted networks.
 | `GFLOW_SELFHOST_HOST` | Listen address; default `127.0.0.1` |
 | `GFLOW_SELFHOST_PORT` | Listen port; default `8844` |
 | `GFLOW_SELFHOST_CALLBACK_HOSTS` | Comma-separated exact HTTPS hostnames; empty disables callbacks |
-| `GFLOW_SELFHOST_SYNC_WAIT_SECONDS` | Default85; range0–85;0 returns accepted jobs immediately |
+| `GFLOW_SELFHOST_SYNC_WAIT_SECONDS` | Default 600; range 0–900; per-route ceiling 600 seconds (concatenation 180); zero returns HTTP 408 immediately while processing continues |
 | `GFLOW_SELFHOST_ALLOW_VIDEO` | Set `1` to enable generation that spends video credits; default disabled |
 
 Keep existing `GFLOW_CLI_HOME`, `GFLOW_CLI_HEADLESS=false`, and `DISPLAY` settings
@@ -40,8 +40,8 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 
 | Route | Behaviour and limits |
 | --- | --- |
-| `GET /accounts`, `/accounts/{handle}` | Read registered profiles and operator-attested health |
-| `POST /accounts`, `DELETE /accounts/{handle}` | Register an existing local profile or remove its registration; no cookie import or profile deletion |
+| `GET /accounts`, `/accounts/{handle}` | Read registered profiles and operator-attested or native-cookie-verified health |
+| `POST /accounts`, `DELETE /accounts/{handle}` | Register an existing operator-attested profile or import a bounded private cookie table into a staged new/refresh profile after actual identity and project-access checks; deletion removes registration only |
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
@@ -59,13 +59,18 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
 
-Generation, upscale, GIF export and concatenation accept `async` (boolean). The
-default `false` waits up to 85 seconds for a terminal result; a longer operation
-returns its original durable job. `async: true` returns immediately. Responses use
-HTTP **200** with `jobId` and status; poll `/jobs/{jobId}` while status is `created`
-or `running`. This differs from useapi explicit-async201 and unbounded synchronous
-expectations. Image results contain
-`media[].image.generatedImage.encodedImage` for tee decoding.
+Generation, upscale, GIF export and concatenation accept async (boolean).
+Explicit async returns HTTP 201 with the durable job identity immediately.
+The default false waits for completion, up to 600 seconds for generation/export
+or 180 seconds for concatenation, bounded by the operator's configured wait.
+An unfinished request returns HTTP 408 with jobId and processingContinues; the
+worker continues and must not be resubmitted. Poll /jobs/{jobId}: public statuses
+are created, started, completed and failed. Interrupted work is failed with
+outcomeUnknown and retryable false. GET and callbacks share the same projection;
+outputs live under response.media. Completed synchronous image responses retain
+media[].image.generatedImage.encodedImage. Image/export/concat async support is a
+documented self-hosted extension where useapi does not advertise it. Read
+[HTTP job semantics](HTTP_JOB_SEMANTICS.md) for exact response and failure shapes.
 
 Raw uploads return HTTP200 with
 `mediaGenerationId: { "mediaGenerationId": "Google UUID" }` and `email`.
@@ -113,21 +118,22 @@ response = client.post(
     "/images",
     headers={"Idempotency-Key": str(uuid.uuid4())},
     json={"prompt": "A ceramic blue mug on a plain background",
-          "model": "nano-banana-2", "aspectRatio": "1:1", "count": 1},
+          "model": "nano-banana-2", "aspectRatio": "1:1", "count": 1, "async": True},
 )
 response.raise_for_status()
 job = response.json()
-while job["status"] in ("created", "running"):
+while job["status"] in ("created", "started"):
     time.sleep(2)
     response = client.get(f"/jobs/{job['jobId']}")
     response.raise_for_status()
     job = response.json()
 if job["status"] != "completed":
     raise RuntimeError(job.get("error", job["status"]))
-image_bytes = base64.b64decode(job["media"][0]["image"]["generatedImage"]["encodedImage"])
-image_id = job["media"][0]["mediaGenerationId"]
+result = job.get("response", job)
+image_bytes = base64.b64decode(result["media"][0]["image"]["generatedImage"]["encodedImage"])
+image_id = result["media"][0]["mediaGenerationId"]
 upscale = client.post("/images/upscale", json={"mediaGenerationId": image_id,
-                                              "resolution": "2k"})
+                                              "resolution": "2k", "async": True})
 upscale.raise_for_status()
 # Poll this job with the same loop before decoding the native upscale bytes.
 ```
@@ -155,11 +161,9 @@ without a shell.
 
 Image requests accept a native integer `seed` with room for `count` consecutive
 seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only supplied-token rewriting and provider configuration are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
-unverified. `captchaOrder` and `captchaRetry` return501 before queueing because the
-native action remains unmeasured. Provider keys alone do not enable generation.
+unverified. `captchaOrder` and `captchaRetry` return501 before queueing because replacement-token acceptance remains unverified despite measured native action metadata. Provider keys alone do not enable generation.
 
-Still unsupported: automatic image aspect, inline grounding/entity/audio controls,
-character generation binding, custom voice creation, exact useapi deletion/full library sync,
+Image Auto aspect uses a labelled first-reference approximation. Image canonical slot plans and native weighted character preflight are implemented in the isolated expansion, with live positional acceptance proof tracked separately. Still unsupported: canonical video positional grounding/audio controls, rendered character voice application, custom voice creation, exact useapi deletion/full library sync,
 video extension/V2V and video CAPTCHA overrides. Unknown controls return501.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
@@ -300,3 +304,8 @@ For CLI/MCP native project inventory and character mirrors, see the
 [surface matrix](SURFACE_MATRIX.md). For preserved outputs after a failed download,
 see [image recovery](IMAGE_RECOVERY.md): inspect known native IDs/completed files
 before deciding on another generation submission.
+
+Account cookie import is implemented with staged identity/access verification; a
+rejected clone was safely refused. A successful live imported-session proof is
+pending. Cookies/session values are intentionally never returned. Read the
+[cookie import guide](COOKIE_IMPORT.md) for accepted table fields and rollback.

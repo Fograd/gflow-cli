@@ -18,6 +18,7 @@ from rich.table import Table
 
 from gflow_cli import __version__, profile_store
 from gflow_cli import auth as auth_mod
+from gflow_cli.cli_auth_import import import_cookies as _auth_import_command
 from gflow_cli.cli_character import character as _character_group
 from gflow_cli.cli_credits import credits as _credits_group
 from gflow_cli.cli_data import data as _data_group
@@ -248,6 +249,9 @@ def _maybe_rename_first_profile(
             "keeping name [bold]default[/bold].[/dim]",
         )
     return profiles
+
+
+auth.add_command(_auth_import_command)
 
 
 @auth.command("login")

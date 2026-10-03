@@ -17,3 +17,7 @@ This fork adds an HTTP API and native image/video export adapters to upstream gf
 | [Deployment sample](../../deploy/selfhost/README.md) | Service unit and operator environment file layout |
 
 For upstream CLI/MCP features, see [the upstream documentation index](../INDEX.md). Runtime capability discovery and OpenAPI are authenticated; API availability does not imply that every Google operation has been live verified.
+
+- [HTTP job semantics](HTTP_JOB_SEMANTICS.md): async, bounded synchronous waiting, polling and callback projection.
+
+- [Private session import](COOKIE_IMPORT.md): accepted DevTools table subset, staged profile verification and privacy boundaries.

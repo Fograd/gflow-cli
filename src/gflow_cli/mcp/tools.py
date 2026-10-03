@@ -779,8 +779,8 @@ def _build_video_media_inputs(
         "@Name; reference an arbitrary one-off image via reference_images. See "
         "docs/REFERENCE_STRATEGIES.md. "
         "On accounts served from flow.google.com, use an existing project and local "
-        "reference files; UUID/entity references and image4 are not ported to that "
-        "composer yet and fail before submit; retrying will not clear it. "
+        "reference files and owned image/entity references with fresh weighted preflight. "
+        "Image4 is refused before submit on that composer; retrying will not clear it. "
         "Returns local file paths to the generated images."
     ),
 )
@@ -792,6 +792,7 @@ async def gflow_generate_image(
     count: int = 1,
     seed: int | None = None,
     reference_images: list[str] | None = None,
+    reference_syntax: str = "names",
     reference_entities: list[str] | None = None,
     reference_entity_names: list[str] | None = None,
     tools: list[dict[str, Any]] | None = None,
@@ -819,6 +820,9 @@ async def gflow_generate_image(
             host/transport paths reject before submission; identical pixels are not guaranteed.
         reference_images: Optional list of reference images for image-to-image generation.
             Can be local file paths or UUIDs of previously uploaded assets.
+        reference_syntax: names preserves saved @AssetName expansion (default).
+            slots uses ordered @reference_N/@character_N, leaves unknown literals
+            unchanged and requires native positional materialization.
         reference_entities: Saved Flow CHARACTER entity **ids** to attach
             (mirrors the CLI ``--reference-entity``). Same wire as an ``@Name``
             mention (``referenceEntities``) and dedupes against it; use ids when
@@ -854,6 +858,31 @@ async def gflow_generate_image(
         Dict with 'status', 'files' (list of local file paths), and metadata.
         On failure, 'status' is 'failed' or 'error' with an RFC 9457 'error' dict.
     """
+    if reference_syntax not in {"names", "slots"}:
+        return _bad_param("Invalid reference syntax", "reference_syntax must be names or slots")
+    if reference_syntax == "slots":
+        from gflow_cli.worker.codec import build_image_request
+
+        preflight_refs: dict[str, Any] = {"refs": [], "ref_paths": []}
+        if reference_images:
+            resolved_refs, error = _resolve_image_references(reference_images)
+            if error is not None:
+                return error
+            assert resolved_refs is not None
+            preflight_refs = resolved_refs
+        try:
+            build_image_request(
+                {
+                    "prompt": prompt,
+                    "model": model,
+                    "count": count,
+                    "reference_entities": reference_entities or [],
+                    "reference_syntax": "slots",
+                    **preflight_refs,
+                }
+            )
+        except (ValueError, TypeError) as exc:
+            return _bad_param("Invalid image reference slots", str(exc))
     if seed is not None:
         try:
             GenerateImageRequest(prompt=prompt, count=count, seed=seed)
@@ -907,6 +936,8 @@ async def gflow_generate_image(
         "aspect": aspect,
         "count": count,
     }
+    if reference_syntax == "slots":
+        payload["reference_syntax"] = reference_syntax
     if instructions:
         payload["instructions"] = list(instructions)
     if ui_mode is not None:
@@ -1529,22 +1560,50 @@ async def gflow_character_list(
 @server.tool(
     name="gflow_character_voices",
     description=(
-        "List the preset voices available for a Flow Character's TTS. Static lookup — "
-        "no network, no browser, no cost. Call it before creating a character to choose "
+        "List system preset voices. Default bundled lookup is offline; catalog google requires "
+        "an owned project and opens a read-only browser session without generation. Choose "
         "a valid voice name."
     ),
 )
 @_guarded
-async def gflow_character_voices() -> dict[str, Any]:
+async def gflow_character_voices(
+    catalog: str = "bundled", project: str | None = None, profile: str = "default"
+) -> dict[str, Any]:
     """List preset Character TTS voices.
 
     Reads the in-process ``VOICES`` table, so unlike the other character tools it
-    opens no Flow session and needs no profile.
+    opens no Flow session and needs no profile by default. Explicit catalog=google
+    requires a project UUID and reads native system presets through the browser.
+
+    Args:
+        catalog: bundled stays offline; google reads native system presets.
+        project: Required native project UUID for catalog google.
+        profile: Profile owning the selected native project.
 
     Returns:
-        ``{"status": "ok", "voices": [{"name", "description", "sample_url"}], "count": N}``
+        Voice name/description/public sample URL and count. Native results also
+        identify project_id, catalog, scope, returned_count and complete=None.
     """
     from gflow_cli.api.character import VOICES
+
+    if catalog not in {"bundled", "google"}:
+        return _bad_param("Invalid voice catalog", "catalog must be bundled or google")
+    if catalog == "google":
+        if not is_uuid(project):
+            return _bad_param("Invalid native project", "Native project identifier must be a UUID")
+        assert project is not None
+        resolved = _resolve_and_validate_profile(profile)
+        if isinstance(resolved, dict):
+            return resolved
+        settings = get_settings()
+        async with _profile_lock(resolved):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                snapshot = await client.list_native_voices(project)
+        return {"status": "ok", "count": snapshot["returned_count"], **snapshot}
+    if project is not None:
+        return _bad_param("Invalid voice catalog controls", "project requires catalog google")
 
     return {
         "status": "ok",

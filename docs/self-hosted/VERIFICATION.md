@@ -186,3 +186,58 @@ generation or solver task. Full useapi parity remains open in the compatibility
 inventory; accepted CapSolver generation is still guarded.
 
 Authenticated deployed REST capability discovery passed (401 without bearer,200 with bearer). The restarted Streamable HTTP MCP service exposed22tools, including native create/update/remove and project/media tools, through actual protocol initialization/listing. No generation tool was called during registration verification.
+
+
+## Isolated reference expansion: measured checkpoint
+
+The native SDK canonical image BDD passed one case in 104.75 seconds: original literal spans, repeated media chip positions, one owned character, deduplicated vectors and fresh weighted ownership checks. Exactly one dispatch produced a square 1024×1024 JPEG of 270277 bytes. The owned character fixture was removed. The abort-only guard proof passed separately; no broad video positional-grounding claim follows.
+
+A separate free sequential SDK/CLI/registered-MCP native voice discovery proof passed in 27.05 seconds. All three surfaces returned the same 30 preset names and unknown completeness. It performed no generation and no mutation. This verifies dynamic preset discovery, not rendered voice application.
+
+Offline parser, weighted preflight, slot codec, CLI/MCP, voice and HTTP boundary checks passed 81 cases in 19.66 seconds. A broader HTTP server/reference check passed 97 cases in 3.72 seconds; duplicate logical body aliases and typed aspect mapping were then verified by 11 focused tests. Generated skill and website mirrors, published PII checks and 219 tracked-document links passed. Full checkpoint regression is recorded by the coordinator after all source is frozen.
+
+## Restored session and queued health proof — 2026-10-03
+
+Google required a human identity challenge while the saved account remained
+available. The cause was not established. After the user completed it in the
+original hosted profile, repeated context closures/reopenings preserved actual
+project access. The canonical image BDD passed with one accepted image as
+recorded above; no repeated login was needed during subsequent free voice reads.
+
+The new health helper returned OK/project_access_verified with profilePreserved
+true and refreshAttempted false. An isolated real HTTP queue service on CC LXC
+then passed unauthenticated401, asynchronous201 and completed project-access
+verification. It used the existing account and generated nothing. This is actual
+HTTP/worker/native proof; production-service smoke verification is separate.
+Cookie transfer acceptance and permanent prevention of Google's identity checks
+are not established by these results.
+
+## Canonical reference and session-health publication gate — 2026-10-03
+
+Final frozen-source offline regression: **5,495 passed, 28 skipped, 15 warnings;
+90.62% code coverage**, in **238.49 seconds**. Coverage measures code exercise,
+not generation success or useapi parity. Whole-tree Ruff check/format left 628
+files unchanged; strict Pyright reported zero errors. Hygiene, 219-file links,
+26-file published privacy guard, 21-file website mirror/navigation and council
+memory checks passed. The staged private-value scan found zero matches.
+
+Independent reviews covered the pinned staged tree and final corrections.
+They found and fixed importer FIFO blocking/engine mismatch and cleanup safety,
+HTTP alias-to-aspect translation, repeated logical-reference aliases, error
+taxonomy test construction, and project loss after an interrupted image
+submission. Six additional URL-change/closed-page fault cases preserve the pinned
+project and known handles; cancellation remains cancellation. No HTTP ownership
+check was loosened.
+
+Six mirror axes were reviewed: CLI/direct-MCP/queued-codec/HTTP preserve immutable
+canonical image plans; preset catalog flags match SDK/CLI/MCP; source and shipped
+agent skills and website mirrors agree; image uncertainty uses safe nonretryable
+exit40; HTTP wait defaults and capability discovery distinguish local Auto from
+native Auto; cookie secrets remain private with a justified CLI-only credential
+import surface. Successful cookie transfer and provider-token acceptance remain
+unproven. Actual CLI/MCP/HTTP canonical-image acceptance is tested separately from
+the successful SDK proof; it is not implied by this offline gate.
+
+The original hosted profile remained reusable after manual identity verification.
+The new health action is on demand and serialized, not a periodic login refresh.
+Publication and production-service smoke are recorded after deployment.

@@ -497,3 +497,14 @@ A: Handled by the browser during `auth login`. You'll do the MFA challenge once;
 
 **Q: How do I rotate a session?**
 A: Sign out of your Google account from the browser (any browser), then run `gflow auth login` again. The old cookies are now invalid; new ones replace them.
+
+## Import a private cookie table
+
+`gflow auth import-cookies --cookies-file /private/cookies.tsv --profile new-account`
+installs a staged profile and requires live identity and project-access verification
+before activation. Existing profiles are preserved. Optional `--expected-email`,
+`--project` and `--json` control the identity check and safe output. This operator
+credential operation is deliberately not exposed through MCP.
+
+The [cookie-import guide](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/COOKIE_IMPORT.md)
+specifies supported table columns, limits, activation and current live verification.

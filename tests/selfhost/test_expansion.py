@@ -50,7 +50,7 @@ def test_video_i2v_and_r2v_validation(tmp_path):
                 "async": True,
             },
         )
-        assert i2v.status_code == 200
+        assert i2v.status_code == 201
         r2v = client.post(
             "/v1/google-flow/videos",
             headers=AUTH,
@@ -61,7 +61,7 @@ def test_video_i2v_and_r2v_validation(tmp_path):
                 "async": True,
             },
         )
-        assert r2v.status_code == 200
+        assert r2v.status_code == 201
         too_many = client.post(
             "/v1/google-flow/videos",
             headers=AUTH,
@@ -193,7 +193,7 @@ def test_sync_wait_and_async_immediate(tmp_path, monkeypatch):
         response = client.post(
             "/v1/google-flow/images", headers=AUTH, json={"prompt": "x", "async": True}
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         assert response.json()["status"] == "created"
 
 
@@ -217,7 +217,7 @@ async def test_cancelled_sync_wait_keeps_idempotent_job(tmp_path):
         accepted = await client.post(
             "/v1/google-flow/images", headers=headers, json={"prompt": "x", "async": True}
         )
-        assert accepted.status_code == 200
+        assert accepted.status_code == 201
         assert len(app.state.store.jobs()) == 1
 
 
@@ -300,7 +300,7 @@ def test_captcha_token_retry_and_one_shot_ownership(tmp_path):
         payload = {"prompt": "test", "captchaToken": "a" * 30, "async": True}
         headers = {**AUTH, "Idempotency-Key": "captcha-once"}
         first = client.post("/v1/google-flow/images", headers=headers, json=payload)
-        assert first.status_code == 200
+        assert first.status_code == 201
         job_id = first.json()["jobId"]
         files = list((tmp_path / "captcha-input").glob("*.token"))
         assert len(files) == 1
@@ -311,7 +311,7 @@ def test_captcha_token_retry_and_one_shot_ownership(tmp_path):
         files[0].unlink()
         client.app.state.store.finish(job_id, "completed", {"media": []})
         replay = client.post("/v1/google-flow/images", headers=headers, json=payload)
-        assert replay.status_code == 200 and replay.json()["jobId"] == job_id
+        assert replay.status_code == 201 and replay.json()["jobId"] == job_id
         assert not list((tmp_path / "captcha-input").glob("*.token"))
         assert client.post("/v1/google-flow/images", headers=AUTH, json=payload).status_code == 409
         assert not list((tmp_path / "captcha-input").glob("*.token"))
@@ -392,7 +392,7 @@ def test_remote_archive_is_durable_and_validated(tmp_path):
         accepted = client.request(
             "DELETE", "/v1/google-flow/assets/first", headers=AUTH, json=payload
         )
-        assert accepted.status_code == 200
+        assert accepted.status_code == 201
         assert client.app.state.store.get(accepted.json()["jobId"])["status"] == "created"
         invalid = client.request(
             "DELETE",

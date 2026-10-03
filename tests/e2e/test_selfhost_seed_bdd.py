@@ -44,10 +44,10 @@ def generate(state: dict[str, Any]) -> None:
                 "async": True,
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         job = response.json()
         deadline = time.monotonic() + 240
-        while job["status"] in ("created", "running") and time.monotonic() < deadline:
+        while job["status"] in ("created", "started") and time.monotonic() < deadline:
             time.sleep(1)
             response = client.get(state["url"] + "/jobs/" + job["jobId"])
             response.raise_for_status()
@@ -58,7 +58,7 @@ def generate(state: dict[str, Any]) -> None:
 
 @then("both Google image results report the requested seed sequence")
 def verify(state: dict[str, Any]) -> None:
-    media = state["job"]["media"]
+    media = state["job"]["response"]["media"]
     assert len(media) == 2
     assert sorted(item["image"]["generatedImage"]["seed"] for item in media) == [12042, 12043]
     for item in media:

@@ -35,7 +35,7 @@
 
 This fork adds a single-user authenticated HTTP API and integrates the migrated image/video export work from [upstream PR 922](https://github.com/ffroliva/gflow-cli/pull/922), with additional validation and regression tests. Native 2K image upscaling has been verified on a Pro account through the CLI, MCP and HTTP adapter.
 
-Start with the [self-hosted documentation index](docs/self-hosted/INDEX.md), then read the [API guide](docs/self-hosted/API.md), [deployment example](deploy/selfhost/README.md) and [Google Flow compatibility inventory](docs/self-hosted/PARITY.md). The compatibility inventory distinguishes working routes, unverified adapters and unsupported controls. This fork does not yet implement every useapi feature.
+Start with the [self-hosted documentation index](docs/self-hosted/INDEX.md), then read the [API guide](docs/self-hosted/API.md), [deployment example](deploy/selfhost/README.md) and [Google Flow compatibility inventory](docs/self-hosted/PARITY.md). The compatibility inventory distinguishes working routes, unverified adapters and unsupported controls. This fork does not yet implement every useapi feature. Private CLI session import uses a staged new profile and verifies actual Flow access; see the [cookie import guide](docs/self-hosted/COOKIE_IMPORT.md).
 
 ## Why gflow-cli?
 

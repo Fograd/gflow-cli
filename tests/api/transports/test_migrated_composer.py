@@ -2961,14 +2961,35 @@ async def test_an_image_submit_missing_its_reference_is_refused_not_reported_as_
     page.scripted_request = ("ogiZ0b", '[["ogiZ0b", "NARWHAL no-reference-here"]]')
     page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
 
+    from unittest.mock import AsyncMock, MagicMock
+
+    guarded_route = MagicMock(abort=AsyncMock(), continue_=AsyncMock())
+    captured: dict[str, Any] = {}
+
+    async def register(_predicate: Any, handler: Any) -> None:
+        captured["guard"] = handler
+
+    async def click(*_: Any, **__: Any) -> None:
+        await captured["guard"](
+            guarded_route,
+            FakeRequest(_batch_url("ogiZ0b"), '[["ogiZ0b", "NARWHAL no-reference-here"]]'),
+        )
+
+    page.route = register
+    composer = MigratedComposer()
+    composer._click = click
+
     with pytest.raises(WireFormatError) as info:
-        await MigratedComposer().submit_images_and_observe(
+        await composer.submit_images_and_observe(
             page, GenerateImageRequest(prompt="a blue cup"), reference_ids=(missing,)
         )
     assert missing in str(info.value)
 
+    guarded_route.abort.assert_awaited_once()
+    guarded_route.continue_.assert_not_awaited()
 
-async def test_a_non_200_image_submit_is_a_wire_format_error_carrying_the_status() -> None:
+
+async def test_a_non_200_image_submit_is_nonretryable_unknown() -> None:
     from gflow_cli.api.image import GenerateImageRequest
     from gflow_cli.api.transports.migrated_composer import MigratedComposer
 
@@ -2976,11 +2997,13 @@ async def test_a_non_200_image_submit_is_a_wire_format_error_carrying_the_status
     page.dom.prompt = "a blue cup"
     page.scripted_responses = [(_batch_url("ogiZ0b"), "", 500)]
 
-    with pytest.raises(WireFormatError) as info:
+    from gflow_cli.errors import ImageGenerationUnknownError
+
+    with pytest.raises(ImageGenerationUnknownError) as info:
         await MigratedComposer().submit_images_and_observe(
             page, GenerateImageRequest(prompt="a blue cup")
         )
-    assert "HTTP 500" in str(info.value)
+    assert info.value.retryable is False
 
 
 async def test_an_image_reply_that_never_arrives_is_a_timeout_not_a_hang(
@@ -2995,10 +3018,13 @@ async def test_an_image_reply_that_never_arrives_is_a_timeout_not_a_hang(
     page.dom.prompt = "a blue cup"
     page.scripted_responses = []  # Flow answers nothing
 
-    with pytest.raises(TransportTimeoutError, match="ogiZ0b"):
+    from gflow_cli.errors import ImageGenerationUnknownError
+
+    with pytest.raises(ImageGenerationUnknownError) as info:
         await MigratedComposer().submit_images_and_observe(
             page, GenerateImageRequest(prompt="a blue cup")
         )
+    assert info.value.retryable is False
 
 
 # ----------------------------------------------------------------------------------
@@ -3167,3 +3193,143 @@ async def test_pre_submit_gate_refuses_blocking_overlay_before_network_observers
     assert page.dom.submit_clicked == 0
     assert page.listeners("request") == []
     assert page.listeners("response") == []
+
+
+async def test_image_cancellation_after_dispatch_preserves_framework_cancellation() -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from gflow_cli.api.image import GenerateImageRequest
+    from gflow_cli.errors import ImageGenerationUnknownError
+
+    page = FakePage()
+    page.dom.prompt = "a blue cup"
+    callbacks: dict[str, Any] = {}
+    route = MagicMock(abort=AsyncMock(), continue_=AsyncMock())
+
+    async def register(_predicate: Any, handler: Any) -> None:
+        callbacks["guard"] = handler
+
+    async def click(*_: Any, **__: Any) -> None:
+        await callbacks["guard"](route, FakeRequest(_batch_url("ogiZ0b"), "ogiZ0b NARWHAL"))
+        raise asyncio.CancelledError()
+
+    page.route = register
+    composer = migrated_composer.MigratedComposer()
+    composer._click = click
+    with pytest.raises(asyncio.CancelledError) as info:
+        await composer.submit_images_and_observe(page, GenerateImageRequest(prompt="a blue cup"))
+    context = vars(info.value)["gflow_image_generation_unknown"]
+    assert isinstance(context, ImageGenerationUnknownError)
+    assert context.retryable is False and context.phase == "image_cancelled"
+    route.continue_.assert_awaited_once()
+
+
+async def test_image_cancellation_before_dispatch_has_no_unknown_context() -> None:
+    from unittest.mock import AsyncMock
+
+    from gflow_cli.api.image import GenerateImageRequest
+
+    page = FakePage()
+    page.dom.prompt = "a blue cup"
+    composer = migrated_composer.MigratedComposer()
+    composer._click = AsyncMock(side_effect=asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError) as info:
+        await composer.submit_images_and_observe(page, GenerateImageRequest(prompt="a blue cup"))
+    assert "gflow_image_generation_unknown" not in vars(info.value)
+
+
+async def test_image_known_handles_survive_post_acknowledgement_dto_failure(monkeypatch) -> None:
+    from unittest.mock import Mock
+
+    from gflow_cli.api.image import GenerateImageRequest
+    from gflow_cli.errors import ImageGenerationUnknownError
+    from tests.api.transports.test_migrated_images import MEDIA, WORKFLOW
+
+    page = FakePage()
+    page.dom.prompt = "a blue cup"
+    page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
+    monkeypatch.setattr(
+        migrated_composer, "GeneratedImage", Mock(side_effect=ValueError("Changed DTO"))
+    )
+    with pytest.raises(ImageGenerationUnknownError) as info:
+        await migrated_composer.MigratedComposer().submit_images_and_observe(
+            page, GenerateImageRequest(prompt="a blue cup")
+        )
+    assert info.value.media_ids == (MEDIA,)
+    assert info.value.workflow_ids == (WORKFLOW,)
+    assert info.value.phase == "image_response" and info.value.retryable is False
+
+
+@pytest.mark.parametrize("url_state", ["about", "closed"])
+@pytest.mark.parametrize("failure", ["dto", "cancel", "timeout"])
+async def test_image_unknown_retains_predispatch_project_after_page_changes(
+    monkeypatch, url_state, failure
+) -> None:
+    from unittest.mock import AsyncMock, MagicMock, Mock
+
+    from gflow_cli.api.image import GenerateImageRequest
+    from gflow_cli.errors import ImageGenerationUnknownError
+    from tests.api.transports.test_migrated_images import MEDIA, WORKFLOW
+
+    project = "11111111-1111-4111-8111-111111111111"
+
+    class ClosingPage(FakePage):
+        def __getattribute__(self, name):
+            if name == "url" and object.__getattribute__(self, "__dict__").get("url_unavailable"):
+                raise RuntimeError("Page closed after dispatch")
+            return super().__getattribute__(name)
+
+    page = ClosingPage(url="https://flow.google.com/project/" + project)
+    page.dom.prompt = "a blue cup"
+    callbacks = {}
+    route = MagicMock(abort=AsyncMock(), continue_=AsyncMock())
+    original_guard = migrated_composer._guard_image_submit
+    observed_projects = []
+
+    async def guard(*args, **kwargs):
+        observed_projects.append(kwargs["project_id"])
+        return await original_guard(*args, **kwargs)
+
+    monkeypatch.setattr(migrated_composer, "_guard_image_submit", guard)
+    monkeypatch.setattr(
+        migrated_composer, "GeneratedImage", Mock(side_effect=ValueError("Changed DTO"))
+    )
+
+    async def register(_predicate, handler):
+        callbacks["guard"] = handler
+
+    async def click(*_, **__):
+        await callbacks["guard"](route, FakeRequest(_batch_url("ogiZ0b"), "ogiZ0b NARWHAL"))
+        if url_state == "closed":
+            page.url_unavailable = True
+        else:
+            page.url = "https://flow.google.com/about"
+        if failure == "timeout":
+            raise TimeoutError("Acknowledgement lost")
+        for listener in page.listeners("response"):
+            await listener(FakeResponse(_batch_url("ogiZ0b"), _image_frame()))
+        if failure == "cancel":
+            raise asyncio.CancelledError()
+
+    page.route = register
+    composer = migrated_composer.MigratedComposer()
+    composer._click = click
+    if failure == "cancel":
+        with pytest.raises(asyncio.CancelledError) as cancelled:
+            await composer.submit_images_and_observe(
+                page, GenerateImageRequest(prompt="a blue cup")
+            )
+        error = vars(cancelled.value)["gflow_image_generation_unknown"]
+    else:
+        with pytest.raises(ImageGenerationUnknownError) as unknown:
+            await composer.submit_images_and_observe(
+                page, GenerateImageRequest(prompt="a blue cup")
+            )
+        error = unknown.value
+    assert error.project_id == project
+    assert error.retryable is False
+    assert error.to_problem_details()["outcome_unknown"] is True
+    assert observed_projects == [project]
+    assert error.media_ids == (() if failure == "timeout" else (MEDIA,))
+    assert error.workflow_ids == (() if failure == "timeout" else (WORKFLOW,))
+    route.continue_.assert_awaited_once()

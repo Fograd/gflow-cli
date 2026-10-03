@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Browser-owned image generation submits once; a lost native acknowledgement
+  returns a nonretryable unknown outcome with any known media/workflow handles.
+  It never repeats the browser action automatically. Non-browser HTTP transport
+  retry behavior is unchanged.
+- Self-hosted asynchronous video requests return201 with Location. Synchronous
+  success returns200 after completion; bounded wait expiry returns408 with the
+  durable job identity and processingContinues. Job GET/callback results share
+  safe statuses, timestamps and response.media.
+
 - Native character SDK list/show/delete now use the measured migrated catalog for native profiles. Mutations have a nonretryable unknown-result error (exit 40), preserving safe draft/partial-delete identifiers for inspection.
 
 - Restored native image `--seed` for CLI t2i/i2i and retained the existing MCP seed through direct/queued execution. Returned Google seeds are checked; unsupported hosts and multi-prompt requests fail before submission. Corrected CLI handling was live-verified with one seed42 image and a valid1024×1024 download.

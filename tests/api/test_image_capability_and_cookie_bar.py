@@ -305,6 +305,9 @@ async def test_drive_never_mints_for_a_page_owning_transport():
 
     transport = _SelectorDriftImageTransport()
     client = _drive_client(transport)
+    # Give the legacy fake an observed host; unknown-host entity inputs now
+    # deliberately fail before minting or selecting a generation transport.
+    client._page = MagicMock(url="https://labs.google/fx/tools/flow")
     client._mint_recaptcha_token = AsyncMock(return_value="tok")  # type: ignore[method-assign]
 
     with pytest.raises(UiSelectorDriftError):

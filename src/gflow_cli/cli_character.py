@@ -18,6 +18,7 @@ from gflow_cli.api.character import (
     CharacterImageRequest,
 )
 from gflow_cli.api.client import FlowApiClient
+from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.config import get_settings
 from gflow_cli.data.recorder import OperationRecorder
 from gflow_cli.errors import ConfigurationError
@@ -538,9 +539,39 @@ def update(
 
 
 @character.command("voices")
+@click.option(
+    "--catalog", type=click.Choice(["bundled", "google"]), default="bundled", show_default=True
+)
+@click.option(
+    "--project", "project_id", default=None, help="Required project UUID for native Google catalog."
+)
+@click.option("--profile", default=None, help="Owning profile for native Google catalog.")
 @click.option("--json", "as_json", is_flag=True, default=False, help="Emit JSON output.")
-def voices(as_json: bool) -> None:
-    """List preset voices available for Character TTS."""
+def voices(as_json: bool, catalog: str, project_id: str | None, profile: str | None) -> None:
+    """List bundled presets offline, or explicitly read the native system catalog."""
+    if catalog == "google":
+        if not is_uuid(project_id):
+            raise click.BadParameter("Native project identifier must be a UUID")
+        assert project_id is not None
+        resolved = _resolve_profile(profile)
+        settings = get_settings()
+
+        async def execute() -> None:
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+            ) as client:
+                snapshot = await client.list_native_voices(project_id)
+            if as_json:
+                json_output.emit({"status": "ok", **snapshot})
+            else:
+                for row in snapshot["voices"]:
+                    console.print("{}  {}".format(row["name"], row["description"]), markup=False)
+                console.print(snapshot["scope"], markup=False)
+
+        run_with_handlers(execute, cli_command="character voices", as_json=as_json)
+        return
+    if project_id is not None:
+        raise click.BadParameter("--project requires --catalog google")
     if as_json:
         json_output.emit(
             {

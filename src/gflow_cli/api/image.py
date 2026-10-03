@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from gflow_cli.api.reference_markers import ResolvedReferencePrompt
     from gflow_cli.config import UiMode
     from gflow_cli.tools.invocation import AppliedTool
 
@@ -446,6 +447,9 @@ class GenerateImageRequest:
     # Optional display names paired with reference_entities (used by the UI
     # picker when an id-keyed tile can't be located by id alone).
     reference_entity_names: tuple[str, ...] = ()
+    # Canonical useapi positional plan; native transport must materialize exact spans.
+    reference_prompt_plan: ResolvedReferencePrompt | None = None
+    reference_syntax: str = "names"
     recaptcha_token: str = ""  # populated by caller right before send; "" means unminted
     # number of images to generate (1–4); UI transport uses this to set Flow's count tab
     count: int = 1
@@ -464,6 +468,8 @@ class GenerateImageRequest:
     ui_mode: UiMode | None = None
 
     def __post_init__(self) -> None:
+        if self.reference_syntax not in ("names", "slots"):
+            raise ValueError("Image reference syntax must be names or slots")
         if not self.prompt or not self.prompt.strip():
             msg = "GenerateImageRequest.prompt must be non-empty"
             raise ValueError(msg)

@@ -40,9 +40,11 @@ def test_auth_and_validation_do_not_enqueue(tmp_path):
         )
         assert (
             client.post(
-                "/v1/google-flow/images", headers=headers, json={"prompt": "--output=/etc/passwd"}
+                "/v1/google-flow/images",
+                headers=headers,
+                json={"prompt": "--output=/etc/passwd", "async": True},
             ).status_code
-            == 200
+            == 201
         )
         assert len(client.get("/v1/google-flow/jobs", headers=headers).json()["jobs"]) == 1
 
@@ -156,18 +158,26 @@ def test_malformed_types_rejected_without_internal_errors(tmp_path, body):
         assert client.post("/v1/google-flow/images", headers=AUTH, json=body).status_code == 422
 
 
-@pytest.mark.parametrize(
-    "marker",
-    ["@REFERENCE_1", "@Character_1", "@referenceImage_1", "@referenceAudio_1", "@referenceVideo_1"],
-)
-def test_unsupported_markers_rejected_before_generation(tmp_path, marker):
+@pytest.mark.parametrize("marker", ["@REFERENCE_1", "@Character_1"])
+def test_missing_reserved_markers_rejected_before_generation(tmp_path, marker):
     with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
         assert (
             client.post(
                 "/v1/google-flow/images", headers=AUTH, json={"prompt": "remake " + marker}
             ).status_code
-            == 501
+            == 400
         )
+
+
+@pytest.mark.parametrize("marker", ["@referenceImage_1", "@referenceAudio_1", "@referenceVideo_1"])
+def test_other_surface_markers_remain_literal(tmp_path, marker):
+    with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json={"prompt": "remake " + marker, "async": True},
+        )
+        assert response.status_code == 201
 
 
 def test_multi_profile_retry_keeps_original_account(tmp_path):
@@ -180,7 +190,7 @@ def test_multi_profile_retry_keeps_original_account(tmp_path):
         headers = {**AUTH, "Idempotency-Key": "stable"}
         first = client.post("/v1/google-flow/images", headers=headers, json={"prompt": "x"})
         second = client.post("/v1/google-flow/images", headers=headers, json={"prompt": "x"})
-        assert first.status_code == second.status_code == 200
+        assert first.status_code == second.status_code == 408
         assert first.json()["jobId"] == second.json()["jobId"]
         assert len(client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"]) == 1
 
@@ -209,7 +219,7 @@ def test_callbacks_persist_started_and_complete_result(tmp_path):
 
     assert [row["state"] for row in rows] == ["created", "started", "completed"]
     terminal = json.loads(rows[-1]["payload"])
-    assert terminal["media"] == result["media"]
+    assert terminal["response"]["media"] == result["media"]
     assert terminal["replyRef"] == "ref"
     assert "createdAt" in terminal and "updatedAt" in terminal
 
@@ -221,7 +231,7 @@ def test_export_credit_free_route_and_extension_refusal(tmp_path):
             headers=AUTH,
             json={"mediaGenerationId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},
         )
-        assert export.status_code == 200
+        assert export.status_code == 408
         cfg = settings(tmp_path)
         cfg.allow_video = True
         other = TestClient(create_app(cfg, start_workers=False))

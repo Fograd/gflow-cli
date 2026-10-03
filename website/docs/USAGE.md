@@ -1300,7 +1300,7 @@ ambiguous `--name` (multiple characters share it) exits with code **11**.
 ### `gflow character voices`
 
 ```text
-gflow character voices [--json]
+gflow character voices [--catalog bundled|google] [--project UUID] [--profile NAME] [--json]
 ```
 
 Lists the **30 preset Gemini voices** available for character TTS — each with a
@@ -2083,8 +2083,8 @@ shell scripts can branch on the failure mode without parsing stderr.
 | `33` | — (`gflow doctor` verdict) | Doctor found warn/fail findings — a successful diagnosis, not an error class | Review the report; see [`gflow doctor`](#gflow-doctor) |
 | `34` | `SyncPartialError`    | `gflow data sync` failed on some projects but succeeded on others — completed writes stay committed | Retryable: re-run the same command; it resumes with what is still nameless (see [`gflow data sync`](#gflow-data-sync)) |
 | `35` | `ExtendUnavailableError` | No Veo extend model is orderable for this account and aspect — the extend family is tier-gated and there is no square variant. **Never auto-retry**: a tier gate does not clear on its own. |
-| `36` | `FlowHostMigratedError` | Flow served the project from `flow.google.com` and the request could not be represented by the migrated composer, or `GFLOW_CLI_FLOW_HOST=labs.google` disabled it. Supported today: `video t2v`; local-file video i2v/r2v; `image t2i`; local-file `image i2i`; and `gflow run --config` rows referencing an earlier row (`batch:N`) or a local file. Image UUID/entity/instruction/Imagen-4 forms and `image batch` remain unsupported. Not selector drift (23) | **Not retryable.** Use one of the supported forms, or the REST surface (`gflow project list`, `gflow data …`); follow #639 for the remaining matrix |
-| `40` | `CharacterMutationUnknownError` / `CharacterBatchPartialError` | Unconfirmed native mutation, or a sequential SDK delete that completed earlier identities before a later preflight refusal; preserves operation/project, known identity and completed references | **Not retryable.** Inspect exact completed/failed identities; `failed_before_mutation: true` means the refused later identity was not written |
+| `36` | `FlowHostMigratedError` | Flow served the project from `flow.google.com` and the request could not be represented by the migrated composer, or `GFLOW_CLI_FLOW_HOST=labs.google` disabled it. Supported today: `video t2v`; local-file video i2v/r2v; `image t2i`; local-file `image i2i`; and `gflow run --config` rows referencing an earlier row (`batch:N`) or a local file. Image instructions/Imagen-4 and `image batch` remain unsupported; owned image/entity references are added in the isolated expansion with fresh native preflight and explicit slot mode. Not selector drift (23) | **Not retryable.** Use one of the supported forms, or the REST surface (`gflow project list`, `gflow data …`); follow #639 for the remaining matrix |
+| `40` | `CharacterMutationUnknownError` / `CharacterBatchPartialError` / `ImageGenerationUnknownError` | Unconfirmed native image submission/mutation, or a sequential SDK delete that completed earlier identities before a later preflight refusal; preserves operation/project, known identity and completed references | **Not retryable.** Inspect Flow and preserved media/workflow handles before regenerating an uncertain image. Inspect exact completed/failed identities; `failed_before_mutation: true` means the refused later identity was not written |
 | `37` | `InsufficientCreditsError` | The account's balance is short **for the model it asked for**, so Flow **replaced** the submit control with its `Insufficient credits warning` instead of disabling it. Short, not necessarily empty: measured 2026-09-07, an account holding **50** credits requesting `--model veo-quality` (**100**) rendered the warning. Explicitly **not** selector drift (23): reporting it as drift told users to file a frontend bug over a credit shortfall | Check the balance with `gflow credits user`, then pick a cheaper `--model` (`veo-lite` costs 10), top up, or wait for the allowance to reset. Nothing was submitted, so no credit was spent. `gflow image` draws on a separate daily quota and may still work |
 | `38` | `FlowAccountChooserError` | The post-migration hop landed on Google's account chooser and the profile's recorded account (`.gflow_account`) could not be selected automatically (row absent, click-through did not return to the editor, or `--account` mismatch) | **Not retryable**: run `gflow auth login --profile <name>` and complete the chooser manually, while signed in as the recorded account (re-run `gflow auth login` if the chooser offers a different session) |
 | `39` | `FlowAccessUnavailableError` | Flow loaded and routed to its own "you don't have access" screen (`<flow-pinhole-unavailable-screen>`): this Google account has no Flow entitlement. Detected by component, not by URL — the hop is client-side (`flow.google.com/` answers 200) and the path varies (`/unavailable`, `/u/8/unavailable`). Explicitly **not** auth expiry (3/8) and **not** selector drift (23): nothing expired and nothing drifted | **Not retryable, and signing in again cannot change it.** Flow needs an age-verified account in a supported region on a Google AI Plus/Pro/Ultra or qualifying Workspace plan — check which applies at [Google's eligibility page](https://support.google.com/flow/answer/16353333) and open https://flow.google.com in a browser on this account to confirm |
@@ -2254,8 +2254,9 @@ this does not prove rendered speech or support custom voice creation.
 
 The older `character create --face-prompt ... --body-prompt ...` command retains
 its generated-portrait workflow. Existing-image creation is a separate command.
-`character voices` displays the bundled preset catalog; it does not fetch a
-native account catalog.
+`character voices` displays the bundled preset catalog; add --catalog google --project PROJECT_UUID --profile NAME to read the
+native system preset snapshot without generation. Completeness and custom voice
+support remain unknown.
 
 These native mutations execute directly and are not queued or replayed. If
 Google acknowledges creation but a later copy/update fails, CLI exit **40** and
@@ -2292,3 +2293,44 @@ If an image download fails after Google generated outputs, inspect structured
 `imageRecovery` handles and completed paths before resubmitting. See
 [image recovery](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_RECOVERY.md) for CLI, batch, queued MCP and REST
 journals and restart behavior.
+
+### Native preset voice discovery
+
+The default character voices command reads the bundled catalog offline.
+Explicit --catalog google --project PROJECT_UUID --profile NAME --json reads
+native system presets without generation. SDK list_native_voices(project_id)
+and MCP gflow_character_voices(catalog="google", project=..., profile=...)
+use the same snapshot semantics: complete is null, returned_count describes
+this scoped system preset snapshot. Custom voice CRUD and rendered TTS are
+not implied. Offline adapter tests pass; new live CLI/MCP proof is pending.
+
+### Private session import
+
+The CLI-only auth import-cookies command accepts --cookies-file /private/cookies.tsv,
+--profile NEW_NAME, optional --expected-email EXPECTED_ACCOUNT and --project UUID,
+and --json safe metadata. It stages a new automation profile and requires actual
+Google identity and Flow access before activation; parsing a cookie table is not
+proof of authentication. Existing profiles are preserved. Keep the file private
+and never paste cookie values into command arguments or logs. See the
+[self-hosted cookie import guide](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/COOKIE_IMPORT.md).
+Use Vivaldi for personal browser setup; the current remote automation profile
+continues to use its configured headed Chrome engine.
+
+### Uncertain browser image submissions
+
+Browser-owned image generation submits once. If the native request may have
+reached Google but its response is lost, exit40 reports
+ImageGenerationUnknownError with outcome_unknown and any safely observed
+media/workflow UUIDs. A timeout does not prove Google refused the image.
+Inspect the project and recovery journal before choosing to generate again.
+Cancellation remains cancellation; internal safe context records whether a
+submission may have started. Explicit pre-dispatch refusals remain distinct.
+HTTP transports that do not submit through the browser retain their existing
+retry behavior.
+
+
+### Explicit image reference slot syntax
+
+Image CLI leaf commands accept `--reference-syntax slots`; MCP image generation accepts `reference_syntax="slots"`. The default `names` retains saved asset-name expansion. Slot mode uses ordered image and character inputs as `@reference_1..10` and `@character_1..7`, matches tokens case-insensitively, preserves repeated positions and requires matching inputs. Unknown token families and email text stay literal. Queue codecs retain and validate the immutable plan; they do not strip markers into text that appears grounded.
+
+Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite cap remains 3. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Canonical video positional syntax is not yet implemented.

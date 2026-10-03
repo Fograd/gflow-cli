@@ -2950,8 +2950,44 @@ class FlowApiClient:
             raise RuntimeError(
                 msg,
             )
+        if req.reference_prompt_plan is not None:
+            from gflow_cli.api.reference_markers import (
+                ReferenceContractError,
+                validate_image_slot_plan,
+            )
+
+            if not self._uses_native_characters():
+                raise ConfigurationError(
+                    detail="Canonical image slot mode requires the measured native Flow host"
+                )
+            try:
+                req = validate_image_slot_plan(req)
+            except ReferenceContractError as exc:
+                raise ConfigurationError(detail=str(exc)) from exc
+        reference_plan = req.reference_prompt_plan
+        if req.reference_entities or (
+            reference_plan is not None
+            and (reference_plan.image_ids or reference_plan.character_ids)
+        ):
+            native = self._uses_native_characters()
+            if not native:
+                selected_host = getattr(getattr(self, "settings", None), "flow_host", "auto")
+                observed_host = flow_host_kind(getattr(getattr(self, "_page", None), "url", None))
+                if selected_host != "labs.google" and observed_host != "labs":
+                    raise ConfigurationError(
+                        detail=(
+                            "Character image references require a known Flow host. "
+                            "Run a read-only session probe or select the correct "
+                            "GFLOW_CLI_FLOW_HOST before submitting."
+                        )
+                    )
+            else:
+                from gflow_cli.api.native_image_references import validate_native_image_references
+
+                req = await validate_native_image_references(self, project_id, req)
         page_owned = getattr(self.transport, "uses_page_owned_image_recaptcha", None)
-        if callable(page_owned) and page_owned():
+        owns_page_submit = callable(page_owned) and page_owned()
+        if owns_page_submit:
             # #891: a transport that drives Flow's own page never reads
             # `recaptcha_token` -- the page mints its own on click -- so a client
             # mint here is dead weight at best. At worst it runs on whatever page the
@@ -2970,13 +3006,23 @@ class FlowApiClient:
             {} if name_resolver is None else {"name_resolver": name_resolver}
         )
         images: list[GeneratedImage] = []
-        async for retrying in post_with_retry():
-            with retrying:
-                images = await self.transport.generate_images(
-                    project_id=project_id,
-                    request=req_with_token,
-                    **resolver_kw,
-                )
+        if owns_page_submit:
+            # Flow's browser action can already have been accepted when an
+            # acknowledgement is lost. Repeating the UI action can bill twice.
+            # The transport records definitive refusal or typed unknown outcome.
+            images = await self.transport.generate_images(
+                project_id=project_id,
+                request=req_with_token,
+                **resolver_kw,
+            )
+        else:
+            async for retrying in post_with_retry():
+                with retrying:
+                    images = await self.transport.generate_images(
+                        project_id=project_id,
+                        request=req_with_token,
+                        **resolver_kw,
+                    )
         if not images:
             raise ContentPolicyError(
                 detail="empty media[]",
@@ -3244,7 +3290,7 @@ class FlowApiClient:
         settings = getattr(self, "settings", None)
         return getattr(settings, "flow_host", "auto") == "flow.google.com" or (
             getattr(settings, "flow_host", "auto") != "labs.google"
-            and flow_host_kind(getattr(self._page, "url", None)) == "migrated"
+            and flow_host_kind(getattr(getattr(self, "_page", None), "url", None)) == "migrated"
         )
 
     async def create_character_from_images(
@@ -3374,6 +3420,12 @@ class FlowApiClient:
         from gflow_cli.api.native_catalogs import media_snapshot
 
         return await media_snapshot(self, project_id)
+
+    async def list_native_voices(self, project_id: str) -> dict[str, Any]:
+        """Read measured native system presets; bundled static defaults remain separate."""
+        from gflow_cli.api.native_catalogs import voices_snapshot
+
+        return await voices_snapshot(self, project_id)
 
     async def fetch_project_listing(self, project_id: str) -> JsonObject:
         """Fetch the raw ``flow.projectInitialData`` listing for *project_id*.

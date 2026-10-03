@@ -96,6 +96,47 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
     payload = json.loads(job["payload"])
     profile = job["profile"]
     project = payload["project"]
+    if job["kind"] == "accounts/health":
+        from gflow_cli.api._engine import CONTEXT_TEARDOWN_TIMEOUT_S, DRIVER_STOP_TIMEOUT_S
+        from gflow_cli.selfhost.session_health import (
+            HEALTH_TIMEOUT,
+            health_observation,
+            public_health_observation,
+        )
+
+        try:
+            code, raw = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.native_worker",
+                    "session-health",
+                    profile,
+                    json.dumps({"project_id": project}),
+                ],
+                min(
+                    cfg.timeout,
+                    int(
+                        HEALTH_TIMEOUT + 2 * CONTEXT_TEARDOWN_TIMEOUT_S + DRIVER_STOP_TIMEOUT_S + 15
+                    ),
+                ),
+            )
+            if code or len(raw) > 65536:
+                return {"projectId": project, "sessionHealth": health_observation()}
+            native = parse_json_output(raw)
+            observation = (
+                public_health_observation(native.get("sessionHealth"))
+                if native.get("status") == "ok"
+                else health_observation()
+            )
+            return {"projectId": project, "sessionHealth": observation}
+        except TimeoutError:
+            return {
+                "projectId": project,
+                "sessionHealth": health_observation(reason="probe_timeout"),
+            }
+        except Exception:
+            return {"projectId": project, "sessionHealth": health_observation()}
     out = Path(job.get("_output") or cfg.root / "output" / job["id"])
     out.mkdir(parents=True, exist_ok=True)
     if job["kind"] == "videos" and payload.get("count", 1) > 1:
@@ -173,7 +214,11 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
     items: list[dict[str, Any]]
     refs: list[str] = []
     if kind == "images":
-        refs = [payload[f"reference_{i}"] for i in range(1, 11) if payload.get(f"reference_{i}")]
+        refs = list(
+            dict.fromkeys(
+                payload[f"reference_{i}"] for i in range(1, 11) if payload.get(f"reference_{i}")
+            )
+        )
         args = cli + [
             "image",
             "i2i" if refs else "t2i",
@@ -191,7 +236,7 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         for ref in refs:
             # Re-upload our saved bytes into the pinned project, avoiding cross-project UUID drift.
             args.extend(["--ref", str(contained_file(store.asset_get(ref)["path"], cfg.root))])
-        args.extend(["--", payload["prompt"]])
+        args.extend(["--reference-syntax", "slots", "--", payload["prompt"]])
     elif kind == "images/upscale":
         args = cli + [
             "image",
@@ -275,7 +320,14 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
         raise ValueError("Unknown queued operation")
     request_path: Path | None = None
     if kind == "images" and any(
-        key in payload for key in ("seed", "captchaSecret", "captchaOrder", "captchaRetry")
+        key in payload
+        for key in (
+            "seed",
+            "captchaSecret",
+            "captchaOrder",
+            "captchaRetry",
+            "reference_prompt_plan",
+        )
     ):
         request_path = out / "request.json"
         worker_payload = {
@@ -311,6 +363,11 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             # Import only allow-listed recovery handles/contained paths; never raw errors.
             try:
                 failure = parse_json_output(raw)
+                from gflow_cli.selfhost.unknown_image import unknown_image_result
+
+                unknown = unknown_image_result(failure, code, project)
+                if unknown is not None:
+                    return store.checkpoint_image_unknown(job["id"], unknown)
                 records = failure.get("error", {}).get("imageRecovery", {}).get("images", [])
                 if isinstance(records, list) and 1 <= len(cast(list[Any], records)) <= 4:
                     safe: list[dict[str, Any]] = []
