@@ -432,3 +432,34 @@ The final changed HTTP/MCP/worker domains and mirror regression returned
 **770passed in44.06seconds** after the review corrections. Whole-tree Ruff,
 format verification and strict Pyright were clean on those final source changes.
 No accepted video/TTS output or full vendor parity is inferred from these gates.
+
+## Native feature publication and production smoke
+
+Feature source357f5e56 was atomically published to the fork's develop,
+feature/self-hosted-flow-api and feature/useapi-parity-2026-10-03 branches.
+All three remote references were independently checked. CC LXC production source
+fast-forwarded cleanly with empty accepted/running REST and pending/processing
+MCP queues. Locked dependencies synchronized and API/MCP restarted active.
+The existing profile and private provider keys were preserved.
+
+The production video API was explicitly enabled behind its existing bearer
+authentication. Unauthenticated REST capabilities returned401; authenticated
+capabilities returned200/videoEnabled=true, account and provider configuration
+reads returned200, and native extension discovery returned5models. Saved-user
+voice inventory returned200 with0voices. Actual production Streamable HTTP MCP
+registered35tools, including all new generation and selected-delete tools.
+These deployment probes generated no media and created no provider tasks.
+
+A first production probe mistakenly targeted loopback despite the configured LAN
+listener and failed at connection before any request. The corrected probe used
+the existing LAN binding. Temporary staging API/MCP services were then stopped;
+the production API, MCP and CapSolver key GUI remain active.
+
+Council review closed the public voice identity and uncertainty defects at
+357f5e56. Correctness, tests, CLI/surface parity, security and documentation found
+no remaining concrete publication blocker. Live acceptance remains conditional:
+Google refused video/TTS, and the Auto CLI composer gate failed. The external
+acceptance warning is retained rather than described as a green rendered-output
+proof. Private memory-history review was limited; source/public evidence and the
+mechanical public memory gate were checked. Publishing adapters does not establish
+complete useapi parity or acceptance across three accounts.
