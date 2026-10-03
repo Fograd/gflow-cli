@@ -150,8 +150,9 @@ async def test_dispatch_once_correlates_assigned_ids(monkeypatch):
         end_frame=120,
         on_started=checkpoint,
     )
-    assert result == S
-    checkpoint.assert_awaited_once_with(S)
+    assert result.media_ids == S.media_ids
+    assert result.end_frame == 120
+    checkpoint.assert_awaited_once_with(result)
     page.evaluate.assert_awaited_once()
     assert page.evaluate.call_args.args[1]["rpc"] == "jIps6"
     client._checkin_page.assert_called_once_with(page)

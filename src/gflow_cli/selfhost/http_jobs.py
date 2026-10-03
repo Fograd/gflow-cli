@@ -275,6 +275,18 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
         value = result.get(key)
         if type(value) is int and value >= 0:
             safe[key] = value
+    if kind == "videos/edit":
+        start, end = result.get("startFrameIndex"), result.get("endFrameIndex")
+        if type(start) is int and type(end) is int and 0 <= start < end <= 240:
+            safe.update(startFrameIndex=start, endFrameIndex=end)
+            measured = result.get("sourceDurationSeconds")
+            if (
+                isinstance(measured, (int, float))
+                and not isinstance(measured, bool)
+                and 0 < measured <= 315_576_000
+                and math.isfinite(measured)
+            ):
+                safe["sourceDurationSeconds"] = measured
     ids = result.get("knownMediaGenerationIds")
     if isinstance(ids, list):
         safe["knownMediaGenerationIds"] = [

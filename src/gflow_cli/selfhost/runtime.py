@@ -349,6 +349,15 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             ),
             "media": media_rows,
             "completedCount": len(media_rows),
+            **(
+                {
+                    key: result[key]
+                    for key in ("startFrameIndex", "endFrameIndex", "sourceDurationSeconds")
+                    if key in result
+                }
+                if editing
+                else {}
+            ),
         }
     if job["kind"] in {"assets/archive", "assets/delete"}:
         deleting = job["kind"] == "assets/delete"

@@ -127,7 +127,15 @@ if TYPE_CHECKING:
 
     from _typeshed import DataclassInstance
 
-    from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef, ProjectBrief
+    from gflow_cli.api.image import (
+        AgentInstruction,
+        Aspect,
+        GenerateImageRequest,
+        ImageRef,
+        ProjectBrief,
+    )
+    from gflow_cli.api.image_aspect_policy import ImageAspectDecision
+    from gflow_cli.api.native_video_edit import NativeVideoEditStarted
     from gflow_cli.api.video import (
         GenerateVideoRequest,
         VideoResult,
@@ -3499,13 +3507,13 @@ class FlowApiClient:
         media_id: str,
         prompt: str,
         model_key: str,
-        end_frame: int,
+        end_frame: int | None = None,
         start_frame: int = 0,
         image_ids: tuple[str, ...] = (),
         audio_ids: tuple[str, ...] = (),
         on_started: Any = None,
-    ) -> Any:
-        """One source-derived native edit; explicit end required, no automatic replay."""
+    ) -> NativeVideoEditStarted:
+        """One source-derived native edit; omitted end uses measured duration, no replay."""
         from gflow_cli.api.native_video_edit import edit_native_video
 
         return await edit_native_video(
@@ -3579,6 +3587,14 @@ class FlowApiClient:
         from gflow_cli.api.native_reference_video import list_native_reference_models
 
         return await list_native_reference_models(self, project_id, with_audio=with_audio)
+
+    async def resolve_native_image_aspect(
+        self, project_id: str, media_id: str
+    ) -> tuple[Aspect, ImageAspectDecision]:
+        """Read selected-project image dimensions for the shared Auto approximation."""
+        from gflow_cli.services.image_aspect import resolve_native_image_aspect
+
+        return await resolve_native_image_aspect(self, project_id, media_id)
 
     async def list_native_projects(self, cursor: str | None = None) -> dict[str, Any]:
         """Read one account project page; returned_count is not account history total."""

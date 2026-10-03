@@ -801,7 +801,8 @@ def _build_video_media_inputs(
         "docs/REFERENCE_STRATEGIES.md. "
         "On accounts served from flow.google.com, use an existing project and local "
         "reference files and owned image/entity references with fresh weighted preflight. "
-        "aspect=auto derives a nearest supported ratio from the first local PNG/JPEG. "
+        "aspect=auto derives the nearest supported ratio from the first local image or "
+        "fresh owned native image UUID dimensions in an explicit project. "
         "Image4 is refused before submit on that composer; retrying will not clear it. "
         "Returns local file paths to the generated images."
     ),
@@ -837,8 +838,9 @@ async def gflow_generate_image(
         model: Model to use — 'nano2', 'nano2-lite', 'nano-pro', or 'image4'.
         aspect: Aspect ratio — '1:1', '9:16', '16:9', '4:3', '3:4', or 'auto'.
             Auto derives the nearest supported ratio from the first local PNG/JPEG
-            reference before queueing. A UUID-first or absent reference requires
-            an explicit ratio. This is a local approximation, not Google Auto.
+            or fresh owned native image UUID dimensions before queueing. UUID refs
+            require an explicit project; absent image references refuse Auto.
+            This is a local approximation, not Google Auto.
         count: Number of images to generate (1-4).
         seed: Optional native flow.google.com seed (0 through 2147483647-count+1).
             Count outputs use seed+index; returned seeds are verified. Unsupported
@@ -885,6 +887,7 @@ async def gflow_generate_image(
     """
     aspect_metadata: dict[str, str] = {}
     requested_aspect = aspect
+    native_auto_id: str | None = None
     if aspect == "auto":
         ordered_refs: list[Path | ImageRef] = []
         if reference_images:
@@ -896,13 +899,21 @@ async def gflow_generate_image(
             ordered_refs = (
                 [ImageRef(first)] if is_media_uuid(first) else [Path(validated["ref_paths"][0])]
             )
-        try:
-            _, decision = resolve_image_aspect(aspect, ordered_refs)
-        except ConfigurationError as exc:
-            return {"status": "error", "error": _gflow_error_dict(exc)}
-        assert decision is not None
-        aspect = decision.resolved_aspect
-        aspect_metadata = aspect_decision_metadata(decision)
+        if ordered_refs and isinstance(ordered_refs[0], ImageRef):
+            if not project:
+                return _bad_param(
+                    "Native Auto requires project", "Supply the existing image project UUID"
+                )
+            native_auto_id = ordered_refs[0].name
+            aspect = "16:9"  # Internal placeholder; always resolved before queue/submit.
+        else:
+            try:
+                _, decision = resolve_image_aspect(aspect, ordered_refs)
+            except ConfigurationError as exc:
+                return {"status": "error", "error": _gflow_error_dict(exc)}
+            assert decision is not None
+            aspect = decision.resolved_aspect
+            aspect_metadata = aspect_decision_metadata(decision)
     if reference_syntax not in {"names", "slots"}:
         return _bad_param("Invalid reference syntax", "reference_syntax must be names or slots")
     if reference_syntax == "slots":
@@ -959,6 +970,16 @@ async def gflow_generate_image(
     if isinstance(resolved, dict):
         return resolved  # profile error — bail out early
     resolved_profile = resolved
+    if native_auto_id is not None:
+        assert project is not None
+        settings = get_settings()
+        async with _profile_lock(resolved_profile):
+            async with FlowApiClient(
+                profile_dir=settings.profile_subdir(resolved_profile), headless=settings.headless
+            ) as client:
+                _, decision = await client.resolve_native_image_aspect(project, native_auto_id)
+        aspect = decision.resolved_aspect
+        aspect_metadata = aspect_decision_metadata(decision)
 
     log.info(
         "mcp.tool.generate_image",
@@ -2911,7 +2932,8 @@ async def gflow_delete_native_media(
     name="gflow_edit_native_video",
     description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
     "up to5 owned image refs and3 saved TTS audio refs. Explicit native "
-    "model_key and end_frame required. Consumes video credits.",
+    "model_key required; omitted end uses measured source duration capped240 frames. "
+    "Consumes video credits.",
 )
 @_guarded
 async def gflow_edit_native_video(
@@ -2919,7 +2941,7 @@ async def gflow_edit_native_video(
     media_id: str,
     prompt: str,
     model_key: str,
-    end_frame: int,
+    end_frame: int | None = None,
     start_frame: int = 0,
     image_ref: list[str] | None = None,
     audio_ref: list[str] | None = None,
@@ -2939,7 +2961,7 @@ async def gflow_edit_native_video(
         aspect="16:9",
         token="validation-only",
         start_frame=start_frame,
-        end_frame=end_frame,
+        end_frame=end_frame if end_frame is not None else 240,
         image_ids=images,
         audio_ids=audio,
     )
@@ -2970,7 +2992,15 @@ async def gflow_edit_native_video(
             results = await _download_native_video_results(
                 client, records, target, NativeVideoEditUnknownError(started)
             )
-    return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
+    return {
+        "status": "ok",
+        "project_id": project,
+        "source_media_id": media_id,
+        "results": results,
+        "startFrameIndex": started.start_frame,
+        "endFrameIndex": started.end_frame,
+        "sourceDurationSeconds": started.source_duration_seconds,
+    }
 
 
 @server.tool(

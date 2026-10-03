@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api._engine import mint_evaluate_kwargs
@@ -42,6 +44,77 @@ class NativeVideoEditUnknownError(NativeExtensionUnknownError):
     def __init__(self, started: NativeExtensionStarted) -> None:
         super().__init__(started)
         self.route = "video.edit.native"
+
+
+@dataclass(frozen=True)
+class NativeVideoEditStarted(NativeExtensionStarted):
+    """Resolved source window; inherited recovery identities remain unchanged."""
+
+    source_duration_seconds: float | None = None
+    start_frame: int = 0
+    end_frame: int = 240
+
+
+def source_video_duration(payload: Any, project: str, media: str) -> float:
+    """Native AP: video field2 LI, field3 qx Duration; no frontend fallback."""
+    try:
+        inventory = parse_media_snapshot(payload, project)
+        if not any(
+            row["media_id"] == media and row["kind"] == "video" for row in inventory["media"]
+        ):
+            raise ValueError
+        rows = cast(list[Any], payload)[2]
+        matches = [row for row in rows if row[0] == media]
+        if len(matches) != 1:
+            raise ValueError
+        value = matches[0][7][1][2]
+        seconds = value[0]
+        nanos = value[1] if len(value) > 1 and value[1] is not None else 0
+        if not (
+            (
+                type(seconds) is int
+                or (
+                    isinstance(seconds, str)
+                    and seconds.isascii()
+                    and seconds.isdigit()
+                    and len(seconds) <= 18
+                )
+            )
+            and type(nanos) is int
+            and 0 <= nanos < 1_000_000_000
+        ):
+            raise ValueError
+        duration = int(seconds) + nanos / 1_000_000_000
+        if not math.isfinite(duration) or duration <= 0:
+            raise ValueError
+        return duration
+    except (IndexError, KeyError, TypeError, ValueError, OverflowError):
+        raise ConfigurationError(detail="Source video duration was not observed") from None
+
+
+def resolve_edit_window(duration: float | None, start: int, end: int | None) -> int:
+    """An omitted end never exceeds the measured clip or the virtual240-frame cap."""
+    if end is not None:
+        resolved = end
+    else:
+        try:
+            valid = (
+                isinstance(duration, (int, float))
+                and not isinstance(duration, bool)
+                and math.isfinite(duration)
+                and duration > 0
+            )
+        except OverflowError:
+            valid = False
+        if not valid:
+            raise ConfigurationError(detail="Default edit end requires measured source duration")
+        duration = cast(float, duration)
+        resolved = math.floor(min(duration, 10) * 24)
+    if type(start) is not int or type(resolved) is not int or not 0 <= start < resolved <= 240:
+        raise ConfigurationError(
+            detail="Edit requires a positive virtual24fps frame window in0..240"
+        )
+    return resolved
 
 
 def video_edit_args(
@@ -109,11 +182,11 @@ async def edit_native_video(
     prompt: str,
     model_key: str,
     start_frame: int = 0,
-    end_frame: int,
+    end_frame: int | None = None,
     image_ids: tuple[str, ...] = (),
     audio_ids: tuple[str, ...] = (),
     on_started: Callable[[NativeExtensionStarted], Awaitable[None]] | None = None,
-) -> NativeExtensionStarted:
+) -> NativeVideoEditStarted:
     """One source-owned edit dispatch, with preassigned recovery identities."""
     project_id, media_id = _uuid(project_id), _uuid(media_id)
     started = new_extension_started(project_id, media_id, 1)
@@ -124,7 +197,9 @@ async def edit_native_video(
         aspect="16:9",
         token="validate",
         start_frame=start_frame,
-        end_frame=end_frame,
+        end_frame=resolve_edit_window(None, start_frame, end_frame)
+        if end_frame is not None
+        else 240,
         image_ids=image_ids,
         audio_ids=audio_ids,
     )
@@ -168,6 +243,16 @@ async def edit_native_video(
         )
         if aspect is None:
             raise ConfigurationError(detail="Edit source aspect requires measured dimensions")
+        measured_duration: float | None = None
+        if end_frame is None:
+            measured_duration = source_video_duration(payload, project_id, media_id)
+        end_frame = resolve_edit_window(measured_duration, start_frame, end_frame)
+        started = NativeVideoEditStarted(
+            **vars(started),
+            source_duration_seconds=measured_duration,
+            start_frame=start_frame,
+            end_frame=end_frame,
+        )
         models = await _read_native(page, "HTrJv", [], project_id)
         credits = await _read_native(page, "nzlxg", [], project_id)
         if not isinstance(credits, list) or len(cast(list[Any], credits)) < 4:

@@ -241,7 +241,7 @@ examples, validation and recovery from partial mutations.
 
 The fork also exposes portable [native MP4 upload and reversible whole-batch archive](docs/self-hosted/NATIVE_MEDIA.md), with per-request consent and safe recovery identities. Live proof for each new adapter is recorded separately.
 
-Local-reference image Auto aspect is available in CLI and MCP; see [Auto aspect](docs/AUTO_ASPECT.md) for the approximation policy and reference limits.
+Image Auto aspect from local references or owned native image UUID dimensions is available in CLI and MCP; see [Auto aspect](docs/AUTO_ASPECT.md) for the approximation policy and reference limits.
 
 Saved speech and permanent individual-media deletion now have source-derived portable adapters. Creation is preset-based TTS rather than cloning; permanent deletion is separate from reversible batch archive. Read [saved voices](docs/self-hosted/VOICES.md) and [native media](docs/self-hosted/NATIVE_MEDIA.md) for controls and final E2E proof limits.
 

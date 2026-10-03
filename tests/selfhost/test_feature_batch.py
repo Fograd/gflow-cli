@@ -210,3 +210,26 @@ def test_reference_model_catalog_forwards_audio_filter(tmp_path, monkeypatch):
         result = client.get("/v1/google-flow/videos/reference/models?withAudio=true", headers=AUTH)
         assert result.status_code == 200, result.text
         assert result.json()["models"][0]["model_key"] == "native-key"
+
+
+def test_native_edit_omitted_end_is_deferred_to_owned_worker_metadata(tmp_path):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "model": "omni-flash",
+                "modelKey": "native-edit-key",
+                "referenceVideo_1": M,
+                "prompt": "Edit source",
+                "async": True,
+            },
+        )
+        assert response.status_code == 201, response.text
+        job = client.app.state.store.claim("pro1")
+        payload = json.loads(job["payload"])
+        assert job["kind"] == "videos/edit"
+        assert "endFrameIndex_1" not in payload
+        assert payload["startFrameIndex_1"] == 0

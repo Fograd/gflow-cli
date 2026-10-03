@@ -1752,9 +1752,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         from gflow_cli.api.native_video_edit import video_edit_args
         from gflow_cli.errors import GFlowError
 
-        if type(payload.get("endFrameIndex_1")) is not int:
-            raise HTTPException(422, "endFrameIndex_1 requires an explicit integer")
-        end_frame = cast(int, payload["endFrameIndex_1"])
+        if "endFrameIndex_1" in payload and type(payload["endFrameIndex_1"]) is not int:
+            raise HTTPException(422, "endFrameIndex_1 requires an integer when supplied")
+        end_frame = cast(int, payload.get("endFrameIndex_1", 240))
         try:
             video_edit_args(
                 new_extension_started(project, media, 1),
@@ -1770,8 +1770,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         except (ValueError, TypeError, GFlowError):
             raise HTTPException(
                 422,
-                "Omni edit requires native modelKey and explicit "
-                "endFrameIndex_1 with a valid24fps trim window",
+                "Omni edit requires native modelKey and a valid24fps trim window",
             ) from None
         payload["referenceVideo_1"] = media
         payload["imageMediaIds"], payload["audioMediaIds"] = images, audio

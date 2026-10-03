@@ -187,14 +187,18 @@ useapi composite voice IDs. Responses identify `voice`, `mediaId`, `workflowId`
 and `source: "user"`; preset metadata is returned only when known.
 
 Omni editing accepts `referenceVideo_1`, `model: "omni-flash"`, an explicit
-native `modelKey`, `startFrameIndex_1` (default0), and an explicit
+native `modelKey`, `startFrameIndex_1` (default0), and optional
 `endFrameIndex_1`. Frames use the virtual24fps contract with start0–239,
-end1–240 and end greater than start. The current fork requires explicit end
-rather than assuming the clip end. Input references are existing selected-project
+end1–240 and end greater than start. When omitted, end is derived from the measured
+owned source duration, rounded down to virtual24fps and capped at240. Missing or
+invalid duration fails before token mint/submission. Explicit end remains unchanged. Input references are existing selected-project
 media UUIDs: `referenceImage_1..5` and `referenceAudio_1..3`. Audio currently
 requires saved TTS voices; arbitrary uploaded audio is a separate gap. Count
 is1 and aspect follows the source. The SDK performs fresh native ownership checks.
-Read [video editing](../VIDEO_EDIT.md) for CLI/MCP and SDK equivalents.
+Results retain resolved `startFrameIndex` and `endFrameIndex`;
+`sourceDurationSeconds` is present when measured for an omitted end. These fields
+survive synchronous response, job polling and callbacks. Read [video editing](../VIDEO_EDIT.md)
+for CLI/MCP and SDK equivalents.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
 and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`
@@ -313,8 +317,10 @@ For two references, add `imageReference_2` to the create request. Both must belo
 ### Automatic image aspect
 
 REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP and manifest rows now support first-local-reference Auto through the same
-policy. UUID-first and text-only Auto remain unsupported; native Google Auto is
-not claimed. See [Auto aspect](../AUTO_ASPECT.md).
+policy. CLI/MCP also resolve a first native image UUID from fresh owned selected-project
+dimensions; text-only/character-only Auto refuse. REST still requires registered
+managed image assets, so unregistered native UUID lookup remains a separate gap.
+Native Google Auto is not claimed. See [Auto aspect](../AUTO_ASPECT.md).
 
 ### Historical voice transition investigation
 

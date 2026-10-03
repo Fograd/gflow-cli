@@ -1659,6 +1659,7 @@ class _I2IParams:
     seed: int | None = None
     reference_syntax: str = "names"
     aspect_decision: ImageAspectDecision | None = None
+    native_auto: bool = False
 
 
 @image.command(
@@ -1703,7 +1704,7 @@ class _I2IParams:
     default=_DEFAULT_ASPECT_RATIO,
     show_default=True,
     type=click.Choice([*_ALLOWED_ASPECT_RATIOS, "auto"]),
-    help="Image ratio; auto derives nearest supported ratio from first local reference (i2i only).",
+    help="Auto uses first local image or owned Google UUID (requires --project).",
 )
 @click.option(
     "-n",
@@ -1823,8 +1824,15 @@ def i2i(  # NOSONAR
                 reference_syntax=reference_syntax,
             )
         )
+    native_auto = (
+        aspect == "auto" and bool(classified_refs) and isinstance(classified_refs[0], ImageRef)
+    )
+    if native_auto and not project_id:
+        raise click.UsageError("Auto with a Google image UUID requires --project")
     try:
-        resolved_aspect, aspect_decision = resolve_image_aspect(aspect, classified_refs)
+        resolved_aspect, aspect_decision = resolve_image_aspect(
+            "16:9" if native_auto else aspect, classified_refs
+        )
     except ConfigurationError as exc:
         raise click.UsageError(exc.detail) from None
     profile_name = _resolve_profile(profile)
@@ -1837,6 +1845,7 @@ def i2i(  # NOSONAR
         classified_refs=classified_refs,
         aspect=resolved_aspect,
         aspect_decision=aspect_decision,
+        native_auto=native_auto,
         model=model_enum,
         reference_entities=tuple(reference_entities),
         reference_entity_names=tuple(reference_entity_names),
@@ -1900,6 +1909,14 @@ async def _run_i2i(
             project, project_created = await _resolve_project(
                 client, project_id=project_id, title=effective_title, as_json=as_json
             )
+
+            if params.native_auto:
+                first = params.classified_refs[0]
+                assert isinstance(first, ImageRef)
+                native_aspect, decision = await client.resolve_native_image_aspect(
+                    project.project_id, first.name
+                )
+                params = replace(params, aspect=native_aspect, aspect_decision=decision)
 
             # Local-file refs are attached through the editor's media dialog by the
             # ui_automation transport (the REST uploadImage path 401s — see #15/#39).

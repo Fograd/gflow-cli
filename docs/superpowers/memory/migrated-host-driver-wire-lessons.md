@@ -221,3 +221,22 @@ rounds); e2e `tests/e2e/test_migrated_host_e2e.py`. Read this before re-mining t
   three times with 0 options; the next row's fresh editor load found the same image at
   once. To reference a just-generated image, reload the editor; waiting in the page does
   not help. A reload resets the image settings, so re-apply them after it.
+
+## Owned-media defaults (2026-10-03)
+
+Image Auto is a local nearest-supported-ratio policy, not a native Google enum.
+Resolve only the first reference: bounded local PNG/JPEG bytes or fresh selected-
+project owned active typed-image dimensions. Native UUID resolution needs an
+explicit project; reject absent/malformed dimensions without falling back to
+later references. MCP resolves before direct/queued generation and retains
+requested/resolved/policy metadata. Managed REST refs still require the registry.
+
+Native edit duration uses the frontend AP video branch: video field2 LI, field3
+qx Duration (asset row[7][1][2]), seconds plus nanoseconds/1e9. Omitted end means
+min(floor(measured seconds*24),240); explicit end is preserved. Virtual24fps is
+not the clip's encoded frame rate. Never adopt the frontend fallback8/model
+duration when metadata is missing: fail before mint/submission. Resolve the frame
+window consistently on SDK/CLI/MCP/REST and expose bounded result metadata.
+The read-only image and duration BDD tests passed without generation; rendered
+acceptance remains separate. See [Auto aspect](../../AUTO_ASPECT.md) and
+[Video edit](../../VIDEO_EDIT.md).

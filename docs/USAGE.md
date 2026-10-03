@@ -2340,7 +2340,7 @@ CLI project upload-video FILE --project UUID --rights-confirmed --profile PROFIL
 
 See [native media operations](self-hosted/NATIVE_MEDIA.md) for bounds, consent and recovery.
 
-For local-reference `--aspect auto`, including `gflow run` per-row resolution, see [AUTO_ASPECT](AUTO_ASPECT.md). This resolves a nearest supported ratio locally; UUID-first and text-only Auto refuse.
+For local-reference `--aspect auto`, including `gflow run` per-row resolution, see [AUTO_ASPECT](AUTO_ASPECT.md). This resolves the nearest supported ratio from local bytes or fresh owned native image UUID dimensions with an explicit project; text-only Auto refuses.
 
 ## Saved TTS and individual media deletion
 
@@ -2348,6 +2348,6 @@ Saved speech uses voice list/show/create/rm. Creation performs one AUDIO_GENERAT
 
 Project delete-media uses repeated --media-id and --confirm-delete for permanent individual deletion. Project archive remains reversible whole-batch trash. All ownership checks precede the media-only mutation; see [native media](self-hosted/NATIVE_MEDIA.md). The owned synthetic upload/permanent-delete lifecycle passed in 28.91 seconds, preserving all original active media. Saved TTS had an initial ambiguous preview and a corrected captured preview explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no saved-audio or binding lifecycle was accepted.
 
-Native Omni edit: `video edit-models` reads available model keys; `video edit-native` edits one existing owned video slice with an explicit end frame. See [Video edit](VIDEO_EDIT.md) for optional image/audio refs and pending paid acceptance.
+Native Omni edit: `video edit-models` reads available model keys; `video edit-native` edits one existing owned video slice; omitted end uses measured source duration at virtual24fps, rounded down and capped240. See [Video edit](VIDEO_EDIT.md) for optional image/audio refs and pending paid acceptance.
 
 Native credit inspection: set `GFLOW_CLI_FLOW_HOST=flow.google.com` for CLI/MCP credit tools; [mapped fields and limits](NATIVE_CREDITS.md).

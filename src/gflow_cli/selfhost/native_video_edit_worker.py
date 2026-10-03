@@ -39,7 +39,7 @@ async def run_edit(
         aspect=payload.get("aspectRatio") or "16:9",
         token="validation",
         start_frame=payload.get("startFrameIndex_1", 0),
-        end_frame=payload["endFrameIndex_1"],
+        end_frame=payload.get("endFrameIndex_1", 240),
         image_ids=tuple(payload.get("imageMediaIds", [])),
         audio_ids=tuple(payload.get("audioMediaIds", [])),
     )
@@ -58,7 +58,7 @@ async def run_edit(
             prompt=payload["prompt"],
             model_key=payload["modelKey"],
             start_frame=payload.get("startFrameIndex_1", 0),
-            end_frame=payload["endFrameIndex_1"],
+            end_frame=payload.get("endFrameIndex_1"),
             image_ids=tuple(payload.get("imageMediaIds", [])),
             audio_ids=tuple(payload.get("audioMediaIds", [])),
             on_started=checkpoint,
@@ -82,6 +82,9 @@ async def run_edit(
             "type": "video_edit_result",
             "project_id": project,
             "source_media_id": started.source_media_id,
+            "startFrameIndex": started.start_frame,
+            "endFrameIndex": started.end_frame,
+            "sourceDurationSeconds": started.source_duration_seconds,
             "results": outputs,
         }
 

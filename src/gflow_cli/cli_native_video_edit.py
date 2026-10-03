@@ -25,7 +25,12 @@ from gflow_cli.config import get_settings
 @click.option("--prompt", required=True)
 @click.option("--model-key", required=True, help="Explicit account-native Omni edit model key.")
 @click.option("--start-frame", type=click.IntRange(0, 239), default=0)
-@click.option("--end-frame", type=click.IntRange(1, 240), required=True)
+@click.option(
+    "--end-frame",
+    type=click.IntRange(1, 240),
+    default=None,
+    help="Default: floor(source seconds ×24), capped240.",
+)
 @click.option("--image-ref", multiple=True, help="Same-project existing image UUID; up to5.")
 @click.option("--audio-ref", multiple=True, help="Same-project saved voice UUID; up to3.")
 @click.option("--profile", default=None)
@@ -37,7 +42,7 @@ def edit_native_command(
     prompt: str,
     model_key: str,
     start_frame: int,
-    end_frame: int,
+    end_frame: int | None,
     image_ref: tuple[str, ...],
     audio_ref: tuple[str, ...],
     profile: str | None,
@@ -99,6 +104,9 @@ def edit_native_command(
                     "type": "video_edit_result",
                     "project_id": project,
                     "source_media_id": media_id,
+                    "startFrameIndex": started.start_frame,
+                    "endFrameIndex": started.end_frame,
+                    "sourceDurationSeconds": started.source_duration_seconds,
                     "results": outputs,
                 }
                 if as_json:

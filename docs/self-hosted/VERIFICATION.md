@@ -463,3 +463,31 @@ acceptance warning is retained rather than described as a green rendered-output
 proof. Private memory-history review was limited; source/public evidence and the
 mechanical public memory gate were checked. Publishing adapters does not establish
 complete useapi parity or acceptance across three accounts.
+
+## Owned native image Auto sizing
+
+The read-only native UUID Auto BDD passed once in 7.68 seconds on the existing
+authenticated profile. One fresh owned typed image measured1024×1024 and resolved
+to1:1 with the same requested/resolved/policy fields. The test forbids image
+generation; no upload, mutation, CAPTCHA task or credit-consuming render was made.
+The resolver now supports CLI and direct/queued MCP before queueing, and the SDK
+helper. Managed REST images retain byte-derived sizing; unregistered remote UUID
+lookup is a separate gap. This proves sizing against real metadata, not acceptance
+of an Auto generation through the currently blocked composer.
+
+## Automatic native video edit end
+
+The read-only duration BDD passed once with two warnings in8.22seconds. Fresh
+owned typed-video metadata supplied a one-second duration; omission resolved to
+end24 at virtual24fps. No edit dispatch, download or solver call occurred.
+Source-derived duration parsing, omission through SDK/CLI/MCP/REST, explicit
+overrides, invalid-before-mint refusal and public frame-result filtering have
+focused regression coverage. This proves source-length/default-window behavior,
+not accepted edited-video rendering.
+
+The final offline suite passed5849tests with5skips and15warnings in175.56seconds,
+with88.95%coverage. Whole-tree Ruff/format and strict Pyright were clean. The first
+sweep exposed an obsolete CLI required-end test and a missing live-feature tag;
+both were corrected, including optional/explicit CLI parameter propagation.
+The duplicate-code proxy found only unchanged experimental transport duplicates.
+Public source and published-doc privacy checks found no private keys or fixtures.

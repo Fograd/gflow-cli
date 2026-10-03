@@ -63,12 +63,12 @@ and live acceptance are recorded separately in the verification ledger.
 
 | Newly wired capability | Current boundary |
 |---|---|
-| Local Auto image aspect | CLI I2I, direct/queued MCP, REST managed references and run-config rows use nearest supported ratio from first decoded local reference; requested/resolved/policy retained. UUID-first without bytes and text/character-only Auto refuse. No Google AUTO enum. |
+| Derived Auto image aspect | CLI I2I and direct/queued MCP resolve the first local reference or fresh owned native image UUID dimensions. Local run-config/REST managed references retain their decoded-byte policy. Requested/resolved/policy retained; text/character-only and unavailable native dimensions refuse. No Google AUTO enum; unregistered REST native UUID lookup remains separate. |
 | Saved TTS CRUD | SDK/CLI/MCP/REST create/list/detail/delete; project-scoped visible owned audio, unknown completeness. One preview followed by metadata saves; not voice cloning. Corrected captured TTS request Google-rejected (gRPC 7); no audio or binding lifecycle accepted. |
 | Saved-voice character binding | Fresh owned saved audio can be assigned through character create/update; metadata semantics separate from rendered speech. Final binding E2E pending. |
 | Permanent individual media removal | Explicit operation=delete removes selected owned media rather than archiving siblings. Default whole-batch archive remains reversible. Complete owned synthetic upload/delete lifecycle passed with bounded metadata polling, preserving all original active media. Already-gone semantics remain different. |
 | Standalone extension | SDK/CLI/MCP/REST identify and download independent extension outputs; available native model keys/costs discovered. Legacy scene-concatenating command remains separate. Paid acceptance pending. |
-| Omni V2V | SDK/CLI/MCP/REST edit one owned source clip, explicit native model key/end frame, inherited aspect, at most5 existing images/3 saved voices. Virtual24fps start0–239/end1–240; default clip-end decoder absent. Paid acceptance pending. |
+| Omni V2V | SDK/CLI/MCP/REST edit one owned source clip, explicit native model key, optional end frame, inherited aspect, at most5 existing images/3 saved voices. Omitted end uses measured source length at virtual24fps, rounded down/capped240; unavailable duration refuses before submission. Paid acceptance pending. |
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
@@ -96,9 +96,10 @@ Focused source/codec tests establish implementation, not Google acceptance.
   inventories and full native library synchronization. Snapshot absence is not deletion.
 - Exact already-gone individual-delete compatibility; registry/operator scope and
   native deletion acknowledgement remain distinct from useapi opaque IDs.
-- Full ten-image model budgets: the measured Lite cap stays3; native-ID Auto
-  dimensions, automatic source-duration/default V2V end resolution, and arbitrary
+- Full ten-image model budgets: the measured Lite cap stays3; arbitrary
   uploaded audio/system-preset/character inputs on the dedicated V2V form.
+  Image Auto supports owned native UUID dimensions on CLI/MCP; unregistered native
+  UUID lookup on REST and native Google Auto remain separate gaps.
 - Successful live cookie-table import and automatic refresh are not established.
   Existing saved-profile reuse/project-access health proof is an observation, not
   a login-lifetime guarantee.
@@ -163,4 +164,4 @@ The native VIDEO_GENERATION CapSolver Enterprise v3 proxyless trial solved one t
 
 Permanent individual deletion passed its owned synthetic upload→delete lifecycle: one passed and four skipped in 28.91 seconds; all original active media remained active. The corrected canonical Charon TTS preview captured one no0P6 request and was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7): one failed and four skipped in 17.93 seconds. No audio or saved-voice binding lifecycle was accepted. Extension and edit generation were not additionally billed after the same account's reference-video/TTS refusals; their live model catalogs remain the proof, with rendered acceptance unverified.
 
-The final CLI local-Auto attempt failed at shared migrated composer readiness with exit 25 (FlowAgentUiError): one failed and four skipped in 54.38 seconds, no accepted image. MCP received no additional paid retry after this shared blocker. CLI/MCP Auto remains offline-verified local aspect policy; native Google Auto is unsupported.
+The final CLI local-Auto attempt failed at shared migrated composer readiness with exit 25 (FlowAgentUiError): one failed and four skipped in 54.38 seconds, no accepted image. MCP received no additional paid retry after this shared blocker. That generation failure is historical; the later read-only native UUID sizing BDD passed in7.68seconds against a1024×1024 owned image→1:1. Rendered Auto generation acceptance remains unverified; native Google Auto is unsupported.
