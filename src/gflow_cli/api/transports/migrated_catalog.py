@@ -50,6 +50,10 @@ def parse_native_characters(payload: Any, project_id: str) -> list[dict[str, Any
         audio: Any = info[1] if len(info) > 1 else None
         if isinstance(audio, list) and len(cast("list[Any]", audio)) == 1:
             reference: Any = cast("list[Any]", audio)[0]
+            if isinstance(reference, list) and len(cast("list[Any]", reference)) == 1:
+                media_voice: Any = cast("list[Any]", reference)[0]
+                if is_uuid(media_voice):
+                    voice = str(media_voice).lower()
             if isinstance(reference, list) and len(cast("list[Any]", reference)) == 2:
                 candidate_id: Any = cast("list[Any]", reference)[1]
                 if reference[0] is None and isinstance(candidate_id, str):

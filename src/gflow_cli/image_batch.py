@@ -8,7 +8,7 @@ import json
 import random
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +23,7 @@ from gflow_cli._cli_helpers import (
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.dto import BatchSubmissionResult, ProjectInfo
 from gflow_cli.api.image import Aspect, GenerateImageRequest, ImageRef, Model
+from gflow_cli.api.image_aspect_policy import ImageAspectDecision
 from gflow_cli.api.transports.ui_automation import UiAutomationTransport
 from gflow_cli.config import get_settings, parse_jitter_range
 from gflow_cli.data.models import OperationKind
@@ -42,6 +43,7 @@ from gflow_cli.errors import (
     MediaAttributionError,
 )
 from gflow_cli.image_recovery import ImagePartialDownloadError, download_images
+from gflow_cli.services.image_aspect import resolve_image_aspect
 from gflow_cli.storage import cloud_info_from_path
 
 if TYPE_CHECKING:
@@ -143,6 +145,7 @@ class BatchPromptItem:
     tool: AppliedTool | None = None
     ref: str | None = None
     reference_entity: str | None = None
+    aspect_decision: ImageAspectDecision | None = None
 
 
 _BATCH_REF = re.compile(r"batch:(0|[1-9][0-9]*)", re.ASCII)
@@ -366,10 +369,10 @@ def parse_batch_item_dict(p: dict[str, Any], idx: int) -> BatchPromptItem:
             msg,
         )
     aspect_ratio = p.get("aspect_ratio", DEFAULT_ASPECT_RATIO)
-    if aspect_ratio not in ALLOWED_ASPECT_RATIOS:
+    if aspect_ratio not in (*ALLOWED_ASPECT_RATIOS, "auto"):
         msg = (
             f"prompts[{idx}].aspect_ratio {aspect_ratio!r} is invalid. "
-            f"Valid: {list(ALLOWED_ASPECT_RATIOS)!r}."
+            f"Valid: {list((*ALLOWED_ASPECT_RATIOS, 'auto'))!r}."
         )
         raise ConfigurationError(
             msg,
@@ -437,10 +440,10 @@ def _validate_item_values(
     count: object,
     label: str,
 ) -> None:
-    if aspect_ratio not in ALLOWED_ASPECT_RATIOS:
+    if aspect_ratio not in (*ALLOWED_ASPECT_RATIOS, "auto"):
         msg = (
             f"{label}.aspect_ratio {aspect_ratio!r} is invalid. "
-            f"Valid: {list(ALLOWED_ASPECT_RATIOS)!r}."
+            f"Valid: {list((*ALLOWED_ASPECT_RATIOS, 'auto'))!r}."
         )
         raise ConfigurationError(
             msg,
@@ -720,6 +723,34 @@ async def run_image_batch(
         item: BatchPromptItem,
     ) -> BatchOutcome:
         parent = batch_parent(item)
+        if item.aspect_ratio == "auto":
+            prior = results.get(parent) if parent is not None else None
+            local_ref = (
+                prior.saved_paths[0]
+                if prior is not None and prior.saved_paths
+                else Path(item.ref)
+                if item.ref is not None and parent is None
+                else None
+            )
+            try:
+                _aspect, decision = resolve_image_aspect(
+                    "auto", [local_ref] if local_ref is not None else []
+                )
+                item = replace(
+                    item,
+                    aspect_ratio=decision.resolved_aspect if decision else item.aspect_ratio,
+                    aspect_decision=decision,
+                )
+            except ConfigurationError as exc:
+                outcome = BatchOutcome(
+                    index=item.index,
+                    prompt=item,
+                    status="fail",
+                    error=exc.detail,
+                    exit_code=resolve_exit_code(exc),
+                )
+                results[item.index] = outcome
+                return outcome
         reference: ImageRef | None = None
         if parent is not None:
             parent_outcome = results.get(parent)
@@ -895,10 +926,10 @@ def _tsv_parse_aspect(
 ) -> str:
     """Parse the ``aspect_ratio`` column of a TSV row, validating against the allowed set."""
     aspect_ratio = raw_aspect or default_aspect_ratio
-    if aspect_ratio not in ALLOWED_ASPECT_RATIOS:
+    if aspect_ratio not in (*ALLOWED_ASPECT_RATIOS, "auto"):
         msg = (
             f"{source_label} line {line_number}: aspect_ratio {aspect_ratio!r} invalid. "
-            f"Valid: {list(ALLOWED_ASPECT_RATIOS)!r}."
+            f"Valid: {list((*ALLOWED_ASPECT_RATIOS, 'auto'))!r}."
         )
         raise ConfigurationError(
             msg,

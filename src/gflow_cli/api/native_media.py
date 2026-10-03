@@ -63,7 +63,7 @@ def propagate_after_ack(
     error: BaseException,
     *,
     project: str,
-    operation: Literal["upload", "archive"],
+    operation: Literal["upload", "archive", "delete"],
     known: tuple[str, ...],
     pending: tuple[str, ...] = (),
 ) -> None:
@@ -182,3 +182,38 @@ def upload_snapshot_context(
                 known_media_ids=(media_id,),
             ) from None
         raise ConfigurationError(detail="Upload requires a stable bounded regular MP4") from None
+
+
+async def delete(
+    client: FlowApiClient, project_id: str, media_ids: object, confirm_delete: object = False
+) -> dict[str, Any]:
+    from gflow_cli.api.transports.native_media_delete import (
+        delete_individual_media,
+        validate_delete,
+    )
+
+    try:
+        project, identifiers = validate_delete(project_id, media_ids, confirm_delete)
+    except ValueError as error:
+        raise ConfigurationError(detail=str(error)) from None
+    _native(client)
+    page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
+    outcome: dict[str, Any] = {}
+    try:
+        try:
+            outcome = await delete_individual_media(page, project, identifiers, True)
+        finally:
+            import sys
+
+            primary = sys.exc_info()[1]
+            try:
+                client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
+            except BaseException:
+                if primary is None:
+                    raise
+                primary.add_note("Permanent media browser checkin remains incomplete")
+    except BaseException as error:
+        if outcome:
+            propagate_after_ack(error, project=project, operation="delete", known=identifiers)
+        raise
+    return outcome

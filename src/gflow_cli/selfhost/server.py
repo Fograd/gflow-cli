@@ -131,7 +131,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             path = request.url.path
             allowed: set[str] = set()
             if request.method == "GET":
-                if path == "/v1/google-flow/voices" or path.startswith("/v1/google-flow/voices/"):
+                if path == "/v1/google-flow/videos/reference/models":
+                    allowed = {"email", "projectId", "withAudio"}
+                elif path in {
+                    "/v1/google-flow/videos/extend/models",
+                    "/v1/google-flow/videos/edit/models",
+                }:
+                    allowed = {"email", "projectId"}
+                elif path == "/v1/google-flow/voices" or path.startswith("/v1/google-flow/voices/"):
                     allowed = {"email", "source", "catalog", "projectId"}
                 elif path == "/v1/google-flow/characters" or path.startswith(
                     "/v1/google-flow/characters/"
@@ -147,6 +154,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     allowed = {"raw"}
             if request.method == "DELETE" and path.startswith("/v1/google-flow/characters/"):
                 allowed = {"email", "projectId"}
+            if request.method == "DELETE" and path.startswith("/v1/google-flow/voices/"):
+                allowed = {"email", "projectId", "source", "async", "replyRef", "replyUrl"}
             if set(request.query_params) - allowed or len(
                 request.query_params.multi_items()
             ) != len(request.query_params):
@@ -647,6 +656,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/upload-mp4",
                 "assets/media-native-timeline",
                 "assets/archive-native-whole-batch",
+                "assets/delete-native-individual",
                 "assets/delete-local-cache",
                 "assets/read",
                 "assets/download",
@@ -656,6 +666,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "jobs",
                 "voices/read-system",
                 "voices/read-system-native",
+                "voices/custom-saved-tts",
                 "characters/voice-binding",
                 "characters/read-native-project",
                 "characters/create-native-image-reference",
@@ -674,15 +685,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "videos/upscale",
                 "videos/gif",
                 "videos/concatenate",
+                "videos/extend-native-discovered-model",
+                "videos/omni-native-edit",
+                "videos/omni-native-reference-audio",
             ],
             "notImplemented": [
                 "videos/seed",
                 "images/aspectRatio-auto-native",
-                "voices/custom",
                 "images/provider-captcha-generation",
                 "captcha-google-refusal-retries",
-                "videos/extend",
-                "assets/delete-native-individual",
             ],
             "localPolicies": {
                 "images/aspectRatio-auto": {
@@ -1056,7 +1067,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     ) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
-            {"mediaGenerationIds", "projectId", "localOnly", "async", "replyUrl", "replyRef"},
+            {
+                "mediaGenerationIds",
+                "projectId",
+                "localOnly",
+                "operation",
+                "async",
+                "replyUrl",
+                "replyRef",
+            },
         )
         profile = pick_account(email, [])
         if payload.get("localOnly") is not True:
@@ -1073,7 +1092,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(409, "Asset is referenced by an active job")
             payload["mediaGenerationIds"] = ids
             payload["projectId"] = project
-            return await submit(request, "assets/archive", payload, profile)
+            operation = payload.get("operation", "archive")
+            if operation not in {"archive", "delete"}:
+                raise HTTPException(422, "operation requires archive or delete")
+            return await submit(request, "assets/" + operation, payload, profile)
         ids = payload.get("mediaGenerationIds")
         if "projectId" in payload:
             if ids is not None:
@@ -1159,7 +1181,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             for voice in VOICES
         ]
 
-    async def native_catalog(request: Request, verb: str, key: str) -> dict[str, Any]:
+    async def native_catalog(
+        request: Request, verb: str, key: str, controls: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         profile = pick_account(request.query_params.get("email"), [])
         project = uuid_value(
             request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
@@ -1171,7 +1195,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "gflow_cli.selfhost.native_worker",
                 verb,
                 profile,
-                json.dumps({"project_id": project}),
+                json.dumps({"project_id": project, **(controls or {})}),
             ],
             60,
         )
@@ -1219,7 +1243,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 payload["voice"] = normalize_voice(payload["voice"])
             except ValueError:
                 raise HTTPException(
-                    422, "voice requires a known system preset; clearing is unverified"
+                    422,
+                    "voice requires a known system preset or owned saved voice UUID; "
+                    "clearing is unverified",
                 ) from None
         notes = payload.get("personalityNotes")
         if "personalityNotes" in payload and (not isinstance(notes, str) or len(notes) > 2000):
@@ -1415,10 +1441,90 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         result["characters"] = [character_item(row) for row in result["characters"]]
         return result
 
+    def saved_voice_item(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ref": row["ref"],
+            "voice": row["ref"],
+            "mediaId": row["ref"],
+            "projectId": row["project_id"],
+            "workflowId": row["workflow_id"],
+            "displayName": row["display_name"],
+            "source": "user",
+            **({"audioUrl": row["audio_url"]} if row.get("audio_url") else {}),
+            **({"baseVoice": row["preset_voice"]} if row.get("preset_voice") else {}),
+            **({"dialog": row["dialogue"]} if row.get("dialogue") else {}),
+            **({"voicePerformance": row["performance"]} if row.get("performance") else {}),
+        }
+
+    @app.post(prefix + "/voices", response_model=None)
+    async def create_voice(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
+        check_unknown(
+            payload,
+            {
+                "email",
+                "projectId",
+                "displayName",
+                "voice",
+                "dialog",
+                "performance",
+                "voicePerformance",
+                "async",
+                "replyRef",
+                "replyUrl",
+            },
+        )
+        profile, project = character_project(payload)
+        from gflow_cli.api.character import VOICE_NAMES
+
+        if payload.get("voice") not in VOICE_NAMES:
+            raise HTTPException(422, "voice must be a case-sensitive canonical system preset")
+        if "voicePerformance" in payload and "performance" in payload:
+            raise HTTPException(422, "Choose voicePerformance or performance")
+        payload["performance"] = payload.pop("voicePerformance", payload.get("performance", ""))
+        from gflow_cli.api.transports.native_voices import preview_payload
+
+        try:
+            preview_payload(
+                project,
+                preset=payload.get("voice", ""),
+                dialogue=payload.get("dialog", ""),
+                performance=payload.get("performance", ""),
+                display_name=payload.get("displayName", ""),
+                captcha_token="validation-only",
+            )
+        except (ValueError, TypeError):
+            raise HTTPException(
+                422,
+                "Voice requires a known preset, displayName 1..200, "
+                "dialog and performance 1..120 characters",
+            ) from None
+        return await submit(request, "voices/create", payload, profile)
+
+    @app.delete(prefix + "/voices/{ref}", response_model=None)
+    async def delete_voice(request: Request, ref: str) -> dict[str, Any] | JSONResponse:
+        payload: dict[str, Any] = dict(request.query_params)
+        check_unknown(payload, {"email", "projectId", "async", "replyRef", "replyUrl", "source"})
+        if payload.pop("source", "user") not in {"custom", "user"}:
+            raise HTTPException(422, "Only a saved custom voice can be deleted")
+        asynchronous = payload.pop("async", "false")
+        if asynchronous not in ("true", "false"):
+            raise HTTPException(422, "async must be true or false")
+        payload["async"] = asynchronous == "true"
+        profile, project = character_project(payload)
+        payload["projectId"], payload["ref"] = project, uuid_value(ref, "ref")
+        return await submit(request, "voices/delete", payload, profile)
+
     @app.get(prefix + "/voices")
     async def voices(request: Request) -> dict[str, Any]:
-        if request.query_params.get("source", "system") != "system":
-            feature_missing("custom voices")
+        source = request.query_params.get("source", "system")
+        if source in {"custom", "user"}:
+            result = await native_catalog(request, "voice-saved-list", "voices")
+            result["voices"] = [saved_voice_item(row) for row in result["voices"]]
+            return result
+        if source != "system":
+            raise HTTPException(422, "Voice source requires system or user")
         catalog = request.query_params.get("catalog", "bundled")
         if catalog not in ("bundled", "google"):
             raise HTTPException(422, "Voice catalog requires bundled or google")
@@ -1443,6 +1549,25 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.get(prefix + "/voices/{ref}")
     async def voice(request: Request, ref: str) -> dict[str, Any]:
+        if request.query_params.get("source", "system") in {"custom", "user"}:
+            profile, project = character_project(dict(request.query_params))
+            code, raw = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.native_worker",
+                    "voice-saved-get",
+                    profile,
+                    json.dumps({"project_id": project, "ref": uuid_value(ref, "ref")}),
+                ],
+                60,
+            )
+            if code:
+                raise HTTPException(502, "Saved voice detail unavailable")
+            result = parse_json_output(raw)
+            if result.get("status") != "ok":
+                raise HTTPException(502, "Saved voice detail unavailable")
+            return saved_voice_item(result)
         match = next(
             (
                 item
@@ -1455,11 +1580,212 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "System voice not found")
         return match
 
-    @app.post(prefix + "/videos", response_model=None)
+    @app.get(prefix + "/videos/extend/models")
+    async def extension_models(request: Request) -> dict[str, Any]:
+        return await native_catalog(request, "extension-models", "models")
+
+    @app.get(prefix + "/videos/reference/models")
+    async def reference_models(request: Request) -> dict[str, Any]:
+        with_audio = request.query_params.get("withAudio", "false")
+        if with_audio not in {"true", "false"}:
+            raise HTTPException(422, "withAudio must be true or false")
+        return await native_catalog(
+            request, "reference-models", "models", {"with_audio": with_audio == "true"}
+        )
+
+    @app.get(prefix + "/videos/edit/models")
+    async def edit_models(request: Request) -> dict[str, Any]:
+        return await native_catalog(request, "edit-models", "models")
+
     @app.post(prefix + "/videos/extend", response_model=None)
+    async def extend_video(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
+        if not cfg.allow_video:
+            raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
+        check_unknown(
+            payload,
+            {
+                "email",
+                "projectId",
+                "mediaGenerationId",
+                "prompt",
+                "modelKey",
+                "count",
+                "aspectRatio",
+                "trimStartFrame",
+                "trimEndFrame",
+                "async",
+                "replyRef",
+                "replyUrl",
+            },
+        )
+        profile, project = character_project(payload)
+        payload["mediaGenerationId"] = uuid_value(
+            payload.get("mediaGenerationId"), "mediaGenerationId"
+        )
+        from gflow_cli.api.native_extension import extension_args, new_extension_started
+        from gflow_cli.errors import GFlowError
+
+        # Validate the same exact source codec before accepting a durable job.
+        try:
+            count = payload.setdefault("count", 1)
+            if type(count) is not int or not 1 <= count <= 4:
+                raise ValueError("count")
+            extension_args(
+                new_extension_started(project, payload["mediaGenerationId"], count),
+                prompt=payload.get("prompt", ""),
+                model_key=payload.get("modelKey") or "validation-native-model",
+                aspect=payload.get("aspectRatio") or "16:9",
+                token="validation-only",
+                trim_start_frame=payload.get("trimStartFrame"),
+                trim_end_frame=payload.get("trimEndFrame"),
+            )
+        except (ValueError, TypeError, GFlowError):
+            raise HTTPException(
+                422,
+                "Extension requires source UUID, prompt, optional native "
+                "modelKey, count 1..4 and valid optional aspect/frame trims",
+            ) from None
+        return await submit(request, "videos/extend", payload, profile)
+
+    async def native_reference_video(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
+        if not cfg.allow_video:
+            raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
+        allowed = {
+            "email",
+            "projectId",
+            "prompt",
+            "model",
+            "modelKey",
+            "count",
+            "aspectRatio",
+            "duration",
+            "resolution",
+            "async",
+            "replyRef",
+            "replyUrl",
+        }
+        allowed.update(f"referenceImage_{i}" for i in range(1, 8))
+        allowed.update(f"referenceAudio_{i}" for i in range(1, 6))
+        check_unknown(payload, allowed)
+        if payload.get("model", "omni-flash") != "omni-flash":
+            raise HTTPException(422, "Audio ingredients currently require Omni Flash")
+        profile, project = character_project(payload)
+        images = [
+            uuid_value(payload[f"referenceImage_{i}"], f"referenceImage_{i}")
+            for i in range(1, 8)
+            if payload.get(f"referenceImage_{i}")
+        ]
+        audio = [
+            uuid_value(payload[f"referenceAudio_{i}"], f"referenceAudio_{i}")
+            for i in range(1, 6)
+            if payload.get(f"referenceAudio_{i}")
+        ]
+        from gflow_cli.api.native_reference_video import new_reference_started, reference_args
+        from gflow_cli.errors import GFlowError
+
+        try:
+            reference_args(
+                new_reference_started(project, payload.setdefault("count", 1)),
+                prompt=payload.get("prompt", ""),
+                image_ids=tuple(images),
+                audio_ids=tuple(audio),
+                model_key=payload.get("modelKey") or "discover-native-model",
+                aspect=payload.setdefault("aspectRatio", "16:9"),
+                resolution=payload.setdefault("resolution", "720p"),
+                token="validation-only",
+            )
+            duration = payload.get("duration")
+            if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
+                raise ValueError("duration")
+        except (ValueError, TypeError, GFlowError):
+            raise HTTPException(
+                422,
+                "Native reference video requires valid owned image/audio UUIDs "
+                "and supported count, aspect, duration/resolution controls",
+            ) from None
+        payload["referenceImageIds"], payload["referenceAudioIds"] = images, audio
+        return await submit(request, "videos/reference", payload, profile)
+
+    async def native_video_edit(
+        request: Request, payload: dict[str, Any]
+    ) -> dict[str, Any] | JSONResponse:
+        if not cfg.allow_video:
+            raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
+        allowed = {
+            "email",
+            "projectId",
+            "referenceVideo_1",
+            "prompt",
+            "model",
+            "modelKey",
+            "startFrameIndex_1",
+            "endFrameIndex_1",
+            "count",
+            "async",
+            "replyRef",
+            "replyUrl",
+        }
+        allowed.update(f"referenceImage_{i}" for i in range(1, 6))
+        allowed.update(f"referenceAudio_{i}" for i in range(1, 4))
+        check_unknown(payload, allowed)
+        if payload.get("model", "omni-flash") != "omni-flash":
+            raise HTTPException(422, "referenceVideo_1 requires Omni Flash")
+        if type(payload.get("count", 1)) is not int or payload.get("count", 1) != 1:
+            raise HTTPException(422, "Native Omni edit supports count=1")
+        profile, project = character_project(payload)
+        media = uuid_value(payload.get("referenceVideo_1"), "referenceVideo_1")
+        images = [
+            uuid_value(payload[f"referenceImage_{i}"], f"referenceImage_{i}")
+            for i in range(1, 6)
+            if payload.get(f"referenceImage_{i}")
+        ]
+        audio = [
+            uuid_value(payload[f"referenceAudio_{i}"], f"referenceAudio_{i}")
+            for i in range(1, 4)
+            if payload.get(f"referenceAudio_{i}")
+        ]
+        from gflow_cli.api.native_extension import new_extension_started
+        from gflow_cli.api.native_video_edit import video_edit_args
+        from gflow_cli.errors import GFlowError
+
+        if type(payload.get("endFrameIndex_1")) is not int:
+            raise HTTPException(422, "endFrameIndex_1 requires an explicit integer")
+        end_frame = cast(int, payload["endFrameIndex_1"])
+        try:
+            video_edit_args(
+                new_extension_started(project, media, 1),
+                prompt=payload.get("prompt", ""),
+                model_key=payload.get("modelKey", ""),
+                aspect="16:9",
+                token="validation-only",
+                start_frame=payload.setdefault("startFrameIndex_1", 0),
+                end_frame=end_frame,
+                image_ids=tuple(images),
+                audio_ids=tuple(audio),
+            )
+        except (ValueError, TypeError, GFlowError):
+            raise HTTPException(
+                422,
+                "Omni edit requires native modelKey and explicit "
+                "endFrameIndex_1 with a valid24fps trim window",
+            ) from None
+        payload["referenceVideo_1"] = media
+        payload["imageMediaIds"], payload["audioMediaIds"] = images, audio
+        return await submit(request, "videos/edit", payload, profile)
+
+    @app.post(prefix + "/videos", response_model=None)
     async def videos(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
-        if request.url.path.endswith("/extend"):
-            feature_missing("video extension result mapping")
+        if "referenceVideo_1" in payload:
+            return await native_video_edit(request, payload)
+        if any(payload.get(f"referenceAudio_{i}") for i in range(1, 6)) or (
+            payload.get("model") == "omni-flash"
+            and any(payload.get(f"referenceImage_{i}") for i in range(1, 8))
+        ):
+            return await native_reference_video(request, payload)
         if not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
         allowed = {

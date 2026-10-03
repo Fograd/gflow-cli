@@ -67,3 +67,30 @@ async def archive_media(profile: str, project: str, identifiers: tuple[str, ...]
             )
         raise
     return outcome
+
+
+async def delete_media(profile: str, project: str, identifiers: tuple[str, ...]) -> dict[str, Any]:
+    settings = get_settings()
+    from gflow_cli.api.transports.native_media_delete import validate_delete
+
+    validate_delete(project, identifiers, True)
+    outcome: dict[str, Any] = {}
+    primary: BaseException | None = None
+    try:
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(profile), headless=settings.headless
+        ) as client:
+            try:
+                outcome = await client.delete_native_media(
+                    project_id=project, media_ids=identifiers, confirm_delete=True
+                )
+            except BaseException as error:
+                primary = error
+                raise
+    except BaseException as error:
+        if primary is not None:
+            raise primary from None
+        if outcome:
+            propagate_after_ack(error, project=project, operation="delete", known=identifiers)
+        raise
+    return outcome

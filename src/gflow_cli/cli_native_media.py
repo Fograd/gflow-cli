@@ -79,3 +79,36 @@ def archive_command(
             console.print("Reversible whole-batch move to trash.", markup=False)
 
     run_with_handlers(act, cli_command="project archive", as_json=as_json)
+
+
+@click.command("delete-media")
+@click.option("--project", required=True)
+@click.option("--media-id", "media_ids", multiple=True, required=True)
+@click.option("--confirm-delete", is_flag=True)
+@click.option("--profile", default=None)
+@click.option("--json", "as_json", is_flag=True)
+def delete_media_command(
+    project: str,
+    media_ids: tuple[str, ...],
+    confirm_delete: bool,
+    profile: str | None,
+    as_json: bool,
+) -> None:
+    """Permanently delete only these owned media identities; archive is separate."""
+    from gflow_cli.api.transports.native_media_delete import validate_delete
+    from gflow_cli.services.native_media import delete_media
+
+    try:
+        project, identifiers = validate_delete(project, media_ids, confirm_delete)
+    except ValueError as error:
+        raise click.UsageError(str(error)) from None
+    resolved = _resolve_profile(profile)
+
+    async def act() -> None:
+        result = await delete_media(resolved, project, identifiers)
+        if as_json:
+            json_output.emit({"status": "ok", **result})
+        else:
+            console.print("Permanently deleted " + ", ".join(result["deleted"]), markup=False)
+
+    run_with_handlers(act, cli_command="project delete-media", as_json=as_json)

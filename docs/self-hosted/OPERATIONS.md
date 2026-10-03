@@ -148,6 +148,14 @@ After changing an environment file, restart the service so it loads the new conf
 
 Callbacks use an exact public HTTPS hostname allowlist, pinned DNS, no redirects and a durable outbox. Private LAN callbacks are currently unsupported. The outbox attempts delivery up to five times; receivers deduplicate by job ID and status. Use polling when no callback destination is available. A callback delivery failure does not repeat generation.
 
+## Preserving the saved login
+
+Keep the full original browser profile on persistent LXC storage, under the same service user and configured profile path. Normal code updates preserve it. All CLI, MCP and REST access must use the profile lease; never open a second Chrome process against that directory or kill a browser to bypass contention. Do not clear the profile, replace it with a cookie-only export, or switch its browser engine as a routine response to an access failure.
+
+The on-demand account health action verifies native project access through the serialized worker. An OK result proves access at its recorded time; it does not renew login or promise future access. A profile-busy, timeout or unknown result is not evidence of logout. See [the session health contract](SESSION_HEALTH.md) and [the measured restoration ledger](VERIFICATION.md).
+
+In the recorded incident Google requested human identity verification while the original saved account remained available. The cause was not established. Completing that challenge restored access, and repeated browser closures and reopenings reused the same login. No permanent prevention of Google identity checks has been demonstrated. If verification is requested again, complete it in the existing hosted profile, then recheck project access before resuming work. Repeated automated login attempts or periodic health reads are not a verified remedy.
+
 ## Backup and restore
 
 For a consistent backup, stop accepting new requests, wait for running jobs to finish, then stop REST/MCP and any process using the saved profiles. Back up the complete persistent gflow home, self-host queue directory and all SQLite companion WAL/SHM files if present, uploads, outputs, enabled-account environment and saved browser profiles. Back up secrets separately under equivalent access controls. Copying only `jobs.sqlite3` while it is live can miss WAL transactions.

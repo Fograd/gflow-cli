@@ -446,7 +446,9 @@ async def _run_rm(
     "--image-reference-2", default=None, help="Optional existing owned image UUID (body)."
 )
 @click.option("--personality", default=None, help="Optional notes, at most 2000 characters.")
-@click.option("--voice", default=None, help="Optional system preset voice; case-insensitive.")
+@click.option(
+    "--voice", default=None, help="Optional system preset name or owned saved audio UUID."
+)
 @click.option("--profile", default=None, help="Saved profile name.")
 @click.option("--json", "as_json", is_flag=True, help="Emit JSON output.")
 def create_from_images(
@@ -496,7 +498,9 @@ def create_from_images(
 @click.option("--id", "entity_id", required=True, help="Owned character UUID.")
 @click.option("--name", default=None, help="New display name (1–200 characters).")
 @click.option("--personality", default=None, help="New notes; empty string clears them.")
-@click.option("--voice", default=None, help="Optional system preset voice; case-insensitive.")
+@click.option(
+    "--voice", default=None, help="Optional system preset name or owned saved audio UUID."
+)
 @click.option("--profile", default=None, help="Saved profile name.")
 @click.option("--json", "as_json", is_flag=True, help="Emit JSON output.")
 def update(
@@ -508,7 +512,7 @@ def update(
     profile: str | None,
     as_json: bool,
 ) -> None:
-    """Update name, notes or a preset voice on an owned character, without generation."""
+    """Update name, notes or an owned preset/saved voice, without generation."""
     voice = _normalize_voice(voice)
     try:
         validate_update_inputs(project_id, entity_id, name, personality, voice)

@@ -360,3 +360,27 @@ Character references require one fresh native project snapshot proving the activ
 ### Native MP4 upload and reversible archive
 
 CLI project upload-video FILE --project UUID --rights-confirmed --profile PROFILE --json and project archive --project UUID --media-id UUID --confirm-archive --profile PROFILE --json perform direct native operations without generation or replay. MCP mirrors are gflow_upload_video(path, project, rights_confirmed=True, profile) and gflow_archive_media(media_ids, project, confirm_archive=True, profile). Upload snapshots a stable regular MP4 before browser creation; archive verifies every active owned batch sibling before the first write. Both require explicit per-request confirmation. Typed exit40 preserves safe known/pending media identities when a write or its cleanup is uncertain. Complete native membership is not inferred from a partial timeline.
+
+Image Auto: `image i2i --aspect auto` requires the first reference to be a local PNG/JPEG. UUID-first/text-only requests refuse. `gflow run --config` supports per-row Auto with local files or successfully downloaded `batch:N` images. This is a local nearest-supported-ratio approximation; preserve requested/resolved/policy metadata. See `docs/AUTO_ASPECT.md`.
+
+## Saved speech and permanent media deletion
+
+Use voice list/show/create/rm for saved preset-based TTS. Creation can consume credits and performs one preview plus two metadata saves without retry. voice rm requires --confirm-delete; system presets are not saved deletable voices. Read docs/self-hosted/VOICES.md.
+
+project delete-media --project UUID --media-id UUID --confirm-delete permanently targets only requested owned IDs after fresh reads. project archive remains reversible whole-batch trash. Preserve exit40 known/pending handles and inspect uncertain results before another mutation. Source-derived additions await final E2E acceptance.
+
+Native video edit: `video edit-models --project UUID` discovers account-native keys; `video edit-native SOURCE --project UUID --prompt TEXT --model-key KEY --end-frame N` submits one source-derived edit. Optional5image/3savedvoice UUID refs require active sameproject ownership. Paid acceptance remains pending; see docs/VIDEO_EDIT.md.
+
+Native standalone extension: `video extension-models --project UUID` discovers
+native keys; `video extend-native SOURCE --project UUID --prompt TEXT` supports
+optional model key, count 1–4 and frame trims. MCP twins are
+`gflow_list_extension_models` and `gflow_extend_native_video`.
+
+Native image/audio ingredients: `video reference-models --project UUID
+--with-audio` discovers current account keys and budgets; `video reference-native
+--project UUID --prompt TEXT --image-ref UUID --audio-ref UUID` uses existing
+owned IDs. At least one ingredient is required. Count 1–4; optional model key,
+aspect, duration and resolution are checked against the current catalog. MCP
+mirrors are `gflow_list_reference_video_models` and
+`gflow_generate_native_reference_video`. Paid acceptance awaits final E2E. Read
+`docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.

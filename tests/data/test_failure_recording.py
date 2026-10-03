@@ -361,6 +361,25 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
                 operation="delete",
                 character_ref="22222222-2222-4222-8222-222222222222",
             )
+        elif cls is errors_mod.NativeVideoGenerationUnknownError:
+            instance = cls(
+                project_id="00000000-0000-0000-0000-000000000001",
+                media_ids=("00000000-0000-0000-0000-000000000002",),
+                workflow_ids=("00000000-0000-0000-0000-000000000003",),
+                phase="video_submit",
+            )
+        elif cls is errors_mod.NativeExtensionUnknownError:
+            from gflow_cli.api.native_extension import new_extension_started
+
+            instance = cls(
+                new_extension_started(
+                    "11111111-1111-4111-8111-111111111111",
+                    "22222222-2222-4222-8222-222222222222",
+                    1,
+                )
+            )
+        elif cls is errors_mod.VoiceMutationUnknownError:
+            instance = cls(project_id="00000000-0000-4000-8000-000000000001", phase="preview")
         elif cls is errors_mod.NativeMediaMutationUnknownError:
             # Recovery fields are validated; arbitrary detail text is not accepted.
             instance = cls(

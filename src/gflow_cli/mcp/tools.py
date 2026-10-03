@@ -35,7 +35,7 @@ from pydantic import StrictBool
 from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.image import AgentInstruction, GenerateImageRequest
+from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
@@ -47,7 +47,7 @@ from gflow_cli.data.models import AssetKind, AssetLookup
 from gflow_cli.data.queries import list_projects
 from gflow_cli.data.repository import DataRepository, verified_local_path
 from gflow_cli.data.store import DataStore
-from gflow_cli.errors import GFlowError, is_retryable
+from gflow_cli.errors import ConfigurationError, GFlowError, is_retryable
 from gflow_cli.mcp.server import server
 from gflow_cli.profile_store import (
     NoDefaultProfileError,
@@ -57,6 +57,7 @@ from gflow_cli.profile_store import (
 from gflow_cli.project_output import local_project_payload
 from gflow_cli.services.credits import inspect_all_profiles as inspect_all_credit_profiles
 from gflow_cli.services.credits import inspect_profile as inspect_credit_profile
+from gflow_cli.services.image_aspect import aspect_decision_metadata, resolve_image_aspect
 from gflow_cli.services.media_recovery import download_media
 from gflow_cli.services.native_characters import (
     create_character_from_images as native_create_character_from_images,
@@ -464,8 +465,26 @@ async def _run_generation_task(
             file_count=len(file_paths),
         )
 
+        aspect_metadata: dict[str, str] = {}
+        checkpoint_result = (completed_task.checkpoint or {}).get("result")
+        if isinstance(checkpoint_result, dict):
+            expected = {
+                "requestedAspectRatio": "auto",
+                "resolvedAspectRatio": completed_task.payload.get("aspect"),
+                "aspectPolicy": "derived-first-reference-nearest-supported-v1",
+            }
+            if checkpoint_result == expected and expected["resolvedAspectRatio"] in {
+                "16:9",
+                "9:16",
+                "1:1",
+                "4:3",
+                "3:4",
+            }:
+                aspect_metadata = cast("dict[str, str]", expected)
+
         return {
             "status": "completed",
+            **aspect_metadata,
             "task_id": task_id,
             "flow_project_id": flow_project_id,
             "flow_media_id": completed_task.flow_media_id,
@@ -781,6 +800,7 @@ def _build_video_media_inputs(
         "docs/REFERENCE_STRATEGIES.md. "
         "On accounts served from flow.google.com, use an existing project and local "
         "reference files and owned image/entity references with fresh weighted preflight. "
+        "aspect=auto derives a nearest supported ratio from the first local PNG/JPEG. "
         "Image4 is refused before submit on that composer; retrying will not clear it. "
         "Returns local file paths to the generated images."
     ),
@@ -814,7 +834,10 @@ async def gflow_generate_image(
             ``@Name`` for a saved named asset; use ``reference_images`` for an arbitrary
             one-off image. See ``docs/REFERENCE_STRATEGIES.md``.
         model: Model to use — 'nano2', 'nano2-lite', 'nano-pro', or 'image4'.
-        aspect: Aspect ratio — '1:1', '9:16', '16:9', '4:3', '3:4'.
+        aspect: Aspect ratio — '1:1', '9:16', '16:9', '4:3', '3:4', or 'auto'.
+            Auto derives the nearest supported ratio from the first local PNG/JPEG
+            reference before queueing. A UUID-first or absent reference requires
+            an explicit ratio. This is a local approximation, not Google Auto.
         count: Number of images to generate (1-4).
         seed: Optional native flow.google.com seed (0 through 2147483647-count+1).
             Count outputs use seed+index; returned seeds are verified. Unsupported
@@ -859,6 +882,26 @@ async def gflow_generate_image(
         Dict with 'status', 'files' (list of local file paths), and metadata.
         On failure, 'status' is 'failed' or 'error' with an RFC 9457 'error' dict.
     """
+    aspect_metadata: dict[str, str] = {}
+    requested_aspect = aspect
+    if aspect == "auto":
+        ordered_refs: list[Path | ImageRef] = []
+        if reference_images:
+            validated, error = _resolve_image_references(reference_images)
+            if error is not None:
+                return error
+            assert validated is not None
+            first = reference_images[0]
+            ordered_refs = (
+                [ImageRef(first)] if is_media_uuid(first) else [Path(validated["ref_paths"][0])]
+            )
+        try:
+            _, decision = resolve_image_aspect(aspect, ordered_refs)
+        except ConfigurationError as exc:
+            return {"status": "error", "error": _gflow_error_dict(exc)}
+        assert decision is not None
+        aspect = decision.resolved_aspect
+        aspect_metadata = aspect_decision_metadata(decision)
     if reference_syntax not in {"names", "slots"}:
         return _bad_param("Invalid reference syntax", "reference_syntax must be names or slots")
     if reference_syntax == "slots":
@@ -937,6 +980,8 @@ async def gflow_generate_image(
         "aspect": aspect,
         "count": count,
     }
+    if aspect_metadata:
+        payload["aspect_decision"] = aspect_metadata
     if reference_syntax == "slots":
         payload["reference_syntax"] = reference_syntax
     if instructions:
@@ -978,11 +1023,13 @@ async def gflow_generate_image(
         wait=wait,
     )
 
+    result.update(aspect_metadata)
+
     # Annotate the result with the original request parameters for context.
     result["params"] = {
         "prompt": prompt,
         "model": model,
-        "aspect": aspect,
+        "aspect": requested_aspect,
         "count": count,
         "seed": seed,
         "reference_images": reference_images,
@@ -2604,3 +2651,414 @@ __all__ = [
     "_gflow_error_dict",
     "_run_generation_task",
 ]
+
+
+async def _saved_voice_tool(
+    operation: str, project: str, profile: str, **kwargs: Any
+) -> dict[str, Any]:
+    from gflow_cli.api.native_voices import validate_create
+    from gflow_cli.api.transports.native_voices import validate_identifier
+    from gflow_cli.services.native_voices import saved_voice_operation
+
+    try:
+        validate_identifier(project)
+        if operation in {"get", "delete"}:
+            validate_identifier(kwargs.get("voice_id"))
+        if operation == "create":
+            validate_create(
+                project,
+                kwargs["display_name"],
+                kwargs["preset_voice"],
+                kwargs["dialog"],
+                kwargs["performance"],
+            )
+        if operation == "delete" and kwargs.get("confirm_delete") is not True:
+            raise ConfigurationError(detail="Saved voice deletion requires confirm_delete=true")
+    except ValueError as exc:
+        return _bad_param("Invalid saved voice request", str(exc))
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if operation == "create" and not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    async with _profile_lock(resolved):
+        result = await saved_voice_operation(
+            profile=resolved, operation=cast(Any, operation), project_id=project, **kwargs
+        )
+    return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_list_saved_voices",
+    description="List saved TTS audio voices in an owned native Google Flow project.",
+)
+@_guarded
+async def gflow_list_saved_voices(project: str, profile: str = "default") -> dict[str, Any]:
+    return await _saved_voice_tool("list", project, profile)
+
+
+@server.tool(
+    name="gflow_get_saved_voice",
+    description="Read one saved TTS voice by owned media UUID. No generation.",
+)
+@_guarded
+async def gflow_get_saved_voice(
+    project: str, voice_id: str, profile: str = "default"
+) -> dict[str, Any]:
+    return await _saved_voice_tool("get", project, profile, voice_id=voice_id)
+
+
+@server.tool(
+    name="gflow_create_saved_voice",
+    description="Generate a TTS preview from a system preset and save a named voice. "
+    "Consumes generation credits; dialog and performance each 1..120 characters.",
+)
+@_guarded
+async def gflow_create_saved_voice(
+    project: str,
+    display_name: str,
+    preset_voice: str,
+    dialog: str,
+    performance: str,
+    profile: str = "default",
+) -> dict[str, Any]:
+    return await _saved_voice_tool(
+        "create",
+        project,
+        profile,
+        display_name=display_name,
+        preset_voice=preset_voice,
+        dialog=dialog,
+        performance=performance,
+    )
+
+
+@server.tool(
+    name="gflow_delete_saved_voice",
+    description="Permanently delete an owned saved TTS voice; requires confirm_delete=true.",
+)
+@_guarded
+async def gflow_delete_saved_voice(
+    project: str, voice_id: str, confirm_delete: StrictBool = False, profile: str = "default"
+) -> dict[str, Any]:
+    return await _saved_voice_tool(
+        "delete", project, profile, voice_id=voice_id, confirm_delete=confirm_delete
+    )
+
+
+@server.tool(
+    name="gflow_extend_native_video",
+    description="Generate standalone continuation clips from an owned native video. "
+    "Optional native model_key; otherwise selects an available low-cost model. "
+    "Count1..4; downloads MP4 outputs. "
+    "Consumes video generation credits.",
+)
+@_guarded
+async def gflow_extend_native_video(
+    project: str,
+    media_id: str,
+    prompt: str,
+    model_key: str | None = None,
+    count: int = 1,
+    aspect: str | None = None,
+    trim_start_frame: int | None = None,
+    trim_end_frame: int | None = None,
+    out_dir: str | None = None,
+    profile: str = "default",
+) -> dict[str, Any]:
+    from gflow_cli.api.native_extension import extension_args, new_extension_started
+
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
+    if type(count) is not int or not 1 <= count <= 4:
+        return _bad_param("Invalid video extension count", "count must be1..4")
+    extension_args(
+        new_extension_started(project, media_id, count),
+        prompt=prompt,
+        model_key=model_key or "validation-native-model",
+        aspect=aspect or "16:9",
+        token="validation-only",
+        trim_start_frame=trim_start_frame,
+        trim_end_frame=trim_end_frame,
+    )
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            started = await client.extend_native_video(
+                project_id=project,
+                media_id=media_id,
+                prompt=prompt,
+                model_key=model_key,
+                count=count,
+                aspect=aspect,
+                trim_start_frame=trim_start_frame,
+                trim_end_frame=trim_end_frame,
+            )
+            records = await client.wait_native_extension(started)
+            results: list[dict[str, Any]] = []
+            for record in records:
+                path = target / f"{record.media_id}.mp4"
+                if not record.video_url:
+                    raise ConfigurationError(detail="Extension video URL unavailable")
+                await client.download(record.video_url, path)
+                results.append(
+                    {
+                        "media_id": record.media_id,
+                        "workflow_id": record.workflow_id,
+                        "path": str(path),
+                        "bytes": path.stat().st_size,
+                    }
+                )
+    return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
+
+
+@server.tool(
+    name="gflow_list_extension_models",
+    description="Read available native video extension model keys and per-output credit costs.",
+)
+@_guarded
+async def gflow_list_extension_models(project: str, profile: str = "default") -> dict[str, Any]:
+    if not is_uuid(project):
+        return _bad_param("Invalid project", "project must be a UUID")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            models = await client.list_native_extension_models(project)
+    return {"status": "ok", "project_id": project, "models": models}
+
+
+@server.tool(
+    name="gflow_delete_native_media",
+    description="Permanently delete only selected owned image/video/audio media IDs. "
+    "Preserves sibling media; requires confirm_delete=true.",
+)
+@_guarded
+async def gflow_delete_native_media(
+    project: str, media_ids: list[str], confirm_delete: StrictBool = False, profile: str = "default"
+) -> dict[str, Any]:
+    from gflow_cli.api.transports.native_media_delete import validate_delete
+
+    validate_delete(project, media_ids, confirm_delete)
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            result = await client.delete_native_media(
+                project_id=project, media_ids=media_ids, confirm_delete=confirm_delete
+            )
+    return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_edit_native_video",
+    description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
+    "up to5 owned image refs and3 saved TTS audio refs. Explicit native "
+    "model_key and end_frame required. Consumes video credits.",
+)
+@_guarded
+async def gflow_edit_native_video(
+    project: str,
+    media_id: str,
+    prompt: str,
+    model_key: str,
+    end_frame: int,
+    start_frame: int = 0,
+    image_ref: list[str] | None = None,
+    audio_ref: list[str] | None = None,
+    out_dir: str | None = None,
+    profile: str = "default",
+) -> dict[str, Any]:
+    from gflow_cli.api.native_extension import new_extension_started
+    from gflow_cli.api.native_video_edit import video_edit_args
+
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
+    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    video_edit_args(
+        new_extension_started(project, media_id, 1),
+        prompt=prompt,
+        model_key=model_key,
+        aspect="16:9",
+        token="validation-only",
+        start_frame=start_frame,
+        end_frame=end_frame,
+        image_ids=images,
+        audio_ids=audio,
+    )
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            started = await client.edit_native_video(
+                project_id=project,
+                media_id=media_id,
+                prompt=prompt,
+                model_key=model_key,
+                start_frame=start_frame,
+                end_frame=end_frame,
+                image_ids=images,
+                audio_ids=audio,
+            )
+            records = await client.wait_native_video_edit(started)
+            results: list[dict[str, Any]] = []
+            for record in records:
+                if record.video_url is None:
+                    raise ConfigurationError(detail="Edited video URL unavailable")
+                path = target / f"{record.media_id}.mp4"
+                await client.download(record.video_url, path)
+                results.append(
+                    {
+                        "media_id": record.media_id,
+                        "workflow_id": record.workflow_id,
+                        "path": str(path),
+                        "bytes": path.stat().st_size,
+                    }
+                )
+    return {"status": "ok", "project_id": project, "source_media_id": media_id, "results": results}
+
+
+@server.tool(
+    name="gflow_list_edit_models",
+    description="List tier-available native Omni video edit keys and per-output credit costs.",
+)
+@_guarded
+async def gflow_list_edit_models(project: str, profile: str = "default") -> dict[str, Any]:
+    if not is_uuid(project):
+        return _bad_param("Invalid project", "project must be a UUID")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            models = await client.list_native_video_edit_models(project)
+    return {"status": "ok", "project_id": project, "models": models}
+
+
+@server.tool(
+    name="gflow_generate_native_reference_video",
+    description="Generate native Omni Flash video with up to7 image/5 audio ingredients; "
+    "the chosen account model imposes its own limits. Optional native model_key, "
+    "duration/resolution; downloads MP4 outputs. Consumes video credits.",
+)
+@_guarded
+async def gflow_generate_native_reference_video(
+    project: str,
+    prompt: str,
+    image_ref: list[str] | None = None,
+    audio_ref: list[str] | None = None,
+    model_key: str | None = None,
+    count: int = 1,
+    aspect: str = "16:9",
+    duration: int | None = None,
+    resolution: str = "720p",
+    out_dir: str | None = None,
+    profile: str = "default",
+) -> dict[str, Any]:
+    from gflow_cli.api.native_reference_video import new_reference_started, reference_args
+
+    if not is_uuid(project):
+        return _bad_param("Invalid project", "project must be a UUID")
+    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    reference_args(
+        new_reference_started(project, count),
+        prompt=prompt,
+        image_ids=images,
+        audio_ids=audio,
+        model_key=model_key or "discover-native-model",
+        aspect=aspect,
+        resolution=resolution,
+        token="validation-only",
+    )
+    if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
+        return _bad_param("Invalid duration", "duration must match an available native model")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            started = await client.generate_native_reference_video(
+                project_id=project,
+                prompt=prompt,
+                reference_image_ids=images,
+                reference_audio_ids=audio,
+                model_key=model_key,
+                count=count,
+                aspect=aspect,
+                duration=duration,
+                resolution=resolution,
+            )
+            records = await client.wait_native_reference_video(started)
+            results: list[dict[str, Any]] = []
+            for record in records:
+                if record.video_url is None:
+                    raise ConfigurationError(detail="Reference video URL unavailable")
+                path = target / f"{record.media_id}.mp4"
+                await client.download(record.video_url, path)
+                results.append(
+                    {
+                        "media_id": record.media_id,
+                        "workflow_id": record.workflow_id,
+                        "path": str(path),
+                        "bytes": path.stat().st_size,
+                    }
+                )
+    return {"status": "ok", "project_id": project, "results": results}
+
+
+@server.tool(
+    name="gflow_list_reference_video_models",
+    description="List native reference-video model keys and costs; with_audio selects "
+    "models capable of audio ingredients.",
+)
+@_guarded
+async def gflow_list_reference_video_models(
+    project: str, with_audio: StrictBool = False, profile: str = "default"
+) -> dict[str, Any]:
+    if not is_uuid(project):
+        return _bad_param("Invalid project", "project must be a UUID")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            models = await client.list_native_reference_video_models(project, with_audio=with_audio)
+    return {"status": "ok", "project_id": project, "models": models}

@@ -202,3 +202,13 @@ Slash commands for Claude Code, stored in `.claude/commands/gflow/`. All prefixe
 - [Surface coverage matrix](self-hosted/SURFACE_MATRIX.md): REST, SDK, CLI, MCP and queued feature scopes.
 - [Image download recovery](self-hosted/IMAGE_RECOVERY.md): preserve native handles and completed downloads after failure without resubmitting generation.
 - [Native MP4 upload and archive](self-hosted/NATIVE_MEDIA.md): SDK, CLI, MCP and REST consent, local bounds and uncertain-write recovery.
+
+## Native feature batch guides
+
+| Guide | Scope | Use |
+|---|---|---|
+| [Auto aspect](AUTO_ASPECT.md) | Local-reference CLI/MCP and per-row Auto resolution | Selecting an image ratio from decoded reference dimensions |
+| [Native video edit](VIDEO_EDIT.md) | Source-derived Omni edit and account model discovery | Editing an existing video frame window |
+| [Native credits](NATIVE_CREDITS.md) | Native total credit balance and observed tier enums | Inspecting migrated account credits |
+| [Native standalone extension](self-hosted/NATIVE_VIDEO_EXTENSION.md) | Native continuation generation and model discovery | Extending an existing Google Flow clip |
+| [Native reference video](self-hosted/NATIVE_REFERENCE_VIDEO.md) | Owned image/audio ingredient video generation | Audio-only or mixed reference generation |

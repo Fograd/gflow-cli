@@ -23,3 +23,12 @@ For upstream CLI/MCP features, see [the upstream documentation index](../INDEX.m
 - [Private session import](COOKIE_IMPORT.md): accepted DevTools table subset, staged profile verification and privacy boundaries.
 
 - [Native MP4 upload and reversible archive](NATIVE_MEDIA.md): SDK/CLI/MCP/HTTP consent, private snapshots, whole-batch scope and typed recovery.
+
+- [Saved TTS voices](VOICES.md): system presets, source-derived saved speech and final E2E limits.
+
+## Native video guides
+
+| Guide | Scope |
+|---|---|
+| [Standalone video extension](NATIVE_VIDEO_EXTENSION.md) | Native continuation, model keys, frame trims and verification limits |
+| [Reference video](NATIVE_REFERENCE_VIDEO.md) | Existing image/audio UUID ingredients, native models and per-model budgets |

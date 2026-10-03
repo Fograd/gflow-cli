@@ -52,7 +52,7 @@ def unknown_native_media_result(
         or value["exit_code"] != 40
         or selected is None
         or _uuid(value.get("project_id")) != selected
-        or operation not in {"upload", "archive"}
+        or operation not in {"upload", "archive", "delete"}
         or value.get("operation") != operation
         or not isinstance(phase, str)
         or phase not in {"dispatch", "response", "cancelled"}
@@ -63,7 +63,7 @@ def unknown_native_media_result(
         return None
     earlier = prior or {}
     previous = _identifiers(earlier.get("knownMediaGenerationIds", [])) or []
-    if operation == "archive":
+    if operation in {"archive", "delete"}:
         previous += _identifiers(earlier.get("deleted", [])) or []
     acknowledged = list(dict.fromkeys(previous + known))[:100]
     return {

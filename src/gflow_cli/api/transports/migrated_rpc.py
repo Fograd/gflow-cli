@@ -8,7 +8,7 @@ from gflow_cli.api.transports.batchexecute import parse_frames
 
 
 async def native_rpc(page: Any, rpc: str, args: list[Any], source_path: str) -> Any:
-    if rpc not in {"UpteDb", "C4BZMd", "rzMKMb", "cz8Z4b", "Sc7aEb"}:
+    if rpc not in {"UpteDb", "C4BZMd", "rzMKMb", "cz8Z4b", "Sc7aEb", "as29s"}:
         raise ValueError("Unsupported native metadata RPC")
     if source_path != "/u/0/" and not source_path.startswith("/project/"):
         raise ValueError("Unsupported native metadata source path")

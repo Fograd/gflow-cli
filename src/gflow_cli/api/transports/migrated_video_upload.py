@@ -14,7 +14,6 @@ from uuid import UUID, uuid4
 from gflow_cli.api.transports.migrated_composer import (
     TOOLBAR_ADD,
     UPLOAD_MENU_ITEM,
-    MigratedComposer,
 )
 from gflow_cli.api.transports.native_video_snapshot import snapshot_video
 from gflow_cli.errors import NativeMediaMutationUnknownError
@@ -103,7 +102,11 @@ async def _upload_video_snapshot(
     if not is_uuid(project_id):
         raise ValueError("Invalid project identifier")
     validate_video(path)
-    await MigratedComposer().ensure_editor(page, project_id)
+    # Resources imports our UUID validator; defer this import to avoid a cycle.
+    from gflow_cli.api.transports.migrated_resources import read_project_payload
+
+    # Upload uses the project toolbar, including cohorts without generation settings.
+    await read_project_payload(page, project_id)
     caption = f"{path.stem}-{uuid4().hex[:8]}.mp4"
     reply: asyncio.Future[str] = asyncio.get_running_loop().create_future()
 

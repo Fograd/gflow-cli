@@ -402,3 +402,15 @@ that produced them stays local.
 [CLAUDE.md](CLAUDE.md) carries the auto-load instructions Claude Code reads natively. It cross-references this file for the universal rules; Claude-Code-specific session protocol (skills, slash commands, memory) stays in CLAUDE.md.
 
 Portable native media commands: project upload-video (explicit per-upload rights), project archive (explicit reversible whole-batch confirmation), mirrored by direct MCP tools. Typed native media uncertainty uses exit40; never replay uncertain writes.
+
+Saved TTS adds gflow voice list/show/create/rm, separate from bundled system preset lookup. Creation can consume credits; rm requires explicit confirmation and uncertain results retain exit40 handles. gflow project delete-media is permanent individual deletion and remains separate from reversible project archive. See docs/self-hosted/VOICES.md and NATIVE_MEDIA.md; the owned synthetic permanent-deletion lifecycle passed in 28.91 seconds with original media preserved. Corrected saved TTS was explicitly Google-rejected; no accepted audio or binding lifecycle is claimed.
+
+The native video feature batch adds `video extension-models` / `extend-native`,
+`video edit-models` / `edit-native`, and `video reference-models` /
+`reference-native`, with matching MCP tools and durable REST jobs. These use
+fresh owned native media UUIDs and observed account model keys. Extension and
+reference generation support count 1–4; edit requires one output and an explicit
+virtual-24fps end frame. Saved audio inputs are preset-based TTS, not arbitrary
+uploaded audio. Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
+`docs/self-hosted/NATIVE_VIDEO_EXTENSION.md`, `docs/VIDEO_EDIT.md` and
+`docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.

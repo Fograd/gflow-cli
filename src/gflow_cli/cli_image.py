@@ -48,6 +48,7 @@ from gflow_cli.api.image import (
     Model,
     reference_cap_for,
 )
+from gflow_cli.api.image_aspect_policy import ImageAspectDecision
 from gflow_cli.api.image_upscale import TargetResolution, UpsampleImageRequest
 from gflow_cli.api.transports import transport_choices
 from gflow_cli.api.video import is_media_uuid
@@ -104,6 +105,7 @@ from gflow_cli.image_batch import (
 )
 from gflow_cli.paths import image_output_path, resolve_batch_output_dir
 from gflow_cli.services import catalog_sync
+from gflow_cli.services.image_aspect import aspect_decision_metadata, resolve_image_aspect
 from gflow_cli.storage import cloud_info_from_path
 
 if TYPE_CHECKING:
@@ -881,8 +883,8 @@ _ui_mode_option = click.option(
     "--aspect",
     default=_DEFAULT_ASPECT_RATIO,
     show_default=True,
-    type=click.Choice(_ALLOWED_ASPECT_RATIOS),
-    help="Image aspect ratio.",
+    type=click.Choice([*_ALLOWED_ASPECT_RATIOS, "auto"]),
+    help="Image ratio; auto derives nearest supported ratio from first local reference (i2i only).",
 )
 @click.option(
     "-n",
@@ -970,6 +972,8 @@ def t2i(  # NOSONAR
     reference_syntax: str = "names",
 ) -> None:
     """Generate image(s) from one or more text prompts."""
+    if aspect == "auto":
+        raise click.UsageError("Auto requires an actual reference image; use image i2i")
     is_multi_prompt = len(prompts) > 1 or prompts_file is not None or read_stdin
     _validate_t2i_input(prompts, prompts_file, read_stdin)
     if reference_syntax == "slots" and is_multi_prompt:
@@ -1514,7 +1518,7 @@ _BATCH_TITLE = "gflow-cli image batch"
     "--aspect",
     default=_DEFAULT_ASPECT_RATIO,
     show_default=True,
-    type=click.Choice(_ALLOWED_ASPECT_RATIOS),
+    type=click.Choice((*_ALLOWED_ASPECT_RATIOS, "auto")),
     help="Default aspect ratio for rows that do not specify one.",
 )
 @click.option(
@@ -1572,6 +1576,8 @@ def batch(
     except ConfigurationError as exc:
         raise _as_usage_error(exc) from exc
     for row in prompts:
+        if row.aspect_ratio == "auto":
+            raise click.UsageError("Auto reference rows require gflow run --config")
         if row.ref is not None:
             # The stay-mounted batch path cannot reference an earlier row (#913).
             msg = (
@@ -1652,6 +1658,7 @@ class _I2IParams:
     ui_mode: UiMode | None = None
     seed: int | None = None
     reference_syntax: str = "names"
+    aspect_decision: ImageAspectDecision | None = None
 
 
 @image.command(
@@ -1695,8 +1702,8 @@ class _I2IParams:
     "--aspect",
     default=_DEFAULT_ASPECT_RATIO,
     show_default=True,
-    type=click.Choice(_ALLOWED_ASPECT_RATIOS),
-    help="Image aspect ratio.",
+    type=click.Choice([*_ALLOWED_ASPECT_RATIOS, "auto"]),
+    help="Image ratio; auto derives nearest supported ratio from first local reference (i2i only).",
 )
 @click.option(
     "-n",
@@ -1816,6 +1823,10 @@ def i2i(  # NOSONAR
                 reference_syntax=reference_syntax,
             )
         )
+    try:
+        resolved_aspect, aspect_decision = resolve_image_aspect(aspect, classified_refs)
+    except ConfigurationError as exc:
+        raise click.UsageError(exc.detail) from None
     profile_name = _resolve_profile(profile)
     provider_dir = _make_provider_dir(profile_name)
     settings = get_settings()
@@ -1824,7 +1835,8 @@ def i2i(  # NOSONAR
         reference_syntax=reference_syntax,
         seed=seed,
         classified_refs=classified_refs,
-        aspect=Aspect.from_cli(aspect),
+        aspect=resolved_aspect,
+        aspect_decision=aspect_decision,
         model=model_enum,
         reference_entities=tuple(reference_entities),
         reference_entity_names=tuple(reference_entity_names),
@@ -1958,16 +1970,16 @@ async def _run_i2i(
             )
 
             if as_json:
-                json_output.emit(
-                    json_output.image_result(
-                        command="image i2i",
-                        project_id=project.project_id,
-                        model=req.model.value,
-                        images=images,
-                        saved_paths=saved_paths,
-                        ref_count=n_refs,
-                    ),
+                result = json_output.image_result(
+                    command="image i2i",
+                    project_id=project.project_id,
+                    model=req.model.value,
+                    images=images,
+                    saved_paths=saved_paths,
+                    ref_count=n_refs,
                 )
+                result.update(aspect_decision_metadata(params.aspect_decision))
+                json_output.emit(result)
             else:
                 _print_i2i_summary(images, saved_paths)
 

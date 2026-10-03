@@ -1132,3 +1132,60 @@ def test_restart_reads_newer_journal_without_submitting(temp_db, tmp_path):
     assert result.flow_media_id == "first-image"
     assert result.error["imageRecovery"]["images"][0]["local_path"] == str(path)
     assert repo.claim_next_pending("default", claimant="retry") is None
+
+
+@pytest.mark.asyncio
+async def test_worker_completed_auto_metadata_survives_database_reload(temp_db: DataStore) -> None:
+    metadata = {
+        "requestedAspectRatio": "auto",
+        "resolvedAspectRatio": "16:9",
+        "aspectPolicy": "derived-first-reference-nearest-supported-v1",
+    }
+    repo = QueueRepository(temp_db)
+    task = repo.enqueue_task(
+        task_id="auto-result",
+        profile_name="default",
+        task_type="i2i",
+        payload={"prompt": "scene", "aspect": "16:9", "aspect_decision": metadata},
+    )
+    worker = FlowWorker("default", str(temp_db.path))
+    client = FakeFlowApiClient()
+    client.create_project.return_value = MagicMock(project_id="project-abc", title="test")
+    client.generate_image.return_value = FakeGeneratedImage(media_name="auto-image")
+    try:
+        with patch("gflow_cli.worker.daemon.FlowApiClient", return_value=client):
+            await worker.process_task(task)
+        updated = repo.get_task("auto-result")
+        assert updated.status == "completed"
+        assert updated.checkpoint["result"] == metadata
+        assert updated.checkpoint["media_ids"] == ["auto-image"]
+    finally:
+        worker.close()
+
+
+@pytest.mark.asyncio
+async def test_worker_refuses_mismatched_auto_before_browser(temp_db: DataStore) -> None:
+    repo = QueueRepository(temp_db)
+    task = repo.enqueue_task(
+        task_id="bad-auto",
+        profile_name="default",
+        task_type="i2i",
+        payload={
+            "prompt": "scene",
+            "aspect": "16:9",
+            "aspect_decision": {
+                "requestedAspectRatio": "auto",
+                "resolvedAspectRatio": "9:16",
+                "aspectPolicy": "derived-first-reference-nearest-supported-v1",
+            },
+        },
+    )
+    worker = FlowWorker("default", str(temp_db.path))
+    try:
+        with patch("gflow_cli.worker.daemon.FlowApiClient") as factory:
+            await worker.process_task(task)
+        updated = repo.get_task("bad-auto")
+        assert updated.status == "failed"
+        factory.assert_not_called()
+    finally:
+        worker.close()

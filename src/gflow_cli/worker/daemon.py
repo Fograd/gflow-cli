@@ -22,13 +22,18 @@ from gflow_cli.data.recorder import (
 from gflow_cli.data.redaction import redact_error_detail
 from gflow_cli.data.repository import DataRepository
 from gflow_cli.data.store import DataStore
-from gflow_cli.errors import DataIntegrityError, DataStoreError, GFlowError
+from gflow_cli.errors import ConfigurationError, DataIntegrityError, DataStoreError, GFlowError
 from gflow_cli.image_recovery import ImageJournal, download_images
 from gflow_cli.observability import exception_message_hash
 from gflow_cli.paths import image_output_path
 from gflow_cli.storage import cloud_info_from_path
 from gflow_cli.worker import codec
-from gflow_cli.worker.queue import QueueRepository, QueueTask, mark_interrupted
+from gflow_cli.worker.queue import (
+    QueueRepository,
+    QueueTask,
+    make_checkpoint_document,
+    mark_interrupted,
+)
 
 logger = structlog.get_logger()
 
@@ -176,6 +181,22 @@ class FlowWorker:
                     if task.decoded is not None
                     else self._build_image_request(task.payload)
                 )
+                aspect_metadata: dict[str, str] = {}
+                decision = task.payload.get("aspect_decision")
+                if decision is not None:
+                    expected = {
+                        "requestedAspectRatio": "auto",
+                        "resolvedAspectRatio": task.payload.get("aspect"),
+                        "aspectPolicy": "derived-first-reference-nearest-supported-v1",
+                    }
+                    if (
+                        not isinstance(decision, dict)
+                        or decision != expected
+                        or expected["resolvedAspectRatio"]
+                        not in {"16:9", "9:16", "1:1", "4:3", "3:4"}
+                    ):
+                        raise ConfigurationError(detail="Queued Auto aspect decision is invalid")
+                    aspect_metadata = cast("dict[str, str]", decision)
                 count = task.payload.get("count", 1)
                 project_id = task.payload.get("project_id")
 
@@ -316,6 +337,18 @@ class FlowWorker:
                     logger.warning("Failed during image generation or recording", exc_info=exc)
                     raise
 
+                if aspect_metadata:
+                    completed = make_checkpoint_document(
+                        claimant=claimant,
+                        phase="completed",
+                        may_have_spent=True,
+                        project_id=project_flow_id,
+                        media_ids=tuple(image.media_name for image in images),
+                        workflow_ids=tuple(image.workflow_id for image in images),
+                    )
+                    # Exactly three validated policy strings, not arbitrary producer metadata.
+                    completed["result"] = dict(aspect_metadata)
+                    self.repo.write_checkpoint(task.task_id, completed)
                 self.repo.update_task_status(
                     task.task_id,
                     status="completed",

@@ -1903,6 +1903,14 @@ class FlowApiClient:
     async def get_credits(self) -> CreditsInfo:
         """Return the authenticated profile's current Flow credit balance."""
 
+        if self._uses_native_characters():
+            from gflow_cli.api.native_credits import read_native_credits
+
+            page = await self._checkout_page()
+            try:
+                return await read_native_credits(page)
+            finally:
+                self._checkin_page(page)
         data = await self._get_json(routes.CREDITS, route_name="credits")
         if not isinstance(data, dict):
             raise WireFormatError(
@@ -3397,6 +3405,17 @@ class FlowApiClient:
         project, identifiers = validate_archive(project_id, media_ids, confirm_archive)
         return await archive(self, project, identifiers)
 
+    async def delete_native_media(
+        self,
+        *,
+        project_id: str,
+        media_ids: list[str] | tuple[str, ...],
+        confirm_delete: bool = False,
+    ) -> dict[str, Any]:
+        from gflow_cli.api.native_media import delete
+
+        return await delete(self, project_id, media_ids, confirm_delete)
+
     async def create_entity(self, project_id: str) -> str:
         """Mint a fresh CHARACTER entity for *project_id*. Returns the new entityId.
 
@@ -3438,6 +3457,129 @@ class FlowApiClient:
         logger.debug("character.list_fetched", project_id=project_id, count=len(chars))
         return chars
 
+    async def extend_native_video(
+        self,
+        *,
+        project_id: str,
+        media_id: str,
+        prompt: str,
+        model_key: str | None = None,
+        count: int = 1,
+        aspect: str | None = None,
+        trim_start_frame: int | None = None,
+        trim_end_frame: int | None = None,
+        on_started: Any = None,
+    ) -> Any:
+        """Submit one standalone native extension batch without scene concatenation."""
+        from gflow_cli.api.native_extension import extend_native_video
+
+        return await extend_native_video(
+            self,
+            project_id=project_id,
+            media_id=media_id,
+            prompt=prompt,
+            model_key=model_key,
+            count=count,
+            aspect=aspect,
+            trim_start_frame=trim_start_frame,
+            trim_end_frame=trim_end_frame,
+            on_started=on_started,
+        )
+
+    async def wait_native_extension(self, started: Any, *, timeout_s: float = 600) -> Any:
+        """Read only the exact preassigned standalone extension output IDs."""
+        from gflow_cli.api.native_extension import wait_native_extension
+
+        return await wait_native_extension(self, started, timeout_s=timeout_s)
+
+    async def edit_native_video(
+        self,
+        *,
+        project_id: str,
+        media_id: str,
+        prompt: str,
+        model_key: str,
+        end_frame: int,
+        start_frame: int = 0,
+        image_ids: tuple[str, ...] = (),
+        audio_ids: tuple[str, ...] = (),
+        on_started: Any = None,
+    ) -> Any:
+        """One source-derived native edit; explicit end required, no automatic replay."""
+        from gflow_cli.api.native_video_edit import edit_native_video
+
+        return await edit_native_video(
+            self,
+            project_id=project_id,
+            media_id=media_id,
+            prompt=prompt,
+            model_key=model_key,
+            start_frame=start_frame,
+            end_frame=end_frame,
+            image_ids=image_ids,
+            audio_ids=audio_ids,
+            on_started=on_started,
+        )
+
+    async def wait_native_video_edit(self, started: Any) -> Any:
+        from gflow_cli.api.native_video_edit import wait_native_video_edit
+
+        return await wait_native_video_edit(self, started)
+
+    async def list_native_video_edit_models(self, project_id: str) -> list[dict[str, Any]]:
+        from gflow_cli.api.native_video_edit import list_native_video_edit_models
+
+        return await list_native_video_edit_models(self, project_id)
+
+    async def list_native_extension_models(self, project_id: str) -> list[dict[str, Any]]:
+        """Read current tier-available native extension keys and prices."""
+        from gflow_cli.api.native_extension import list_native_extension_models
+
+        return await list_native_extension_models(self, project_id)
+
+    async def generate_native_reference_video(
+        self,
+        *,
+        project_id: str,
+        prompt: str,
+        reference_image_ids: tuple[str, ...] = (),
+        reference_audio_ids: tuple[str, ...] = (),
+        model_key: str | None = None,
+        count: int = 1,
+        aspect: str = "16:9",
+        duration: int | None = None,
+        resolution: str = "720p",
+        on_started: Any = None,
+    ) -> Any:
+        """Native owned image/audio ingredients; capability-checked before submit."""
+        from gflow_cli.api.native_reference_video import generate_native_reference_video
+
+        return await generate_native_reference_video(
+            self,
+            project_id=project_id,
+            prompt=prompt,
+            reference_image_ids=reference_image_ids,
+            reference_audio_ids=reference_audio_ids,
+            model_key=model_key,
+            count=count,
+            aspect=aspect,
+            duration=duration,
+            resolution=resolution,
+            on_started=on_started,
+        )
+
+    async def wait_native_reference_video(self, started: Any, *, timeout_s: float = 600) -> Any:
+        from gflow_cli.api.native_reference_video import wait_native_reference_video
+
+        return await wait_native_reference_video(self, started, timeout_s=timeout_s)
+
+    async def list_native_reference_video_models(
+        self, project_id: str, *, with_audio: bool = False
+    ) -> list[dict[str, Any]]:
+        from gflow_cli.api.native_reference_video import list_native_reference_models
+
+        return await list_native_reference_models(self, project_id, with_audio=with_audio)
+
     async def list_native_projects(self, cursor: str | None = None) -> dict[str, Any]:
         """Read one account project page; returned_count is not account history total."""
         from gflow_cli.api.native_catalogs import projects_snapshot
@@ -3459,6 +3601,46 @@ class FlowApiClient:
         from gflow_cli.api.native_catalogs import voices_snapshot
 
         return await voices_snapshot(self, project_id)
+
+    async def list_saved_voices(self, project_id: str) -> dict[str, Any]:
+        from gflow_cli.api.native_voices import operate
+
+        return await operate(self, "list", project_id)
+
+    async def get_saved_voice(self, project_id: str, voice_id: str) -> dict[str, Any]:
+        from gflow_cli.api.native_voices import operate
+
+        return await operate(self, "get", project_id, voice_id=voice_id)
+
+    async def create_saved_voice(
+        self,
+        *,
+        project_id: str,
+        display_name: str,
+        preset_voice: str,
+        dialog: str,
+        performance: str,
+    ) -> dict[str, Any]:
+        from gflow_cli.api.native_voices import operate
+
+        return await operate(
+            self,
+            "create",
+            project_id,
+            display_name=display_name,
+            preset_voice=preset_voice,
+            dialog=dialog,
+            performance=performance,
+        )
+
+    async def delete_saved_voice(
+        self, *, project_id: str, voice_id: str, confirm_delete: bool = False
+    ) -> dict[str, Any]:
+        from gflow_cli.api.native_voices import operate
+
+        return await operate(
+            self, "delete", project_id, voice_id=voice_id, confirm_delete=confirm_delete
+        )
 
     async def fetch_project_listing(self, project_id: str) -> JsonObject:
         """Fetch the raw ``flow.projectInitialData`` listing for *project_id*.

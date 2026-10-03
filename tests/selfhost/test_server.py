@@ -224,7 +224,7 @@ def test_callbacks_persist_started_and_complete_result(tmp_path):
     assert "createdAt" in terminal and "updatedAt" in terminal
 
 
-def test_export_credit_free_route_and_extension_refusal(tmp_path):
+def test_export_credit_free_route_and_native_extension_validation(tmp_path):
     with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
         export = client.post(
             "/v1/google-flow/videos/gif",
@@ -235,7 +235,26 @@ def test_export_credit_free_route_and_extension_refusal(tmp_path):
         cfg = settings(tmp_path)
         cfg.allow_video = True
         other = TestClient(create_app(cfg, start_workers=False))
-        assert other.post("/v1/google-flow/videos/extend", headers=AUTH, json={}).status_code == 501
+        assert other.post("/v1/google-flow/videos/extend", headers=AUTH, json={}).status_code == 422
+        accepted = other.post(
+            "/v1/google-flow/videos/extend",
+            headers=AUTH,
+            json={
+                "mediaGenerationId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "prompt": "Continue this owned clip",
+                "async": True,
+            },
+        )
+        assert accepted.status_code == 201
+        job = other.get("/v1/google-flow/jobs/" + accepted.json()["jobId"], headers=AUTH)
+        assert job.status_code == 200
+        assert job.json()["type"] == "video"
+        with Store(tmp_path).connection() as conn:
+            row = conn.execute(
+                "SELECT kind FROM jobs WHERE id=?", (accepted.json()["jobId"],)
+            ).fetchone()
+        assert row["kind"] == "videos/extend"
+        assert job.json()["status"] == "created"
 
 
 async def test_video_export_does_not_replace_source(tmp_path, monkeypatch):
@@ -291,15 +310,49 @@ def test_video_dto_validation_before_enqueue(tmp_path):
         assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
 
 
-def test_system_voices_case_insensitive_and_custom_refused(tmp_path):
+def test_system_voices_case_insensitive_and_owned_saved_route(tmp_path, monkeypatch):
+    import json
+    from unittest.mock import AsyncMock
+
+    from gflow_cli.selfhost import server
+
+    mid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    project = settings(tmp_path).accounts["pro1"]["project"]
+    worker = AsyncMock(
+        return_value=(
+            0,
+            json.dumps(
+                {
+                    "status": "ok",
+                    "voices": [
+                        {
+                            "ref": mid,
+                            "project_id": project,
+                            "workflow_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                            "display_name": "Owned saved test",
+                        }
+                    ],
+                }
+            ),
+        )
+    )
+    code, raw = worker.return_value
+    worker.return_value = (code, raw.encode())
+    monkeypatch.setattr(server, "subprocess_run", worker)
     with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
         listed = client.get("/v1/google-flow/voices?source=system", headers=AUTH)
         assert listed.status_code == 200
         voice = client.get("/v1/google-flow/voices/charon", headers=AUTH).json()
         assert voice["voice"] == voice["displayName"] == "Charon"
         assert voice["source"] == "system"
-        assert client.get("/v1/google-flow/voices?source=user", headers=AUTH).status_code == 501
-        assert client.post("/v1/google-flow/voices", headers=AUTH, json={}).status_code == 501
+        saved = client.get("/v1/google-flow/voices?source=user", headers=AUTH)
+        assert saved.status_code == 200
+        assert saved.json()["voices"][0]["mediaId"] == mid
+        assert saved.json()["voices"][0]["source"] == "user"
+        worker.assert_awaited_once()
+        assert worker.await_args.args[0][3:5] == ["voice-saved-list", "pro1"]
+        assert client.post("/v1/google-flow/voices", headers=AUTH, json={}).status_code == 422
+        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
 
 
 def test_openapi_requires_auth(tmp_path):

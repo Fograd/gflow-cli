@@ -42,6 +42,17 @@ from gflow_cli.mcp import tools as mcp_tools
 # CLI leaf → MCP tool that covers it. One tool may cover several leaves when a
 # parameter selects the behaviour (e.g. gflow_generate_video's ``mode``).
 CLI_TO_MCP: dict[str, str] = {
+    "voice list": "gflow_list_saved_voices",
+    "voice show": "gflow_get_saved_voice",
+    "voice create": "gflow_create_saved_voice",
+    "voice rm": "gflow_delete_saved_voice",
+    "project delete-media": "gflow_delete_native_media",
+    "video reference-native": "gflow_generate_native_reference_video",
+    "video reference-models": "gflow_list_reference_video_models",
+    "video edit-models": "gflow_list_edit_models",
+    "video edit-native": "gflow_edit_native_video",
+    "video extend-native": "gflow_extend_native_video",
+    "video extension-models": "gflow_list_extension_models",
     "character create-from-images": "gflow_character_create_from_images",
     "character update": "gflow_character_update",
     "character rm": "gflow_character_rm",

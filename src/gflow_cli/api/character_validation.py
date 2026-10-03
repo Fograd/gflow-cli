@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from gflow_cli.api.character import VOICES
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import ConfigurationError
@@ -37,13 +39,15 @@ def _metadata(display_name: object, personality: object) -> None:
 def normalize_preset_voice(voice: object) -> str | None:
     if voice is None:
         return None
+    if is_uuid(voice):
+        return str(UUID(str(voice)))
     if isinstance(voice, str):
         known = {v.name.lower(): v.name for v in VOICES}
         normalized = known.get(voice.strip().lower())
         if normalized:
             return normalized
     raise ConfigurationError(
-        detail="Voice requires a known system preset; clearing/custom voices are not supported"
+        detail="Voice requires a known system preset or saved audio UUID; clearing is unsupported"
     )
 
 
@@ -79,5 +83,5 @@ def validate_update_inputs(
     _metadata(display_name, personality)
     if display_name is None and personality is None and voice is None:
         raise ConfigurationError(
-            detail="Update requires name, personality and/or a system preset voice"
+            detail="Update requires name, personality and/or a preset or saved voice"
         )

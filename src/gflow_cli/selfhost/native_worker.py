@@ -29,7 +29,12 @@ from gflow_cli.api.transports.migrated_resources import (
 )
 from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError
 from gflow_cli.config import get_settings
-from gflow_cli.errors import NativeMediaMutationUnknownError
+from gflow_cli.errors import (
+    ContentPolicyError,
+    NativeMediaMutationUnknownError,
+    VoiceMutationUnknownError,
+    WafRejectionError,
+)
 
 
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -69,6 +74,49 @@ async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str,
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
+        if verb == "reference-models":
+            return {
+                "status": "ok",
+                "models": await client.list_native_reference_video_models(
+                    project_id, with_audio=payload.get("with_audio", False)
+                ),
+            }
+        if verb == "edit-models":
+            return {
+                "status": "ok",
+                "models": await client.list_native_video_edit_models(project_id),
+            }
+        if verb == "extension-models":
+            return {"status": "ok", "models": await client.list_native_extension_models(project_id)}
+        if verb == "media-delete-individual":
+            return {
+                "status": "ok",
+                **await client.delete_native_media(
+                    project_id=project_id, media_ids=payload["media_ids"], confirm_delete=True
+                ),
+            }
+        if verb == "voice-saved-list":
+            return {"status": "ok", **await client.list_saved_voices(project_id)}
+        if verb == "voice-saved-get":
+            return {"status": "ok", **await client.get_saved_voice(project_id, str(payload["ref"]))}
+        if verb == "voice-saved-create":
+            return {
+                "status": "ok",
+                **await client.create_saved_voice(
+                    project_id=project_id,
+                    display_name=str(payload["display_name"]),
+                    preset_voice=str(payload["preset_voice"]),
+                    dialog=str(payload["dialog"]),
+                    performance=str(payload["performance"]),
+                ),
+            }
+        if verb == "voice-saved-delete":
+            return {
+                "status": "ok",
+                **await client.delete_saved_voice(
+                    project_id=project_id, voice_id=str(payload["ref"]), confirm_delete=True
+                ),
+            }
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
             if verb == "projects-list":
@@ -118,11 +166,34 @@ def main() -> None:
     exit_code = 0
     try:
         result = asyncio.run(execute(sys.argv[1], sys.argv[2], cast("dict[str, Any]", data)))
-    except NativeMediaMutationUnknownError as exc:
+    except (WafRejectionError, ContentPolicyError) as exc:
+        waf = isinstance(exc, WafRejectionError)
+        exit_code = 10 if waf else 5
+        unusual = waf and "PUBLIC_ERROR_UNUSUAL_ACTIVITY" in exc.detail
+        result = {
+            "status": "error",
+            "error": {
+                "class": type(exc).__name__,
+                "type": exc.problem_type,
+                "exit_code": exit_code,
+                "retryable": False,
+                "detail": (
+                    "Google Flow refused this request because of unusual activity."
+                    if unusual
+                    else "Google Flow refused this request."
+                ),
+                **({"reason": "PUBLIC_ERROR_UNUSUAL_ACTIVITY"} if unusual else {}),
+            },
+        }
+    except (NativeMediaMutationUnknownError, VoiceMutationUnknownError) as exc:
         exit_code = 40
         result = {
             "status": "error",
-            "code": "native_media_mutation_outcome_unknown",
+            "code": (
+                "voice_mutation_outcome_unknown"
+                if isinstance(exc, VoiceMutationUnknownError)
+                else "native_media_mutation_outcome_unknown"
+            ),
             "error": {
                 **exc.to_problem_details(),
                 "class": type(exc).__name__,

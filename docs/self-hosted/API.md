@@ -42,6 +42,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | --- | --- |
 | `GET /accounts`, `/accounts/{handle}` | Read registered profiles and operator-attested or native-cookie-verified health |
 | `POST /accounts`, `DELETE /accounts/{handle}` | Register an existing operator-attested profile or import a bounded private cookie table into a staged new/refresh profile after actual identity and project-access checks; deletion removes registration only |
+| `POST /accounts/{handle}/health` | On-demand native project-access check through the serial queue; supports async and callbacks; preserves the saved profile and does not refresh login. See [session health](SESSION_HEALTH.md). |
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
@@ -49,13 +50,16 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `GET /assets/projects/{handle}` | Local catalog by default; source=google reads paginated native account projects |
 | `GET /assets/media/{handle}` | Managed catalog by default; source=google reads selected-project native timeline |
 | `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
-| `DELETE /assets/{handle}` | Native reversible whole-batch archive; explicit localOnly cache deletion is separate |
+| `DELETE /assets/{handle}` | Native reversible whole-batch archive by default; operation=delete permanently removes only selected owned media IDs; explicit localOnly cache deletion is separate |
 | `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded with HTTP 501; see CAPTCHA.md |
-| `GET /voices`, `/voices/{ref}` | Bundled presets by default; catalog=google reads native system presets; case-insensitive lookup |
+| `GET /voices`, `/voices/{ref}` | Bundled presets by default; catalog=google reads native presets; source=user reads owned saved TTS voices and fresh detail playback URLs |
+| `POST /voices`, `DELETE /voices/{ref}` | One TTS preview plus two metadata saves; permanent saved voice deletion; durable jobs; see [saved voices](VOICES.md) |
 | `GET /characters`, `/characters/{ref}` | Native project summaries/detail |
 | `PATCH/DELETE /characters/{ref}` | Native metadata changes/removal; inspect unconfirmed outcomes before retry |
-| `POST /characters` | Native one/two-image creation with initial notes and system preset assignment |
-| `POST /videos` | Text, start/end image or image-ingredient video adapter, explicitly enabled; not verified with paid live generation in this deployment |
+| `POST /characters` | Native one/two-image creation with initial notes and system preset or owned saved TTS voice assignment |
+| `POST /videos` | Text, start/end image or image-ingredient video; referenceVideo_1 selects native Omni editing with frame trims, up to5 image/3 saved-audio references; ordinary Omni image/audio ingredients use the dedicated native adapter; explicitly enabled |
+| `POST /videos/extend` | Native standalone continuation outputs, count1–4; optional modelKey discovered by account tier/source aspect; see [extension](NATIVE_VIDEO_EXTENSION.md) |
+| `GET /videos/extend/models`, `/videos/edit/models`, `/videos/reference/models` | Fresh native model keys and credit costs for the selected account/project |
 | `POST /videos/upscale`, `/videos/gif` | Native export adapter: 1080p or original 720p, 270p GIF; no new generation |
 | `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
 
@@ -80,10 +84,11 @@ References must be IDs issued by this service. The registry retains account,
 project and saved bytes. useapi's opaque identifiers cannot be used directly.
 Uploaded references are re-uploaded into the pinned generation project as needed.
 
-System voice requests accept only `?source=system` and optional `email`. Custom
-voice creation, cloning, deletion and custom voice lookup are not implemented.
-The default voice list is the SDK's bundled catalog. Explicit `catalog=google`
-reads the live native system preset catalog; custom saved voices remain separate.
+System voices use `source=system`; the default is the bundled catalog and
+`catalog=google` reads native presets. Project-scoped saved preset-based TTS uses
+`source=user` for list/detail/delete and POST `/voices` for creation. These new
+adapters await final E2E verification. Voice cloning is unsupported. Read
+[saved voices](VOICES.md) for exact limits and the bare-UUID reference contract.
 
 Video generation accepts `veo-3.1-fast`, `veo-3.1-quality`, `veo-3.1-lite`,
 `veo-3.1-lite-low-priority`, and `omni-flash`, subject to the underlying SDK's
@@ -163,8 +168,33 @@ Image requests accept a native integer `seed` with room for `count` consecutive
 seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only supplied-token rewriting and provider configuration are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
 unverified. `captchaOrder` and `captchaRetry` return501 before queueing because replacement-token acceptance remains unverified despite measured native action metadata. Provider keys alone do not enable generation.
 
-Image Auto aspect uses a labelled first-reference approximation. Image canonical slot plans and native weighted character preflight are implemented in the isolated expansion, with live positional acceptance proof tracked separately. Still unsupported: canonical video positional grounding/audio controls, rendered character voice application, custom voice creation, exact useapi deletion/full library sync,
-video extension/V2V and video CAPTCHA overrides. Unknown controls return501.
+Image Auto aspect uses a labelled first-reference approximation across REST, CLI,
+MCP and reference batch manifests. Saved TTS lifecycle, saved-voice character binding,
+individual permanent media deletion, native standalone extension and Omni editing
+are implemented from the deployed frontend codecs. A later native metadata read
+confirmed removal of one owned synthetic clip after delayed visibility; the final owned synthetic lifecycle subsequently passed in 28.91 seconds, with all originally active media preserved. The first saved TTS attempt was ambiguous with no acknowledged handles. After correcting its proven preset-case divergence, one captured no0P6 request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7). No audio or saved-voice binding lifecycle was accepted. One native R2V browser-token
+attempt was explicitly rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. Extension,
+editing and saved-voice binding acceptance remain pending. Still unsupported: canonical video positional grounding,
+full native library synchronization, numerical video seeds and video CAPTCHA
+overrides. Unknown controls return501.
+
+`POST /voices` accepts `voice` (case-sensitive canonical preset), `displayName`,
+`dialog` and `voicePerformance`. Dialogue/performance each require1–120 characters;
+name requires1–200. Account/project and async/callback controls match other jobs.
+The fork extension `performance` is an alternative spelling; supplying both
+spellings is rejected. Saved voices use bare native media UUIDs, rather than
+useapi composite voice IDs. Responses identify `voice`, `mediaId`, `workflowId`
+and `source: "user"`; preset metadata is returned only when known.
+
+Omni editing accepts `referenceVideo_1`, `model: "omni-flash"`, an explicit
+native `modelKey`, `startFrameIndex_1` (default0), and an explicit
+`endFrameIndex_1`. Frames use the virtual24fps contract with start0–239,
+end1–240 and end greater than start. The current fork requires explicit end
+rather than assuming the clip end. Input references are existing selected-project
+media UUIDs: `referenceImage_1..5` and `referenceAudio_1..3`. Audio currently
+requires saved TTS voices; arbitrary uploaded audio is a separate gap. Count
+is1 and aspect follows the source. The SDK performs fresh native ownership checks.
+Read [video editing](../VIDEO_EDIT.md) for CLI/MCP and SDK equivalents.
 
 Lists accept `limit` 1–100 and opaque `cursor`; jobs also accept `email`, `status`
 and `kind`, managed media accepts `projectId`, and `source=google` for a native selected-project timeline; asset lookup accepts `raw=true`
@@ -175,7 +205,9 @@ Account registration accepts `profile`, `email`, `projectId`, `enabled` and
 and an existing local profile; this is operator attestation, not a Google probe.
 Removing registration refuses active jobs and keeps the browser profile. Local
 asset deletion with `localOnly:true` requires `mediaGenerationIds` (up to 100) or
-`projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE requires projectId and 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. This is not irreversible individual deletion or useapi already-gone idempotence.
+`projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE requires projectId and 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. Explicit `operation:"delete"` selects permanent individual deletion after fresh
+ownership checks and preserves unselected siblings. Already-gone idempotence is
+not implemented. The new permanent-delete path awaits final E2E verification.
 
 ## Callbacks
 
@@ -234,12 +266,15 @@ characters = client.get("/characters", params={"email": "account-one", "source":
 voices = client.get("/voices", params={"email": "account-one", "source": "system", "catalog": "google"})
 ```
 
-Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; Canonical SDK image grounding has one accepted native proof. CLI/MCP/HTTP image acceptance remains pending after safe picker refusals; video grounding remains a gap. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Custom voice creation/clone/delete and user voice listings remain unsupported.
+Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; Canonical SDK image grounding has one accepted native proof. CLI/MCP/HTTP image acceptance remains pending after safe picker refusals; video grounding remains a gap. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Saved preset-based TTS creation, project-scoped user listing/detail/deletion and
+character binding are implemented and await final E2E. Cloning remains unsupported.
 
 
-Limited native character operations: POST `/characters` accepts `displayName` (1–200 characters), optional `personalityNotes` (at most 2000 characters) and one `imageReference_1` and optional `imageReference_2`, each a registered PNG/JPEG in the selected project, plus optional account/project controls. The adapter validates both saved PNG/JPEG images, account/project ownership and active native workflows before creating any entity, then creates the character and copies the reference through the measured native binding operation. The copied workflow is distinct from the source and the original stays active. A merely local/raw-upload reference without that native workflow is refused. Initial `personalityNotes` (at most 2000 characters) is supported through a validated metadata update after copying the reference. Two references use the measured portrait slot0/body slot1 convention; both originals remain active. Optional voice accepts a case-insensitive system preset name; assignment is verified metadata, while rendered speech and custom voices remain gaps.
+Limited native character operations: POST `/characters` accepts `displayName` (1–200 characters), optional `personalityNotes` (at most 2000 characters) and one `imageReference_1` and optional `imageReference_2`, each a registered PNG/JPEG in the selected project, plus optional account/project controls. The adapter validates both saved PNG/JPEG images, account/project ownership and active native workflows before creating any entity, then creates the character and copies the reference through the measured native binding operation. The copied workflow is distinct from the source and the original stays active. A merely local/raw-upload reference without that native workflow is refused. Initial `personalityNotes` (at most 2000 characters) is supported through a validated metadata update after copying the reference. Two references use the measured portrait slot0/body slot1 convention; both originals remain active. Optional voice accepts a case-insensitive system preset or an owned saved-TTS
+UUID. Saved references require fresh selected-project ownership proof. Preset
+metadata assignment is verified; saved binding and rendered speech await final E2E.
 
-PATCH `/characters/{ref}` accepts `displayName`, `personalityNotes` (at most 2000 characters) and/or system preset `voice`, with `email`/`projectId` controls. DELETE and GET detail use query account/project controls; when multiple accounts are enabled, detail/mutations require an explicit account. GET detail includes `personalityNotes`, with optional assigned preset voice metadata and without signed URLs. These operations are native project extensions rather than exact account-wide useapi semantics.
+PATCH `/characters/{ref}` accepts `displayName`, `personalityNotes` (at most 2000 characters) and/or system preset or owned saved-TTS `voice`, with `email`/`projectId` controls. DELETE and GET detail use query account/project controls; when multiple accounts are enabled, detail/mutations require an explicit account. GET detail includes `personalityNotes`, with optional assigned preset/saved voice metadata and without signed URLs. These operations are native project extensions rather than exact account-wide useapi semantics.
 
 Character mutations are direct calls with a bounded worker timeout, not durable queued/idempotent jobs. An unconfirmed failure returns HTTP 502: inspect Flow before explicit retry because the mutation may have succeeded. The server does not automatically retry them. Preserve the documented unsupported fields and remaining creation restrictions before treating this as complete character CRUD parity.
 
@@ -270,17 +305,21 @@ read.raise_for_status()
 # DELETE uses the same explicit account/project query controls when removal is intended.
 ```
 
-These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for one/two-image flows; system preset voice assignment is now measured; rendered speech and custom voices remain unverified or unimplemented.
+These native operations copy the source image; they do not generate a new portrait. Keep the returned character reference and project, especially after an unconfirmed failure. Character creation/detail/update/removal is verified for one/two-image flows; system preset voice assignment is measured. Saved voice CRUD/binding is implemented;
+its acceptance and rendered speech await final E2E.
 
 For two references, add `imageReference_2` to the create request. Both must belong to the same account/project and pass validation before mutation. Portrait is slot 0 and body is slot 1. Copying both references and applying notes uses the same 45 second post-create deadline, with partial identity preserved on an unconfirmed outcome.
 
 ### Automatic image aspect
 
-REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP Auto and native Auto remain gaps; use explicit ratios there.
+REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP and manifest rows now support first-local-reference Auto through the same
+policy. UUID-first and text-only Auto remain unsupported; native Google Auto is
+not claimed. See [Auto aspect](../AUTO_ASPECT.md).
 
 ### Historical voice transition investigation
 
-Earlier guarded empty-dialogue probes did not complete the picker-to-character transition. That historical uncertainty was superseded by the measured native preset assignment and deployed HTTP lifecycle below. No rendered speech proof or custom voice support follows from metadata assignment.
+Earlier guarded empty-dialogue probes did not complete the picker-to-character transition. That historical uncertainty was superseded by the measured native preset assignment and deployed HTTP lifecycle below. This historical metadata proof does not establish rendered speech. The new saved
+TTS adapters are documented separately and await final E2E.
 
 ### Native system preset assignment
 
@@ -305,3 +344,24 @@ pending. Cookies/session values are intentionally never returned. Read the
 [cookie import guide](COOKIE_IMPORT.md) for accepted table fields and rollback.
 
 MP4 ingestion now requires X-Flow-Rights-Confirmed: true for every request; missing or false consent fails 422 before queue creation. It is not an account-wide preference. Typed native-media uncertainty preserves bounded known/pending inspection handles and prevents success registration or automatic replay. See [native media operations](NATIVE_MEDIA.md).
+
+
+## Native image/audio-reference video
+
+`POST /videos` with `model: "omni-flash"` and existing
+`referenceImage_1..7` or `referenceAudio_1..5` media UUIDs uses the native
+reference-video worker. Audio-only ingredients are supported by the source codec.
+The selected available model imposes its own image/audio budgets; the absolute
+ceilings do not promise that every tier/model accepts them. Optional `modelKey`
+selects an exact discovered key; default selection stays within Omni Flash.
+`GET /videos/reference/models?withAudio=true` lists native audio-capable choices.
+Aspect choices are16:9,9:16 and1:1. Duration/resolution must match the fresh
+native usage. Canonical image/audio markers resolve against the ordered supplied
+slots. See [reference video](NATIVE_REFERENCE_VIDEO.md) for SDK/CLI/MCP,
+exact source evidence and the pending live-acceptance boundary.
+
+## Final source checkpoint
+
+The registered MCP surface contains 35 tools: the prior 24 plus 11 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+
+Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.

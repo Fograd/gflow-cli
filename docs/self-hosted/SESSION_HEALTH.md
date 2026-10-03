@@ -90,7 +90,7 @@ generation. The production-service smoke subsequently passed as well.
 
 Production proof: authenticated capability discovery advertises the new routes;
 HTTP401 without bearer, async HTTP201, completed OK/project_access_verified,
-profilePreserved true and refreshAttempted false. The registered MCP service
+profilePreserved true and refreshAttempted false. At that earlier checkpoint the registered MCP service
 exposed 22 tools, including the updated image reference and native voice schema.
 No generation or CAPTCHA task was performed by the health/protocol checks.
 
@@ -99,3 +99,5 @@ runs reused the original saved login, with fresh native project reads confirming
 access after each lifecycle. No further manual identity challenge was required
 during those tests. This is observed session reuse, not a guarantee that Google
 will never ask for verification again.
+
+The later portable-media deployment exposed 24 registered MCP tools. Its fresh production health job again verified native project access with the original profile preserved and no refresh. See the [current verification ledger](VERIFICATION.md) for the dated checkpoints.

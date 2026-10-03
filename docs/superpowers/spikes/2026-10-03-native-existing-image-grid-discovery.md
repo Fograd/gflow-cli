@@ -159,3 +159,54 @@ frames, fixed drift fields and method/RPC-name counts in private evidence. No
 source change, guard relaxation, generation retry or inferred Google feature
 absence follows from this incomplete classification. Paid CLI/MCP/HTTP image
 acceptance remains pending, with all three additional allowances unused.
+
+## Instrumented no-fixture attach-only follow-up
+
+The separately approved bounded follow-up used one fresh-owned older image, no
+character fixture, no generation and the same unknown-write guard. Fresh hydration
+and first grid scan passed. The closed traceback localized `UiSelectorDriftError`
+to `reference_existing` calling `apply_image_settings`, then `_select_image_model`;
+the fixed detail was "image model picker is missing". Native picker attachment and
+the explicit second grid scan were not reached. Both exact-ID thumbnail tokens
+remained available afterward, with mounted grid count 24 unchanged. The private
+test draft was cleared without Enter, normal client closed and lease released.
+
+Persisted blocked counters recorded 47 occurrences during fresh preflight and 25
+during settings, including 11 and 10 non-RPC POST occurrences respectively. RPC
+occurrences can share a request and are not a unique-request count. The captured
+RPC names remain unclassified; endpoint families for non-RPC requests were not
+captured because the probe was already running when that refinement was proposed.
+Thus this proves the observed failure stage, not why that model control was missing
+or that the same cause produced the earlier public CLI refusal. Guard-induced
+missing data, current mode/settings DOM and selector drift remain hypotheses.
+No unknown RPC is reclassified as harmless, and no paid adapter retry is justified
+without a safe dependency/structural-control observation.
+
+## Normal-network settings/attach comparison
+
+A separately approved 100-second probe allowed ordinary application metadata and
+preferences traffic, while denying known image/video/TTS generation endpoints and
+known resource mutations. This was a normal UI settings experiment, not a claim
+that all network traffic was read-only. No Generate or resource mutation controls
+were used, and none of the known protected operations was attempted.
+
+Fresh ownership/hydration passed. With normal app traffic, the initial grid mounted
+14 images in a scrollable container with height6815 rather than the24/3275 observed
+under blanket unknown-POST denial. The older registered reference was absent and
+its parser token empty; the recent SDK image was present with a recognized token.
+The current reference helper remained in its first-grid lookup/reload loop until
+the global deadline, with model/settings/picker/second-scan stages not reached.
+The normal client closed and exclusive lease was released. No fixture or image
+was created; all three additional image allowances remain unused.
+
+Closed endpoint-family/method/RPC occurrence counters were persisted privately.
+Unknown app requests allowed by this approved comparison are not retroactively
+classified as harmless telemetry. This result shows the earlier missing model
+picker observation was confounded by the restrictive network harness, and
+reproduces missing rendered older-reference identity under normal traffic. It
+does not yet prove which read/preference controls the mounted window, or that a
+bounded scroll reveals the exact older identity in this same normal-network state.
+The next candidate remains target-aware bounded grid discovery with exact-ID token
+retention and unchanged ownership/literal/submit guards, pending no-submit evidence
+and meaningful regression. No settings selector patch follows from the confounded
+model-picker error.

@@ -638,7 +638,36 @@ def test_all_domain_errors_provide_remediation_hint() -> None:
     assert len(domain_classes) >= 30
 
     for exc_cls in domain_classes:
-        from gflow_cli.errors import CharacterMutationUnknownError, NativeMediaMutationUnknownError
+        from gflow_cli.errors import (
+            CharacterMutationUnknownError,
+            NativeExtensionUnknownError,
+            NativeMediaMutationUnknownError,
+            NativeVideoGenerationUnknownError,
+            VoiceMutationUnknownError,
+        )
+
+        project = "11111111-1111-4111-8111-111111111111"
+        media = "22222222-2222-4222-8222-222222222222"
+        workflow = "33333333-3333-4333-8333-333333333333"
+        if issubclass(exc_cls, NativeExtensionUnknownError):
+            from gflow_cli.api.native_extension import NativeExtensionStarted
+
+            exc = exc_cls(NativeExtensionStarted(project, media, (media,), (workflow,)))
+            assert exc.to_problem_details().get("remediation_hint")
+            continue
+        if exc_cls is NativeVideoGenerationUnknownError:
+            exc = exc_cls(
+                project_id=project,
+                media_ids=(media,),
+                workflow_ids=(workflow,),
+                phase="video_submit",
+            )
+            assert exc.to_problem_details().get("remediation_hint")
+            continue
+        if exc_cls is VoiceMutationUnknownError:
+            exc = exc_cls(project_id=project, phase="preview")
+            assert exc.to_problem_details().get("remediation_hint")
+            continue
 
         if exc_cls is NativeMediaMutationUnknownError:
             exc = exc_cls(

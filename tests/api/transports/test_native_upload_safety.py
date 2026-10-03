@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from gflow_cli.api.transports import migrated_resources
 from gflow_cli.api.transports import migrated_video_upload as upload
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
@@ -43,7 +44,7 @@ async def test_dispatch_loss_preserves_unknown_and_cleans_observers(tmp_path, mo
 
     path = tmp_path / "video.mp4"
     path.write_bytes(b"\x00\x00\x00\x0cftypisom")
-    monkeypatch.setattr(upload.MigratedComposer, "ensure_editor", AsyncMock())
+    monkeypatch.setattr(migrated_resources, "read_project_payload", AsyncMock())
     page = MagicMock()
     listeners = {}
     page.on.side_effect = lambda event, callback: listeners.update({event: callback})
@@ -78,7 +79,7 @@ async def test_known_upload_handle_survives_later_failure(tmp_path, monkeypatch)
 
     path = tmp_path / "video.mp4"
     path.write_bytes(b"\x00\x00\x00\x0cftypisom")
-    monkeypatch.setattr(upload.MigratedComposer, "ensure_editor", AsyncMock())
+    monkeypatch.setattr(migrated_resources, "read_project_payload", AsyncMock())
     page = MagicMock()
     listeners = {}
     page.on.side_effect = lambda event, callback: listeners.update({event: callback})
@@ -112,7 +113,7 @@ async def test_listener_cleanup_fault_preserves_known_upload(tmp_path, monkeypat
 
     path = tmp_path / "video.mp4"
     path.write_bytes(b"\x00\x00\x00\x0cftypisom")
-    monkeypatch.setattr(upload.MigratedComposer, "ensure_editor", AsyncMock())
+    monkeypatch.setattr(migrated_resources, "read_project_payload", AsyncMock())
     page = MagicMock()
     listeners = {}
     page.on.side_effect = lambda event, callback: listeners.update({event: callback})
@@ -137,3 +138,19 @@ async def test_listener_cleanup_fault_preserves_known_upload(tmp_path, monkeypat
     assert info.value.known_media_ids == (M,)
     assert page.remove_listener.call_count == 2
     assert "SECRET" not in str(info.value)
+
+
+@pytest.mark.asyncio
+async def test_native_project_readiness_precedes_upload_controls(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    path = tmp_path / "video.mp4"
+    path.write_bytes(b"\x00\x00\x00\x0cftypisom")
+    page = MagicMock()
+    ready = AsyncMock(side_effect=ValueError("Project unavailable"))
+    monkeypatch.setattr(migrated_resources, "read_project_payload", ready)
+    with pytest.raises(ValueError, match="Project unavailable"):
+        await upload.upload_video(page, P, path, rights_confirmed=True)
+    ready.assert_awaited_once_with(page, P)
+    page.locator.assert_not_called()
+    page.on.assert_not_called()

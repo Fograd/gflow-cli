@@ -30,6 +30,9 @@ _ERROR_CODES = {
     "image_output_count_mismatch",
     "image_partial_download",
     "upload_rights_required",
+    "google_flow_unusual_activity",
+    "google_flow_waf_rejection",
+    "google_flow_content_policy",
 }
 _EXIT_HTTP = {
     3: 596,
@@ -266,6 +269,12 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     )
     if code == "upload_rights_required":
         detail = "Video upload requires an explicit rights confirmation for this request."
+    elif code == "google_flow_unusual_activity":
+        detail = "Google Flow refused this request because of unusual activity."
+    elif code == "google_flow_waf_rejection":
+        detail = "Google Flow refused this request at its browser protection check."
+    elif code == "google_flow_content_policy":
+        detail = "Google Flow refused this request under its content policy."
     safe: dict[str, Any] = {
         "error": detail,
         "code": http_status(result, state),

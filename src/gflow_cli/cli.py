@@ -34,6 +34,7 @@ from gflow_cli.cli_scene import scene as _scene_group
 from gflow_cli.cli_tools import tools as _tools_group
 from gflow_cli.cli_update import update as _update_command
 from gflow_cli.cli_video import video as _video_group
+from gflow_cli.cli_voice import voice_group as _voice_group
 from gflow_cli.config import get_settings, warn_if_removed_gemini_key_set
 from gflow_cli.observability import DEBUG_LEVEL, configure_logging
 from gflow_cli.update_check import UpdateNotice, maybe_notify_update
@@ -501,6 +502,7 @@ main.add_command(_update_command)
 main.add_command(_movie_group)
 main.add_command(_project_group)
 main.add_command(_video_group)
+main.add_command(_voice_group)
 main.add_command(_image_group)
 main.add_command(_instructions_group)
 main.add_command(_run_command)

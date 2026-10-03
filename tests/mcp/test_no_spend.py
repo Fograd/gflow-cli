@@ -54,6 +54,10 @@ def test_no_spend_removes_both_generate_tools(
     names = _tool_names(registered_server)
     assert "gflow_generate_image" not in names
     assert "gflow_generate_video" not in names
+    assert "gflow_create_saved_voice" not in names
+    assert "gflow_extend_native_video" not in names
+    assert "gflow_edit_native_video" not in names
+    assert "gflow_generate_native_reference_video" not in names
     # Read-only surfaces stay available.
     assert "gflow_list_projects" in names
     assert "gflow_list_tools" in names

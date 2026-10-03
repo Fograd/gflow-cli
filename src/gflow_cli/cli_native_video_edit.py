@@ -1,0 +1,139 @@
+"""Standalone source-derived Omni edit command."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import click
+
+from gflow_cli import json_output
+from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
+from gflow_cli.api.client import FlowApiClient
+from gflow_cli.api.native_extension import NativeExtensionStarted
+from gflow_cli.api.native_video_edit import (
+    NativeVideoEditUnknownError,
+    edit_native_video,
+    wait_native_video_edit,
+)
+from gflow_cli.config import get_settings
+
+
+@click.command("edit-native")
+@click.argument("media_id")
+@click.option("--project", required=True)
+@click.option("--prompt", required=True)
+@click.option("--model-key", required=True, help="Explicit account-native Omni edit model key.")
+@click.option("--start-frame", type=click.IntRange(0, 239), default=0)
+@click.option("--end-frame", type=click.IntRange(1, 240), required=True)
+@click.option("--image-ref", multiple=True, help="Same-project existing image UUID; up to5.")
+@click.option("--audio-ref", multiple=True, help="Same-project saved voice UUID; up to3.")
+@click.option("--profile", default=None)
+@click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
+@click.option("--json", "as_json", is_flag=True)
+def edit_native_command(
+    media_id: str,
+    project: str,
+    prompt: str,
+    model_key: str,
+    start_frame: int,
+    end_frame: int,
+    image_ref: tuple[str, ...],
+    audio_ref: tuple[str, ...],
+    profile: str | None,
+    out_dir: Path,
+    as_json: bool,
+) -> None:
+    """Edit one owned video slice; output duration follows the frame window."""
+    selected = _resolve_profile(profile)
+
+    async def action() -> None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        async def checkpoint(started: NativeExtensionStarted) -> None:
+            path = out_dir / "edit-started.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "project_id": started.project_id,
+                        "source_media_id": started.source_media_id,
+                        "media_ids": started.media_ids,
+                        "workflow_ids": started.workflow_ids,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            path.chmod(0o600)
+
+        try:
+            async with FlowApiClient(
+                profile_dir=get_settings().profile_subdir(selected), headless=False
+            ) as client:
+                started = await edit_native_video(
+                    client,
+                    project_id=project,
+                    media_id=media_id,
+                    prompt=prompt,
+                    model_key=model_key,
+                    start_frame=start_frame,
+                    end_frame=end_frame,
+                    image_ids=image_ref,
+                    audio_ids=audio_ref,
+                    on_started=checkpoint,
+                )
+                records = await wait_native_video_edit(client, started)
+                outputs: list[dict[str, str]] = []
+                for record in records:
+                    if record.video_url is None:
+                        raise NativeVideoEditUnknownError(started)
+                    path = out_dir / f"{record.media_id}.mp4"
+                    await client.download(record.video_url, path)
+                    outputs.append(
+                        {
+                            "media_id": record.media_id,
+                            "workflow_id": record.workflow_id,
+                            "local_path": str(path),
+                        }
+                    )
+                result = {
+                    "type": "video_edit_result",
+                    "project_id": project,
+                    "source_media_id": media_id,
+                    "results": outputs,
+                }
+                if as_json:
+                    json_output.emit(result)
+                else:
+                    click.echo(f"Saved one edited clip in {out_dir}")
+        except NativeVideoEditUnknownError as error:
+            json_output.emit(
+                {
+                    "type": "error",
+                    "error_class": "NativeVideoEditUnknownError",
+                    "error": error.to_problem_details(),
+                }
+            )
+            raise click.exceptions.Exit(40) from None
+
+    run_with_handlers(action, cli_command="video edit-native", as_json=as_json)
+
+
+@click.command("edit-models")
+@click.option("--project", required=True)
+@click.option("--profile", default=None)
+def edit_models_command(project: str, profile: str | None) -> None:
+    """Read available account-native edit model keys and credit metadata."""
+    selected = _resolve_profile(profile)
+
+    async def action() -> None:
+        async with FlowApiClient(
+            profile_dir=get_settings().profile_subdir(selected), headless=False
+        ) as client:
+            json_output.emit(
+                {
+                    "type": "video_edit_models",
+                    "models": await client.list_native_video_edit_models(project),
+                }
+            )
+
+    run_with_handlers(action, cli_command="video edit-models", as_json=True)

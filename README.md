@@ -138,7 +138,7 @@ One step, and you get the `gflow-cli` and `video-production` skills plus the MCP
 The plugin ships **disabled**. Claude Code starts a plugin's MCP servers automatically once a
 plugin is enabled, with no prompt of its own — and this server drives your own Google account,
 where Veo video generation bills your credits. So installing it starts nothing, and enabling it
-is a deliberate act. Images and composition are free; only video spends. For a hard guarantee,
+is a deliberate act. Generation, saved TTS voice creation and native video extension/editing can spend credits. For a hard guarantee,
 register the server yourself with `gflow mcp run --no-spend`, which never registers the
 credit-spending tools at all. See [docs/MCP.md](docs/MCP.md) for the details, including which
 revision `/plugin marketplace add` gives you.
@@ -240,3 +240,24 @@ and [MCP tool reference](docs/MCP.md#native-existing-image-character-tools) for
 examples, validation and recovery from partial mutations.
 
 The fork also exposes portable [native MP4 upload and reversible whole-batch archive](docs/self-hosted/NATIVE_MEDIA.md), with per-request consent and safe recovery identities. Live proof for each new adapter is recorded separately.
+
+Local-reference image Auto aspect is available in CLI and MCP; see [Auto aspect](docs/AUTO_ASPECT.md) for the approximation policy and reference limits.
+
+Saved speech and permanent individual-media deletion now have source-derived portable adapters. Creation is preset-based TTS rather than cloning; permanent deletion is separate from reversible batch archive. Read [saved voices](docs/self-hosted/VOICES.md) and [native media](docs/self-hosted/NATIVE_MEDIA.md) for controls and final E2E proof limits.
+
+Source-derived native Omni video editing and model discovery are available as draft adapters; [scope and pending live proof](docs/VIDEO_EDIT.md).
+
+Native account [credit balance inspection](docs/NATIVE_CREDITS.md) is source-derived; final live read-only proof remains pending.
+
+Native standalone video continuation uses `video extend-native` with account model
+discovery in `video extension-models`. Omni existing-video editing uses
+`video edit-native` / `video edit-models`; existing image/audio ingredients use
+`video reference-native` / `video reference-models`. These are source-derived
+native transports with final E2E acceptance tracked separately. See
+[extension](docs/self-hosted/NATIVE_VIDEO_EXTENSION.md),
+[editing](docs/VIDEO_EDIT.md), and
+[reference video](docs/self-hosted/NATIVE_REFERENCE_VIDEO.md).
+
+Current source contains 35 MCP tools. Native credit and model/catalog reads passed live. One owned synthetic clip's permanent deletion was confirmed by later native reads after transient visibility. Saved TTS remains unaccepted: an initial preview was ambiguous and its preset capitalization was corrected, then one captured corrected request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7). A native browser-token reference-video attempt was Google-rejected. A controlled CapSolver VIDEO_GENERATION trial also solved once and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no retry and zero accepted outputs. Provider-backed acceptance, full feature lifecycle verification and all-three-account operation remain unproven; this is not full useapi parity.
+
+Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.

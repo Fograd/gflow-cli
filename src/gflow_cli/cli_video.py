@@ -2299,3 +2299,27 @@ async def _run_video_upscale(
             out_path=out_path,
         )
         console.print(f"[bold green]Saved:[/bold green] {safe_path_text(target)}")
+
+
+from gflow_cli.cli_native_extension import (  # noqa: E402
+    extend_native_command,
+    extension_models_command,
+)
+
+video.add_command(extend_native_command)
+
+video.add_command(extension_models_command)
+
+from gflow_cli.cli_native_video_edit import edit_models_command, edit_native_command  # noqa: E402
+
+video.add_command(edit_native_command)
+
+video.add_command(edit_models_command)
+
+from gflow_cli.cli_native_reference_video import (  # noqa: E402
+    reference_models_command,
+    reference_native_command,
+)
+
+video.add_command(reference_native_command)
+video.add_command(reference_models_command)

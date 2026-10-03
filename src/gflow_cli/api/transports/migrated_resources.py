@@ -6,7 +6,6 @@ import asyncio
 from typing import Any, cast
 
 from gflow_cli.api.transports.batchexecute import parse_frames
-from gflow_cli.api.transports.migrated_composer import MigratedComposer
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
@@ -147,7 +146,6 @@ async def read_project_payload(page: Any, project_id: str) -> Any:
     try:
         # A fresh project navigation ensures the SPA emits its authoritative timeline.
         await page.goto(f"https://flow.google.com/project/{project_id}")
-        await MigratedComposer().ensure_editor(page, project_id)
         return list(await asyncio.wait_for(reply, timeout=30))
     finally:
         page.remove_listener("response", on_response)

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from gflow_cli.api.native_extension import NativeExtensionStarted
     from gflow_cli.diagnostics import IncidentRef
 
 __all__ = [
@@ -25,6 +26,9 @@ __all__ = [
     "CharacterMutationUnknownError",
     "ImageGenerationUnknownError",
     "NativeMediaMutationUnknownError",
+    "NativeExtensionUnknownError",
+    "NativeVideoGenerationUnknownError",
+    "VoiceMutationUnknownError",
     "CharacterBatchPartialError",
     "ConfigurationError",
     "ContentPolicyError",
@@ -226,6 +230,93 @@ class ImageGenerationUnknownError(GFlowError):
         return out
 
 
+class NativeExtensionUnknownError(GFlowError):
+    problem_type = "https://gflow-cli.dev/errors/native-video-extension-unknown"
+    title = "Native video extension outcome unknown"
+    _default_remediation = (
+        "Inspect the returned output IDs in Flow before retrying; no resubmission occurred."
+    )
+
+    def __init__(self, started: NativeExtensionStarted) -> None:
+        super().__init__(route="video.extend.native", retryable=False)
+        if not 1 <= len(started.media_ids) <= 4 or len(started.workflow_ids) != len(
+            started.media_ids
+        ):
+            raise ValueError("Native extension uncertainty requires one through four outputs")
+        for value in (
+            started.project_id,
+            started.source_media_id,
+            *started.media_ids,
+            *started.workflow_ids,
+        ):
+            try:
+                UUID(value)
+            except (TypeError, ValueError, AttributeError):
+                raise ValueError("Native extension uncertainty requires UUID handles") from None
+        self.started = started
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(
+            outcome_unknown=True,
+            project_id=self.started.project_id,
+            media_ids=list(self.started.media_ids),
+            workflow_ids=list(self.started.workflow_ids),
+        )
+        return out
+
+
+class NativeVideoGenerationUnknownError(GFlowError):
+    """A native video dispatch/poll has an uncertain outcome; never replay."""
+
+    problem_type = "https://gflow-cli.dev/errors/native-video-generation-unknown"
+    title = "Native video generation outcome unknown"
+    _default_remediation = (
+        "Inspect the returned output IDs in Flow before resubmitting; "
+        "no automatic generation retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        media_ids: tuple[str, ...],
+        workflow_ids: tuple[str, ...],
+        phase: Literal["video_submit", "video_poll"],
+    ) -> None:
+        if phase not in {"video_submit", "video_poll"}:
+            raise ValueError("Native video uncertainty requires a known phase")
+        if (
+            not isinstance(media_ids, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or not isinstance(workflow_ids, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or not 1 <= len(media_ids) <= 4
+            or len(media_ids) != len(workflow_ids)
+        ):
+            raise ValueError("Native video uncertainty requires one through four paired outputs")
+        try:
+            project_id = str(UUID(project_id))
+            media_ids = tuple(str(UUID(value)) for value in media_ids)
+            workflow_ids = tuple(str(UUID(value)) for value in workflow_ids)
+        except (TypeError, ValueError, AttributeError):
+            raise ValueError("Native video uncertainty requires UUID handles") from None
+        if len(set(media_ids + workflow_ids)) != len(media_ids) * 2:
+            raise ValueError("Native video uncertainty requires distinct handles")
+        super().__init__(route="video.references.native", retryable=False)
+        self.project_id, self.media_ids = project_id, media_ids
+        self.workflow_ids, self.phase = workflow_ids, phase
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(
+            outcome_unknown=True,
+            project_id=self.project_id,
+            media_ids=list(self.media_ids),
+            workflow_ids=list(self.workflow_ids),
+            phase=self.phase,
+        )
+        return out
+
+
 class NativeMediaMutationUnknownError(GFlowError):
     """A native upload/archive may have applied; inspect handles before resubmission."""
 
@@ -239,13 +330,13 @@ class NativeMediaMutationUnknownError(GFlowError):
     def __init__(
         self,
         *,
-        operation: Literal["upload", "archive"],
+        operation: Literal["upload", "archive", "delete"],
         phase: Literal["dispatch", "response", "cancelled"],
         project_id: str,
         known_media_ids: tuple[str, ...] = (),
         pending_media_ids: tuple[str, ...] = (),
     ) -> None:
-        if operation not in {"upload", "archive"} or phase not in {
+        if operation not in {"upload", "archive", "delete"} or phase not in {
             "dispatch",
             "response",
             "cancelled",
@@ -277,6 +368,48 @@ class NativeMediaMutationUnknownError(GFlowError):
             project_id=self.project_id,
             known_media_ids=list(self.known_media_ids),
             pending_media_ids=list(self.pending_media_ids),
+        )
+        return out
+
+
+class VoiceMutationUnknownError(GFlowError):
+    """Audio preview/save may have applied; inspect retained identities before retrying."""
+
+    problem_type = "https://gflow-cli.dev/errors/voice-mutation-unknown"
+    title = "Saved voice mutation outcome unknown"
+    _default_remediation = (
+        "Inspect the selected Flow project and retained audio handles before retrying; "
+        "no automatic preview or save retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        phase: Literal["preview", "save", "delete"],
+        media_id: str | None = None,
+        workflow_id: str | None = None,
+    ) -> None:
+        if phase not in {"preview", "save", "delete"}:
+            raise ValueError("Voice mutation phase must be preview, save or delete")
+        try:
+            project = str(UUID(project_id))
+            media = str(UUID(media_id)) if media_id is not None else None
+            workflow = str(UUID(workflow_id)) if workflow_id is not None else None
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("Voice mutation recovery requires UUID identities") from None
+        super().__init__(route="voice." + phase, retryable=False)
+        self.project_id, self.phase = project, phase
+        self.media_id, self.workflow_id = media, workflow
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(
+            outcome_unknown=True,
+            project_id=self.project_id,
+            phase=self.phase,
+            known_media_ids=[self.media_id] if self.media_id else [],
+            workflow_ids=[self.workflow_id] if self.workflow_id else [],
         )
         return out
 
@@ -1657,6 +1790,9 @@ EXIT_CODE_MAP: dict[type[GFlowError], int] = {
     CharacterMutationUnknownError: 40,
     ImageGenerationUnknownError: 40,
     NativeMediaMutationUnknownError: 40,
+    NativeExtensionUnknownError: 40,
+    NativeVideoGenerationUnknownError: 40,
+    VoiceMutationUnknownError: 40,
     ConfigurationError: 11,
     AuthExpiredError: 3,
     RateLimitError: 4,

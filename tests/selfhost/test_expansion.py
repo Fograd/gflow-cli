@@ -177,7 +177,8 @@ async def test_multi_video_crash_keeps_completed_checkpoint(tmp_path, monkeypatc
 
 def test_sync_wait_and_async_immediate(tmp_path, monkeypatch):
     cfg = settings(tmp_path)
-    cfg.sync_wait = 1
+    # Give the one-second idle worker poll room to wake under parallel test load.
+    cfg.sync_wait = 3
 
     async def fake_execute(cfg, store, job):
         await asyncio.sleep(0.02)

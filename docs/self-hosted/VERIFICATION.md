@@ -1,6 +1,6 @@
 # Self-hosted fork verification
 
-Measured on 2026-10-02 using one authenticated Google AI Pro profile served by `flow.google.com`. Current snapshot: one/two-reference character creation, initial notes and system preset assignment are live verified through the native adapter. CLI/MCP live surface verification is recorded separately below. Latest offline gate is 5,220 passed, 47 skipped and 90.71% code coverage. Earlier gate results below describe their recorded historical snapshots.
+Measured across 2026-10-02–03 using one authenticated Google AI Pro profile served by `flow.google.com`. Previously published snapshot: one/two-reference character creation, initial notes and system preset assignment are live verified through the native adapter. Native MP4 upload and reversible archive are verified separately through SDK, CLI, registered MCP and HTTP below. The preceding portable-media offline gate was 5,612 passed, 28 skipped and 90.75% code coverage. This is code coverage, not useapi feature completeness or Google generation success. Earlier gate results below describe their recorded historical snapshots.
 
 | Surface | Evidence | Result |
 |---|---|---|
@@ -23,7 +23,7 @@ The one real-profile native-upscale BDD run had a profile contention/setup failu
 
 Only one of the user's three Pro accounts is authenticated and configured for execution. Successful 4K cannot be tested without an Ultra account; Pro 4K refusal is verified. The three plans are independent allowances, not an Ultra entitlement.
 
-No video generation credits were spent during this implementation. Native video 1080 p/original 720 p/GIF export adapters have offline coverage, but no existing Google-generated video was available for live validation. Other unsupported controls and endpoints are listed in [the compatibility inventory](PARITY.md). API presence is not proof of full useapi parity.
+At the original export-adapter checkpoint, no video generation credits were spent. Native video 1080 p/original 720 p/GIF export adapters have offline coverage, but no existing Google-generated video was available for live validation. Other unsupported controls and endpoints are listed in [the compatibility inventory](PARITY.md). API presence is not proof of full useapi parity.
 
 Tee's production provider was not switched. Its existing client was exercised against the new endpoint by overriding its base URL in an isolated verification process. The local service and fork can be used independently of that production configuration.
 
@@ -333,3 +333,69 @@ Unauthenticated capabilities returned401; MP4 without per-request rights returne
 the specific consent422 before queueing. Actual authenticated Streamable HTTP
 registration exposed24tools and both native upload/archive input schemas. These
 smoke checks performed no generation or solver operation.
+
+## Final native feature batch — 2026-10-03
+
+The batch adds standalone video extension, Omni video editing, image/saved-audio
+reference video, saved TTS voice CRUD and character binding, permanent individual
+media deletion, local-reference Auto image aspect and native credit reads.
+SDK, CLI, MCP and durable REST adapters are wired. Registered MCP exposes35tools,
+up from24. Availability and offline coverage do not establish accepted generation.
+
+| Final live check | Measured result |
+|---|---|
+| Native reference/audio model catalogs and credits |1passed; observed model IDs and a nonnegative native balance |
+| Native extension/edit catalogs |1passed; observed native model IDs |
+| Synthetic MP4 upload and permanent selected-media deletion |1passed/4skipped in28.91s; all original active media retained |
+| Native image-reference video with browser token |1failed; one request received PUBLIC_ERROR_UNUSUAL_ACTIVITY, gRPC7; no accepted output |
+| Controlled CapSolver native image-reference video |1failed/4skipped in25.84s; one Enterprise-v3-proxyless VIDEO_GENERATION solve, one submit, one explicit Google refusal; no retry or accepted output |
+| Corrected canonical-preset TTS preview |1failed/4skipped in17.93s; captured no0P6 returned PUBLIC_ERROR_UNUSUAL_ACTIVITY, gRPC7; no accepted audio or binding lifecycle |
+| Auto image through CLI |1failed/4skipped in54.38s; shared composer returned FlowAgentUiError, exit25; no accepted image or resolved-output proof |
+
+The first TTS preview had an ambiguous outcome and no acknowledged handles.
+A source inspection corrected canonical preset capitalization; the later captured
+request proves an explicit refusal rather than establishing the earlier cause.
+The first individual-delete check observed a valid acknowledgement before the
+timeline propagated. A later metadata-only read confirmed removal, and the final
+passing BDD polls bounded reads without repeating deletion.
+
+Final tests used separate private temporary directories. A preparation error
+pointed a provider test at an empty profile; it failed before solving or Google
+generation. Its checkpoint remains separate from the measured authenticated
+CapSolver trial. An earlier private plugin import error also submitted nothing.
+
+Across the earlier image trial and this video trial, CapSolver recorded2solved,
+2submitted,0accepted and2rejected operations. A solved token is not Google
+acceptance. Provider-backed public generation remains guarded; keys, tokens,
+signed URLs and raw captures remain outside Git. No additional extension/edit
+generation or rendered-audio reference request was sent after the same-account
+Google refusals. Those paid acceptances remain externally blocked and unverified.
+Auto MCP acceptance shares the unresolved composer boundary and is unverified.
+
+Typed known WAF/content refusals now project safe nonretryable HTTP403/400 errors
+without outcomeUnknown; genuinely ambiguous mutations retain exit40 and known
+handles. Only one profile has been tested. Existing native image2K proof remains
+separate from the new blocked generation tests.
+
+Six surface mirrors were checked: public CLI/direct MCP/queued Auto payloads,
+registered schemas and parameter docs, agent-facing indexes and skills, typed
+errors and HTTP projection, declarative defaults, and canonical/website docs.
+New video mutations use separate durable workers with pre-dispatch checkpoints.
+No native Google AUTO enum, ten-image budget, numerical video seed or full useapi
+equivalence is inferred. See [the complete remaining inventory](PARITY.md).
+
+## Final feature-batch quality gate
+
+The final broad offline sweep returned5,763passed,5skipped and88.63% coverage
+in288.76seconds, with one website-mirror synchronization test failing while
+canonical docs were still being finalized. Mirrors were then regenerated and the
+failed gate rerun against the frozen documents:83focused tests passed, including mirror synchronization, CLI/MCP parity, native workers and refusal projection. Strict types, whole-tree lint and
+format, repository hygiene, doc links, website privacy/navigation and council
+memory checks are separate publication gates. These measurements describe code
+and docs; they do not override the explicit live generation refusals above.
+
+The duplication proxy identified the existing experimental transport mirrors and
+one new worker checkpoint block. The new extension/edit duplicate was extracted
+into a shared writer, preserving filenames, recovery fields and mode600.
+The focused worker regression passed after this small source change. No extra
+generation or solver request was used for these corrections.

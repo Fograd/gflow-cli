@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from gflow_cli.api.character import VOICE_NAMES
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
 from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
 from gflow_cli.api.transports.migrated_rpc import native_rpc
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
+from gflow_cli.api.transports.native_voices import get_saved_voice
 
 POST_MUTATION_TIMEOUT = 45.0
 
@@ -75,7 +76,10 @@ def update_payload(
     if voice is not None:
         paths.append("entity_info.character_info.audio_references")
     if personality is not None or voice is not None:
-        character_info: list[Any] = [None, [[None, str(voice).lower()]] if voice else None]
+        character_info: list[Any] = [
+            None,
+            ([[str(voice)]] if is_uuid(voice) else [[None, str(voice).lower()]]) if voice else None,
+        ]
         if personality is not None:
             character_info.append(personality)
         info.append(character_info)
@@ -83,6 +87,8 @@ def update_payload(
 
 
 def normalize_voice(value: object) -> str:
+    if is_uuid(value):
+        return str(UUID(str(value)))
     if not isinstance(value, str):
         raise ValueError("Voice must be a system preset name; clearing is unverified")
     canonical = next((name for name in VOICE_NAMES if name.lower() == value.lower()), None)
@@ -168,8 +174,12 @@ async def mutate_character(
             project_id, project_id if operation == "create" else entity_id, name, personality, voice
         )
     payload = await read_project_payload(page, project_id)
-    if voice is not None and voice not in {row["voice"] for row in parse_native_voices(payload)}:
-        raise ValueError("Voice is not present in the current native system preset catalog")
+    if voice is not None:
+        if is_uuid(voice):
+            # Fresh selected-project catalog plus GetMedia exclusive audio proof, before mutation.
+            await get_saved_voice(page, project_id, voice)
+        elif voice not in {row["voice"] for row in parse_native_voices(payload)}:
+            raise ValueError("Voice is not present in the current native system preset catalog")
     owned = parse_native_characters(payload, project_id)
     if operation != "create" and entity_id not in {row["entity_id"] for row in owned}:
         raise ValueError("Character must belong to the selected project")

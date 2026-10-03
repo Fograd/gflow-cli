@@ -52,6 +52,41 @@ def contained_file(path: str, root: Path) -> Path:
     return candidate
 
 
+def native_refusal_error(result: dict[str, Any], exit_code: int) -> dict[str, Any] | None:
+    """Only exact canonical typed refusals cross the private subprocess boundary."""
+    error = result.get("error")
+    if not isinstance(error, dict):
+        return None
+    error = cast(dict[str, Any], error)
+    expected = {
+        10: ("WafRejectionError", "https://gflow-cli.dev/errors/waf-rejection"),
+        5: ("ContentPolicyError", "https://gflow-cli.dev/errors/content-policy"),
+    }.get(exit_code)
+    if (
+        expected is None
+        or error.get("class") != expected[0]
+        or error.get("type") != expected[1]
+        or error.get("exit_code") != exit_code
+        or error.get("outcome_unknown") is True
+    ):
+        return None
+    if exit_code == 5:
+        code = "google_flow_content_policy"
+        detail = "Google Flow refused this request under its content policy."
+    else:
+        detail_value = error.get("detail")
+        unusual = error.get("reason") == "PUBLIC_ERROR_UNUSUAL_ACTIVITY" or (
+            isinstance(detail_value, str) and "PUBLIC_ERROR_UNUSUAL_ACTIVITY" in detail_value
+        )
+        code = "google_flow_unusual_activity" if unusual else "google_flow_waf_rejection"
+        detail = (
+            "Google Flow refused this request because of unusual activity."
+            if unusual
+            else "Google Flow refused this request at its browser protection check."
+        )
+    return {"code": code, "exit_code": exit_code, "retryable": False, "detail": detail}
+
+
 async def subprocess_run(
     args: list[str], timeout: int, *, image_recovery_id: str | None = None
 ) -> tuple[int, bytes]:
@@ -157,13 +192,167 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             accumulated["completedCount"] += 1
             store.checkpoint(job["id"], accumulated)
         return accumulated
-    if job["kind"] == "assets/archive":
+    if job["kind"] in {"voices/create", "voices/delete"}:
+        creating = job["kind"] == "voices/create"
+        native_payload = {"project_id": project}
+        if creating:
+            native_payload.update(
+                display_name=payload["displayName"],
+                preset_voice=payload["voice"],
+                dialog=payload["dialog"],
+                performance=payload.get("performance", ""),
+            )
+        else:
+            native_payload["ref"] = payload["ref"]
         code, raw = await subprocess_run(
             [
                 sys.executable,
                 "-m",
                 "gflow_cli.selfhost.native_worker",
-                "media-delete",
+                "voice-saved-create" if creating else "voice-saved-delete",
+                profile,
+                json.dumps(native_payload),
+            ],
+            cfg.timeout,
+        )
+        result = parse_json_output(raw)
+        if code or result.get("status") != "ok":
+            refusal = native_refusal_error(result, code)
+            if refusal is not None:
+                return {"projectId": project, "error": refusal}
+            error = result.get("error", {})
+            if (
+                code != 40
+                or error.get("type") != "https://gflow-cli.dev/errors/voice-mutation-unknown"
+                or error.get("outcome_unknown") is not True
+            ):
+                return {
+                    "projectId": project,
+                    "error": {"code": "native_voice_operation_failed", "retryable": False},
+                }
+            voice_failure: dict[str, Any] = {
+                "code": "voice_mutation_outcome_unknown",
+                "retryable": False,
+                "outcome_unknown": True,
+            }
+            if error.get("project_id") == project:
+                for key in ("phase", "known_media_ids", "workflow_ids"):
+                    if key in error:
+                        voice_failure[key] = error[key]
+            return {"projectId": project, "error": voice_failure}
+        if not creating:
+            return {"projectId": project, "deleted": result["deleted"], "operation": "delete"}
+        return {
+            "projectId": project,
+            "ref": result["ref"],
+            "workflowId": result["workflow_id"],
+            "displayName": result["display_name"],
+            "voice": result["ref"],
+            "mediaId": result["ref"],
+            "baseVoice": result["preset_voice"],
+            "dialog": result["dialogue"],
+            "voicePerformance": result["performance"],
+            "source": "user",
+        }
+    if job["kind"] in {"videos/extend", "videos/edit", "videos/reference"}:
+        referencing = job["kind"] == "videos/reference"
+        editing = job["kind"] == "videos/edit"
+        request = out / "request.json"
+        request.write_text(json.dumps(payload), encoding="utf-8")
+        request.chmod(0o600)
+        try:
+            code, raw = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.reference_video_worker"
+                    if referencing
+                    else "gflow_cli.selfhost.native_video_edit_worker"
+                    if editing
+                    else "gflow_cli.selfhost.extension_worker",
+                    profile,
+                    project,
+                    str(request),
+                ],
+                cfg.timeout,
+            )
+        finally:
+            request.unlink(missing_ok=True)
+        result = parse_json_output(raw)
+        if code:
+            refusal = native_refusal_error(result, code)
+            if refusal is not None:
+                return {"projectId": project, "error": refusal}
+            error = result.get("error", {})
+            if code != 40 or error.get("outcome_unknown") is not True:
+                return {
+                    "projectId": project,
+                    "error": {"code": "native_video_operation_failed", "retryable": False},
+                }
+            return {
+                "projectId": project,
+                "error": {
+                    "code": "native_video_generation_outcome_unknown"
+                    if referencing
+                    else "native_video_edit_outcome_unknown"
+                    if editing
+                    else "native_video_extension_outcome_unknown",
+                    "retryable": False,
+                    "outcome_unknown": True,
+                    **(
+                        {key: error[key] for key in ("media_ids", "workflow_ids") if key in error}
+                        if error.get("project_id") == project
+                        else {}
+                    ),
+                },
+            }
+        if (
+            result.get("type")
+            != (
+                "video_reference_result"
+                if referencing
+                else "video_edit_result"
+                if editing
+                else "video_extension_result"
+            )
+            or result.get("project_id") != project
+        ):
+            raise ValueError("Native extension returned an unsupported result")
+        media_rows: list[dict[str, Any]] = []
+        for item in result["results"]:
+            media = str(uuid.UUID(item["media_id"]))
+            path = contained_file(item["local_path"], out)
+            store.asset(media, profile, project, str(path), "video/mp4")
+            media_rows.append(
+                {
+                    "mediaGenerationId": media,
+                    "workflowId": item["workflow_id"],
+                    "downloadPath": f"/v1/google-flow/assets/{media}/download",
+                    "mimeType": "video/mp4",
+                }
+            )
+        return {
+            "projectId": project,
+            **(
+                {}
+                if referencing
+                else {
+                    "sourceMediaGenerationId": payload["referenceVideo_1"]
+                    if editing
+                    else payload["mediaGenerationId"]
+                }
+            ),
+            "media": media_rows,
+            "completedCount": len(media_rows),
+        }
+    if job["kind"] in {"assets/archive", "assets/delete"}:
+        deleting = job["kind"] == "assets/delete"
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "media-delete-individual" if deleting else "media-delete",
                 profile,
                 json.dumps({"project_id": project, "media_ids": payload["mediaGenerationIds"]}),
             ],
@@ -175,7 +364,11 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
 
                 try:
                     unknown = unknown_native_media_result(
-                        parse_json_output(raw), code, project, "archive", store.get(job["id"])
+                        parse_json_output(raw),
+                        code,
+                        project,
+                        "delete" if deleting else "archive",
+                        store.get(job["id"]),
                     )
                     if unknown is not None:
                         store.checkpoint(job["id"], unknown)
@@ -188,7 +381,7 @@ async def execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str,
             raise ValueError("Native archive did not report success")
         return {
             "deleted": result["deleted"],
-            "operation": "archive",
+            "operation": "delete" if deleting else "archive",
             "scope": "google-project-library",
             "googleLibraryModified": True,
             "localCacheModified": False,

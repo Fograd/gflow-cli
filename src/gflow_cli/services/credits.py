@@ -62,6 +62,11 @@ async def _fetch(meta: profile_store.ProfileMeta) -> dict[str, Any]:
     # helper (`api/client.py::_run_with_aisandbox_retry`), which is route-blind and so
     # carries the class-default "SAPISID missing, re-run `gflow auth login`" — advice
     # that cannot work on a migrated account and can roll its strategy marker back.
+    if get_settings().flow_host == "flow.google.com":
+        async with FlowApiClient(
+            profile_dir=meta.profile_dir, headless=get_settings().headless
+        ) as client:
+            return _success(meta, await client.get_credits())
     verdict: AisandboxAuthError | None = None
     try:
         return _success(meta, await fetch_credits_http(meta.profile_dir))
