@@ -1973,3 +1973,36 @@ A separate registered credit-balance read returned guarded Unexpected Error500
 for both profiles. It established no balance, quota exhaustion or logout.
 That concrete public-read defect is being corrected independently; it does not
 explain Google's generation refusals without additional evidence.
+
+
+### R11 native credit browser-context correction
+
+The registered credit-read500 was reproduced as Patchright evaluating native
+page data in an isolated world. The reader omitted the shared
+page_owned_evaluate_kwargs used by other native calls. The minimal correction
+selects the page-owned context for Patchright and preserves Playwright behavior;
+it changes no account authentication, cookie handling, solver or generation.
+
+The real intercepted browser test reproduced the same cfb2h TypeError before
+the fix and passed after it, with one synthetic read and zero Google traffic.
+66 focused tests and independent review passed. Fresh serial original-profile
+SDK and registered in-process MCP reads then succeeded on both test profiles,
+with matching strictly positive balances. Deployed HTTP MCP acceptance remains
+separate until publication. Positive credits do not establish every model's
+availability or identify the cause of earlier quota/access or WAF refusals.
+
+
+Integration gate result for the credit correction:7,922passed,5skipped,
+27warnings,89.88%coverage. One existing virtualized-picker browser test failed
+in the parallel run; the exact unchanged test then passed in1.77seconds on an
+isolated run. All other mandatory hygiene/docs/mirror/lint/format/types checks
+passed. No new duplicate-code block was reported. This records the full-run
+failure and isolated recovery rather than claiming a single all-green suite.
+
+Fresh deployed predecessor reads on the newly accepted native Auto image passed
+registered MCP lookup, REST native URL/no-store lookup and registered MCP native
+download with a decoded1024x1024 image, with zero generation or solver tasks.
+The operator helper initially expected a project field that the REST URL-only
+contract does not return; that helper was corrected without generation replay.
+Native HTTP raw remains video-only; image downloads use the existing verified
+SDK/CLI/MCP path.

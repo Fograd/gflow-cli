@@ -127,11 +127,10 @@ Read the current Google Flow balance through an existing authenticated profile. 
 read-only request: it does not generate media or spend credits. The displayed balance funds Veo
 video generation; image generation uses separate per-model daily quotas.
 
-> **Unavailable where Flow serves `flow.google.com`.** The balance comes from a `labs.google` endpoint. On an
-> account Google has moved to `flow.google.com`, the labs session answers `200` with no access
-> token, so the command fails with "the labs.google session returned no access token". That is
-> expected on that cohort — the session is fine and re-authenticating will not help; generation
-> still works. Open, tracked in [#795](https://github.com/ffroliva/gflow-cli/issues/795).
+Accounts served by `flow.google.com` read the native balance through their existing
+browser session. Patchright uses the page-owned JavaScript context; Playwright keeps
+its default context. Unmapped native balance components remain null. A credits read
+failure alone does not establish that the account needs to sign in again.
 
 ```text
 gflow credits user [--profile NAME] [--json]
@@ -144,7 +143,7 @@ unavailable. Its JSON envelope contains `profiles`, `total_credits`, and `count`
 includes `authenticated`, `credits`, `subscription_credits`, `user_paygate_tier`, `service_tier`,
 and `sku`. Failed profiles have `authenticated: false`, a safe error name, and a null balance.
 
-The command first reads the saved Chrome cookies and uses ordinary HTTP requests (the equivalent
+For the legacy labs endpoint, the command first reads saved browser cookies and uses ordinary HTTP requests (the equivalent
 of a `curl` session request followed by the credits request). The cookie-bearing client is closed
 before a separate, Bearer-only client contacts the credits host, so `labs.google` cookies never
 cross that host boundary. A browser opens only when cookie decryption or the HTTP path cannot

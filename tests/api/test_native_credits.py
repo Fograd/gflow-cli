@@ -48,3 +48,28 @@ async def test_sdk_native_branch_reuses_lease_and_skips_labs(tmp_path, monkeypat
     read.assert_awaited_once_with(page)
     legacy.assert_not_called()
     checkin.assert_called_once_with(page)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["patchright", "playwright"])
+async def test_credit_fetch_reads_page_owned_globals_in_selected_engine(monkeypatch, engine):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from gflow_cli.api import _engine
+    from gflow_cli.api.native_credits import read_native_credits
+
+    monkeypatch.setattr(_engine, "active_engine", lambda: engine)
+    expected = {"isolated_context": False} if engine == "patchright" else {}
+    wire = json.dumps([["wrb.fr", "nzlxg", json.dumps([42, 1, None, 2])]])
+
+    async def evaluate(expression, args, **kwargs):
+        assert "WIZ_global_data" in expression
+        assert kwargs == expected
+        assert args == {"rpc": "nzlxg", "args": [], "source": "/"}
+        return {"status": 200, "text": wire}
+
+    page = SimpleNamespace(evaluate=AsyncMock(side_effect=evaluate))
+    assert (await read_native_credits(page)).credits == 42
+    page.evaluate.assert_awaited_once()

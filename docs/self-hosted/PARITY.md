@@ -848,3 +848,20 @@ have exhausted their two-video attempt allowance. Accepted video/audio remains
 R12; additional video attempts require permission. Current implementation is
 5746bf617b18514b7bdce2a56961277d724a59ea; see
 [the final trial notes](FINAL_E2E.md#4-october-final-registered-imagevideo-trials).
+
+
+### R11 native credit browser-context correction
+
+The registered credit-read500 was reproduced as Patchright evaluating native
+page data in an isolated world. The reader omitted the shared
+page_owned_evaluate_kwargs used by other native calls. The minimal correction
+selects the page-owned context for Patchright and preserves Playwright behavior;
+it changes no account authentication, cookie handling, solver or generation.
+
+The real intercepted browser test reproduced the same cfb2h TypeError before
+the fix and passed after it, with one synthetic read and zero Google traffic.
+66 focused tests and independent review passed. Fresh serial original-profile
+SDK and registered in-process MCP reads then succeeded on both test profiles,
+with matching strictly positive balances. Deployed HTTP MCP acceptance remains
+separate until publication. Positive credits do not establish every model's
+availability or identify the cause of earlier quota/access or WAF refusals.

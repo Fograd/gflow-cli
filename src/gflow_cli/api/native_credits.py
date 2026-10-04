@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.dto import CreditsInfo
 from gflow_cli.api.native_extension import _NATIVE_FETCH  # pyright: ignore[reportPrivateUsage]
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
@@ -44,7 +45,11 @@ def parse_native_credits(payload: Any) -> CreditsInfo:
 
 
 async def read_native_credits(page: Any) -> CreditsInfo:
-    result = await page.evaluate(_NATIVE_FETCH, {"rpc": "nzlxg", "args": [], "source": "/"})
+    result = await page.evaluate(
+        _NATIVE_FETCH,
+        {"rpc": "nzlxg", "args": [], "source": "/"},
+        **page_owned_evaluate_kwargs(),
+    )
     if result["status"] != 200 or rpc_errors(result["text"]):
         raise WireFormatError(detail="Native credits were not acknowledged", route="credits.native")
     replies = [data for name, data in parse_frames(result["text"]) if name == "nzlxg"]
