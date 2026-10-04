@@ -428,14 +428,16 @@ class RealChromeStrategy(AuthStrategy):
                 msg,
             )
 
-        chrome_args = _build_chrome_args(chrome_exe, profile_dir, headless)
-
         # Own the profile while passive-capture Chrome runs (D3). The lease
         # scope is ONLY the running browser: it is released before
         # verify_flow_profile below, which momentarily owns its own probe context
         # on the same profile (a nested lease would be a same-process double-
         # acquire). Contention raises ProfileLockedError before Chrome launches.
         async with ProfileLease(profile_dir):
+            from .session_retention import session_retention_args
+
+            chrome_args = _build_chrome_args(chrome_exe, profile_dir, headless)
+            chrome_args[1:1] = session_retention_args(profile_dir, "chrome")
             # Tests MUST patch asyncio.create_subprocess_exec itself — patching
             # subprocess.Popen instead lets the real asyncio transport run against
             # a mock process, hanging proc.wait() forever on the loop's child

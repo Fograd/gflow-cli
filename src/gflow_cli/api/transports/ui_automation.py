@@ -1073,6 +1073,7 @@ class UiAutomationTransport(VideoGenerationMixin):
         try:
             import os
 
+            from gflow_cli.auth.session_retention import session_retention_args
             from gflow_cli.browser_manager import (
                 channel_for_profile,
                 ensure_profile_engine_compatible,
@@ -1100,6 +1101,7 @@ class UiAutomationTransport(VideoGenerationMixin):
                     "--disable-blink-features=AutomationControlled",
                     "--password-store=basic",
                     "--disable-dev-shm-usage",
+                    *session_retention_args(profile_dir, channel),
                     *window_position_args(get_settings().browser_window_position),
                 ],
             )

@@ -117,6 +117,12 @@ never expose tokens, cookies or solver keys.
 
 ## Roadmap
 
+**Current priority: R10 session persistence and automatic renewal.** Other feature
+acceptance work waits until unattended login is demonstrated. The reproducible
+cookie-reader correction and the still-missing renewal lifecycle are recorded in
+[session health](SESSION_HEALTH.md#login-persistence-priority--4-october-2026).
+
+
 This is the execution roadmap for the self-hosted fork and the source for a
 persistent Goal-mode run. Work from the first unfinished item that can make
 progress. A blocker on one item does not stop work on the others.

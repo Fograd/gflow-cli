@@ -17,6 +17,49 @@ Google from revoking a session or asking for another identity check. Keep the
 original hosted profile and complete any challenge there. Workstation login
 instructions should use Vivaldi; the dedicated hosted runtime remains distinct.
 
+## Login persistence priority — 4 October 2026
+
+Session retention and automatic renewal are separate requirements. Persistent
+browser storage alone is not unattended authentication management.
+
+A read-only operator comparison found all three matching Google accounts still
+registered on UseAPI's current Flow backend with health OK, credit/model fields,
+session-expiry timestamps and refreshes scheduled one hour before those timestamps.
+The latest returned CAPTCHA activity was 3 October at00:39UTC; the jobs read listed
+no active jobs. Those are provider observations, not proof that simultaneous use
+caused gflow's failures. UseAPI describes exclusive management of the API session
+and warns about direct Flow access in its
+[setup guide](https://useapi.net/docs/start-here/setup-google-flow).
+
+The local cookie-reader fallback had a reproducible persistence bug: its cold
+Chrome launch lacked the restoration argument already used by the shared
+generation client. A network-isolated real Chrome regression seeded synthetic
+Session SSO/app cookies, closed Chrome, and called the actual reader. Before the
+correction, the reader returned zero cookies and lost the SSO signal. The corrected
+reader retains both cookies, still with Session expiry, through three cold reads.
+The headless verifier, shared login-launch helper, bare Chrome fallback and
+standalone UI transport now use the same guarded retention rule. The already
+guarded migrated verifier inherits the helper without duplicating the argument.
+
+Retention applies only to an owned private Chrome-marked profile with the existing
+private account marker. It does not authenticate the marker, extend cookie expiry,
+change engines, replay a job, or prove current identity. First-login verification
+before an account marker is written remains a separate acceptance case. Restoring
+a browser session can reopen old tabs and start background traffic.
+
+This bug is not established as the cause of the current three-account failure.
+The original hosted profiles still contained unexpired persistent Google/Flow
+cookies. A bounded pro3 browser trace retained those cookies but landed at Flow's
+public /about page, got401 on the fresh People read, and landed at Google's public
+account page on the independent MyAccount read. No generation or solver call was
+made. Retaining a stored cookie does not make a refused session valid.
+
+Automatic renewal remains missing. Do not mark R10 or unattended operation complete
+until an authenticated hosted session survives cold reopen, service restart, idle
+time and an observed renewal boundary without another human login. Capture the
+actual supported renewal behavior and keep a single serialized owner before
+implementing a timer; repeatedly launching health checks is not renewal.
+
 ## On-demand actual access check
 
 `POST /v1/google-flow/accounts/{handle}/health` is a self-hosted extension. It

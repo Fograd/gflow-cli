@@ -147,6 +147,7 @@ async def _get_chrome_cookies_playwright(profile_dir: Path) -> ChromeCookieSnaps
         )
 
     # Lazy import avoids strategies -> real_chrome -> verification import cycles.
+    from .session_retention import session_retention_args
     from .strategies import async_playwright
 
     # Own the profile for this momentary cookie-read context (D3). The lease is
@@ -158,7 +159,7 @@ async def _get_chrome_cookies_playwright(profile_dir: Path) -> ChromeCookieSnaps
             user_data_dir=str(profile_dir),
             channel=channel,
             headless=True,
-            args=["--password-store=basic"],
+            args=["--password-store=basic", *session_retention_args(profile_dir, channel)],
         )
         try:
             all_cookies = await ctx.cookies()

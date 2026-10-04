@@ -283,6 +283,8 @@ async def verify_flow_session(
     try:
         from gflow_cli.browser_manager import ensure_profile_engine_compatible
 
+        from .session_retention import session_retention_args
+
         # Own the profile for this headless probe context (D3). Lease is the
         # OUTER context so it releases only after the driver stops. Contention
         # raises ProfileLockedError before Chrome launches; the fail-closed
@@ -298,7 +300,7 @@ async def verify_flow_session(
                     user_data_dir=str(profile_dir),
                     channel=channel,
                     headless=True,
-                    args=["--password-store=basic"],
+                    args=["--password-store=basic", *session_retention_args(profile_dir, channel)],
                 )
                 try:
                     cookies = await ctx.cookies()
@@ -445,7 +447,6 @@ async def _verify_migrated_host_fallback(
 
     from .internal_chromium import login_launch_kwargs
     from .native_identity import read_native_identity
-    from .session_retention import session_retention_args
     from .strategies import async_playwright
 
     flow_url = "https://flow.google.com/u/0/"
@@ -468,7 +469,6 @@ async def _verify_migrated_host_fallback(
             launch_kwargs = login_launch_kwargs(
                 profile_dir, get_settings().headless, channel="chrome"
             )
-            launch_kwargs["args"].extend(session_retention_args(profile_dir, "chrome"))
             ctx = await pw.chromium.launch_persistent_context(**launch_kwargs)
             try:
                 if not has_migrated_app_session(await ctx.cookies()):

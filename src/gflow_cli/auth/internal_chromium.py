@@ -64,6 +64,8 @@ def login_launch_kwargs(
     resulting profile a chrome-strategy profile, without which
     ``channel_for_profile()`` returns None and generation silently downgrades.
     """
+    from .session_retention import session_retention_args
+
     return {
         "user_data_dir": str(profile_dir),
         "channel": channel,
@@ -85,6 +87,7 @@ def login_launch_kwargs(
             # Load-bearing beyond auth: keeps the profile off the macOS
             # keychain, which api/client.py also depends on (#222).
             "--password-store=basic",
+            *session_retention_args(profile_dir, channel),
         ],
     }
 

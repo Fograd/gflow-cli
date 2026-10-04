@@ -147,3 +147,92 @@ def test_marker_replacement_during_bounded_read_refuses(profile, monkeypatch):
 
     monkeypatch.setattr(session_retention.os, "read", replacing)
     assert session_retention_args(profile, "chrome") == []
+
+
+@pytest.mark.asyncio
+async def test_cookie_reader_preserves_session_cookies_on_real_offline_chrome(profile, monkeypatch):
+    from types import SimpleNamespace
+
+    from playwright.async_api import async_playwright
+
+    from gflow_cli.auth.cookies import _get_chrome_cookies_playwright
+
+    async with async_playwright() as pw:
+        launch = pw.chromium.launch_persistent_context
+
+        async def isolated_launch(**kwargs):
+            kwargs["proxy"] = {"server": "http://127.0.0.1:9"}
+            kwargs["args"] = list(kwargs.get("args", [])) + [
+                "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost",
+                "--disable-background-networking",
+            ]
+            return await launch(**kwargs)
+
+        context = await isolated_launch(
+            user_data_dir=str(profile),
+            channel="chrome",
+            headless=True,
+            args=["--password-store=basic", "--restore-last-session"],
+        )
+        await context.add_cookies(
+            [
+                {
+                    "name": "SAPISID",
+                    "value": "synthetic-only",
+                    "domain": ".google.com",
+                    "path": "/",
+                    "secure": True,
+                },
+                {
+                    "name": "__Secure-OSID",
+                    "value": "synthetic-only",
+                    "domain": "flow.google.com",
+                    "path": "/",
+                    "secure": True,
+                },
+            ]
+        )
+        await context.close()
+
+        class SharedDriver:
+            async def __aenter__(self):
+                return SimpleNamespace(
+                    chromium=SimpleNamespace(launch_persistent_context=isolated_launch)
+                )
+
+            async def __aexit__(self, *args):
+                return False
+
+        monkeypatch.setattr("gflow_cli.auth.strategies.async_playwright", SharedDriver)
+        for _ in range(3):
+            snapshot = await _get_chrome_cookies_playwright(profile)
+            assert snapshot.google_session, "cookie reader erased the synthetic SSO session"
+        context = await isolated_launch(
+            user_data_dir=str(profile),
+            channel="chrome",
+            headless=True,
+            args=["--password-store=basic", "--restore-last-session"],
+        )
+        try:
+            cookies = await context.cookies()
+            assert {c["name"] for c in cookies} == {"SAPISID", "__Secure-OSID"}
+            assert all(c["expires"] == -1 for c in cookies)
+        finally:
+            await context.close()
+
+
+def test_shared_login_launch_retains_only_verified_private_chrome(profile):
+    from gflow_cli.auth.internal_chromium import login_launch_kwargs
+
+    assert (
+        login_launch_kwargs(profile, False, channel="chrome")["args"].count(
+            "--restore-last-session"
+        )
+        == 1
+    )
+    assert "--restore-last-session" not in login_launch_kwargs(profile, False, channel=None)["args"]
+    (profile / ".gflow_account").unlink()
+    assert (
+        "--restore-last-session"
+        not in login_launch_kwargs(profile, False, channel="chrome")["args"]
+    )
