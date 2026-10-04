@@ -325,6 +325,22 @@ class Store:
                 (media, profile, project, path, mime),
             )
 
+    def asset_cache_if_scope(
+        self, media: str, profile: str, project: str, path: str, mime: str
+    ) -> bool:
+        """Insert a cache observation atomically without replacing another scoped asset."""
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM assets WHERE id=?", (media,)).fetchone()
+            if row is not None:
+                if (row["profile"], row["project"], row["mime"]) != (profile, project, mime):
+                    raise ValueError("Native asset cache scope conflict")
+                return False
+            conn.execute(
+                "INSERT INTO assets VALUES(?,?,?,?,?)", (media, profile, project, path, mime)
+            )
+        return True
+
     def asset_get(self, media: str) -> dict[str, str]:
         with self.connection() as conn:
             row = conn.execute("SELECT * FROM assets WHERE id=?", (media,)).fetchone()

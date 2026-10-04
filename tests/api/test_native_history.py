@@ -32,6 +32,8 @@ def test_parser_correlates_projects_and_strips_private_fields():
         "project_id": P,
         "workflow_id": W,
         "kind": "image",
+        "generation_source": "unknown",
+        "likely_upload": False,
         "width": 1024,
         "height": 1024,
     }
@@ -62,7 +64,10 @@ def test_parser_refuses_invalid_relation_or_shape(fault):
     elif fault == "duplicate-media":
         data[2].append(data[2][0])
     elif fault == "primary-conflict":
-        data[0][0][3][4] = Q
+        other = payload(None, Q, V, N)
+        data[0].extend(other[0])
+        data[2].extend(other[2])
+        data[0][0][3][4] = N
     elif fault == "bad-shape":
         data[2] = None
     else:
@@ -198,3 +203,34 @@ async def test_timeout_returns_only_completed_verified_page(monkeypatch):
     assert result["next_cursor"] == "next" and result["complete"] is None
     assert result["pagination_exhausted"] is False
     client._checkin_page.assert_called_once()
+
+
+def test_missing_primary_is_unverified_not_cross_owned_and_preserves_raw_count(tmp_path):
+    from uuid import UUID
+
+    from gflow_cli.selfhost.native_observations import NativeObservationStore
+
+    workflows = []
+    media = []
+    for index in range(20):
+        workflow = str(UUID(int=100 + index, version=4))
+        identifier = str(UUID(int=200 + index, version=4))
+        workflows.append([workflow, None, None, [None, None, None, None, identifier], P])
+        if index < 19:
+            media.append([identifier, P, workflow, None, None, None, [[["synthetic"]]]])
+    result = module.parse_history_page([workflows, "opaque-next", media])
+    assert len(result["workflows"]) == 20 and len(result["media"]) == 19
+    assert result["media_scanned_count"] == 19
+    assert "primary_media_id" not in result["workflows"][-1]
+    assert all("primary_media_id" in row for row in result["workflows"][:-1])
+    counts = NativeObservationStore(tmp_path).merge_history("pro1", "one", result)
+    assert counts["workflows"] == 20 and counts["media"] == 19
+    assert counts["complete"] is None
+
+
+def test_missing_primary_still_requires_well_formed_uuid():
+    data = payload()
+    data[0][0][3][4] = "malformed"
+    data[2] = []
+    with pytest.raises(ValueError):
+        module.parse_history_page(data)

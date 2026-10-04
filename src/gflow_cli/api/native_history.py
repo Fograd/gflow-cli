@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import re
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api.native_catalogs import parse_media_snapshot
@@ -94,6 +96,7 @@ def parse_history_page(payload: object) -> dict[str, Any]:
             item["primary_media_id"] = validate_identifier(metadata[4])
         workflows.append(item)
     grouped: dict[str, list[Any]] = {}
+    raw_ids: set[str] = set()
     for candidate in raw_media:
         if not isinstance(candidate, list) or len(cast(list[Any], candidate)) < 3:
             raise ValueError("Native history media is malformed")
@@ -103,10 +106,32 @@ def parse_history_page(payload: object) -> dict[str, Any]:
             raise ValueError("Native history media has unrelated workflow ownership")
         normalized = list(row)
         normalized[:3] = [validate_identifier(row[0]), project, workflow]
+        if normalized[0] in raw_ids:
+            raise ValueError("Native history media identity is duplicated")
+        raw_ids.add(normalized[0])
         grouped.setdefault(project, []).append(normalized)
     media: list[dict[str, Any]] = []
     for project, rows in grouped.items():
-        media.extend(parse_media_snapshot([None, [], rows], project)["media"])
+        parsed = parse_media_snapshot([None, [], rows], project, include_attached=True)["media"]
+        raw_by_id = {row[0]: row for row in rows}
+        for item in parsed:
+            row = raw_by_id[item["media_id"]]
+            kind = item["kind"]
+            arm = row[6] if kind == "image" else row[7] if kind == "video" else None
+            origin = "unknown"
+            if isinstance(arm, list) and arm:
+                values = cast(list[Any], arm)
+                generated: Any = values[0]
+                uploaded_index = 1 if kind == "image" else 4
+                uploaded: Any = values[uploaded_index] if len(values) > uploaded_index else None
+                generated_present = isinstance(generated, list) and bool(cast(list[Any], generated))
+                uploaded_present = isinstance(uploaded, list) and bool(cast(list[Any], uploaded))
+                if generated_present and uploaded is None:
+                    origin = "generated"
+                elif generated is None and uploaded_present:
+                    origin = "uploaded"
+            item["generation_source"] = origin
+        media.extend(parsed)
     media_by_id = {row["media_id"]: row for row in media}
     if len(media_by_id) != len(media):
         raise ValueError("Native history media identity is duplicated")
@@ -114,12 +139,150 @@ def parse_history_page(payload: object) -> dict[str, Any]:
         primary = item.get("primary_media_id")
         if primary is not None:
             related = media_by_id.get(primary)
-            if related is None or (related["workflow_id"], related["project_id"]) != (
+            if related is None:
+                # Measured later history pages can omit a declared primary.
+                # Absence is not ownership/deletion proof; omit the unverified link.
+                item.pop("primary_media_id")
+                continue
+            if (related["workflow_id"], related["project_id"]) != (
                 item["workflow_id"],
                 item["project_id"],
             ):
                 raise ValueError("Native history primary media has unrelated ownership")
-    return {"workflows": workflows, "media": media, "next_cursor": cursor}
+    return {
+        "workflows": workflows,
+        "media": media,
+        "next_cursor": cursor,
+        "media_scanned_count": len(raw_media),
+    }
+
+
+def _history_timestamp(value: Any) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("History timestamp must be canonical UTC")
+    match = re.fullmatch(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z", value, re.ASCII)
+    if match is None:
+        raise ValueError("History timestamp must be canonical UTC")
+    date = datetime.strptime(match[1], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=UTC)
+    seconds = int(date.timestamp())
+    nanos = int((match[2] or "").ljust(9, "0"))
+    return seconds * 1000000000 + nanos
+
+
+def summarize_history_projects(history: dict[str, Any]) -> dict[str, Any]:
+    """Summarize only positively generated images/videos in this bounded call."""
+    raw = history.get("media")
+    if not isinstance(raw, list):
+        raise ValueError("History media must be an array")
+    rows = cast(list[Any], raw)
+    scanned = history.get("media_scanned_count")
+    if (
+        type(scanned) is not int
+        or not len(rows) <= scanned <= 1000
+        or type(history.get("media_returned_count")) is not int
+        or history["media_returned_count"] != len(rows)
+        or type(history.get("pagination_exhausted")) is not bool
+        or type(history.get("timed_out")) is not bool
+    ):
+        raise ValueError("Invalid bounded history counters or flags")
+    cursor = _cursor(history.get("next_cursor"))
+    projects: dict[str, dict[str, Any]] = {}
+    seen: set[str] = set()
+    owners: dict[str, str] = {}
+    ranges: dict[str, tuple[int, int]] = {}
+
+    for candidate in rows:
+        if not isinstance(candidate, dict):
+            raise ValueError("Invalid history media row")
+        row = cast(dict[str, Any], candidate)
+        media = validate_identifier(row.get("media_id"))
+        project = validate_identifier(row.get("project_id"))
+        workflow = validate_identifier(row.get("workflow_id"))
+        if media in seen or (workflow in owners and owners[workflow] != project):
+            raise ValueError("History media ownership is duplicated or contradictory")
+        seen.add(media)
+        owners[workflow] = project
+        kind = row.get("kind")
+        origin = row.get("generation_source", "unknown")
+        if kind not in ("image", "video", "audio", "unknown") or origin not in (
+            "generated",
+            "uploaded",
+            "unknown",
+        ):
+            raise ValueError("Invalid history classification")
+        stamp = _history_timestamp(row.get("created_time"))
+        if kind not in ("image", "video") or origin != "generated":
+            continue
+        item = projects.setdefault(
+            project,
+            {
+                "project_id": project,
+                "total": 0,
+                "by_type": {"image": 0, "video": 0},
+                "oldest": None,
+                "newest": None,
+            },
+        )
+        item["total"] += 1
+        item["by_type"][kind] += 1
+        if stamp is not None:
+            bounds = ranges.get(project)
+            if bounds is None:
+                ranges[project] = (stamp, stamp)
+                item["oldest"] = item["newest"] = row["created_time"]
+            else:
+                oldest, newest = bounds
+                if stamp < oldest:
+                    item["oldest"] = row["created_time"]
+                if stamp > newest:
+                    item["newest"] = row["created_time"]
+                ranges[project] = (min(oldest, stamp), max(newest, stamp))
+    exhausted = history["pagination_exhausted"]
+    return {
+        "project_summaries": sorted(
+            projects.values(), key=lambda item: (-item["total"], item["project_id"])
+        ),
+        "scanned": scanned,
+        "truncated": not exhausted,
+        "cursor": cursor if not exhausted else None,
+        **({"stopped_on": "timeBudget"} if history["timed_out"] else {}),
+        "complete": None,
+    }
+
+
+def validate_history_summary_envelope(summary: dict[str, Any]) -> None:
+    """Validate private-worker fields before copying the public summary response."""
+    raw = summary.get("project_summaries")
+    if not isinstance(raw, list) or len(cast(list[Any], raw)) > 1000:
+        raise ValueError("Invalid history project summaries")
+    truncated = summary.get("truncated")
+    if type(truncated) is not bool:
+        raise ValueError("Invalid history truncation flag")
+    cursor = _cursor(summary.get("cursor"))
+    if not truncated and cursor is not None:
+        raise ValueError("Completed history cannot contain a continuation")
+    stopped = summary.get("stopped_on")
+    if stopped is not None and (stopped != "timeBudget" or not truncated):
+        raise ValueError("Invalid history stop condition")
+    if summary.get("complete") is not None:
+        raise ValueError("History completeness remains unknown")
+    seen: set[str] = set()
+    for candidate in cast(list[Any], raw):
+        if not isinstance(candidate, dict):
+            raise ValueError("Invalid history project summary")
+        row = cast(dict[str, Any], candidate)
+        project = validate_identifier(row.get("project_id"))
+        if project in seen:
+            raise ValueError("Duplicate history project summary")
+        seen.add(project)
+        oldest = _history_timestamp(row.get("oldest"))
+        newest = _history_timestamp(row.get("newest"))
+        if (oldest is None) != (newest is None) or (
+            oldest is not None and newest is not None and oldest > newest
+        ):
+            raise ValueError("Invalid history date range")
 
 
 async def history_snapshot(
@@ -143,7 +306,7 @@ async def history_snapshot(
     workflow_ids: set[str] = set()
     media_ids: set[str] = set()
     seen_cursors: set[str] = {current} if current is not None else set()
-    pages_read = 0
+    pages_read = scanned = 0
     exhausted = capped = timed_out = False
     page: Any = None
     try:
@@ -171,6 +334,7 @@ async def history_snapshot(
                     break  # Retain current request cursor; never skip truncated rows.
                 workflows.extend(result["workflows"])
                 media.extend(result["media"])
+                scanned += result["media_scanned_count"]
                 workflow_ids.update(new_workflows)
                 media_ids.update(new_media)
                 pages_read += 1
@@ -193,13 +357,14 @@ async def history_snapshot(
     finally:
         if page is not None:
             client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
-    return {
+    snapshot = {
         "workflows": workflows,
         "media": media,
         "next_cursor": current,
         "pages_read": pages_read,
         "returned_count": len(workflows),
         "media_returned_count": len(media),
+        "media_scanned_count": scanned,
         "pagination_exhausted": exhausted,
         "complete": None,
         "capped": capped,
@@ -208,3 +373,4 @@ async def history_snapshot(
             "observed bounded native account history; snapshot consistency and completeness unknown"
         ),
     }
+    return {**snapshot, **summarize_history_projects(snapshot)}

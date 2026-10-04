@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from gflow_cli.api.recaptcha import TokenMinter
 from gflow_cli.errors import ConfigurationError
-from gflow_cli.selfhost.config import Settings
 from gflow_cli.selfhost.native_captcha import native_secret_path
 from gflow_cli.selfhost.server import create_app
 from tests.selfhost.test_server import AUTH, settings
@@ -118,7 +117,7 @@ async def test_worker_uses_one_bound_token_and_removes_private_file(tmp_path, mo
     )
 
     cfg = settings(tmp_path)
-    monkeypatch.setattr(Settings, "environment", classmethod(lambda cls: cfg))
+    monkeypatch.setenv("GFLOW_SELFHOST_ROOT", str(cfg.root))
     directory = cfg.root / "captcha-input"
     directory.mkdir()
     path = directory / (hashlib.sha256(TOKEN.encode()).hexdigest() + ".token")

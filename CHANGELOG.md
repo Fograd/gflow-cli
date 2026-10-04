@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- HTTP project listing now defaults to generated-history summaries and media listing to native Google inventory; explicit source=local retains managed caches and project source=google retains discovery/catalogs. Existing SDK/CLI/MCP history DTOs gain generated-only per-call summaries without new flags/tools; complete history remains unknown.
+
+- Private native CAPTCHA workers resolve the configured root through a shared path-only helper without requiring daemon bearer credentials; token-file privacy checks remain unchanged. Provider acceptance remains separately verified.
+
+- General HTTP video frames/ingredients privately cache freshly verified registered image aliases as bounded PNG/JPEG before admission; raw UUID and public image GET behavior remain unchanged.
+
+- Supported HTTP generation/operation fields resolve exact registered image/video/character/saved-voice aliases before queueing, with fresh shared scope proof and canonical UUID slot preservation. SDK/CLI/MCP, presets and resource deletion/character CRUD mutation inputs remain unchanged; live acceptance remains separately verified.
+
 - Add ordered explicit project-catalog resume across SDK/CLI/direct MCP/HTTP, retaining pending IDs without synthesizing account pages. REST observations now include empty projects, character entities and saved-user voice identities with scoped safe metadata upserts and no absence-based deletion.
 
 - Add explicit HTTP character and saved-user-voice alias registration, fresh owned detail and local-only mapping removal. Character count excludes thumbnails; optional saved voice and dual-ID audio mappings require fresh proof. SDK/CLI/MCP and generation/mutation inputs remain unchanged; live cohorts and broader R02 parity remain pending.

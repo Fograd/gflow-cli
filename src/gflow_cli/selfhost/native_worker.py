@@ -59,7 +59,7 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "status": "ok",
             "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
         }
-    project_id = "" if verb == "projects-list" else str(payload["project_id"])
+    project_id = "" if verb in {"projects-list", "history-list"} else str(payload["project_id"])
     if verb == "upload-video":
         from gflow_cli.api.native_media import upload_snapshot_context, validate_upload
 
@@ -86,6 +86,16 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
+        if verb == "history-list":
+            return {
+                "status": "ok",
+                **await client.list_native_history(
+                    cursor=payload.get("cursor"),
+                    all_pages=payload.get("all_pages", True),
+                    max_pages=payload.get("max_pages", 50),
+                    max_media=payload.get("max_media", 1000),
+                ),
+            }
         if verb == "projects-list":
             return {
                 "status": "ok",
@@ -108,17 +118,23 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                     },
                 ),
             }
-        if verb in {"asset-get", "asset-download"}:
+        if verb in {"asset-get", "asset-download", "asset-cache-image"}:
             from gflow_cli.services.native_assets import asset_payload
 
             asset = await client.get_native_asset(project_id, str(payload["media_id"]))
             if verb == "asset-get":
                 return {"status": "ok", **asset_payload(asset)}
-            if asset.kind != "video":
-                raise ValueError("Native raw asset retrieval supports video only")
+            expected_kind = "image" if verb == "asset-cache-image" else "video"
+            if asset.kind != expected_kind:
+                raise ValueError("Native asset retrieval has the wrong media kind")
             from gflow_cli.api.transports.native_asset_download import download_asset
+            from gflow_cli.selfhost.config import MAX_ASSET
 
-            downloaded_asset = await download_asset(asset, Path(payload["output_dir"]))
+            downloaded_asset = await download_asset(
+                asset,
+                Path(payload["output_dir"]),
+                max_bytes=MAX_ASSET if verb == "asset-cache-image" else 256 * 1024 * 1024,
+            )
             return {
                 "status": "ok",
                 "mediaGenerationId": downloaded_asset.media_id,
@@ -313,7 +329,7 @@ def main() -> None:
             "once in the logged-in browser; no video ingestion was submitted",
         }
     except (WireFormatError, ConfigurationError, ValueError, TimeoutError):
-        if sys.argv[1] not in {"asset-get", "asset-download"}:
+        if sys.argv[1] not in {"asset-get", "asset-download", "asset-cache-image"}:
             raise
         exit_code = 7
         result = {

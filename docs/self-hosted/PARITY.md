@@ -28,7 +28,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. One paid CapSolver trial recorded 1 solved / 1 submitted / 0 accepted without retry. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
-| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Explicit character/saved-voice detail mappings are implemented separately; automatic generation/reference translation, full thumbnail cohorts and exact404 equivalence remain open. |
+| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Explicit character/saved-voice detail mappings are implemented separately; Exact registered supported HTTP generation/operation alias inputs are implemented; arbitrary vendor decoding, full thumbnail cohorts and exact404 equivalence remain open. |
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | Implemented local catalog default and source=google native 21-item opaque-cursor snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | Implemented managed local catalog default and source=google selected-project native timeline snapshots, including typed image/video arms. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Omitted projectId uses the selected account's configured project. Receipt-backed already-gone retries and mixed present/gone batches are verified; arbitrary absent UUIDs and all batch shapes are not claimed. |
@@ -123,7 +123,9 @@ progress. A blocker on one item does not stop work on the others.
 checks, then run a representative final E2E campaign. Keep changes limited to
 gflow-cli; Tee Pipeline and cloud-environment setup are outside this goal.
 The deployment target is CC LXC. Three Google AI Pro subscriptions are available,
-but only the configured first account has been verified so far. CapSolver is the
+and all3 configured profiles now have actual authentication/read-only health and
+catalog verification. Successful import/atomic session refresh and rendered
+three-account acceptance remain separate unverified requirements. CapSolver is the
 chosen provider; configured keys and solved tokens do not prove Google acceptance.
 
 ### Completed foundations
@@ -171,7 +173,9 @@ separately under R12; an existing command or passing mock is insufficient eviden
   its own R12 proof.
 - [ ] **R02 — Native media lookup and fresh URLs.** Remaining work is owned
   image/video/voice/character-reference/thumbnail lookup beyond the local registry,
-  remaining typed detail/thumbnail variants and verified composite translation. Image/video UUID URL/download adapters are implemented in the current batch with selected-account/project ownership and no Store synthesis. Correlate account,
+  remaining typed detail/thumbnail variants and verified composite translation. Image/video UUID URL/download adapters are already published/deployed, with
+  selected-account/project ownership and no Store synthesis. Later exact alias
+  inputs and scoped general-video caching are recorded below. Correlate account,
   project, media and type; keep local/native scope explicit. Translate useapi
   composite IDs only with a verified mapping.
   Native/mixed image generation routing is published/deployed at44c42366: unregistered native
@@ -205,7 +209,8 @@ unsafe-caption canonical attachment proof.
   (one new1024×1024 image). The existing zero-generation asset/character/catalog
   BDD batch passed3tests in72.25seconds. Explicit HTTP image/video alias bindings now require fresh ownership and exact
   media/type checks; alias removal affects local mappings only. Opaque prefixes
-  do not decode vendor identity or translate generation/reference inputs. Broader
+  do not decode vendor identity. Their original read-only input boundary was
+  superseded by the exact registered HTTP input batch documented below. Broader
   composite translation, exact error equivalence and live saved-user audio
   acceptance remain open.
 - [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
@@ -490,7 +495,9 @@ registration/detail/local-removal routes. Character image count is exactly1or2
 and excludes thumbnails; an optional voice suffix requires active saved-user
 workflow/audio proof, not a system preset. Saved-voice aliases verify distinct
 workflow/audio IDs and protected playback. Opaque URL-safe prefixes are not vendor
-identity and aliases never widen generation/mutation inputs. SDK/CLI/MCP remain raw.
+identity. The original detail-only batch did not widen inputs; the later exact
+HTTP input batch is recorded below, while resource DELETE/CRUD mutation inputs
+retain their existing raw contract. SDK/CLI/MCP remain raw.
 Actual character alias REST BDD passed on pro1:1passed,1saved-voice fixture skip,
 2warnings in26.26seconds, with zero generation/Google mutation. Fresh registration,
 no-store read, local removal and raw original read were verified. Saved-user audio
@@ -520,3 +527,71 @@ R02 resource-alias batch a7f293240f436069fa6efa21fdf8f253b24a7a7e is now publish
 to all3 fork branches and production, with synchronized environment and API/MCP
 services active, queues0. This deployment record does not claim the new catalog
 resume batch is deployed or saved-user voice acceptance is complete.
+
+
+### R02 registered HTTP alias inputs — 2026-10-04
+
+Implemented: exact registered image/video/character/saved-voice inputs resolve
+before account selection/queueing with fresh scope/type/resource proof. Canonical
+UUID slots and existing worker checks remain; no protected URL/signature/token
+persists. General video privately caches verified PNG/JPEG image aliases up to
+20MiB under exact account/project, with atomic store registration. Raw SDK/CLI/MCP,
+preset strings and resource DELETE/character CRUD mutation inputs are unchanged.
+
+Actual workers-disabled alias/cache/queue BDD passed1test in64.71seconds: owned
+1024image registration/fresh read, validated cache bytes and canonical Omni4second
+360p start-frame queueing. Zero generation; queue admission is not output proof.
+Focused42HTTP/cache cases and councilGO passed; strict Pyright0errors.
+
+The native count1pro1 mixed character/image/Charon trial preserved canonical
+reference slots3/7 but Google explicitly refused unusual activity, accepted0.
+CapSolver01 failed before solve/post,0jobs/generation, reservation released.
+CapSolver02 solved1token but failed before browser/Google submission because its
+root loader required intentionally stripped daemon credentials. The shared
+path-only environment_root correction is implemented; private token checks stay
+unchanged, with4red-to-green regressions and64focused passes in13.71seconds.
+CapSolver02 statistics/ledger were corrected:0Google submits/generation and
+reservation released, originals retained privately. CapSolver03 then solved1token
+and submitted through the fixed worker; Google explicitly refused unusual activity,
+accepted0. It proves solving/forwarding, not accepted provider-backed generation.
+Pro1 video allowance is2of2 consumed; no further pro1 paid video trial is authorized.
+
+Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
+322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
+source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6693pass checkpoint preceded the root-loader correction; the final
+6746pass result certifies the corrected source.
+Rendered/provider acceptance, saved-user voice cohort and broader R02 remain open.
+
+R03 catalog-resume671589efcf724c35206f8e58458380101e4aff60 is published across
+all3 fork branches and production, environment synchronized, API/MCP active,queues0.
+This preceding deployment does not include the current alias-input/default batch.
+
+### R03 generated-history summaries and HTTP defaults — 2026-10-04
+
+Implemented: positive generated image/video arms supply per-call project totals,
+by-type counts and valid source date extrema. Uploaded/audio/unknown rows do not
+contribute generated totals; scanned counts all verified observed media. HTTP
+projects defaults to source=history; explicit google retains project discovery/
+catalog resume and local retains managed cache. Media defaults to native google.
+SDK/CLI/MCP history gains additive classifications/summaries without new flags/tools.
+Traversal remains50pages/1000media/45seconds with atomic verified pages, retained
+continuation and unknown consistency/completeness.
+
+A measured later page had20workflows/19media and one declared primary absent.
+The codec omits only that unverified link; present wrong-owner primaries refuse.
+It retains20workflows/19media/scanned19 without inventing media. Final focused
+88cases passed7.31seconds, strict Pyright0errors and RuffGO.
+
+Actual default-summary/media BDD passed1test,2warnings in65.84seconds. It verified
+current-project generated IMAGE totals/date bounds, scanned/truncated continuation,
+private0600 scoped observations and the original blue-vase image in default native
+media. Workers disabled:0durable jobs/generations. The owned pro1 character fixture
+was cleaned through fresh reads, preserving source image/original character IDs,
+with0generation.
+
+Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
+322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
+source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6744checkpoint overlapped the missing-primary correction; the final
+6746pass result above certifies the frozen correction.
+Publication/deployment are pending. R03 remains unchecked for complete histories,
+saved-user cohorts and authoritative reconciliation; no accepted R04 video is claimed.

@@ -1299,3 +1299,71 @@ with zero generation, and owned fixture cleanup preserved originals/source image
 Publication and deployment follow separately and are not yet claimed. Saved-user
 audio fixture acceptance, complete history/cohorts and authoritative reconciliation
 remain open; R03 is not declared complete.
+
+
+R03 catalog-resume671589efcf724c35206f8e58458380101e4aff60 is published across
+all3 fork branches and deployed via clean production fast-forward/environment
+synchronization; API/MCP active, queues0 verified.
+
+## R02 registered HTTP alias inputs — 2026-10-04
+
+Implemented: exact registered image/video/character/saved-voice inputs resolve
+before account selection/queueing with fresh scope/type/resource proof. Canonical
+UUID slots and existing worker checks remain; no protected URL/signature/token
+persists. General video privately caches verified PNG/JPEG image aliases up to
+20MiB under exact account/project, with atomic store registration. Raw SDK/CLI/MCP,
+preset strings and resource DELETE/character CRUD mutation inputs are unchanged.
+
+Actual workers-disabled alias/cache/queue BDD passed1test in64.71seconds: owned
+1024image registration/fresh read, validated cache bytes and canonical Omni4second
+360p start-frame queueing. Zero generation; queue admission is not output proof.
+Focused42HTTP/cache cases and councilGO passed; strict Pyright0errors.
+
+The native count1pro1 mixed character/image/Charon trial preserved canonical
+reference slots3/7 but Google explicitly refused unusual activity, accepted0.
+CapSolver01 failed before solve/post,0jobs/generation, reservation released.
+CapSolver02 solved1token but failed before browser/Google submission because its
+root loader required intentionally stripped daemon credentials. The shared
+path-only environment_root correction is implemented; private token checks stay
+unchanged, with4red-to-green regressions and64focused passes in13.71seconds.
+CapSolver02 statistics/ledger were corrected:0Google submits/generation and
+reservation released, originals retained privately. CapSolver03 then solved1token
+and submitted through the fixed worker; Google explicitly refused unusual activity,
+accepted0. It proves solving/forwarding, not accepted provider-backed generation.
+Pro1 video allowance is2of2 consumed; no further pro1 paid video trial is authorized.
+
+Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
+322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
+source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6693pass checkpoint preceded the root-loader correction; the final
+6746pass result certifies the corrected source.
+Rendered/provider acceptance, saved-user voice cohort and broader R02 remain open.
+
+## R03 generated-history summaries and HTTP defaults — 2026-10-04
+
+Implemented: positive generated image/video arms supply per-call project totals,
+by-type counts and valid source date extrema. Uploaded/audio/unknown rows do not
+contribute generated totals; scanned counts all verified observed media. HTTP
+projects defaults to source=history; explicit google retains project discovery/
+catalog resume and local retains managed cache. Media defaults to native google.
+SDK/CLI/MCP history gains additive classifications/summaries without new flags/tools.
+Traversal remains50pages/1000media/45seconds with atomic verified pages, retained
+continuation and unknown consistency/completeness.
+
+A measured later page had20workflows/19media and one declared primary absent.
+The codec omits only that unverified link; present wrong-owner primaries refuse.
+It retains20workflows/19media/scanned19 without inventing media. Final focused
+88cases passed7.31seconds, strict Pyright0errors and RuffGO.
+
+Actual default-summary/media BDD passed1test,2warnings in65.84seconds. It verified
+current-project generated IMAGE totals/date bounds, scanned/truncated continuation,
+private0600 scoped observations and the original blue-vase image in default native
+media. Workers disabled:0durable jobs/generations. The owned pro1 character fixture
+was cleaned through fresh reads, preserving source image/original character IDs,
+with0generation.
+
+Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
+322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
+source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6744checkpoint overlapped the missing-primary correction; the final
+6746pass result above certifies the frozen correction.
+Publication/deployment are pending. R03 remains unchecked for complete histories,
+saved-user cohorts and authoritative reconciliation; no accepted R04 video is claimed.

@@ -404,7 +404,7 @@ def test_remote_archive_is_durable_and_validated(tmp_path):
         assert invalid.status_code == 422
 
 
-def test_native_media_read_has_useapi_ids_and_local_scope_is_default(tmp_path, monkeypatch):
+def test_native_media_read_has_useapi_ids_and_local_scope_is_explicit(tmp_path, monkeypatch):
     media_id = str(uuid.uuid4())
     calls = []
 
@@ -421,7 +421,7 @@ def test_native_media_read_has_useapi_ids_and_local_scope_is_default(tmp_path, m
 
     monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
     with TestClient(create_app(settings(tmp_path), start_workers=False)) as client:
-        local = client.get("/v1/google-flow/assets/media/first", headers=AUTH)
+        local = client.get("/v1/google-flow/assets/media/first?source=local", headers=AUTH)
         assert local.status_code == 200 and not calls
         native = client.get(
             "/v1/google-flow/assets/media/first?source=google&limit=1", headers=AUTH

@@ -10,7 +10,7 @@ from typing import Any
 
 from gflow_cli.api.native_captcha import native_captcha_token, read_native_token_file
 from gflow_cli.errors import ConfigurationError
-from gflow_cli.selfhost.config import Settings
+from gflow_cli.selfhost.config import environment_root
 
 
 def native_secret_path(payload: dict[str, Any], root: Path) -> Path | None:
@@ -35,7 +35,7 @@ def private_native_captcha(payload: dict[str, Any], project: str, action: str) -
     if payload.get("captchaSecret") is None:
         yield
         return
-    path = native_secret_path(payload, Settings.environment().root)
+    path = native_secret_path(payload, environment_root())
     if path is None:
         raise ConfigurationError(detail="Private CAPTCHA input unavailable")
     try:

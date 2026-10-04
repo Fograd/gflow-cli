@@ -459,12 +459,23 @@ Confirmed permanent-delete retries preserve requested deleted IDs, separate newl
 
 Native read inventories merge timeline and attached media, preserve origin/attachment scope and expose measured upload/source-time metadata. Strict ownership parsers remain separate. Native asset get-media/direct MCP also return owned audio playback metadata with null dimensions; download-media remains image/video only and HTTP native assets reject audio400. See [read boundaries](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#read-inventory-and-metadata-boundaries).
 
-HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership or translate generation/reference arguments. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
+HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership; supported HTTP input fields resolve exact registered mappings with fresh proof. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
 
 Bounded native history: SDK list_native_history defaults to one page; existing project-list CLI --include-history/--history-cursor/--history-max-pages/--history-max-media, MCP snake_case and HTTP includeHistory/historyCursor/historyMaxPages/historyMaxMedia enrich Google project discovery. Up to50 pages/1000 media/45seconds; URL-free observations, complete unknown and no absence-based deletion. See [history API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#bounded-native-account-history).
 
 HTTP includeHistory returns inventoryObservations from private exact account/profile-scoped metadata upserts. No URLs/prompts/captions/cursors, no absence-based deletion and no fresh ownership authority; SDK/CLI/MCP reads do not persist this REST-only cache.
 
-HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. They do not translate generation/mutation inputs. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
+HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. Supported HTTP generation/operation inputs now resolve exact mappings before queueing; Google resource deletion and character CRUD mutation inputs remain raw. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
 
 Native catalog resume accepts SDK/MCP catalog_project_ids, repeat CLI --catalog-project-id and HTTP catalogProjectIds with native catalog inclusion;1–20unique ordered IDs, incompatible account pagination, bounded remaining IDs. REST-only observations also retain empty projects/characters/saved-user voices without URL persistence or ownership/deletion authority. See [catalog resume](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-catalog-resume).
+
+HTTP alias inputs resolve registered image/video/character/saved-voice mappings before account selection and queueing, with fresh same-account/project/type proof and preserved slots. Queued jobs carry canonical UUIDs, not protected URLs. SDK/CLI/MCP raw contracts and presets are unchanged. See [HTTP alias inputs](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#registered-aliases-as-http-inputs).
+
+General HTTP /videos frames/ingredients can cache a freshly verified registered
+image alias privately before admission: validated PNG/JPEG up to20MiB, exact
+profile/project scope and atomic store insertion. Cache failure502 queues no
+generation; existing foreign cache422. Unregistered raw UUID/public image GET
+behavior stays unchanged. Actual workers-disabled cache/forwarding BDD passed
+64.71seconds with zero generation; rendered acceptance remains pending.
+
+HTTP project-list defaults now return generated-history summaries (source=history); media-list defaults now read native Google inventory. Explicit source=local retains managed cache and project source=google retains catalog discovery. SDK/CLI/MCP history adds summary fields without new flags/tools. See [default changes](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#generated-history-summaries-and-http-defaults). Actual default-summary/media BDD passed65.84seconds with zero generation; final gates passed6746tests; publication/deployment remain pending and complete history is not claimed.

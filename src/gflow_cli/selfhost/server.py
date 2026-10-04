@@ -10,6 +10,7 @@ import hmac
 import json
 import math
 import re
+import shutil
 import sqlite3
 import sys
 import time
@@ -264,11 +265,159 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if unknown:
             feature_missing(",".join(unknown))
 
+    async def translate_input_aliases(
+        payload: dict[str, Any], fields: dict[str, str]
+    ) -> dict[str, str]:
+        """Resolve exact mappings and fresh declarations before durable submission."""
+        bindings: list[tuple[str, NativeAlias | NativeResourceAlias]] = []
+        for field, expected in fields.items():
+            value = payload.get(field)
+            if not isinstance(value, str) or not value.startswith("user:"):
+                continue
+            binding: NativeAlias | NativeResourceAlias | None
+            try:
+                binding = aliases.get(value)
+            except ValueError:
+                try:
+                    binding = resource_aliases.get(value)
+                except ValueError:
+                    raise HTTPException(400, "Unsupported composite input shape") from None
+            if binding is None:
+                raise HTTPException(404, "Composite input mapping not found")
+            allowed = {"image", "character"} if expected == "image-or-character" else {expected}
+            if binding.kind not in allowed:
+                raise HTTPException(400, "Composite input has the wrong resource kind")
+            verified_alias_account(binding)
+            bindings.append((field, binding))
+        if not bindings:
+            return {}
+        first = bindings[0][1]
+        scope = (first.profile, first.account, first.project_id)
+        if any((b.profile, b.account, b.project_id) != scope for _, b in bindings):
+            raise HTTPException(409, "Composite inputs require one account and project scope")
+        if payload.get("email") is not None and payload["email"] != first.account:
+            raise HTTPException(403, "Composite input belongs to another account")
+        if payload.get("projectId") is not None and (
+            uuid_value(payload["projectId"], "projectId") != first.project_id
+        ):
+            raise HTTPException(403, "Composite input belongs to another project")
+        from gflow_cli.api.transports.native_asset_lookup import media_url
+
+        metadata: dict[tuple[str, str, str], dict[str, Any]] = {}
+        replacements: dict[str, str] = {}
+        for field, binding in bindings:
+            identifier = binding.media_id if isinstance(binding, NativeAlias) else binding.native_id
+            key = (binding.kind, binding.project_id, identifier)
+            if key not in metadata:
+                metadata[key] = (
+                    await native_alias_metadata(binding.profile, binding.project_id, identifier)
+                    if isinstance(binding, NativeAlias)
+                    else await resource_alias_metadata(binding)
+                )
+            row = metadata[key]
+            if isinstance(binding, NativeAlias):
+                if row.get("kind") != binding.kind:
+                    raise HTTPException(502, "Composite input native media kind changed")
+                try:
+                    media_url(row.get("url"), binding.kind)
+                except ValueError:
+                    raise HTTPException(502, "Composite input fresh URL is unavailable") from None
+            else:
+                verify_resource_declarations(binding, row, registration=False)
+            replacements[field] = identifier
+        verified_alias_account(first)
+        payload.update(replacements)
+        payload["email"] = first.account
+        payload["projectId"] = first.project_id
+        return replacements
+
     def uuid_value(value: Any, label: str) -> str:
         try:
             return str(uuid.UUID(str(value)))
         except ValueError:
             raise HTTPException(422, f"{label} must be a bare Google Flow UUID") from None
+
+    async def cache_alias_images(payload: dict[str, Any], identifiers: list[str]) -> None:
+        """Materialize only freshly verified aliases in a private scoped image cache."""
+        if not identifiers:
+            return
+        profile = pick_account(payload.get("email"), [], allow_native=True)
+        project = uuid_value(payload["projectId"], "projectId")
+        for identifier in dict.fromkeys(identifiers):
+            try:
+                current = store.asset_get(identifier)
+            except KeyError:
+                current = None
+            if current is not None:
+                if (current["profile"], current["project"]) != (profile, project):
+                    raise HTTPException(
+                        422, "Reference cache belongs to another account or project"
+                    )
+                if current["mime"] not in ("image/png", "image/jpeg"):
+                    raise HTTPException(422, "Video image inputs must be PNG or JPEG assets")
+                continue
+            parent = cfg.root / "native-image-cache" / profile / project
+            if not parent.resolve().is_relative_to(cfg.root.resolve()):
+                raise HTTPException(502, "Native image cache unavailable")
+            parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            output_dir = parent / str(uuid.uuid4())
+            output_dir.mkdir(mode=0o700)
+            published = False
+            try:
+                code, raw = await subprocess_run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "gflow_cli.selfhost.native_worker",
+                        "asset-cache-image",
+                        profile,
+                        json.dumps(
+                            {
+                                "project_id": project,
+                                "media_id": identifier,
+                                "output_dir": str(output_dir),
+                            }
+                        ),
+                    ],
+                    60,
+                )
+                result = parse_json_output(raw)
+                if (
+                    code
+                    or result.get("status") != "ok"
+                    or result.get("kind") != "image"
+                    or result.get("mediaGenerationId") != identifier
+                    or result.get("projectId") != project
+                    or result.get("mimeType") not in ("image/png", "image/jpeg")
+                    or type(result.get("bytes")) is not int
+                    or not 0 < result["bytes"] <= MAX_ASSET
+                ):
+                    raise ValueError("Invalid native image cache result")
+                image_path = contained_file(str(result.get("path", "")), output_dir)
+                if (
+                    image_path.parent != output_dir.resolve()
+                    or image_path.stat().st_size != result["bytes"]
+                ):
+                    raise ValueError("Invalid native image cache bytes")
+                from PIL import Image
+
+                with Image.open(image_path) as image:
+                    expected = "PNG" if result["mimeType"] == "image/png" else "JPEG"
+                    if image.format != expected:
+                        raise ValueError("Invalid native image cache MIME")
+                    image.verify()
+                with Image.open(image_path) as image:
+                    image.load()
+                published = store.asset_cache_if_scope(
+                    identifier, profile, project, str(image_path), result["mimeType"]
+                )
+            except HTTPException:
+                raise
+            except (ValueError, KeyError, OSError):
+                raise HTTPException(502, "Native image cache unavailable") from None
+            finally:
+                if not published:
+                    shutil.rmtree(output_dir)
 
     async def enqueue(
         request: Request,
@@ -726,6 +875,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/media-native-timeline",
                 "assets/media-native-attached-inventory",
                 "assets/verified-composite-read-mappings",
+                "aliases/verified-generation-inputs",
                 "characters/verified-composite-read-mappings",
                 "voices/verified-composite-read-mappings",
                 "assets/media-native-upload-and-source-time",
@@ -818,6 +968,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         count = payload.setdefault("count", 4)
         if type(count) is not int or not 1 <= count <= 4:
             raise HTTPException(422, "count requires an integer from 1 to 4")
+        await translate_input_aliases(
+            payload,
+            {
+                **{f"reference_{i}": "image" for i in range(1, 11)},
+                **{f"character_{i}": "character" for i in range(1, 8)},
+            },
+        )
         refs: list[str] = []
         for i in range(1, 11):
             key = f"reference_{i}"
@@ -935,6 +1092,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "async",
             },
         )
+        await translate_input_aliases(payload, {"mediaGenerationId": "image"})
         payload["mediaGenerationId"] = uuid_value(
             payload.get("mediaGenerationId"), "mediaGenerationId"
         )
@@ -1060,9 +1218,101 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     @app.get(prefix + "/assets/projects/{email}")
     async def projects(request: Request, email: str) -> dict[str, Any]:
         profile = pick_account(email, [])
-        source = request.query_params.get("source", "local")
-        if source not in ("local", "google"):
-            raise HTTPException(422, "source requires local or google")
+        source = request.query_params.get("source", "history")
+        if source not in ("local", "google", "history"):
+            raise HTTPException(422, "source requires local, google or history")
+        if source == "history":
+            if set(request.query_params) - {"source", "cursor"}:
+                raise HTTPException(422, "History summaries support cursor only")
+            cursor = request.query_params.get("cursor")
+            from gflow_cli.api.native_history import (
+                validate_history_options,
+                validate_history_summary_envelope,
+            )
+
+            try:
+                validate_history_options(cursor, True, 50, 1000)
+            except ValueError:
+                raise HTTPException(422, "Invalid native history cursor") from None
+            code, raw = await subprocess_run(
+                [
+                    sys.executable,
+                    "-m",
+                    "gflow_cli.selfhost.native_worker",
+                    "history-list",
+                    profile,
+                    json.dumps(
+                        {"all_pages": True, "max_pages": 50, "max_media": 1000, "cursor": cursor}
+                    ),
+                ],
+                90,
+            )
+            try:
+                result = parse_json_output(raw)
+                if code or result.get("status") != "ok":
+                    raise ValueError("Unavailable history")
+                validate_history_summary_envelope(result)
+                projects = result["project_summaries"]
+                if not isinstance(projects, list):
+                    raise ValueError("Invalid history summary")
+                public_projects: list[dict[str, Any]] = []
+                for candidate in cast(list[Any], projects):
+                    if not isinstance(candidate, dict):
+                        raise ValueError("Invalid history summary")
+                    row = cast(dict[str, Any], candidate)
+                    project = str(uuid.UUID(str(row["project_id"])))
+                    if type(row.get("total")) is not int or row["total"] < 1:
+                        raise ValueError("Invalid history summary count")
+                    raw_types = row["by_type"]
+                    if not isinstance(raw_types, dict):
+                        raise ValueError("Invalid history summary types")
+                    types = cast(dict[str, Any], raw_types)
+                    if (
+                        set(types) != {"image", "video"}
+                        or any(type(value) is not int or value < 0 for value in types.values())
+                        or sum(types.values()) != row["total"]
+                    ):
+                        raise ValueError("Invalid history summary types")
+                    public_projects.append(
+                        {
+                            "projectId": project,
+                            "isCurrent": project == cfg.accounts[profile]["project"],
+                            "total": row["total"],
+                            "byType": {key.upper(): value for key, value in types.items()},
+                            **{
+                                name: row[name]
+                                for name in ("oldest", "newest")
+                                if row.get(name) is not None
+                            },
+                        }
+                    )
+                if (
+                    type(result.get("scanned")) is not int
+                    or not 0 <= result["scanned"] <= 1000
+                    or type(result.get("truncated")) is not bool
+                    or sum(row["total"] for row in public_projects) > result["scanned"]
+                ):
+                    raise ValueError("Invalid history summary counters")
+                if "media" in result and "workflows" in result:
+                    observations.merge_history(profile, cfg.accounts[profile]["email"], result)
+                return {
+                    "email": email,
+                    "projects": public_projects,
+                    "scanned": result["scanned"],
+                    "truncated": result["truncated"],
+                    **({"cursor": result["cursor"]} if result.get("cursor") is not None else {}),
+                    **(
+                        {"stoppedOn": "timeBudget"}
+                        if result.get("stopped_on") == "timeBudget"
+                        else {}
+                    ),
+                    "complete": None,
+                    "scope": (
+                        "observed generated native account history; counts belong to this call"
+                    ),
+                }
+            except (KeyError, TypeError, ValueError):
+                raise HTTPException(502, "Native history summary unavailable") from None
         if source != "google" and any(
             key in request.query_params
             for key in (
@@ -1268,7 +1518,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         project = request.query_params.get("projectId")
         if project:
             project = uuid_value(project, "projectId")
-        source = request.query_params.get("source", "local")
+        source = request.query_params.get("source", "google")
         if source not in ("local", "google"):
             raise HTTPException(422, "source requires local or google")
         if source == "google":
@@ -2453,6 +2703,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "replyUrl",
             },
         )
+        await translate_input_aliases(payload, {"mediaGenerationId": "video"})
         profile, project = character_project(payload)
         payload["mediaGenerationId"] = uuid_value(
             payload.get("mediaGenerationId"), "mediaGenerationId"
@@ -2510,6 +2761,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(payload, allowed)
         if payload.get("model", "omni-flash") != "omni-flash":
             raise HTTPException(422, "Audio ingredients currently require Omni Flash")
+        await translate_input_aliases(
+            payload,
+            {
+                **{f"referenceImage_{i}": "image-or-character" for i in range(1, 8)},
+                **{f"referenceAudio_{i}": "voice" for i in range(1, 6)},
+                **{f"character_{i}": "character" for i in range(1, 8)},
+            },
+        )
         profile, project = character_project(payload)
         images = [
             uuid_value(payload[f"referenceImage_{i}"], f"referenceImage_{i}")
@@ -2607,6 +2866,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "referenceVideo_1 requires Omni Flash")
         if type(payload.get("count", 1)) is not int or payload.get("count", 1) != 1:
             raise HTTPException(422, "Native Omni edit supports count=1")
+        await translate_input_aliases(
+            payload,
+            {
+                **{f"referenceImage_{i}": "image-or-character" for i in range(1, 6)},
+                **{f"referenceAudio_{i}": "voice" for i in range(1, 4)},
+                **{f"character_{i}": "character" for i in range(1, 8)},
+                "referenceVideo_1": "video",
+            },
+        )
         profile, project = character_project(payload)
         media = uuid_value(payload.get("referenceVideo_1"), "referenceVideo_1")
         images = [
@@ -2733,6 +3001,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             )
         if re.search(r"@(reference(?:Image|Audio|Video)?|character|audio)_\d+", prompt, re.I):
             feature_missing("inline useapi reference markers")
+        translated = await translate_input_aliases(
+            payload,
+            {
+                "startImage": "image",
+                "endImage": "image",
+                **{f"referenceImage_{i}": "image" for i in range(1, 8)},
+            },
+        )
         refs: list[str] = []
         ingredient_ids: list[str] = []
         for field in ("startImage", "endImage", *(f"referenceImage_{i}" for i in range(1, 8))):
@@ -2745,6 +3021,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "endImage requires startImage")
         if payload.get("startImage") and ingredient_ids:
             raise HTTPException(422, "Video frames and reference ingredients cannot be mixed")
+        await cache_alias_images(payload, list(translated.values()))
         profile = pick_account(payload.get("email"), refs)
         try:
             files = {ref: contained_file(store.asset_get(ref)["path"], cfg.root) for ref in refs}
@@ -2854,6 +3131,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 {"modelKey", "captchaToken", "captchaOrder", "captchaRetry"} if promoting else set()
             ),
         )
+        await translate_input_aliases(payload, {"mediaGenerationId": "video"})
         payload["mediaGenerationId"] = uuid_value(
             payload.get("mediaGenerationId"), "mediaGenerationId"
         )

@@ -47,8 +47,8 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
 | `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
-| `GET /assets/projects/{handle}` | Local catalog by default; source=google reads paginated native account projects |
-| `GET /assets/media/{handle}` | Managed catalog by default; source=google reads timeline and attached native media, preserving origin |
+| `GET /assets/projects/{handle}` | Generated history summaries by default; source=google native catalog, source=local managed cache |
+| `GET /assets/media/{handle}` | Native timeline/attached media by default; source=local managed cache |
 | `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
 | `DELETE /assets/{handle}` | Native reversible whole-batch archive by default; operation=delete permanently removes only selected owned media IDs; explicit localOnly cache deletion is separate |
 | `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded with HTTP 501; see CAPTCHA.md |
@@ -258,7 +258,7 @@ For a local masked key editor and credit-free balance check, see [the CapSolver 
 
 CAPTCHA statistics distinguish typed generation refusal (`rejected`) from post-submit timeout/download failures (`unknown`). `accepted` is recorded after successful download; counters do not cause retries.
 
-Native project discovery: `GET /assets/projects/{handle}?source=google` returns the account project catalog with `projectId`, `name`, optional modification timestamps/last media ID, `cursor` and explicit native scope. Pages have a fixed size of 21; `limit` is rejected. Pass the returned opaque cursor unchanged (maximum 4096 characters), stopping at null. This is direct account project discovery, not useapi media-history totals/byType or oldest/newest aggregation. Poster URLs and session data are omitted. Default `source=local` retains local pagination.
+Native project discovery: `GET /assets/projects/{handle}?source=google` returns the account project catalog with `projectId`, `name`, optional modification timestamps/last media ID, `cursor` and explicit native scope. Pages have a fixed size of 21; `limit` is rejected. Pass the returned opaque cursor unchanged (maximum 4096 characters), stopping at null. This is direct account project discovery, not useapi media-history totals/byType or oldest/newest aggregation. Poster URLs and session data are omitted. Explicit `source=local` retains local pagination; the HTTP project default is now history.
 
 
 Native read examples (use the bearer client from the example above):
@@ -654,7 +654,8 @@ use only ASCII letters, digits and . _ ~ -; user is1–128 characters and email
 is1–512, with a1024-character total cap. These are opaque local labels, not decoded
 useapi user/account identities. The media suffix must match the explicit UUID.
 Character/voice aliases use the separate explicit resource routes below; arbitrary
-vendor encodings and automatic generation/reference translation are unsupported.
+vendor identity decoding remains unsupported. Exact registered HTTP inputs are
+resolved through the explicit bounded paths documented below.
 
 ```python
 media_uuid = "11111111-1111-4111-8111-111111111111" # replace with an owned image
@@ -762,8 +763,9 @@ the Google resource is missing; unresolved native ownership/detail returns502.
 DELETE /characters/{account}/aliases/{alias} or /voices/{account}/aliases/{alias}
 removes the scoped local mapping only, returning googleResourceDeleted:false.
 It performs no Google resource mutation. The generic HTTP asset endpoint rejects
-character/voice aliases with400. Aliases are not automatically stripped or
-accepted as generation/reference/mutation inputs. Raw SDK/CLI/MCP inputs retain
+character/voice aliases with400. Supported generation/operation fields now resolve
+registered aliases explicitly; Google resource deletion and character CRUD
+mutation inputs are not widened, and no alias is stripped automatically. Raw SDK/CLI/MCP inputs retain
 their existing contract. Saved-user audio acceptance and broader R02 equivalence
 remain pending. Actual character-alias REST lifecycle passed without generation
 or Google mutation, and final frozen-source gates passed. Saved-voice fixture
@@ -799,3 +801,96 @@ rollback apply. URLs/prompts/captions/cursors are never persisted; missing rows
 are retained and complete remains null. Attached origins do not become selected
 project ownership; cache contents never authorize GetMedia, generation or deletion.
 SDK/CLI/direct MCP retain read-only native DTOs and do not persist this REST cache.
+
+
+## Registered aliases as HTTP inputs
+
+Supported HTTP generation/operation fields accept exact registered image/video/
+character/saved-voice aliases. A shared resolver runs before account selection,
+reference planning and queueing. All bindings must share the exact configured
+account/profile/project; omitted email/projectId derive from that scope. Matching
+explicit scope is accepted, foreign scope403, mixed bindings409, unknown mapping404
+and wrong kind400. Fresh account verification, native media type/URL or character
+count/saved-voice declarations are rechecked before admission. Prefixes are not
+decoded or trusted as ownership.
+
+| Operation | Alias fields and kinds |
+| --- | --- |
+| POST images | reference_1..10:image; character_1..7:character |
+| Image upscale | mediaGenerationId:image |
+| Native R2V | referenceImage_1..7:image or character; referenceAudio_1..5:saved voice; character_1..7:character |
+| Native video editing | referenceVideo_1:video; referenceImage_1..5:image or character; referenceAudio_1..3:saved voice; character_1..7:character |
+| Video extend/upscale/GIF | mediaGenerationId:video |
+| General video | startImage/endImage/referenceImage_1..7:image |
+
+Native video mixed image/character slots retain existing fresh SDK classification
+and positional markers. Ordinary image reference_N accepts images only. Preset
+strings remain unchanged; saved-voice aliases become owned audio UUIDs. General
+POST /videos image aliases now populate the required private managed cache from
+a fresh verified native image before admission. The private worker validates
+PNG/JPEG content with a20MiB cap into a profile/project-scoped UUID directory;
+atomic store insertion preserves that scope. Cache failures return502 without
+queueing generation; an existing foreign cache refuses422. Unregistered raw UUID
+behavior and public native image GET remain unchanged. Local export/GIF controls
+and model entitlements retain their existing prerequisites. Alias resolution does not make unsupported transport
+inputs work.
+
+Queued requests contain canonical UUIDs in the original numbered positions;
+protected URLs, signatures and tokens are not persisted. An image alias and raw
+UUID naming the same image retain intentional deduplication with slot order;
+existing video duplicate validation still refuses duplicate logical references.
+Existing workers repeat fresh scope/ownership checks. SDK/CLI/MCP raw UUID inputs
+and preset names are unchanged; Google media DELETE and character CRUD mutation
+alias inputs remain outside this batch.
+
+```python
+queued = client.post("/images", json={
+    "prompt": "A ceramic mascot on a blue background",
+    "reference_1": registered_image_alias, "count": 1, "async": True,
+})
+queued.raise_for_status()
+#201 means accepted into the queue. Poll the job to establish generated output.
+```
+
+Actual workers-disabled forwarding/cache/queue BDD passed64.71seconds with zero
+generation. Final gates passed6746tests; paid accepted output and publication/deployment
+remain pending. Queue acceptance does not establish rendered acceptance; an
+explicit Google WAF refusal or unknown outcome is recorded separately.
+
+
+### Generated-history summaries and HTTP defaults
+
+The R03 batch implements useapi generated-history project counts, distinct from
+project inventory counts. Actual default-summary/media BDD passed65.84seconds with zero generation;
+final frozen-source gates passed6746tests,5skips,89%coverage; publication/deployment
+remain pending. Positive generated
+image/video arms alone supply per-call projectId/isCurrent/total/byType and
+optional oldest/newest source dates; uploads/audio/unknown are excluded. scanned
+includes all observed media. Up to50pages/20-workflow requests/45seconds with
+truncated/cursor and stoppedOn:timeBudget preserve continuation, without global
+completeness claims. SDK history and existing CLI/MCP include_history gain additive
+summary fields, without new public flags/tools.
+
+HTTP default change: assets/projects source=history; explicit source=google
+keeps project inventory/catalogs and source=local keeps cached listing. assets/media
+default source=google keeps whole observed native project; source=local selects
+the managed cache. This changes the prior implicit local-list defaults. Existing clients requiring
+managed caches should now explicitly supply source=local.
+
+Default GET /assets/projects/{email} (or source=history) accepts only optional
+cursor, not native catalog/traversal controls. Projects are sorted by generated
+total descending and include projectId, isCurrent, total, byType with IMAGE/VIDEO
+counts and optional oldest/newest valid UTC dates. isCurrent compares the actual
+configured project. Each continuation response contains its own scanned counts;
+merge totals/byType and outer date bounds yourself for a multi-call view. Empty
+generated cohorts return empty projects even when excluded media were scanned.
+scanned includes verified observed media of all types, including excluded uploads/
+audio/unknown. It is not a global count. truncated/cursor indicate unread bounded
+history; stoppedOn:timeBudget indicates the45-second deadline. complete:null
+retains the consistency limitation even after cursor exhaustion.
+
+SDK list_native_history and CLI/MCP include_history keep their existing options
+and add media generation_source/likely_upload, scanned, project_summaries and
+continuation flags. Native summary names remain snake_case (project_id, by_type
+with image/video counts, stopped_on); HTTP default summary projects use camelCase
+and uppercase media type names. No new public MCP tool/CLI flag is added.

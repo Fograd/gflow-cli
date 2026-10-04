@@ -2491,7 +2491,7 @@ Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video u
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
-HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership or translate generation/reference arguments. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
+HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership; supported HTTP input fields resolve exact registered mappings with fresh proof. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
 
 
 ### Bounded native account history
@@ -2529,7 +2529,7 @@ observation cache scoped to the exact profile/configured account. SDK/CLI/MCP
 history reads do not persist that cache. It never replaces fresh ownership or
 authorizes absence-based deletion.
 
-HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. They do not translate generation/mutation inputs. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
+HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. Supported HTTP generation/operation inputs now resolve exact mappings before queueing; Google resource deletion and character CRUD mutation inputs remain raw. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
 
 
 ### Explicit native project catalog resume
@@ -2552,3 +2552,32 @@ under the exact configured account/profile. No URLs/prompts/captions/cursors or
 system presets persist. Catalog attached origins are not selected-project ownership;
 missing rows remain observed, complete:null. Cache counts never authorize GetMedia,
 references, mutation or absence-based deletion. SDK/CLI/MCP do not persist this cache.
+
+HTTP alias inputs resolve registered image/video/character/saved-voice mappings before account selection and queueing, with fresh same-account/project/type proof and preserved slots. Queued jobs carry canonical UUIDs, not protected URLs. SDK/CLI/MCP raw contracts and presets are unchanged. See [HTTP alias inputs](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#registered-aliases-as-http-inputs).
+
+General HTTP /videos frames/ingredients can cache a freshly verified registered
+image alias privately before admission: validated PNG/JPEG up to20MiB, exact
+profile/project scope and atomic store insertion. Cache failure502 queues no
+generation; existing foreign cache422. Unregistered raw UUID/public image GET
+behavior stays unchanged. Actual workers-disabled cache/forwarding BDD passed
+64.71seconds with zero generation; rendered acceptance remains pending.
+
+
+### Generated-history summaries and HTTP defaults
+
+The R03 batch implements useapi generated-history project counts, distinct from
+project inventory counts. Actual default-summary/media BDD passed65.84seconds with zero generation;
+final frozen-source gates passed6746tests,5skips,89%coverage; publication/deployment
+remain pending. Positive generated
+image/video arms alone supply per-call projectId/isCurrent/total/byType and
+optional oldest/newest source dates; uploads/audio/unknown are excluded. scanned
+includes all observed media. Up to50pages/20-workflow requests/45seconds with
+truncated/cursor and stoppedOn:timeBudget preserve continuation, without global
+completeness claims. SDK history and existing CLI/MCP include_history gain additive
+summary fields, without new public flags/tools.
+
+HTTP default change: assets/projects source=history; explicit source=google
+keeps project inventory/catalogs and source=local keeps cached listing. assets/media
+default source=google keeps whole observed native project; source=local selects
+the managed cache. This changes the prior implicit local-list defaults. Existing clients requiring
+managed caches should now explicitly supply source=local.

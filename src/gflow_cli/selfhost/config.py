@@ -27,6 +27,12 @@ VIDEO_ALIASES = {
 }
 
 
+def environment_root() -> Path:
+    """Resolve the shared private root without requiring REST credentials."""
+    home = Path(os.environ.get("GFLOW_CLI_HOME", str(Path.home() / ".local/share/gflow-cli")))
+    return Path(os.environ.get("GFLOW_SELFHOST_ROOT", str(home / "selfhost"))).resolve()
+
+
 @dataclass
 class Settings:
     token: str
@@ -66,8 +72,7 @@ class Settings:
                 raise ValueError("Each configured account requires email")
             uuid.UUID(cast(dict[str, Any], account)["project"])
             accounts[profile] = cast(dict[str, str], account)
-        home = Path(os.environ.get("GFLOW_CLI_HOME", str(Path.home() / ".local/share/gflow-cli")))
-        root = Path(os.environ.get("GFLOW_SELFHOST_ROOT", str(home / "selfhost"))).resolve()
+        root = environment_root()
         sync_wait = float(os.environ.get("GFLOW_SELFHOST_SYNC_WAIT_SECONDS", "600"))
         if not math.isfinite(sync_wait) or not 0 <= sync_wait <= 900:
             raise ValueError(
