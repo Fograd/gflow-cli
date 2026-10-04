@@ -50,3 +50,69 @@ See [roadmap](PARITY.md#roadmap) and [verification](VERIFICATION.md).
 Before final R12: the ten-reference picker failure is fixed and its live abort-only proof passed; run bounded observed account-resource continuation over character/voice kinds; verify generic count1–4 provider controls and2K refusal retry with remaining operator budget. Entitled4K requires an actually enabled account option; unavailable Pro tiers are refusal tests. Successful cookie import/renewal and accepted saved voice/audio binding remain prerequisites for their complete lifecycle tests. Whole-source tests and actual read proofs do not replace these acceptance checks.
 
 Latest zero-credit proof: real pro1 count4 generic request carries four distinct IDs and was aborted before forwarding. Current retained budget: pro1 images2/videos2; pro2 images0/videos1; pro3 images1/videos1, plus one pro1 and two pro3 audio-preview refusals. Pro2 now reaches Google sign-in on fresh entry and needs human renewal. Pro1 had positive editor/principal proofs earlier, but its latest07:54-07:56 fresh identity checks failed; renew/recheck before its acceptance campaign. A count2–4 accepted batch needs additional per-account video allowance; no remaining account has two unconsumed video attempts.
+
+
+## Executable scenario list
+
+Run serially on one freshly authenticated profile. Each row is an individual
+opt-in test file; do not enable an entire paid marker tier. These six files collect
+ten scenarios successfully on the deployed source. Collection proves availability
+of the harness, not successful Google execution.
+
+| Test file under `tests/e2e/` | Explicit setup beyond common profile/home | Purpose |
+|---|---|---|
+| `test_native_inventory_sync_bdd.py` | `GFLOW_CLI_E2E_NATIVE_SYNC=1` | Two bounded checkpoint steps, private observations, zero generation |
+| `test_native_asset_lookup_bdd.py` | `GFLOW_CLI_E2E_ASSET_LOOKUP=1`, `GFLOW_CLI_E2E_RESOURCES_PROJECT` | Fresh owned image/video metadata and content, no write |
+| `test_native_image_ten_retention_bdd.py` | `GFLOW_CLI_E2E_TEN_RETAIN=1`, project, `GFLOW_CLI_E2E_TEN_MODEL` | Abort before generation; ten exact ordered identities; requires10fresh active owned images or explicit GFLOW_CLI_E2E_TEN_UPLOAD_FIXTURE=1 for owned upload/archive fixtures |
+| `test_native_video_batch_preflight_bdd.py` | `GFLOW_E2E_BATCH_PROFILE_DIR`, `GFLOW_E2E_BATCH_PROJECT_ID` | One intercepted four-output Lite request, zero forwarding |
+| `test_native_saved_voice_preview_bdd.py` | `GFLOW_CLI_E2E_SAVED_VOICE_PREVIEW=1`, private `GFLOW_CLI_E2E_SAVED_VOICE_FIXTURE` already reserved | One real preview, saved playback and owned cleanup; requires fresh accepted audio |
+| `test_native_video_paths_final_bdd.py` | Exactly one `GFLOW_CLI_E2E_NATIVE_VIDEO_PATH`, private output/source configuration, `GFLOW_CLI_E2E_RUN_VIDEO=1`, `GFLOW_CLI_E2E_NATIVE_VIDEO_BUDGET=1` | One selected reference/edit/extension output; audio-reference also needs its separate one-preview reservation |
+
+Common browser configuration:
+
+```bash
+export GFLOW_CLI_BROWSER_ENGINE=patchright
+export GFLOW_CLI_HEADLESS=false
+export GFLOW_CLI_E2E_HOME="$GFLOW_CLI_HOME"
+export GFLOW_CLI_E2E_PROFILE=pro3
+```
+
+Load protected operator environment files before these exports; the selected
+profile/project and any bearer headers remain private. Install the optional
+engine using `uv sync --frozen --extra patchright`. An example read-only invocation,
+after its explicit setup and fresh authentication checks:
+
+```bash
+uv run --frozen --extra patchright pytest -q -m 'e2e and e2e_auth'   tests/e2e/test_native_inventory_sync_bdd.py
+```
+
+Use the single scenario/node selector when a file includes multiple modes.
+Reserve in the campaign ledger before any image/video/audio dispatch. An opt-in
+flag or fixture is not itself a global-budget reservation. Refused or uncertain
+submitted attempts keep their reservation; release only proven zero-forwarded
+preflight failures. Never rerun an accepted/unknown scenario to make the test green.
+Owned cleanup follows fresh identity checks and must preserve original assets.
+
+## Latest entry readiness
+
+Source `1e68b30c11736ac835b2d53217e8573b135c5575` is deployed on CC LXC.
+The whole gate passed7,684tests/5skips/90%coverage. REST accounts/jobs/stats,
+configured GUI and registered42-tool MCP reads passed. Deployed OpenAPI advertises
+all18JSON/multipart methods; empty local-only deletion and duplicate-form refusal
+passed with queues0 and zero Google generation.
+
+The short pro3 resource calls returned valid opaque continuations but read zero
+catalog pages. Longer calls still failed; its direct Google GetPeople returned401
+after engine alignment. Do not treat the short responses as fresh authentication
+or inventory proof. Pro2 previously reached Google sign-in; pro1's final post-alignment
+GetPeople also returned401 after earlier successes. Renew/recheck all three profiles
+before paid or saved-voice acceptance. Successful cookie import and automatic
+renewal remain unverified. The service engine and optional dependency are now
+explicitly aligned; this does not restore expired Google credentials.
+
+Retained image/video attempts: pro1 2/2, pro2 0/1, pro3 1/1. In each pair the
+first number is images used of50 and the second videos used of2. There are only
+two remaining single-video attempts total, one on pro2 and one on pro3. A real
+two-output batch on one account needs additional authorization. No new video was
+submitted during the overnight window. Audio previews: one pro1 and two pro3,
+all explicitly refused; successful audio cost remains unproved.

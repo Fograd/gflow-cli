@@ -31,7 +31,7 @@ CAPTCHA provider configuration and token hooks have offline coverage. Actual Goo
 
 The expanded service was restarted with no active jobs. Authenticated capability discovery and provider configuration returned HTTP 200; unauthenticated capability discovery returned HTTP 401. Video generation remains disabled.
 
-The main-world and early-hook CAPTCHA probes were aborted before Google submission and still returned no action metadata. Those historical probes were superseded by native reload capture below. Provider generation continues to return HTTP 501 pending actual third-party acceptance; key configuration remains usable. Final focused API/transport/MCP verification:157 passed.
+The main-world and early-hook CAPTCHA probes were aborted before Google submission and still returned no action metadata. Those historical probes were superseded by native reload capture below. At this historical checkpoint, provider generation returned HTTP501 pending third-party acceptance; key configuration remains usable. Final focused API/transport/MCP verification:157 passed.
 
 Final complete offline regression (with corrected marker/PATH setup): **4,969 passed, 47 skipped; 90.36% coverage** in 208.80 seconds. Whole-tree Ruff format/lint and strict Pyright passed; documentation links, repository hygiene, website privacy/mirror and council-memory checks passed. Duplication proxy found only pre-existing experimental/CLI-MCP mirrors.
 
@@ -367,7 +367,7 @@ CapSolver trial. An earlier private plugin import error also submitted nothing.
 Across the earlier image trial and this video trial, the private ledgers show2solved,
 2submitted,0accepted and2rejected operations. API counters remain scoped to their
 self-hosted instance and do not retroactively aggregate separate manual trials. A solved token is not Google
-acceptance. Provider-backed public generation remains guarded; keys, tokens,
+acceptance. Provider-backed public generation was guarded at this historical checkpoint; later explicit controls are recorded below. Keys, tokens,
 signed URLs and raw captures remain outside Git. No additional extension/edit
 generation or rendered-audio reference request was sent after the same-account
 Google refusals. Those paid acceptances remain externally blocked and unverified.
@@ -1502,3 +1502,39 @@ local CAPTCHA durations, logical profile lookup and secure session/identity laun
 composition. The real count4 capture stopped before dispatch; it proves request
 construction without accepted output. Current Google authentication failures and
 WAF/traffic refusals remain acceptance blockers rather than passing code gates.
+
+
+### Third release deployment and bounded production proofs
+
+Source `1e68b30c11736ac835b2d53217e8573b135c5575` was atomically published on
+all three fork branches and fast-forward deployed on CC LXC. API/MCP/GUI were
+active; queues were0 before and after restart. Actual accounts/default jobs/CAPTCHA
+events returned200; GUI reported configured generation capability, and MCP
+initialized/listed42tools. The deployed OpenAPI has18mapped JSON/multipart mutation
+methods. CAPTCHA latency schema, empty local-only form deletion200 and duplicate
+form422 refusal passed, queues0 and zero Google generation.
+
+Production initially used the default Playwright engine without the optional
+Patchright package used for earlier root browser probes. The locked extra was
+installed and the common REST/MCP environment explicitly aligned to Patchright,
+with both queues drained. Actual service processes confirm that engine. A short
+pro3 HTTP character/MCP voice call then returned valid continuations with zero
+pages/catalog reads; a90second-budget alternative still returned REST502 and MCP
+structured error. A separate current pro3 direct GetPeople request returned401.
+Thus engine alignment is an operational correction, not a fresh inventory or
+authentication success. Current pro2/pro3 require human renewal; pro1 needs a
+fresh recheck after its earlier positive and later negative principal proofs.
+
+Ten final-test scenarios across six named files collected successfully. These
+were not executed as a paid tier. No additional Google generation/provider solve
+was made by deployment/read/collection checks. The retained attempt ledger remains
+pro1 images2/videos2, pro2 images0/videos1, pro3 images1/videos1; audio previews
+pro1 one/pro3 two, all refused. A final E2E campaign must satisfy the readiness
+and per-account reservation rules in FINAL_E2E.md.
+
+
+A final bounded original pro1 read after production engine alignment also returned
+GetPeopleHTTP401 at08:42UTC, zero generation. This supersedes its earlier positive
+principal/editor observations: all three profiles require renewed/rechecked Google
+access before final acceptance work. The original profiles and registrations were
+preserved. No repeated login attempt or additional CAPTCHA solve was made.

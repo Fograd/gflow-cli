@@ -38,7 +38,7 @@ Paths below are relative to `/v1/google-flow`. “Implemented” means an adapte
 | 28 | GET /jobs | options summary(default)/executing/history | All explicit statistics modes implemented, SQL aggregates no100-row cap,15-minute counters,top10/type. Baseline omitted options returns durable paginated jobs instead of summary. Scheduler uses queue load, not these scores or vendor quarantine. |
 | 29 | GET /jobs/{jobId} | jobId | Durable status, request, safe response/error and uncertain recovery handles. Vendor encoded ID/auth-domain/410 expiry lifecycle absent; local bearer owns instance. Result field projection intentionally excludes private raw worker fields and signed URLs. |
 
-## Cross-cutting contract differences
+## Baseline cross-cutting contract differences
 
 - JSON generation handlers do not implement multipart/form-data alternatives. Unknown fields normally produce422 with FastAPI detail, while official examples commonly use400/error.
 - Async201 and synchronous completion/error/wait408 exist. Wait408 explicitly reports processingContinues and forbids blind replay; it is not evidence that Google abandoned work.
@@ -47,7 +47,7 @@ Paths below are relative to `/v1/google-flow`. “Implemented” means an adapte
 - Provider retry loops remain an explicit501 until accepted replacement-token evidence. Retrying an acknowledged or outcome-unknown Google mutation must never be added as generic transport retry.
 - Vendor cookie/session secrets, global CAPTCHA statistics and free CAPTCHA credits should not be fabricated to resemble the hosted service.
 
-## Smallest next deliveries
+## Historical next deliveries from the baseline
 
 1. Default GET/jobs to summary, preserve explicit durable-list extension; add no-options/every-options/filter-conflict regression tests. No Google required.
 2. Default selected-account GET/voices to fresh combined system+user, retain explicit bundled and user modes; two serial source reads, no nested lease. Tests prove sources, account/project, metadata-only output and no user audio URLs in list.
@@ -66,18 +66,20 @@ Offline contract tests: default/mode selection, all documented canonical fields 
 The table above records the baseline. Subsequent implementation changes:
 | Rows | Delivered | Remaining boundary |
 |---|---|---|
-|7| Timestamped local phase events, date/limit/provider filters, confirmed acceptance rate | Global/tier/SKU/billing/latency statistics unavailable |
+|7| Timestamped local phase events, date/limit/provider filters, confirmed acceptance rate and matched local latency | Global/tier/SKU/billing statistics unavailable |
 |8| WebP validation and explicit PNG conversion | Native transport receives PNG/JPEG |
 |12,23,24,27| Exact alias mutation normalization and confirmed-delete receipts | Arbitrary vendor prefixes and unknown already-gone IDs unsupported |
-|13| Lite10 admission and separate character pool with actual image weights | Ten-chip retention and rendered acceptance separate |
-|Native video,18,20| Explicit provider fallback and confirmed-WAF-only bounded retries | Real audio/video acceptance unverified; image UI provider remains guarded |
+|13| Lite10 admission and separate character pool with actual image weights; live ten-chip/wire capture passed | Rendered acceptance separate |
+|13,14,Native video,18,20| Image/native/generic count1-4 provider controls and confirmed-WAF-only bounded retries | Real solver-backed acceptance unverified |
 |21| Fresh combined selected-account system/user default | Account-wide completeness unknown |
-|28| Default summary, durable-list extension, score-based automatic selection | Native quota reason/model mapper absent |
+|28| Default summary, durable-list extension, score-based automatic selection and exact quota/model local cooldowns | Native Google reset time unobserved |
 |1,2,3,29| Accepted refresh lineage preserves aliases, statistics, idempotency and exact receipts | Successful live import and automatic renewal unverified |
 
 Read-only inventory synchronization is a fork extension, not fabricated vendor
-completeness. Seed/aspect/entitlement, some response fields, multipart and callback
-timing differences still require resolution.
+completeness. Seed/aspect/entitlement and some response fields remain differences.
+Text multipart and image-callback5second timing were subsequently implemented;
+see the current scope below. All six historical next deliveries above are addressed
+within their documented boundaries.
 
 
 ### Next overnight source scope

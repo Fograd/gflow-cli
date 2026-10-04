@@ -9,10 +9,19 @@ mkdir -p "$HOME/workspace/gflow-host"
 cd "$HOME/workspace/gflow-host"
 git clone --branch feature/self-hosted-flow-api https://github.com/Fograd/gflow-cli.git source
 cd source
-uv sync
+uv sync --frozen --extra patchright
 ```
 
-Use the checkout's `.venv/bin/gflow`, not a separately installed upstream `gflow` command. `uv sync` installs the project's Python dependencies. The current configured remote engine requires real Google Chrome on the LXC through its official Linux package; it does not require Chrome on your workstation. On Debian/Ubuntu, install `xvfb`, `x11vnc`, `novnc`, `websockify` and `ffmpeg` through your normal package manager. Upstream's [authentication guide](../AUTHENTICATION.md) explains Chrome profile creation and Google identity rechecks.
+Use the checkout's `.venv/bin/gflow`, not a separately installed upstream `gflow` command. `uv sync --frozen --extra patchright` installs the project's Python dependencies. The current configured remote engine requires real Google Chrome on the LXC through its official Linux package; it does not require Chrome on your workstation. On Debian/Ubuntu, install `xvfb`, `x11vnc`, `novnc`, `websockify` and `ffmpeg` through your normal package manager. Upstream's [authentication guide](../AUTHENTICATION.md) explains Chrome profile creation and Google identity rechecks.
+
+Keep the installation extra and service environment consistent: this deployment
+uses `GFLOW_CLI_BROWSER_ENGINE=patchright` and the locked `patchright` extra.
+The service still launches the saved profile through real system Chrome.
+Use `.venv/bin/gflow` or `.venv/bin/python` for operator commands. If using `uv run`,
+include `--extra patchright`; a default sync/run can remove the optional dependency.
+This is an explicit deployment choice; the upstream default engine is unchanged.
+Before switching engines, drain both REST and MCP queues and preserve the profiles.
+The 4 October production read proof is recorded in [verification](VERIFICATION.md).
 
 ## Persistent headed display
 
@@ -53,6 +62,7 @@ DISPLAY=:93
 GFLOW_CLI_HOME=/home/USER/.local/share/gflow-host/profiles
 GFLOW_CLI_OUTPUT_DIR=/home/USER/.local/share/gflow-host/output
 GFLOW_CLI_HEADLESS=false
+GFLOW_CLI_BROWSER_ENGINE=patchright
 GFLOW_CLI_AUTH_LOGIN_TIMEOUT=7200
 ```
 
@@ -113,7 +123,7 @@ Create or select one Flow project per profile through the CLI and record its UUI
 GFLOW_SELFHOST_ACCOUNTS='{"pro1":{"email":"account-one","project":"11111111-1111-4111-8111-111111111111"},"pro2":{"email":"account-two","project":"22222222-2222-4222-8222-222222222222"},"pro3":{"email":"account-three","project":"33333333-3333-4333-8333-333333333333"}}'
 ```
 
-Replace every placeholder with its own real project UUID. The aliases are public API handles; the browser profiles determine the Google identities. Three Pro plans give three independent allowances. They do not combine into an Ultra account, and successful4K is not enabled by owning three Pro plans. Only one profile is live verified in this deployment's [ledger](VERIFICATION.md).
+Replace every placeholder with its own real project UUID. The aliases are public API handles; the browser profiles determine the Google identities. Three Pro plans give three independent allowances. They do not combine into an Ultra account, and successful4K is not enabled by owning three Pro plans. All three profiles have historical read-only proofs; latest access and expiry observations are in the deployment [ledger](VERIFICATION.md). Recheck the selected profile before a new campaign.
 
 ## Start and inspect the REST service
 
@@ -164,7 +174,7 @@ Protect backups like logged-in accounts: Chrome profiles contain session credent
 
 ## Updates and rollback
 
-Record the current checkout commit and back up persistent state before updating. Stop services after jobs drain, fetch and check out the intended fork revision, run `uv sync`, run the applicable offline checks, then restart. Verify one known image/upscale operation before widening traffic. See [the verification ledger](VERIFICATION.md) for checks actually performed.
+Record the current checkout commit and back up persistent state before updating. Stop services after jobs drain, fetch and check out the intended fork revision, run `uv sync --frozen --extra patchright`, run the applicable offline checks, then restart. Verify one known image/upscale operation before widening traffic. See [the verification ledger](VERIFICATION.md) for checks actually performed.
 
 Rollback to the recorded code revision and its compatible environment; do not erase persistent jobs. Queue schema incompatibility is an explicit startup error rather than silent migration. A new operation must use a fresh idempotency key; a network retry must keep its original key/body. Never replay interrupted billed work solely because code was rolled back.
 

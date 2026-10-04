@@ -52,8 +52,8 @@ providers is not implemented.
 ## Statistics and verification
 
 Authenticated GET `/accounts/captcha-stats` returns aggregate observations from
-this instance only. `accepted` is recorded only after Google returns generated
-image records. `submitted` is an observed transport submission; neither a solved
+this instance only. `accepted` requires the exact matching positive
+operation acknowledgment; a token solve, configuration or submission is insufficient. `submitted` is an observed transport submission; neither a solved
 token nor a configured key proves Google acceptance. The database contains no
 keys, tokens or provider task bodies. Global useapi statistics and anonymised
 cross-customer comparisons are not reproduced.
@@ -91,10 +91,10 @@ tokens remain one use and never trigger retries.
 Fresh trusted project-page site key discovery precedes paid solving. Keys remain
 private; tokens stay outside durable jobs. Scope exit invalidates inherited async
 work. Native acceptance is recorded at acknowledgement, so later download failure
-does not erase acceptance or justify generation again. Image UI provider solving
-remains guarded separately; enabling native controls is not proof of acceptance.
+does not erase acceptance or justify generation again. Image and generic count1-4
+provider controls are also explicitly enabled; enabling controls is not proof of acceptance.
 
-Two real saved-TTS previews on 4 October—browser and CapSolver—were explicitly
+Three real saved-TTS previews on 4 October—two browser and one CapSolver—were explicitly
 WAF-refused. The provider solved once and submitted once, with no accepted audio.
 Credits stayed unchanged on refused requests; successful audio cost is unproven.
 

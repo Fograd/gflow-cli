@@ -55,7 +55,7 @@ Reuse the same `Idempotency-Key` for a retry of the same semantic request. Chang
 
 `replyRef` must be a string of at most 4,096 characters. It is retained in the public request and top-level callback metadata. `replyUrl` requires an explicitly allowed public HTTPS host. Callbacks use the same safe job projector as polling, persisted transactionally at `created`, `started`, and terminal transitions. They are snapshots at their transition times, rather than rewrites to the newest state. Pending legacy outbox records are safely reprojected without changing the original event state.
 
-Delivery retains the local service's ten-second timeout and five attempts, exact host allowlist, pinned public DNS, Host/SNI and no redirects. Recipient response bodies are never read. These local delivery limits differ from upstream image callback timeout wording; they do not affect generation retries. See [image recovery](IMAGE_RECOVERY.md) for journal and partial-download details.
+Image callbacks use the upstream five-second HTTP timeout; other callback types use ten seconds. Delivery makes up to five attempts with an exact host allowlist, pinned public DNS, Host/SNI and no redirects. Recipient response bodies are never read. Callback retries do not repeat generation. See [image recovery](IMAGE_RECOVERY.md) for journal and partial-download details.
 
 ## Image Auto policy
 

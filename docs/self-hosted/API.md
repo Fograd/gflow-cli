@@ -177,7 +177,7 @@ individual permanent media deletion, native standalone extension and Omni editin
 are implemented from the deployed frontend codecs. A later native metadata read
 confirmed removal of one owned synthetic clip after delayed visibility; the final owned synthetic lifecycle subsequently passed in 28.91 seconds, with all originally active media preserved. The first saved TTS attempt was ambiguous with no acknowledged handles. After correcting its proven preset-case divergence, one captured no0P6 request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7). No audio or saved-voice binding lifecycle was accepted. One native R2V browser-token
 attempt was explicitly rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. Extension,
-editing and saved-voice binding acceptance remain pending. Canonical video positional transport and bounded resumable inventory sync are implemented. Numerical generation seeds, global inventory completeness and some generic-video CAPTCHA controls remain unsupported. Unknown controls return501.
+editing and saved-voice binding acceptance remain pending. Canonical video positional transport and bounded resumable inventory sync are implemented. Numerical generation seeds and authoritative global inventory completeness remain unsupported. Generic count1-4 CAPTCHA controls and all-output tracking are implemented. Unknown controls return501.
 
 `POST /voices` accepts `voice` (case-sensitive canonical preset), `displayName`,
 `dialog` and `voicePerformance`. Dialogue/performance each require1–120 characters;

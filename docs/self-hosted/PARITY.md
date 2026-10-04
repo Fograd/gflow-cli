@@ -98,13 +98,15 @@ Focused source/codec tests establish implementation, not Google acceptance.
   traversal exhaustion remains distinct from complete=None and never deletes.
 - Arbitrary already-gone raw UUID success cannot be inferred. Exact confirmed
   receipts and supported registered-alias mutations are implemented.
-- Ten-reference UI retention/rendering remains a final test. Lite10 admission,
-  separate character caps and actual image weights are implemented.
+- Ten-reference rendering remains a final test. Exact ordered UI/wire retention
+  passed a live abort-only test; Lite10 admission, separate character caps and
+  actual image weights are implemented.
 - Successful live cookie import/automatic renewal remains unproved. Accepted
   refresh lineage preserves aliases/jobs/stats/idempotency/receipts; saved-profile
   health is an observation rather than a guaranteed login lifetime.
-- Native quota reason/model quarantine and exact vendor envelopes/error/timing/
-  global-statistics semantics remain differences documented in CONTRACT_AUDIT.md.
+- Exact vendor envelopes/error/timing/global-statistics semantics remain
+  differences documented in CONTRACT_AUDIT.md. Exact native quota/model mapping
+  and local cooldown routing are implemented; Google reset times remain unobserved.
 
 Unknown controls fail explicitly before generation. Local ffmpeg concatenate is
 not a Google scene join. Local registration/cache removal is distinct from native
@@ -123,8 +125,8 @@ progress. A blocker on one item does not stop work on the others.
 checks, then run a representative final E2E campaign. Keep changes limited to
 gflow-cli; Tee Pipeline and cloud-environment setup are outside this goal.
 The deployment target is CC LXC. Three Google AI Pro subscriptions are available,
-and all3 configured profiles now have actual authentication/read-only health and
-catalog verification. Successful import/atomic session refresh and rendered
+and all3 configured profiles have historical authentication/read-only health and
+catalog verification. Current renewal/read failures are tracked in the ledger. Successful import/atomic session refresh and rendered
 three-account acceptance remain separate unverified requirements. CapSolver is the
 chosen provider; configured keys and solved tokens do not prove Google acceptance.
 
@@ -323,7 +325,7 @@ unsafe-caption canonical attachment proof.
   path while investigating higher resolutions.
 - [ ] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
-  ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; UI retention/rendering remain final tests.
+  ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; actual ordered ten-chip/wire retention passed. Rendering remains R12.
   Keep first-reference ordering and validation consistent across surfaces.
   Native Google Auto remains separate from the implemented approximation.
 - [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
@@ -669,3 +671,26 @@ Human boundary: pro2 fresh Flow entry now redirects to Google accountchooser; no
 
 ### Final source freeze boundary
 The third batch is source-frozen with independent form/OpenAPI, all-output/provider, quota and auth/retention reviews. Current headed standalone verifier and a repeated SDK GetPeople check failed onpro1 after earlier positive proofs; successful import remains blocked. Do not interpret the earlier positive principal/editor observations as current three-account authentication readiness. Pro2 reached Google sign-in explicitly; final R12 must renew/recheck sessions. No identity guards were relaxed.
+
+
+### Published overnight handoff
+
+Three overnight feature batches were published/deployed: `b8aba7b4`, `41363f94`,
+and `1e68b30c`. The final frozen-source gate passed7,684tests,5skips and90%coverage,
+with strict types/lint/format/docs/mirrors checked. Current API/MCP/GUI and
+JSON/multipart contract proofs are in [verification](VERIFICATION.md).
+
+Most scoped feature adapters are ready for their final representative tests;
+R01-R11 are **not all complete** under the broad compatibility/acceptance criteria.
+Successful cookie import/renewal, accepted solver-backed saved audio/video and
+entitled4K are still unproved. Numeric video seed/distinct extra ratios,
+arbitrary vendor encodings and authoritative global completeness retain the
+recorded current-contract limits. These are explicit remaining boundaries;
+passing source tests do not close them.
+
+Latest pro1 and pro3 direct Google identity returned401; pro2 requires sign-in.
+Earlier positive principal/editor proofs do not establish current access. Short valid resource
+continuations with zero catalog reads are not renewed-session evidence. The final
+[E2E run list](FINAL_E2E.md#executable-scenario-list) records executable scenarios,
+prerequisites and the two remaining single-video allowances. No sleeping-user
+login request or extra paid-video allowance was requested overnight.

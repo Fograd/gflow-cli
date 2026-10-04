@@ -20,4 +20,13 @@ A serial worker owns each profile; the SDK's profile lease also coordinates REST
 
 Successful native2K is recorded in [the deployment verification ledger](../../docs/self-hosted/VERIFICATION.md). Paid video generation, other profiles and Ultra4K must not be described as verified unless that ledger records the evidence.
 
-The optional [CapSolver key editor](../../docs/self-hosted/CAPSOLVER_GUI.md) has its own loopback-only [service unit](gflow-capsolver-gui.service), no display dependency and no paid tasks. Open its forwarded page in Vivaldi. Provider generation remains guarded until actual third-party replacement-token acceptance is proven.
+The optional [CapSolver key editor](../../docs/self-hosted/CAPSOLVER_GUI.md) has its own loopback-only [service unit](gflow-capsolver-gui.service), no display dependency and no paid tasks. Open its forwarded page in Vivaldi. Provider controls are explicitly enabled and source-tested where documented; accepted third-party-token generation remains unverified.
+
+
+The current CC LXC deployment uses the locked optional Patchright engine with
+real system Chrome. Install/update using `uv sync --frozen --extra patchright`
+and set `GFLOW_CLI_BROWSER_ENGINE=patchright` in the common environment used by
+both REST and MCP. Operator commands should use `.venv/bin/gflow` or include
+`--extra patchright` with `uv run`, so later synchronization retains the dependency.
+This leaves the upstream default engine unchanged. Drain both queues before
+restarting services; changing the engine does not itself renew Google login.
