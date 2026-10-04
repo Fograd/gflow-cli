@@ -1626,3 +1626,49 @@ zero Chrome processes. A fresh supported-cookie staged import of the second
 account still returnedAuthMissingError/no_session; no imported candidate was
 activated and the original registration/profile remained intact. That failed
 import is an open acceptance gap, separate from the working saved-login reuse.
+
+## 4 October: premature migrated-login closure
+
+The second test account later returned native HTTP401 with retained unexpired
+cookies and public Flow/MyAccount landings. This occurred after a staged import
+attempt; causation is unknown, and live cookie-copy tests are suspended. No staged
+candidate was activated. The original local profile and registration were preserved,
+but Google acceptance was lost. Hosted CLI/MCP default to the working third account;
+the second was temporarily disabled during recovery, then re-enabled after two
+fresh principal/project cold opens. The retained UseAPI account stays disabled.
+
+Human recovery then reproduced a cookie-only auto-close followed by an unsuccessful
+independent saved-profile check. Three unit cases were RED on that early return.
+The intercepted real-browser BDD was also RED: zero native reads and an unverified
+cookie-only result. It became GREEN with one refused native read and no successful
+return, in7.06seconds on Patchright. All browser origins were intercepted and the
+retired labs request oracle stubbed; this proves the mechanism, not Google renewal.
+
+The fix requires a fresh current-principal read before migrated auto-close, preserves
+the existing deadline/user-close/cancellation behavior, checks the landing afterwards
+and aligns the owned browser with the configured engine. Focused auth/binding tests
+passed207 with1skip; strict source types passed. On the actual third Google account,
+owned login completed via native_principal and its independent saved-profile check
+returned authenticated with the expected principal. These checks made no generation
+or solver requests. Corrected human recovery for the second account succeeded: live native identity,
+independent disk verification and two original-profile project-access cold opens
+all passed. Its selection was re-enabled without cookie-copy tests.
+Session renewal is not implemented or verified.
+
+
+Implementation review also reproduced two post-read navigation races. New unit
+cases were RED before their correction: a Google challenge during the awaited
+settling window could allow completion, and a newly observed public Flow landing
+did not preserve the pending-recheck state on immediate close. The final synchronous
+host/route/open-page checks now run after settlement and public observation preserves
+that state. The real-browser challenge-navigation scenario was RED with an
+authenticated return on the challenge page, then GREEN; both intercepted scenarios
+passed together in17.50seconds on Patchright. No authenticated profile, Google
+request or generation was used in that intercepted run.
+
+The final unchanged source/test tree passed the full offline gate:7,701passed,
+5skipped,21warnings,89.58%coverage (90% rounded),258.41seconds with8workers.
+Repo hygiene, doc links, website PII/mirror, council memory, Ruff formatting/lint
+and strict source types passed. Earlier interrupted sweeps were not accepted
+as gates. The final real second-account owned-login check also passed native
+auto-close and independent expected-principal disk verification, without generation.

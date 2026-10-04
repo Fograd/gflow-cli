@@ -194,3 +194,32 @@ Run the read-only regression explicitly with a logged-in testing profile:
 It opens the selected profile twice and performs fresh identity reads without
 generation. Automatic renewal is still missing. Keeping Chrome open has not
 been established as necessary or sufficient for long-term renewal.
+
+## Login completion correction and unresolved renewal
+
+A later second-account check returned native HTTP401 and Flow/MyAccount public
+landings despite retained, unexpired cookies. This followed a staged cookie-import
+attempt; the timing does not establish its cause. Further live cookie-copy/import
+experiments are suspended. That account was temporarily disabled for automatic gflow selection during
+recovery. After the corrected human login it passed two fresh current-principal
+and project-access cold opens and was re-enabled. The third test account remains
+the hosted CLI/MCP default; both testing accounts are enabled. The retained UseAPI account remains disabled in gflow.
+
+The second-account recovery exposed a separate gflow defect: its login detector
+closed Chrome on the migrated cookie pair, then the independent saved-profile
+verifier rejected the session. Thus a black viewer and a successful service exit
+alone do not establish successful authentication.
+
+The detector now requires a fresh native current-principal read before migrated
+auto-close, handles refusal inside the wait loop, bounds that read by the remaining
+login deadline and checks the page again afterwards. Labs verification, profile
+leases, disk verification and expected-account matching remain in place. The login
+browser also uses the configured engine. No keepalive or renewal timer was added.
+
+Three unit regressions reproduced the early stop before the fix. The real-browser,
+intercepted native401 scenario also failed before it and passed afterwards.
+A separate real Google check on the third account passed live identity detection,
+normal auto-close and independent saved-profile verification, without generation
+or solver requests. The second account's corrected human recovery succeeded, including independent
+saved-profile verification and two fresh project-access cold opens.
+Automatic renewal and long-idle survival remain open acceptance requirements.

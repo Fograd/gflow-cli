@@ -327,6 +327,14 @@ class RealChromeStrategy(AuthStrategy):
 
         from .strategies import async_playwright
 
+        # Native page evaluation must use the same engine as the owned browser,
+        # just as the independent on-disk verifier does.
+        engine = get_settings().browser_engine
+        if engine == "patchright":
+            from gflow_cli.api._engine import resolve_async_playwright
+
+            async_playwright = resolve_async_playwright(engine)
+
         # Unwind order is pw -> lease, so the driver is stopped (and Chrome with
         # it) before the profile is freed for the next holder (D3).
         async with ProfileLease(profile_dir), async_playwright() as pw:
@@ -375,9 +383,9 @@ class RealChromeStrategy(AuthStrategy):
         genuine timeout (window still open, still signed out) raises.
 
         "Success" has two shapes, because the labs oracle cannot speak for every
-        account: a labs session, or the migrated-host stop signal, which ends the
-        wait without claiming to have authenticated anything. Both close the
-        window and hand the decision to ``verify_flow_profile``.
+        account: a labs session, or a fresh migrated current-principal read.
+        Both permit closing the window; ``verify_flow_profile`` still decides
+        whether the saved profile can be used.
         """
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         await page.goto(GEMINI_URL, wait_until="domcontentloaded", timeout=60_000)
@@ -411,7 +419,9 @@ class RealChromeStrategy(AuthStrategy):
             outcome=session.outcome.value,
             elapsed_s=round(asyncio.get_running_loop().time() - started, 1),
         )
-        _console.print("\n[bold green]Signed in.[/bold green] Closing Chrome...")
+        _console.print(
+            "\nLive Flow session detected. Closing Chrome to verify the saved profile..."
+        )
         # Let Chrome flush the cookie store to disk before the close — the
         # durability check that follows reads that store, not this context.
         await asyncio.sleep(1)

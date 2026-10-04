@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add explicit source-backed native video promotion and account model discovery across SDK, CLI, direct MCP and HTTP; preserve export defaults and record paid acceptance limits.
 
 ### Changed
+- Owned migrated Google login requires a fresh trusted-page current-principal read before auto-closing; stale cookie presence keeps the sign-in window open. The browser engine matches configured native evaluation, and saved-profile verification remains independent. Automatic session renewal remains unimplemented.
 - HTTP image landscape/portrait aliases and explicit native video promotion4K normalize to canonical controls; entitlement checks remain unchanged.
 - HTTP image requests accept deprecated useapi nano-banana and imagen-4 aliases and enqueue their canonical Nano2/Lite model.
 - Self-hosted native asset DELETE uses the selected account's registered project when projectId is omitted; explicitly invalid projectId values still refuse.

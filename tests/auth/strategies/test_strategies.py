@@ -883,7 +883,7 @@ class TestMigratedHostStopSignal:
     ]
 
     @pytest.mark.asyncio
-    async def test_stops_waiting_when_the_migrated_pair_is_present(self) -> None:
+    async def test_stops_waiting_when_migrated_principal_is_verified(self) -> None:
         from gflow_cli.auth.internal_chromium import poll_session_until_authenticated
         from gflow_cli.auth.verification import FlowSessionOutcome
 
@@ -891,15 +891,20 @@ class TestMigratedHostStopSignal:
         ctx = MagicMock(name="ctx")
         ctx.cookies = AsyncMock(return_value=self.MIGRATED_JAR)
 
-        with patch("gflow_cli.auth.internal_chromium.asyncio.sleep", AsyncMock()):
+        with (
+            patch("gflow_cli.auth.internal_chromium.asyncio.sleep", AsyncMock()),
+            patch(
+                "gflow_cli.auth.native_identity.read_native_identity",
+                AsyncMock(return_value="synthetic@example.test"),
+            ),
+        ):
             session = await poll_session_until_authenticated(
                 ctx, page, 600, "chrome", raise_on_close=False
             )
 
-        # Returned, not timed out — and honest about what it saw: the labs oracle
-        # still says GOOGLE_SESSION_ONLY. Nothing here claims authentication.
+        # Fresh principal permits close; the saved profile is still independently verified.
         assert session is not None
-        assert session.outcome is FlowSessionOutcome.GOOGLE_SESSION_ONLY
+        assert session.outcome is FlowSessionOutcome.AUTHENTICATED
 
     @pytest.mark.asyncio
     async def test_google_sso_cookie_alone_is_not_the_signal(self) -> None:

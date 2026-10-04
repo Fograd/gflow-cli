@@ -20,14 +20,13 @@ from .base import AuthStrategy
 from .verification import (
     SESSION_API_URL,
     FlowSessionOutcome,
+    FlowSessionStatus,
     evaluate_session_response,
     has_migrated_app_session,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from .verification import FlowSessionStatus
 
 logger = structlog.get_logger(__name__)
 _console = Console()
@@ -104,7 +103,7 @@ async def poll_session_until_authenticated(
 
     Returns the status that ended the wait, or None when the browser closed
     first. The STATUS, not the email: a session can be proven without a label
-    (the migrated-host stop signal below has no email to report), and returning
+    (the labs endpoint can return a session without an email label), and returning
     a bare ``str | None`` made those two cases indistinguishable — the caller
     read "no email" as "window closed" and skipped both the "Signed in" notice
     and the cookie-flush wait for a login that had in fact just succeeded.
@@ -118,8 +117,8 @@ async def poll_session_until_authenticated(
     re-checks the on-disk store with ``verify_flow_profile``. Three releases told
     users to close the window themselves, so doing so must not turn a successful
     login red — and, for the same reason, that caller (and only that caller) may
-    stop on the migrated-host signal below, which ends a wait without claiming
-    to have authenticated anything.
+    stop on a freshly verified migrated principal below; its on-disk
+    verifier remains authoritative for the saved profile.
 
     The one exception to "a close returns None": a window closed while Flow is still
     routing the account to `/about` (#902) raises ``IdentityRecheckPendingError``
@@ -209,31 +208,57 @@ async def poll_session_until_authenticated(
                 success = True
                 _status = status
                 break
-            # The labs endpoint is the oracle, and for an account Google serves
-            # from flow.google.com it is an oracle that never answers: labs
-            # hands off without minting a session, so this arm is reached on
-            # every iteration until the deadline while the banner promises an
-            # auto-close (#849). The cookie pair is NOT a second authentication
-            # decision — `verify_flow_profile` still makes that, against a
-            # server, on what actually landed on disk. It only ends a wait that
-            # has no other way to end. Gated on `raise_on_close` because that
-            # flag already means "the caller owns that fallback oracle": a
-            # caller without one would be left holding a profile nothing had
-            # verified.
-            #
-            # Reached only past `_is_safe_to_probe_session` above, so the page
-            # is on a Flow host and off NextAuth's own routes — a user still on
-            # Google's password screen never gets here, and their window is
-            # never closed out from under them.
+            # Migrated cookies are only a candidate signal. They can outlive
+            # Google acceptance, so keep the human window open until a fresh
+            # current-principal read succeeds on this same non-public Flow page.
+            # The caller still independently verifies the saved profile afterwards.
             elif migrated_stop:
-                logger.info(
-                    "auth_login_migrated_session_detected",
-                    strategy=strategy_name,
-                    probe="migrated_cookies",
-                )
-                success = True
-                _status = status
-                break
+                from gflow_cli.api.transports._common import flow_host_kind
+
+                from .native_identity import read_native_identity
+
+                try:
+                    remaining = timeout_at - asyncio.get_running_loop().time()
+                    email = await asyncio.wait_for(
+                        read_native_identity(page), timeout=min(30.0, max(0.0, remaining))
+                    )
+                    public = await _landed_on_public_page(page)
+                    if public:
+                        if not recheck_pending:
+                            logger.warning(
+                                "auth_login_identity_recheck_pending", strategy=strategy_name
+                            )
+                        recheck_pending = True
+                    # No await after these final checks: navigation during the
+                    # settling window must not close a Google challenge.
+                    if (
+                        public
+                        or flow_host_kind(page.url) != "migrated"
+                        or not _is_safe_to_probe_session(page)
+                        or page.is_closed()
+                    ):
+                        raise ValueError("Flow login page left the private app")
+                except Exception as exc:
+                    # This failure belongs to an unfinished sign-in, not the
+                    # outer catch-all which ends the wait and closes Chrome.
+                    logger.warning(
+                        "auth_login_native_principal_pending",
+                        strategy=strategy_name,
+                        error=type(exc).__name__,
+                    )
+                else:
+                    logger.info(
+                        "auth_login_migrated_session_detected",
+                        strategy=strategy_name,
+                        probe="native_principal",
+                    )
+                    success = True
+                    _status = FlowSessionStatus(
+                        outcome=FlowSessionOutcome.AUTHENTICATED,
+                        user_email=email,
+                        source=strategy_name,
+                    )
+                    break
         except asyncio.CancelledError:
             raise
         except AuthBrowserRejectedError:
