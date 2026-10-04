@@ -23,7 +23,7 @@ from gflow_cli.api.transports.migrated_characters import (
     mutate_character,
 )
 from gflow_cli.api.transports.migrated_resources import (
-    read_project,
+    project_media,
     read_project_payload,
 )
 from gflow_cli.api.transports.migrated_video_upload import UploadRightsRequiredError
@@ -37,6 +37,27 @@ from gflow_cli.errors import (
     WafRejectionError,
     WireFormatError,
 )
+
+
+def _media_library(payload: Any, project: str) -> list[dict[str, Any]]:
+    """Merge URL-free typed rows without treating an attachment as ownership."""
+    from gflow_cli.api.native_catalogs import parse_media_snapshot
+
+    typed = parse_media_snapshot(payload, project, include_attached=True)["media"]
+    timeline = project_media(payload, project)
+    by_media = {row["media_id"]: row for row in typed}
+    rows: list[dict[str, Any]] = []
+    for row in timeline:
+        detail = by_media.get(row["media_id"])
+        if detail is not None:
+            if (detail["project_id"], detail["workflow_id"]) != (project, row["workflow_id"]):
+                raise ValueError("Native library timeline contradicts media ownership")
+            rows.append({**row, **detail})
+        else:
+            rows.append(row)
+    primary_ids = {row["media_id"] for row in timeline}
+    rows.extend(row for row in typed if row["media_id"] not in primary_ids)
+    return rows
 
 
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -181,8 +202,8 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             asset = await client.get_native_asset(project_id, str(payload["media_id"]))
             if verb == "asset-get":
                 return {"status": "ok", **asset_payload(asset)}
-            expected_kind = "image" if verb == "asset-cache-image" else "video"
-            if asset.kind != expected_kind:
+            allowed_kinds = ("image",) if verb == "asset-cache-image" else ("image", "video")
+            if asset.kind not in allowed_kinds:
                 raise ValueError("Native asset retrieval has the wrong media kind")
             from gflow_cli.api.transports.native_asset_download import download_asset
             from gflow_cli.selfhost.config import MAX_ASSET
@@ -303,7 +324,7 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                 )
                 return {"status": "ok", "project_id": project_id, key: rows}
             if verb == "media-list":
-                media = await read_project(page, project_id)
+                media = _media_library(await read_project_payload(page, project_id), project_id)
                 return {"status": "ok", "project_id": project_id, "media": media}
             raise ValueError("Unsupported native worker operation")
         finally:

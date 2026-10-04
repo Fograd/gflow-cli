@@ -5,6 +5,16 @@ All notable changes to `gflow-cli` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## R02 native media lookup follow-up
+
+### Fixed
+- Native REST raw downloads now return validated PNG/JPEG images as well as MP4
+  videos, with correct MIME and temporary-file cleanup.
+- Native REST media inventory retains existing typed upload/generated metadata
+  instead of dropping it through the timeline-only worker.
+- Unregistered composite lookup explains the required explicit verified mapping.
+
+
 ## [Unreleased]
 
 ### Added

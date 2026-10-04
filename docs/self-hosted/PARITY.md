@@ -28,7 +28,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. Actual trials recorded solved/submitted tokens with explicit Google refusals; matched local solve/acknowledgment timing is available without inferring orphan durations. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
-| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Explicit character/saved-voice detail mappings are implemented separately; Exact registered supported HTTP generation/operation alias inputs are implemented; arbitrary vendor decoding, full thumbnail cohorts and exact404 equivalence remain open. |
+| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and validated image/video raw. Native UUID lookup requires explicit configured account/project scope; invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Explicit character/saved-voice detail mappings are implemented separately; Exact registered supported HTTP generation/operation alias inputs are implemented; arbitrary vendor decoding, full thumbnail cohorts and exact404 equivalence remain open. |
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | HTTP defaults to bounded generated history; explicit source=local selects the managed catalog and source=google selects native opaque-cursor project snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | HTTP defaults to source=google selected-project native timeline snapshots, including typed image/video arms; source=local selects the managed catalog. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Omitted projectId uses the selected account's configured project. Receipt-backed already-gone retries and mixed present/gone batches are verified; arbitrary absent UUIDs and all batch shapes are not claimed. |
@@ -865,3 +865,56 @@ SDK and registered in-process MCP reads then succeeded on both test profiles,
 with matching strictly positive balances. Deployed HTTP MCP acceptance remains
 separate until publication. Positive credits do not establish every model's
 availability or identify the cause of earlier quota/access or WAF refusals.
+
+
+### R02 focused delivery — 4 October 2026
+
+Implemented: native REST `raw=true/1` now downloads both PNG/JPEG images and MP4
+videos through the existing fresh ownership lookup and content validator. The
+private worker accepts only image/video; the response uses its validated MIME,
+no-store, contained paths and response-scoped cleanup. SDK/CLI/MCP already use
+that same image/video validator; their signatures and response contracts remain.
+Unknown composite lookups explain that a verified mapping must be registered;
+opaque UseAPI user/email prefixes are never decoded.
+
+A live investigation also found REST media discovery still calling the older
+identity-only timeline reader. It now merges the existing typed native parser
+with timeline fields using exact media/project/workflow joins. Uploaded/generated
+classification, dimensions and source times reach REST, and attached rows retain
+their origin project. An attached row never grants download or mutation ownership.
+Unknown timeline rows remain unknown; no completeness or absence proof is invented.
+
+Representative read-only evidence: the original selected pro2 project exposed
+237 generated and367 uploaded image rows; pro3 exposed188 generated and378
+uploaded image rows. These are snapshot counts, not account generation totals.
+Neither selected project exposed an existing video, character or saved-user voice.
+The private ledger remained pro2 images8/videos2/audio3, pro3 images5/videos2/audio3.
+No generation, CAPTCHA solving, cookie import or reserved pro1 profile access occurred.
+
+R02 remains unchecked. Image/video and character detail implementations already
+exist, including source-backed generated-video and thumbnail decoders, but this
+run cannot establish a fresh generated-video URL without an existing fixture or
+additional video allowance. Saved-user detail/playback is implemented with optional
+fresh playback URLs; live proof needs an existing owned saved voice, because both
+audio-preview allowances are exhausted. Unmeasured workflow variants and arbitrary
+UseAPI references remain unsupported. Exact registered HTTP mappings are supported;
+SDK/CLI/MCP use the returned canonical native UUID rather than decode composites.
+
+Current raw-image live proof: uploaded4000x4000 and generated896x1200 images
+passed on both active profiles, with valid bytes/MIME/no-store. Exact registered
+image aliases passed fresh URL/raw reads and local removal on both accounts.
+The tagged remote native-image-raw BDD passed. See
+[the R02 test evidence](FINAL_E2E.md#r02-fresh-lookup-and-raw-image-delivery--4-october-2026).
+
+Fresh pro2 CLI and registered MCP existing-generated-image lookups passed.
+The tagged character reference/thumbnail detail BDD passed with copied-image
+fixture removal and zero generation. Unobserved character workflow variants
+remain unsupported; this representative proof does not establish every variant.
+
+R02 publication gate:7,944 passed,5 skipped,27 warnings;89.90% coverage in
+219.29 seconds with eight workers. Whole-tree Ruff lint/format and strict
+Pyright passed, as did repository hygiene, links, published-doc privacy/mirrors
+and council references. The duplication proxy found no new changed-code block.
+The initial serial suite was interrupted for the deadline; the completed parallel
+run above is the full gate. Standalone Pyright initially selected the wrong
+interpreter; the prescribed locked uv environment returned0errors.

@@ -55,3 +55,11 @@ provider order/total-attempt controls. The SDK `saved_voice_operation` bridge ex
 same controls for `create` only; list/get/delete refuse them. Existing browser defaults
 and accepted-preview/unknown-save no-replay rules apply. See
 [native provider controls](NATIVE_CAPTCHA.md#saved-voice-and-promotion-clidirect-mcp-provider-controls).
+
+
+R02 read-only delivery on4October found no saved-user voice in either selected
+pro2/pro3 project. Detail/playback remains implemented across SDK/CLI/MCP and REST,
+but this run supplies no accepted saved-user playback proof. Both accounts have
+used their three authorized previews; no additional preview was submitted.
+An existing owned saved voice in an explicitly selected project can be read without
+creating a new preview. Missing playback remains optional, never a synthesised URL.

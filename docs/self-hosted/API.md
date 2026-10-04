@@ -47,7 +47,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
 | `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/WebP/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
-| `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
+| `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and validated image/video raw |
 | `GET /assets/projects/{handle}` | Generated history summaries by default; source=google native catalog, source=local managed cache |
 | `GET /assets/media/{handle}` | Native timeline/attached media by default; source=local managed cache |
 | `GET /assets/resources/{handle}` | Fork extension: bounded observed account characters/saved voices, opaque continuation, unknown completeness |
@@ -451,9 +451,10 @@ projectId defaults to that configured account's project. No account scan or loca
 asset registration occurs. Signed URLs are confidential, transient bearer links;
 responses use Cache-Control: no-store. No universal URL lifetime is assumed.
 
-Adding raw=true or raw=1 streams verified video/mp4. An explicitly supplied
-raw=false, raw=0 or any other value returns400; images with raw return400.
-Raw downloads have a256MiB limit and require ffprobe. Temporary server output is
+Adding raw=true or raw=1 streams validated image/png, image/jpeg or video/mp4.
+An explicitly supplied raw=false, raw=0 or any other value returns400.
+Image downloads have a32MiB limit and must decode with exact fresh dimensions;
+video downloads have a256MiB limit and require ffprobe. Temporary server output is
 removed after response completion, Range refusal, send failure or cancellation.
 The default source=local retains the managed-registry metadata/download extension
 and its existing raw controls, including image bytes.
@@ -679,7 +680,7 @@ removed.raise_for_status()
 GET /assets/{alias}?source=google resolves only a registered exact binding and
 performs a fresh native read. Optional email/projectId must match the binding.
 The JSON response echoes the alias as mediaGenerationId and uses no-store.
-raw=true/1 remains video-only; other supplied raw values refuse. Unregistered
+raw=true/1 supports validated images and videos; other supplied raw values refuse. Unregistered
 aliases return404 for the local mapping, not proof that Google media is absent.
 Malformed read aliases return400; registration validation returns422. Ownership
 or scope failures refuse, and unresolved native metadata returns502.

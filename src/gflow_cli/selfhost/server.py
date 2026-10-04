@@ -1962,7 +1962,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 403, "Composite alias is invalid or belongs to another scope"
             ) from None
         if not removed:
-            raise HTTPException(404, "Composite alias is not registered")
+            raise HTTPException(
+                404,
+                "Composite alias has no verified mapping; register the exact "
+                "account/project/media binding. Opaque UseAPI identity is not decoded.",
+            )
         return {
             "alias": alias,
             "removed": True,
@@ -1984,7 +1988,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             except ValueError:
                 raise HTTPException(400, "Composite alias shape is unsupported") from None
             if binding is None:
-                raise HTTPException(404, "Composite alias is not registered")
+                raise HTTPException(
+                    404,
+                    "Composite alias has no verified mapping; register the exact "
+                    "account/project/media binding. Opaque UseAPI identity is not decoded.",
+                )
             verified_alias_account(binding)
             if email is not None and email != binding.account:
                 raise HTTPException(403, "Composite alias belongs to another account")
@@ -2051,8 +2059,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             return JSONResponse(
                 {"url": url, "mediaGenerationId": media_id}, headers={"Cache-Control": "no-store"}
             )
-        if result["kind"] != "video":
-            raise HTTPException(400, "Native raw asset retrieval supports video only")
         directory = cfg.root / "output" / ("native-download-" + uuid.uuid4().hex)
         successful = False
         try:
@@ -2071,24 +2077,27 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 downloaded = parse_json_output(output)
             except ValueError:
                 raise HTTPException(
-                    502, "Native video download worker returned no valid response"
+                    502, "Native media download worker returned no valid response"
                 ) from None
             if (
                 code
                 or downloaded.get("status") != "ok"
                 or downloaded.get("mediaGenerationId") != identifier
                 or downloaded.get("projectId") != project
-                or downloaded.get("kind") != "video"
-                or downloaded.get("mimeType") != "video/mp4"
+                or downloaded.get("kind") != result["kind"]
+                or downloaded.get("mimeType")
+                not in (
+                    ("image/png", "image/jpeg") if result["kind"] == "image" else ("video/mp4",)
+                )
             ):
-                raise HTTPException(502, "Native video download validation failed")
+                raise HTTPException(502, "Native media download validation failed")
             try:
                 path = contained_file(downloaded["path"], directory)
             except (KeyError, ValueError):
-                raise HTTPException(502, "Native video download path is unavailable") from None
+                raise HTTPException(502, "Native media download path is unavailable") from None
             from gflow_cli.selfhost.native_asset_response import EphemeralFileResponse
 
-            response = EphemeralFileResponse(path, directory)
+            response = EphemeralFileResponse(path, directory, media_type=downloaded["mimeType"])
             successful = True
             return response
         finally:

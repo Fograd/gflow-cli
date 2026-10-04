@@ -111,13 +111,27 @@ async def test_private_image_cache_refuses_wrong_kind_before_download(worker, ki
 
 
 @pytest.mark.asyncio
-async def test_public_raw_download_still_refuses_image(worker):
+async def test_public_raw_download_accepts_validated_image(worker):
     client, asset, download, output = worker
+    result = await native_worker.execute(
+        "asset-download",
+        "fixture",
+        {"project_id": P, "media_id": M, "output_dir": str(output)},
+    )
+    client.get_native_asset.assert_awaited_once_with(P, M)
+    download.assert_awaited_once_with(asset, output, max_bytes=256 * 1024 * 1024)
+    assert result["kind"] == "image" and result["mimeType"] == "image/png"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["audio", "unknown"])
+async def test_public_raw_download_refuses_unverified_kind(worker, kind):
+    client, asset, download, output = worker
+    asset.kind = kind
     with pytest.raises(ValueError, match="wrong media kind"):
         await native_worker.execute(
             "asset-download",
             "fixture",
             {"project_id": P, "media_id": M, "output_dir": str(output)},
         )
-    client.get_native_asset.assert_awaited_once_with(P, M)
     download.assert_not_awaited()

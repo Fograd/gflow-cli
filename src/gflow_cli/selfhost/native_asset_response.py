@@ -10,9 +10,9 @@ from starlette.types import Receive, Scope, Send
 
 
 class EphemeralFileResponse(FileResponse):
-    def __init__(self, path: Path, directory: Path) -> None:
+    def __init__(self, path: Path, directory: Path, *, media_type: str = "video/mp4") -> None:
         super().__init__(
-            path, media_type="video/mp4", filename=path.name, headers={"Cache-Control": "no-store"}
+            path, media_type=media_type, filename=path.name, headers={"Cache-Control": "no-store"}
         )
         self.directory = directory
 

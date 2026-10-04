@@ -84,7 +84,10 @@ def test_alias_foreign_scope_refuses_before_google(api, params):
 
 def test_unregistered_composite_never_strips_embedded_uuid(api):
     client, calls, state, root = api
-    assert read(client, source="google").status_code == 404
+    response = read(client, source="google")
+    assert response.status_code == 404
+    assert "no verified mapping" in response.json()["detail"]
+    assert "not decoded" in response.json()["detail"]
     assert not calls
 
 

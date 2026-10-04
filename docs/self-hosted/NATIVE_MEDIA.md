@@ -85,3 +85,29 @@ bounded exact character detail with a positively owned parent relationship.
 Unknown or ambiguous relationships refuse; missing projection is not404 proof.
 The source-backed merge and typed classification do not complete R02/R03 or
 establish compatibility with useapi composite references.
+
+
+## Fresh URLs and raw image/video reads (R02)
+
+Use an explicit profile and selected project for SDK/CLI/MCP lookup. The HTTP
+UUID route requires a configured account; its project defaults only to that
+account's registered project. Registered aliases use their exact verified scope.
+No signed URL is persisted in the inventory or alias database.
+
+```bash
+gflow project get-media --media-id MEDIA_UUID --project PROJECT_UUID --profile pro2 --json
+gflow project download-media --media-id MEDIA_UUID --project PROJECT_UUID --profile pro2 --output-dir ./out --json
+```
+
+REST `GET /v1/google-flow/assets/MEDIA_UUID?source=google&email=ACCOUNT&projectId=PROJECT_UUID`
+returns a fresh confidential URL with no-store. Add `raw=true` to receive validated
+PNG/JPEG/MP4 bytes. Images are bounded32MiB and decoded against fresh dimensions;
+videos are bounded256MiB and validated with ffprobe. Responses preserve their
+validated MIME. Temporary downloads are removed on completion, invalid Range,
+send failure or cancellation. No generation or upscale runs during these reads.
+
+The REST media discovery worker now reuses the typed snapshot parser, so measured
+uploaded/generated types and dimensions are no longer discarded by the timeline
+adapter. Original timeline fields remain, and foreign attachments retain their
+origin project. Sparse/unknown rows do not acquire an invented type or URL.
+See the [focused R02 evidence and limitations](PARITY.md#r02-focused-delivery--4-october-2026).

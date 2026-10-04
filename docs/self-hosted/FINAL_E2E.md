@@ -338,3 +338,43 @@ The operator helper initially expected a project field that the REST URL-only
 contract does not return; that helper was corrected without generation replay.
 Native HTTP raw remains video-only; image downloads use the existing verified
 SDK/CLI/MCP path.
+
+
+### R02 fresh lookup and raw image delivery — 4 October 2026
+
+Read-only tests of the corrected remote adapter retrieved fresh native URLs and
+validated PNG/JPEG bytes for an uploaded and a generated image on each of pro2
+and pro3. Both uploaded images decoded4000x4000; both generated images decoded
+896x1200. Every response used no-store. Exact registered image aliases passed
+fresh URL and raw reads on both profiles; their local fixture mappings were removed.
+The newly tagged native-image-raw BDD passed against the isolated remote REST
+service using explicit account/project/media and expected native dimensions.
+No Google generation, solver task, cookie import or pro1 browser was used.
+
+The same investigation reproduced REST's identity-only inventory adapter dropping
+all typed metadata. The corrected existing-parser merge exposed604 image rows
+on pro2 and566 on pro3 (including nonprimary rows), preserving timeline fields
+and attached origins. These are returned snapshot observations, not complete
+account totals or generation history. Scope/type contradictions refuse.
+
+The selected projects contained no videos, characters or saved-user voices before
+fixture checks. A generated-video or saved-user playback result therefore cannot
+be asserted from this run. Their typed lookup implementations exist, and earlier
+upload/character proofs remain separate historical evidence. Both video allowances
+are2/2 and audio previews3/3; none was increased or reset. Unmeasured native union/
+workflow variants and arbitrary UseAPI references remain unsupported. R02 stays
+unchecked until its required live cohorts are established.
+
+Fresh pro2 CLI lookup and registered HTTP MCP lookup passed on an existing
+generated image. The existing tagged character-detail BDD passed with a single
+copied-image fixture, fresh reference/thumbnail URLs and owned fixture removal.
+No paid generation was requested. This supplies current character read proof,
+while unmeasured thumbnail variants and saved-user playback remain open.
+
+R02 publication gate:7,944 passed,5 skipped,27 warnings;89.90% coverage in
+219.29 seconds with eight workers. Whole-tree Ruff lint/format and strict
+Pyright passed, as did repository hygiene, links, published-doc privacy/mirrors
+and council references. The duplication proxy found no new changed-code block.
+The initial serial suite was interrupted for the deadline; the completed parallel
+run above is the full gate. Standalone Pyright initially selected the wrong
+interpreter; the prescribed locked uv environment returned0errors.
