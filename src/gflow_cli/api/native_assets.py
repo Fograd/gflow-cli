@@ -7,10 +7,12 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from gflow_cli.api.registered_lookup import resolve_client_lookup
 from gflow_cli.api.transports.native_asset_download import DownloadedNativeAsset, download_asset
 from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset, lookup_asset
 from gflow_cli.api.transports.native_voices import validate_identifier
 from gflow_cli.errors import ConfigurationError, WireFormatError
+from gflow_cli.selfhost.native_aliases import NativeAlias
 
 if TYPE_CHECKING:
     from gflow_cli.api.client import FlowApiClient
@@ -19,6 +21,9 @@ if TYPE_CHECKING:
 async def get_native_asset(
     client: FlowApiClient, project_id: str, media_id: str
 ) -> NativeAsset | NativeAudioAsset:
+    binding = resolve_client_lookup(client, project_id, media_id, "media")
+    if isinstance(binding, NativeAlias):
+        media_id = binding.media_id
     try:
         project, media = validate_identifier(project_id), validate_identifier(media_id)
     except ValueError:
@@ -31,7 +36,10 @@ async def get_native_asset(
         async with asyncio.timeout(90):
             page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
             try:
-                return await lookup_asset(page, project_id=project, media_id=media)
+                asset = await lookup_asset(page, project_id=project, media_id=media)
+                if isinstance(binding, NativeAlias) and asset.kind != binding.kind:
+                    raise ValueError("Fresh media kind does not match registered alias")
+                return asset
             finally:
                 primary = sys.exception()
                 try:

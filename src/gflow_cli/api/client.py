@@ -3951,6 +3951,11 @@ class FlowApiClient:
             raise ValueError(msg)
         if entity_id is not None and name is not None:
             raise ValueError("Provide exactly one of entity_id or name")
+        if entity_id is not None and entity_id.startswith("user:"):
+            from gflow_cli.api.native_characters import to_character
+
+            detail = await self.get_character_detail(project_id, entity_id=entity_id)
+            return to_character(detail)
         chars = await self.list_characters(project_id)
         if entity_id is not None:
             match = [c for c in chars if c.entity_id == entity_id]

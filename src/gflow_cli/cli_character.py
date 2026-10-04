@@ -323,9 +323,18 @@ def show(
         raise click.UsageError("Provide either --id or --name.")
     if entity_id is not None and name is not None:
         raise click.UsageError("--id and --name are mutually exclusive.")
+    if entity_id is not None and entity_id.startswith("user:") and profile is None:
+        raise click.UsageError("Registered alias lookup requires an explicit --profile.")
     if include_urls and not as_json:
         raise click.UsageError("--include-urls requires --json.")
     profile_name = _resolve_profile(profile)
+    if entity_id is not None and entity_id.startswith("user:"):
+        from gflow_cli.api.registered_lookup import resolve_lookup
+
+        try:
+            resolve_lookup(profile_name, project_id, entity_id, "character")
+        except ConfigurationError as error:
+            raise click.UsageError(error.detail) from None
     pdir = _make_provider_dir(profile_name)
     settings = get_settings()
     run_with_handlers(

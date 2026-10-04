@@ -34,7 +34,13 @@ def _run(
 ) -> None:
     try:
         project = validate_identifier(project)
-        if operation in {"get", "delete"}:
+        if operation == "get":
+            from gflow_cli.api.registered_lookup import validate_lookup
+
+            validate_lookup(kwargs["voice_id"], "voice")
+            if kwargs["voice_id"].startswith("user:") and profile is None:
+                raise ValueError("Registered alias lookup requires an explicit --profile")
+        if operation == "delete":
             kwargs["voice_id"] = validate_identifier(kwargs["voice_id"])
         if operation == "create":
             validate_create(

@@ -1858,10 +1858,17 @@ async def gflow_character_show(
             "Ambiguous Character Selector",
             "Provide exactly one of 'entity_id' or 'name'.",
         )
+    if entity_id is not None and entity_id.startswith("user:") and profile == _DEFAULT_PROFILE:
+        return _bad_param("Invalid alias scope", "Registered alias requires an explicit profile")
     log.info("mcp.tool.character_show", project=project, by="id" if entity_id else "name")
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
+
+    if entity_id is not None and entity_id.startswith("user:"):
+        from gflow_cli.api.registered_lookup import resolve_lookup
+
+        resolve_lookup(resolved, project, entity_id, "character")
 
     settings = get_settings()
     async with (
@@ -2942,7 +2949,18 @@ async def _saved_voice_tool(
 
     try:
         validate_identifier(project)
-        if operation in {"get", "delete"}:
+        if operation == "get":
+            from gflow_cli.api.registered_lookup import validate_lookup
+
+            voice_id = kwargs.get("voice_id")
+            if not isinstance(voice_id, str):
+                raise ValueError("Saved voice lookup requires a native UUID or registered alias")
+            validate_lookup(voice_id, "voice")
+            if voice_id.startswith("user:") and profile == _DEFAULT_PROFILE:
+                return _bad_param(
+                    "Invalid alias scope", "Registered alias requires explicit profile"
+                )
+        if operation == "delete":
             validate_identifier(kwargs.get("voice_id"))
         if operation == "create":
             validate_create(
@@ -3512,16 +3530,22 @@ async def gflow_get_native_asset(
 
     Args:
         project: Native project UUID.
-        media_id: Native media UUID; not a local artifact, character entity or voice workflow.
+        media_id: Native media UUID or exact locally registered image/video alias.
         profile: Owning saved profile. No account scanning.
     """
-    if not is_uuid(project) or not is_uuid(media_id):
-        return _bad_param("Invalid native asset", "Project and media identifiers must be UUIDs")
+    from gflow_cli.api.registered_lookup import resolve_lookup, validate_lookup
+
+    if not is_uuid(project):
+        return _bad_param("Invalid native asset", "Project identifier must be a UUID")
+    validate_lookup(media_id, "media")
+    if media_id.startswith("user:") and profile == _DEFAULT_PROFILE:
+        return _bad_param("Invalid alias scope", "Registered alias requires an explicit profile")
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
     from gflow_cli.services.native_assets import read_asset
 
+    resolve_lookup(resolved, project, media_id, "media")
     async with _profile_lock(resolved):
         return {"status": "ok", **await read_asset(resolved, project, media_id)}
 
@@ -3538,17 +3562,23 @@ async def gflow_download_native_asset(
 
     Args:
         project: Native project UUID.
-        media_id: Native image/video UUID.
+        media_id: Native image/video UUID or exact locally registered image/video alias.
         output_dir: Local output directory; existing files are never overwritten.
         profile: Owning saved profile. No account scanning.
     """
-    if not is_uuid(project) or not is_uuid(media_id):
-        return _bad_param("Invalid native asset", "Project and media identifiers must be UUIDs")
+    from gflow_cli.api.registered_lookup import resolve_lookup, validate_lookup
+
+    if not is_uuid(project):
+        return _bad_param("Invalid native asset", "Project identifier must be a UUID")
+    validate_lookup(media_id, "media")
+    if media_id.startswith("user:") and profile == _DEFAULT_PROFILE:
+        return _bad_param("Invalid alias scope", "Registered alias requires an explicit profile")
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
     from gflow_cli.services.native_assets import read_asset
 
+    resolve_lookup(resolved, project, media_id, "media")
     async with _profile_lock(resolved):
         return {"status": "ok", **await read_asset(resolved, project, media_id, Path(output_dir))}
 

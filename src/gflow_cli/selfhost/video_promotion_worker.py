@@ -64,6 +64,8 @@ async def _run_promotion(
             if (
                 asset.kind != "video"
                 or asset.workflow_id != started.source_workflow_id
+                or asset.width is None
+                or asset.height is None
                 or min(asset.width, asset.height) != pixels
             ):
                 raise NativeVideoUpscaleUnknownError(started)

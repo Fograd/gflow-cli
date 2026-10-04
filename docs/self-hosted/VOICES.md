@@ -60,6 +60,20 @@ and accepted-preview/unknown-save no-replay rules apply. See
 R02 read-only delivery on4October found no saved-user voice in either selected
 pro2/pro3 project. Detail/playback remains implemented across SDK/CLI/MCP and REST,
 but this run supplies no accepted saved-user playback proof. Both accounts have
-used their three authorized previews; no additional preview was submitted.
+used their original three authorized previews. A subsequently authorized single
+additional pro2 preview returned NativeQuotaError without accepted output or
+retry; the observed credit balance remained1050. Saved-user playback proof is
+still unavailable, and no URL is invented.
 An existing owned saved voice in an explicitly selected project can be read without
 creating a new preview. Missing playback remains optional, never a synthesised URL.
+
+
+Saved voice show/detail accepts a native audio media UUID or an exact locally
+registered voice alias. SDK get_saved_voice, CLI voice show --id and direct MCP
+saved voice detail require the owning selected profile/project. Alias reads must
+run against the same private GFLOW_SELFHOST_ROOT as REST, using an enabled verified
+registration; unknown vendor references are not decoded. A fresh native audio
+read must match the registered media/project/workflow. Optional description,
+performance, dialogue and playback metadata are retained across adapters; REST
+uses description, voicePerformance, dialog and audioUrl. Creation, deletion and
+character mutation inputs keep their existing raw contracts.

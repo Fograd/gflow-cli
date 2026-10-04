@@ -80,8 +80,15 @@ async def detail_native(
     """Explicit confidential detail; catalog Character models remain URL-free."""
     import asyncio
 
+    from gflow_cli.api.registered_lookup import resolve_client_lookup, verify_resource
     from gflow_cli.api.transports.character_details import lookup_character
+    from gflow_cli.selfhost.native_resource_aliases import NativeResourceAlias
 
+    binding = None
+    if entity_id is not None:
+        binding = resolve_client_lookup(client, project_id, entity_id, "character")
+        if isinstance(binding, NativeResourceAlias):
+            entity_id = binding.native_id
     if not is_uuid(project_id) or (entity_id is not None and not is_uuid(entity_id)):
         raise ConfigurationError(detail="Native character/project identifiers must be UUIDs")
     if (entity_id is None) == (name is None):
@@ -92,9 +99,11 @@ async def detail_native(
         async with asyncio.timeout(90):
             page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
             try:
-                return await lookup_character(
+                detail = await lookup_character(
                     page, project_id=project_id, entity_id=entity_id, name=name
                 )
+                verify_resource(binding, detail)
+                return detail
             finally:
                 client._checkin_page(page)  # pyright: ignore[reportPrivateUsage]
     except (ValueError, TimeoutError):

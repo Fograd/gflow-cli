@@ -2490,7 +2490,7 @@ Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video u
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
-HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership; supported HTTP input fields resolve exact registered mappings with fresh proof. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
+HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership; supported HTTP input fields resolve exact registered mappings with fresh proof. SDK/CLI/MCP read lookup accepts exact locally registered aliases with an explicit profile/project and the same GFLOW_SELFHOST_ROOT; generation and mutation inputs retain native UUID contracts. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
 
 
 ### Bounded native account history
@@ -2528,7 +2528,7 @@ observation cache scoped to the exact profile/configured account. SDK/CLI/MCP
 history reads do not persist that cache. It never replaces fresh ownership or
 authorizes absence-based deletion.
 
-HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. Supported HTTP generation/operation inputs now resolve exact mappings before queueing; Google resource deletion and character CRUD mutation inputs remain raw. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
+HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. Supported HTTP generation/operation inputs now resolve exact mappings before queueing; Google resource deletion and character CRUD mutation inputs remain raw. SDK/CLI/MCP character show and saved voice detail also resolve exact registered aliases with an explicit profile/project and the same GFLOW_SELFHOST_ROOT; mutation inputs remain raw. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
 
 
 ### Explicit native project catalog resume
@@ -2552,7 +2552,7 @@ system presets persist. Catalog attached origins are not selected-project owners
 missing rows remain observed, complete:null. Cache counts never authorize GetMedia,
 references, mutation or absence-based deletion. SDK/CLI/MCP do not persist this cache.
 
-HTTP alias inputs resolve registered image/video/character/saved-voice mappings before account selection and queueing, with fresh same-account/project/type proof and preserved slots. Queued jobs carry canonical UUIDs, not protected URLs. SDK/CLI/MCP raw contracts and presets are unchanged. See [HTTP alias inputs](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#registered-aliases-as-http-inputs).
+HTTP alias inputs resolve registered image/video/character/saved-voice mappings before account selection and queueing, with fresh same-account/project/type proof and preserved slots. Queued jobs carry canonical UUIDs, not protected URLs. SDK/CLI/MCP generation/mutation contracts and presets are unchanged; read lookup separately supports exact locally registered aliases. See [HTTP alias inputs](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#registered-aliases-as-http-inputs).
 
 General HTTP /videos frames/ingredients can cache a freshly verified registered
 image alias privately before admission: validated PNG/JPEG up to20MiB, exact
@@ -2591,3 +2591,15 @@ total-attempt budget. Accepted, unknown and cancelled work, and download/history
 failures, never regenerate. Multi-prompt/file/stdin and batch/manifest paths do
 not support these flags. See [generic image CAPTCHA scope](self-hosted/GENERIC_IMAGE_CAPTCHA.md)
 for queued MCP behavior, validation, provider charges and verification limits.
+
+
+R02 read aliases: project get-media/download-media and character show/voice show
+have direct MCP twins that accept exact locally registered composite references.
+CLI requires an explicit --profile; MCP requires an explicit nondefault profile;
+all require the owning selected project. Run on the registration host with the
+same private GFLOW_SELFHOST_ROOT as REST. Fresh native ownership/type and resource
+declarations are verified after resolution. No account scanning or unknown
+UseAPI prefix decoding occurs; generation and mutation inputs remain raw.
+Generated-video URL metadata may have null dimensions; downloaded video results
+report positive ffprobe-measured dimensions. Saved-user voice playback remains
+implemented without live acceptance proof.

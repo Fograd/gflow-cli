@@ -117,3 +117,31 @@ async def test_available_metadata_byte_count_is_required(tmp_path):
         with pytest.raises(ValueError, match="byte count"):
             await download_asset(expected, tmp_path, http=client)
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_video_absent_metadata_dimensions_are_measured_from_mp4(tmp_path, monkeypatch):
+    import json
+
+    from gflow_cli.api.transports import native_asset_download as module
+
+    class Probe:
+        returncode = 0
+
+        async def communicate(self):
+            return json.dumps({"streams": [{"width": 1280, "height": 720}]}).encode(), b""
+
+    async def spawn(*args, **kwargs):
+        return Probe()
+
+    monkeypatch.setattr(module.asyncio, "create_subprocess_exec", spawn)
+    video = NativeAsset(M, P, W, "video", URL.replace("/image/", "/video/"), None, None)
+    body = b"\x00\x00\x00\x18ftypisom" + b"mp4-body"
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, headers={"content-type": "video/mp4"}, content=body)
+        )
+    ) as client:
+        result = await download_asset(video, tmp_path, http=client)
+    assert (result.width, result.height) == (1280, 720)
+    assert result.path.read_bytes() == body

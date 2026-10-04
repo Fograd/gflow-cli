@@ -378,3 +378,46 @@ and council references. The duplication proxy found no new changed-code block.
 The initial serial suite was interrupted for the deadline; the completed parallel
 run above is the full gate. Standalone Pyright initially selected the wrong
 interpreter; the prescribed locked uv environment returned0errors.
+
+
+### R02 existing-video and alias continuation — 4 October 2026
+
+The read-only wider project search found existing generated/uploaded videos in
+pro3, so no new video attempts were needed. Uploaded-video SDK download passed:
+4,136,091 bytes, valid MP4,1280x2274. Generated-video lookup was RED on four
+existing candidates because native metadata omitted width/height. The corrected
+shared codec retains unknown dimensions, and download measures the verified
+MP4 rather than inventing them. The tagged native-generated-video lookup BDD
+passed:1 passed,2 warnings in12.79 seconds,2,307,253 bytes,720x1280, no generation
+or mutation requests. Known metadata dimensions still must match content.
+
+The single additional authorised pro2 saved-TTS trial submitted exactly one
+preview after one CapSolver solve. Google returned NativeQuotaError; the test
+failed with no accepted output or retry and credits1050 before/after. No further
+audio/video generation is authorised. The ledger preserves pro2 audio4 and pro3
+audio3. Saved-voice detail/playback and voice-alias live proof remain blocked;
+the adapters are implemented, not live accepted. R02 stays unchecked.
+
+Exact registered read aliases now share SDK/CLI/MCP/REST ownership checks.
+Unknown/foreign/disabled character alias regression tests prove refusal before
+browser opening. Native mutations retain their existing inputs.
+
+The continuation publication gate passed7,970 tests with5 skips and27 warnings
+in259.40 seconds,89.84% coverage. Whole-tree Ruff lint/format, strict Pyright,
+repository hygiene, doc links, published-doc privacy/mirror and council checks
+passed. Independent review GO included18 alias tests and119 focused continuation
+tests; unknown/foreign/disabled character mappings refuse before browser launch.
+The duplication proxy found no duplicate block intersecting changed code.
+
+Actual exact registered aliases passed SDK, CLI, direct MCP and REST URL/raw
+reads for an existing generated image on each active profile and both generated
+and uploaded videos on pro3. Generated-video metadata retained null dimensions;
+raw retrieval returned the valid2,307,253-byte MP4. Uploaded video returned
+4,136,091 bytes. All native REST responses used no-store. The temporary local
+aliases were removed without deleting any original native media.
+
+A free copied-image character fixture also passed exact registered-alias detail
+reads through SDK, CLI, direct MCP and REST on pro2. Its single image reference
+and thumbnail matched. The local mapping and only that owned character fixture
+were removed; all original media remained present. No image/video/audio
+generation request was made by this character test.

@@ -121,14 +121,22 @@ def delete_media_command(
 @click.option("--json", "as_json", is_flag=True)
 def get_media_command(project: str, media_id: str, profile: str | None, as_json: bool) -> None:
     """Read owned image/video/audio metadata and confidential fresh playback URL."""
+    from gflow_cli.api.registered_lookup import resolve_lookup, validate_lookup
     from gflow_cli.api.transports.native_voices import validate_identifier
     from gflow_cli.services.native_assets import read_asset
 
     try:
-        project, media_id = validate_identifier(project), validate_identifier(media_id)
-    except ValueError:
-        raise click.UsageError("Project and media identifiers must be UUIDs") from None
+        project = validate_identifier(project)
+        validate_lookup(media_id, "media")
+        if media_id.startswith("user:") and profile is None:
+            raise ValueError("Registered alias lookup requires an explicit --profile")
+    except (ValueError, ConfigurationError) as error:
+        raise click.UsageError(str(error)) from None
     resolved = _resolve_profile(profile)
+    try:
+        resolve_lookup(resolved, project, media_id, "media")
+    except ConfigurationError as error:
+        raise click.UsageError(error.detail) from None
 
     async def act() -> None:
         result = await read_asset(resolved, project, media_id)
@@ -150,14 +158,22 @@ def download_media_command(
     project: str, media_id: str, output_dir: Path, profile: str | None, as_json: bool
 ) -> None:
     """Download verified native image/video; requires ffprobe for video validation."""
+    from gflow_cli.api.registered_lookup import resolve_lookup, validate_lookup
     from gflow_cli.api.transports.native_voices import validate_identifier
     from gflow_cli.services.native_assets import read_asset
 
     try:
-        project, media_id = validate_identifier(project), validate_identifier(media_id)
-    except ValueError:
-        raise click.UsageError("Project and media identifiers must be UUIDs") from None
+        project = validate_identifier(project)
+        validate_lookup(media_id, "media")
+        if media_id.startswith("user:") and profile is None:
+            raise ValueError("Registered alias lookup requires an explicit --profile")
+    except (ValueError, ConfigurationError) as error:
+        raise click.UsageError(str(error)) from None
     resolved = _resolve_profile(profile)
+    try:
+        resolve_lookup(resolved, project, media_id, "media")
+    except ConfigurationError as error:
+        raise click.UsageError(error.detail) from None
 
     async def act() -> None:
         result = await read_asset(resolved, project, media_id, output_dir)

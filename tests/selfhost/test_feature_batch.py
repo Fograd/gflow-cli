@@ -98,6 +98,7 @@ def test_saved_voice_catalog_and_detail_use_native_rows(tmp_path, monkeypatch):
         "display_name": "Narrator",
         "dialogue": "Hello",
         "performance": "Warm",
+        "description": "Friendly narrator",
     }
 
     async def worker(args, timeout):
@@ -122,6 +123,7 @@ def test_saved_voice_catalog_and_detail_use_native_rows(tmp_path, monkeypatch):
         assert detail.status_code == 200, detail.text
         assert detail.json()["audioUrl"] == "https://example.org/audio.wav"
         assert detail.json()["baseVoice"] == "Charon"
+        assert detail.json()["description"] == "Friendly narrator"
         assert detail.headers["cache-control"] == "no-store"
 
 

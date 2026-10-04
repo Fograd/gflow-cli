@@ -292,3 +292,19 @@ async def test_generic_audio_detail_refuses_inconsistent_or_unavailable_playback
     monkeypatch.setattr(module, "native_rpc", rpc)
     with pytest.raises(ValueError):
         await module.lookup_asset(object(), project_id=P, media_id=M)
+
+
+def test_generated_video_without_dimensions_keeps_fresh_owned_url():
+    value = row("video", uploaded=False)
+    value[7][1] = [None, None, [8]]
+    result = decode(value, "video")
+    assert result.url == VIDEO
+    assert result.width is None and result.height is None
+
+
+@pytest.mark.parametrize("dimensions", [[None, 32], [48, None], [False, 32], ["48", 32]])
+def test_video_partial_or_invalid_dimensions_are_not_guessed(dimensions):
+    value = row("video", uploaded=False)
+    value[7][1] = dimensions
+    with pytest.raises(ValueError):
+        decode(value, "video")

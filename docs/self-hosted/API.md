@@ -454,7 +454,10 @@ responses use Cache-Control: no-store. No universal URL lifetime is assumed.
 Adding raw=true or raw=1 streams validated image/png, image/jpeg or video/mp4.
 An explicitly supplied raw=false, raw=0 or any other value returns400.
 Image downloads have a32MiB limit and must decode with exact fresh dimensions;
-video downloads have a256MiB limit and require ffprobe. Temporary server output is
+video downloads have a256MiB limit and require ffprobe. Generated-video URL
+metadata may have null dimensions when Google supplies no measured size; the
+download result uses positive dimensions measured by ffprobe. Available fresh
+metadata dimensions must still match the downloaded content. Temporary server output is
 removed after response completion, Range refusal, send failure or cancellation.
 The default source=local retains the managed-registry metadata/download extension
 and its existing raw controls, including image bytes.
@@ -688,8 +691,15 @@ or scope failures refuse, and unresolved native metadata returns502.
 DELETE /assets/{email}/aliases/{alias} removes only the scoped local mapping,
 returning removed:true, googleMediaDeleted:false and scope:local-alias; unknown
 mappings return404 and foreign scope403. This does not delete Google media.
-SDK/CLI/MCP retain native UUID inputs. Full useapi composite/error equivalence
-remains unfinished R02 work.
+SDK/CLI/MCP image/video get/download reads accept these exact local mappings
+when the caller explicitly selects the enabled registered profile and project.
+They must use the same private GFLOW_SELFHOST_ROOT as REST; another machine does
+not automatically have its mappings. SDK selects the owning profile_dir; CLI
+requires --profile and MCP requires a nondefault profile argument. Fresh reads
+verify native identity and registered media kind. Unknown UseAPI references have
+no inferred account or decoded UUID fallback. SDK/CLI/MCP generation and mutation
+inputs retain their existing raw contracts. Full vendor encoding/error equivalence
+is not claimed.
 
 
 ## Bounded native account history
@@ -772,8 +782,12 @@ removes the scoped local mapping only, returning googleResourceDeleted:false.
 It performs no Google resource mutation. The generic HTTP asset endpoint rejects
 character/voice aliases with400. Supported generation/operation fields now resolve
 registered aliases explicitly; Google resource deletion and character CRUD
-mutation inputs are not widened, and no alias is stripped automatically. Raw SDK/CLI/MCP inputs retain
-their existing contract. Saved-user audio acceptance and broader R02 equivalence
+mutation inputs are not widened. SDK get_character/get_character_detail and
+get_saved_voice, CLI character show/voice show and direct MCP detail twins accept
+exact locally registered aliases with explicit owning profile/project and the
+same GFLOW_SELFHOST_ROOT. Fresh detail must match registered image-count and
+optional saved-voice workflow declarations; saved-voice aliases require the exact
+fresh audio workflow. Unknown vendor prefixes are never decoded. Saved-user audio acceptance and broader R02 equivalence
 remain pending. Actual character-alias REST lifecycle passed without generation
 or Google mutation, and final frozen-source gates passed. Saved-voice fixture
 coverage and broader R02 equivalence remain open.
@@ -846,8 +860,8 @@ Queued requests contain canonical UUIDs in the original numbered positions;
 protected URLs, signatures and tokens are not persisted. An image alias and raw
 UUID naming the same image retain intentional deduplication with slot order;
 existing video duplicate validation still refuses duplicate logical references.
-Existing workers repeat fresh scope/ownership checks. SDK/CLI/MCP raw UUID inputs
-and preset names are unchanged; Google media DELETE and character CRUD mutation
+Existing workers repeat fresh scope/ownership checks. SDK/CLI/MCP generation
+UUID inputs and preset names are unchanged; Google media DELETE and character CRUD mutation
 alias inputs remain outside this batch.
 
 ```python

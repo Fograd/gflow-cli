@@ -5,8 +5,10 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, Any, Literal
 
+from gflow_cli.api.registered_lookup import resolve_client_lookup, verify_resource
 from gflow_cli.api.transports import native_voices as transport
 from gflow_cli.errors import ConfigurationError, VoiceMutationUnknownError
+from gflow_cli.selfhost.native_resource_aliases import NativeResourceAlias
 
 if TYPE_CHECKING:
     from gflow_cli.api.client import FlowApiClient
@@ -38,6 +40,11 @@ async def operate(
     performance: str = "",
     confirm_delete: object = False,
 ) -> dict[str, Any]:
+    binding = None
+    if operation == "get" and voice_id is not None:
+        binding = resolve_client_lookup(client, project_id, voice_id, "voice")
+        if isinstance(binding, NativeResourceAlias):
+            voice_id = binding.native_id
     try:
         project = transport.validate_identifier(project_id)  # pyright: ignore[reportPrivateUsage]
         if operation in {"get", "delete"}:
@@ -58,6 +65,7 @@ async def operate(
         elif operation == "get":
             assert voice_id is not None
             outcome = await transport.get_saved_voice(page, project, voice_id)
+            verify_resource(binding, outcome)
         elif operation == "delete":
             assert voice_id is not None
             outcome = await transport.delete_saved_voice(page, project, voice_id, True)

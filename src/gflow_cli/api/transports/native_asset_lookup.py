@@ -24,8 +24,8 @@ class NativeAsset:
     workflow_id: str
     kind: Literal["image", "video"]
     url: str = field(repr=False)
-    width: int
-    height: int
+    width: int | None
+    height: int | None
     size_bytes: int | None = None
 
 
@@ -123,8 +123,13 @@ def existing_asset(
         raise ValueError("Native asset media union is ambiguous or has the wrong kind")
     arm = _list(arms[selected])
     dimensions = _list(_at(arm, 2 if kind == "image" else 1))
-    if len(dimensions) < 2 or not all(
-        isinstance(v, int) and not isinstance(v, bool) and 0 < v <= 100000 for v in dimensions[:2]
+    absent_video_dimensions = kind == "video" and dimensions[:2] == [None, None]
+    if not absent_video_dimensions and (
+        len(dimensions) < 2
+        or not all(
+            isinstance(v, int) and not isinstance(v, bool) and 0 < v <= 100000
+            for v in dimensions[:2]
+        )
     ):
         raise ValueError("Native asset dimensions are unavailable")
     generated = _at(arm, 0)

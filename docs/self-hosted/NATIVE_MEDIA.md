@@ -102,7 +102,9 @@ gflow project download-media --media-id MEDIA_UUID --project PROJECT_UUID --prof
 REST `GET /v1/google-flow/assets/MEDIA_UUID?source=google&email=ACCOUNT&projectId=PROJECT_UUID`
 returns a fresh confidential URL with no-store. Add `raw=true` to receive validated
 PNG/JPEG/MP4 bytes. Images are bounded32MiB and decoded against fresh dimensions;
-videos are bounded256MiB and validated with ffprobe. Responses preserve their
+videos are bounded256MiB and validated with ffprobe. Generated-video URL
+metadata can have null dimensions; downloads return positive dimensions measured
+by ffprobe and compare any available fresh size with the content. Responses preserve their
 validated MIME. Temporary downloads are removed on completion, invalid Range,
 send failure or cancellation. No generation or upscale runs during these reads.
 
@@ -111,3 +113,15 @@ uploaded/generated types and dimensions are no longer discarded by the timeline
 adapter. Original timeline fields remain, and foreign attachments retain their
 origin project. Sparse/unknown rows do not acquire an invented type or URL.
 See the [focused R02 evidence and limitations](PARITY.md#r02-focused-delivery--4-october-2026).
+
+
+Exact locally registered image/video aliases can replace MEDIA_UUID in these
+read commands and SDK/direct MCP lookup/download calls. Run on the host holding
+the private registration, with GFLOW_SELFHOST_ROOT pointing to the same root as
+REST, and explicitly select the enabled owning profile and project. Registration
+never proves current Google ownership: each read fetches fresh native detail and
+checks the registered kind. Unknown UseAPI references refuse with an explanation;
+opaque prefixes are never decoded or used to select an account. SDK/CLI/MCP
+mutation and generation inputs remain raw. Character show and saved voice detail
+have the corresponding read-only registered resource lookup, with fresh image
+count and voice workflow checks.

@@ -918,3 +918,69 @@ and council references. The duplication proxy found no new changed-code block.
 The initial serial suite was interrupted for the deadline; the completed parallel
 run above is the full gate. Standalone Pyright initially selected the wrong
 interpreter; the prescribed locked uv environment returned0errors.
+
+
+### R02 review and existing-video closure — 4 October 2026
+
+This follow-up supersedes the selected-project video-fixture limitation above.
+A bounded read-only search of the authorised pro2/pro3 project lists found ten
+generated and two uploaded video candidates in other pro3 projects. Existing
+uploaded-video retrieval decoded a valid1280x2274 MP4 (4,136,091 bytes). Four
+generated candidates reproduced the same missing-dimensions lookup failure.
+The fresh GetMedia video metadata omitted both width and height; no dimensions
+were inferred from aspect ratio, duration or a thumbnail. Native UUID or exact
+registered-alias lookup now returns its fresh owned URL with null dimensions.
+Download/raw retrieval validates the bounded MP4 with ffprobe, reports measured
+positive dimensions, and still rejects mismatches when metadata supplies sizes.
+The tagged read-only generated-video BDD passed in12.79 seconds:2,307,253 bytes,
+720x1280, zero generation or mutation requests.
+
+Exact locally registered image/video, character and saved-user-voice read aliases
+now work across SDK, CLI, REST and direct MCP. The selected enabled/verified
+profile and project must match the existing private registration; aliases never
+decode opaque vendor prefixes. Fresh resource identity/type/workflow and declared
+character image/voice bindings are checked again. SDK/CLI/MCP share REST's
+GFLOW_SELFHOST_ROOT. CLI/MCP alias reads require an explicit profile; unknown,
+foreign and disabled character mappings refuse before opening the browser.
+Mutation/generation alias contracts are unchanged. REST saved-voice detail now
+preserves the shared decoder's optional description. See
+[lookup usage](NATIVE_MEDIA.md) and [alias registration](API.md#explicit-native-imagevideo-aliases).
+
+Saved-user voice proof remains blocked. No saved user voice was found in the
+successfully read projects on either active profile. The one previously rejected
+project response had no media/workflow collections and exactly30 verified bundled
+preset attachments; these are not saved-user voices. The user authorised exactly
+one additional audio preview. Its single pro2 submission used one solved CapSolver
+token and Google returned NativeQuotaError, a terminal quota/access refusal.
+There was no accepted output, save or automatic retry; credits remained1050.
+The cumulative private ledger is now pro2 images8/videos2/audio4 and pro3
+images5/videos2/audio3, preserving earlier counts and the new explicit grant.
+Pro1 stayed disabled and its browser was never opened.
+
+R02 remains unchecked solely because an accepted saved-user voice detail/playback
+fixture is unavailable. That lookup and its registered-alias adapters are
+implemented and covered offline, but live playback proof is unavailable. An
+existing saved-user voice on an authorised active profile can close that proof
+without generation; another preview would require a new user grant and Google
+availability. Unknown vendor encodings and unmeasured native variants remain
+explicitly unsupported rather than guessed.
+
+The continuation publication gate passed7,970 tests with5 skips and27 warnings
+in259.40 seconds,89.84% coverage. Whole-tree Ruff lint/format, strict Pyright,
+repository hygiene, doc links, published-doc privacy/mirror and council checks
+passed. Independent review GO included18 alias tests and119 focused continuation
+tests; unknown/foreign/disabled character mappings refuse before browser launch.
+The duplication proxy found no duplicate block intersecting changed code.
+
+Actual exact registered aliases passed SDK, CLI, direct MCP and REST URL/raw
+reads for an existing generated image on each active profile and both generated
+and uploaded videos on pro3. Generated-video metadata retained null dimensions;
+raw retrieval returned the valid2,307,253-byte MP4. Uploaded video returned
+4,136,091 bytes. All native REST responses used no-store. The temporary local
+aliases were removed without deleting any original native media.
+
+A free copied-image character fixture also passed exact registered-alias detail
+reads through SDK, CLI, direct MCP and REST on pro2. Its single image reference
+and thumbnail matched. The local mapping and only that owned character fixture
+were removed; all original media remained present. No image/video/audio
+generation request was made by this character test.

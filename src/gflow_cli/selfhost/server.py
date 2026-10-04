@@ -2734,6 +2734,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             **({"baseVoice": row["preset_voice"]} if row.get("preset_voice") else {}),
             **({"dialog": row["dialogue"]} if row.get("dialogue") else {}),
             **({"voicePerformance": row["performance"]} if row.get("performance") else {}),
+            **({"description": row["description"]} if row.get("description") else {}),
         }
 
     @app.post(prefix + "/voices", response_model=None, openapi_extra=FORM_REQUEST_BODY)

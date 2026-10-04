@@ -93,3 +93,21 @@ Row7 now additionally has measured local solve/acknowledgment latency averages a
 
 ### Third overnight batch
 Generic count2–4 now uses one native RPC across SDK/CLI/MCP/private REST worker with all-output checkpointing and provider/supplied-token controls. Numeric seed and unobserved native output forms remain unsupported. Text multipart requests reuse existing JSON mutation validators; local CAPTCHA elapsed averages and exact typed native quota/model routing are implemented. Policy reset times are local compatibility rules, not Google observations. Retired physical profile names and public handles require fresh registration names. See [batches](VIDEO_BATCH.md), [forms](FORM_REQUESTS.md) and [scheduler](ACCOUNT_SCHEDULER.md).
+
+
+### R02 read-contract continuation — 4 October 2026
+
+Native image/video, character and saved-user-voice read adapters now accept exact
+locally registered composite mappings across SDK/CLI/REST/MCP, with explicitly
+selected enabled profile/project and fresh ownership/type/workflow proof. The
+private mapping must exist on that host; unknown UseAPI prefixes are not decoded.
+Generation and mutation contracts retain their previous scope.
+
+Existing generated-video GetMedia responses can omit width/height. Lookup returns
+null rather than assuming sizes; bounded MP4/raw downloads measure dimensions
+with ffprobe and validate supplied metadata if present. Live existing generated
+video retrieval passed720x1280 with no generation. REST user-voice details now
+retain optional description from the shared decoder. Saved-user playback and
+voice-alias live acceptance remain unavailable: the one additional authorised
+preview was explicitly quota/access refused with NativeQuotaError and unchanged
+credits. Implemented adapters do not establish live acceptance.

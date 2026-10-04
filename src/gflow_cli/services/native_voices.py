@@ -25,6 +25,10 @@ async def saved_voice_operation(
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Run a fresh client per exact WAF refusal; never replay accepted or unknown speech."""
+    if operation == "get":
+        from gflow_cli.api.registered_lookup import resolve_lookup
+
+        resolve_lookup(profile, project_id, kwargs["voice_id"], "voice")
     controls = native_captcha_controls(
         captcha_order=captcha_order,
         captcha_retry=captcha_retry,

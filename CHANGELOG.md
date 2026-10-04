@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## R02 native media lookup follow-up
 
 ### Fixed
+- Existing generated-video lookup accepts omitted dimensions without guessing;
+  MP4 downloads measure and validate dimensions with ffprobe.
+- Exact registered native read aliases work across SDK/CLI/MCP/REST with explicit
+  scope and fresh ownership proof; disabled/foreign mappings refuse before browser access.
+- REST saved-user voice details preserve optional descriptions.
 - Native REST raw downloads now return validated PNG/JPEG images as well as MP4
   videos, with correct MIME and temporary-file cleanup.
 - Native REST media inventory retains existing typed upload/generated metadata

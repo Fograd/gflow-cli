@@ -26,6 +26,9 @@ def asset_payload(asset: NativeAsset | NativeAudioAsset) -> dict[str, Any]:
 async def read_asset(
     profile: str, project: str, media: str, out_dir: Path | None = None
 ) -> dict[str, Any]:
+    from gflow_cli.api.registered_lookup import resolve_lookup
+
+    resolve_lookup(profile, project, media, "media")
     settings = get_settings()
     async with FlowApiClient(
         profile_dir=settings.profile_subdir(profile), headless=settings.headless

@@ -74,7 +74,7 @@ def _image(path: Path, asset: NativeAsset, mime: str) -> str:
         raise ValueError("Native image bytes, type or dimensions do not match metadata") from None
 
 
-async def _video(path: Path, asset: NativeAsset, mime: str) -> str:
+async def _video(path: Path, asset: NativeAsset, mime: str) -> tuple[str, int, int]:
     with path.open("rb") as stream:
         head = stream.read(12)
     if mime != "video/mp4" or len(head) < 12 or head[4:8] != b"ftyp":
@@ -101,10 +101,12 @@ async def _video(path: Path, asset: NativeAsset, mime: str) -> str:
             output, _ = await process.communicate()
         data: Any = json.loads(output)
         streams = data.get("streams", [])
-        if (
-            process.returncode
-            or len(streams) != 1
-            or (streams[0].get("width"), streams[0].get("height")) != (asset.width, asset.height)
+        if process.returncode or len(streams) != 1:
+            raise ValueError
+        dimensions = (streams[0].get("width"), streams[0].get("height"))
+        if not all(type(n) is int and 0 < n <= 100000 for n in dimensions) or (
+            (asset.width, asset.height) != (None, None)
+            and dimensions != (asset.width, asset.height)
         ):
             raise ValueError
     except asyncio.CancelledError:
@@ -115,7 +117,7 @@ async def _video(path: Path, asset: NativeAsset, mime: str) -> str:
         if process.returncode is None:
             process.kill()
             await process.wait()
-    return ".mp4"
+    return ".mp4", dimensions[0], dimensions[1]
 
 
 async def download_asset(
@@ -181,11 +183,13 @@ async def download_asset(
                 raise ValueError("Native media byte count does not match its metadata")
             if not size:
                 raise ValueError("Native media response is empty")
-            extension = (
-                _image(temporary, asset, mime)
-                if asset.kind == "image"
-                else await _video(temporary, asset, mime)
-            )
+            if asset.kind == "image":
+                extension = _image(temporary, asset, mime)
+                width, height = asset.width, asset.height
+                if width is None or height is None:
+                    raise ValueError("Native image dimensions are unavailable")
+            else:
+                extension, width, height = await _video(temporary, asset, mime)
             destination = out_dir / (asset.media_id + extension)
             os.link(temporary, destination)
             return DownloadedNativeAsset(
@@ -197,8 +201,8 @@ async def download_asset(
                 size,
                 digest.hexdigest(),
                 mime,
-                asset.width,
-                asset.height,
+                width,
+                height,
             )
     finally:
         if temporary is not None:
