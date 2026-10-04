@@ -254,3 +254,8 @@ def native_captcha_refused() -> bool:
 def native_captcha_active() -> bool:
     """Whether an explicit scope is installed, without exposing its credentials."""
     return _SCOPE.get() is not None or ((state := _PROVIDER.get()) is not None and not state.closed)
+
+
+def native_captcha_supplied_active() -> bool:
+    """Whether a supplied-token scope is installed, without exposing token state."""
+    return _SCOPE.get() is not None

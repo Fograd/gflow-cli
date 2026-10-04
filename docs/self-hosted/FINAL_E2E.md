@@ -127,3 +127,46 @@ run while Google access needs renewal; it does not validate native generation.
 
 
 Current account isolation checkpoint — 4 October: pro1 is disabled and reserved for UseAPI, pro2/pro3 are the two testing profiles with fresh post-login access. No cookie-copy/import tests are permitted. The authoritative private campaign ledger counts pro2 images4/videos1/audio2 and pro3 images3/videos1/audio2 (pro1 images2/videos2/audio1 retained). Each active account has one video attempt remaining; image attempts may continue within50/account. Corrected ten-reference single-image BDD and fresh three-upload deletion-repeat/mixed BDD passed. Later reservations update the private ledger before submission; never reset these counters. Automatic renewal remains unverified.
+
+
+## 4 October deployed acceptance follow-up
+
+Deployed source 4a9e9d64c8235d1a909b6725828df70a4a8d26c9 passed the
+mandatory source gate: 7,813 passed, 5 skipped, 89.64% coverage. REST, GUI
+and registered 43-tool MCP entry checks passed.
+
+* R01: one real registered MCP image request using an older owned library
+  reference plus an invocation-owned character completed with one downloaded
+  image. The fixture cleanup passed; there was no generation replay.
+* R06: one REST image request explicitly selecting CapSolver completed with one
+  accepted image. Local provider observations recorded solveStarted, solved,
+  submitted and accepted. No captchaRetry was requested and no retry occurred.
+  Previous solved-token requests were refused or uncertain; one acceptance does
+  not prove automatic recovery from Google's unusual-activity errors.
+* R07: deployed REST and registered MCP read-only capability calls on an owned
+  generated image observed 2K available and 4K disabled. No upscale, solver or
+  generation was dispatched by these reads.
+* R10: the operator enabled the optional 1,800-second idle access interval.
+  The first scheduled project-access checks completed OK for pro2 and pro3.
+  Both returned profilePreserved=true and refreshAttempted=false. Disabled
+  pro1 had no scheduled job. A second interval, long idle time and an actual
+  authentication-renewal boundary remain unproved; this is not automatic renewal.
+
+The retained private campaign counts are pro2 images5/videos1/audio2 and
+pro3 images4/videos1/audio2; reserved pro1 remains images2/videos2/audio1.
+Each active account still has one authorized video attempt remaining.
+The two testing profiles are isolated from UseAPI; pro1 remains disabled
+in gflow and reserved for UseAPI. No cookie-copy/import test was performed.
+
+### What an unusual-activity error means here
+
+The observed error stops the submitted generation. It is not an interactive
+CAPTCHA prompt. A browser or CapSolver token may already have been submitted
+before Google refuses the request. Token issuance and Google acceptance are
+recorded separately. The response alone does not identify whether the token,
+session, IP address or another request property caused the refusal.
+
+Default behavior is one attempt. Explicit provider retries are bounded and
+advance only after a positively established WAF refusal with no accepted or
+unknown result. An uncertain outcome, accepted output, cancellation or supplied
+single-use token is never automatically replayed.

@@ -899,3 +899,9 @@ Generic video count1–4 provider controls: SDK services.video_captcha wrapper, 
 Image upscale2K/4K explicit REST provider controls support1–10 positively confirmed WAF-only attempts. Fresh4K availability is checked before paid mint and dispatch; unavailable Pro options refuse. Existing SDK scopes/CLI token-file/direct MCP token remain single sequence. See [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).
 
 Generic count2–4 now retains all native results through SDK generate_videos_batch, CLI, queued MCP and one REST job; partial/unknown checkpoints never replay. Multipart text fields reuse the existing HTTP JSON validators. Automatic selection applies explicitly labeled local cooldowns only to typed native quota observations; CAPTCHA latency is measured only across matched local observer phases. See [batches](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/VIDEO_BATCH.md), [forms](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/FORM_REQUESTS.md) and [scheduler](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/ACCOUNT_SCHEDULER.md).
+
+Saved-voice creation and native video promotion direct tools additionally expose optional
+`captcha_order` and strict-integer `captcha_retry` (1–10 total attempts). Omitted controls
+use the browser once; explicit retry selects configured providers. Supplied tokens are
+exclusive and single use; accepted/unknown work never retries. No queue payload changes.
+See [native provider mirror scope](self-hosted/NATIVE_CAPTCHA.md#saved-voice-and-promotion-clidirect-mcp-provider-controls).

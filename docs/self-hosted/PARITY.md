@@ -334,8 +334,9 @@ unsafe-caption canonical attachment proof.
   with matched action, browser/session context and controlled attempts. Separate
   solve, submission, explicit rejection and unknown outcomes; never replay an
   uncertain write. Keep unverified provider paths explicitly guarded until an
-  accepted live result proves them. Prior trials solved tokens but Google
-  rejected their submissions; acceptance is an unfinished proof requirement.
+  accepted live result proves them. One explicit CapSolver REST image has now
+  been accepted; earlier image/audio trials were rejected or uncertain. Native
+  voice/video/upscale provider acceptance remains unfinished.
 - [ ] **R07 — Real resolution promotion and entitlement handling.** Establish
   native 360p-to-720p promotion, video4K and accepted image4K where account
   entitlement permits. Downloads/exports/local resizing do not establish native
@@ -359,7 +360,7 @@ unsafe-caption canonical attachment proof.
   account selection/queues for all three Pro accounts. Preserve private profiles
   and identity verification; Google may still require human login. Prepare
   everything possible before requesting a required login, then continue other
-  items while it is pending. Three distinct Pro profiles are registered and passed concurrent read-only health jobs (three started concurrently, zero generation requests). A cookie-table transfer was rejected; human-assisted sign-in restored the original second profile. Successful import/atomic refresh and rendered three-account coverage remain unverified.
+  items while it is pending. Three distinct Pro profiles are registered and passed concurrent read-only health jobs (three started concurrently, zero generation requests). A cookie-table transfer was rejected; human-assisted sign-in restored the original second profile. Successful import/atomic refresh and rendered three-account coverage remain unverified. The operator now forbids cookie-copy/import tests and reserves pro1 for UseAPI. Both isolated test profiles passed their first scheduled idle access checks; automatic renewal and a long idle boundary remain unproved.
 - [ ] **R11 — Remaining useapi contract equivalence.** Audit all 29 endpoint
   contracts and parameter matrices against the finished adapters: defaults,
   supported controls, response/error fields, sync/async status, polling,
@@ -378,7 +379,7 @@ unsafe-caption canonical attachment proof.
   test authorizations and remaining allowances; do not start an unbounded stress
   test or repeatedly submit the same known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Published baseline before the composer/upload delivery batch: 890a65918255d5a71065a82af0e0bd61a404c2b0,
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Current published/deployed baseline: 4a9e9d64c8235d1a909b6725828df70a4a8d26c9,
   with REST/MCP/GUI active and both test accounts passing fresh queued health.
   Further roadmap batches remain in progress. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
@@ -793,3 +794,16 @@ format and strict Pyright passed. Old test doubles were updated to model the
 nonvirtual picker, the virtual DOM fixture now waits for actual render position,
 and generic video provider validation covers all supported counts1–4 plus
 invalid5. No production generation followed a failing gate.
+
+
+### Deployed acceptance follow-up — 4 October 16:22 UTC
+
+Registered MCP older-library image grounding now has one actual accepted output
+and successful owned character cleanup. One explicit CapSolver REST image also
+completed with one accepted output and local solved/submitted/accepted events;
+there was no retry. Deployed image capability reads observed2K available and4K
+disabled on an owned generated image. Initial scheduled idle project-access
+checks completedOK on both isolated test profiles; the disabled reserved account
+had no maintenance job. These reads do not renew authentication.
+See [FINAL_E2E.md](FINAL_E2E.md#4-october-deployed-acceptance-follow-up)
+for retained budgets and remaining renewal/output boundaries.

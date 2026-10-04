@@ -8,9 +8,11 @@ import click
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
+from gflow_cli.api.native_captcha import native_captcha_or_none, read_native_token_file
 from gflow_cli.api.native_video_upscale import NativeVideoUpscaleUnknownError
-from gflow_cli.cli_native_captcha import native_captcha_option
+from gflow_cli.errors import ConfigurationError
 from gflow_cli.selfhost.video_promotion_worker import run_promotion
+from gflow_cli.services.native_captcha import native_captcha_controls, native_provider_errors
 
 
 @click.command("upscale-native")
@@ -23,7 +25,21 @@ from gflow_cli.selfhost.video_promotion_worker import run_promotion
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/promotions"))
 @click.option("--json", "as_json", is_flag=True)
-@native_captcha_option("VIDEO_GENERATION")
+@click.option(
+    "--captcha-order", default=None, help="Explicit unique provider order: CapSolver,2Captcha."
+)
+@click.option(
+    "--captcha-retry",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Total confirmed-WAF attempts; explicit use selects providers. Omitted: browser once.",
+)
+@click.option(
+    "--captcha-token-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Private single-use supplied token; exclusive with provider controls.",
+)
 def upscale_native_command(
     media_id: str,
     project: str,
@@ -32,18 +48,44 @@ def upscale_native_command(
     profile: str,
     out_dir: Path,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
+    captcha_token_file: Path | None = None,
 ) -> None:
     """Generate a promoted video; may spend credits. Existing exports are separate."""
+    try:
+        controls = native_captcha_controls(
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            supplied_token=captcha_token_file is not None,
+        )
+        token = read_native_token_file(captcha_token_file) if captcha_token_file else None
+    except ConfigurationError as error:
+
+        async def refuse(failure: ConfigurationError = error) -> None:
+            raise failure
+
+        return run_with_handlers(refuse, cli_command="video upscale-native", as_json=as_json)
+
     resolved = _resolve_profile(profile)
 
     async def action() -> None:
         try:
-            result = await run_promotion(
-                resolved,
-                project,
-                {"mediaGenerationId": media_id, "resolution": resolution, "modelKey": model_key},
-                out_dir,
-            )
+            with (
+                native_provider_errors(active=bool(controls)),
+                native_captcha_or_none(token, project_id=project, action="VIDEO_GENERATION"),
+            ):
+                result = await run_promotion(
+                    resolved,
+                    project,
+                    {
+                        "mediaGenerationId": media_id,
+                        "resolution": resolution,
+                        "modelKey": model_key,
+                        **controls,
+                    },
+                    out_dir,
+                )
             if as_json:
                 json_output.emit(result)
             else:

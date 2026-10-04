@@ -82,3 +82,42 @@ without any accepted/unknown result may advance an explicit retry budget.
 Generic video provider controls and portable/queued mirrors are documented in
 [generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md). Count1 is required. These
 controls do not prove accepted external-token output or Ultra entitlement.
+
+## Saved-voice and promotion CLI/direct MCP provider controls
+
+The first public native provider mirror batch covers `voice create` and
+`video upscale-native`. Both accept `--captcha-order CapSolver,2Captcha`
+and `--captcha-retry 1..10`. The matching direct tools
+`gflow_create_saved_voice` and `gflow_upscale_native_video` accept
+`captcha_order` and strict-integer `captcha_retry`; both default to null.
+The SDK service `services.native_voices.saved_voice_operation(operation="create", ...)`
+accepts those controls and optional confidential `captcha_token`.
+
+Omitting both controls preserves one browser-owned attempt. Explicitly setting
+either selects configured external providers, even `captcha_retry=1`.
+The number means total attempts, including the first. Provider order must contain
+unique exact `CapSolver`/`2Captcha` names. Supplied tokens remain single use
+and cannot be combined with either provider control; conflicts fail before token
+file consumption or browser creation. Existing SDK supplied-token scopes also refuse
+provider controls. Selected-provider setup/mint failures return a privacy-safe typed
+configuration error with existing private-key configuration guidance.
+
+These adapters reuse the existing native CAPTCHA policy and solver. Each retry
+opens a fresh sequential client after the previous client teardown. Only an exact
+negatively acknowledged typed WAF refusal permits another attempt. Accepted
+preview/promotion work, uncertain saves/submission, cancellation and poll,
+download or cleanup failures never replay. Existing ownership/model/target checks
+still run before minting; enabling providers does not bypass them.
+
+Keys use existing private provider configuration (`GFLOW_CAPSOLVER_KEY`,
+`GFLOW_2CAPTCHA_KEY` or the configured private key store). No new environment
+variables, credentials in command arguments, or durable queue token fields are
+introduced. These native MCP tools remain direct; queued confidential tokens
+remain refused. External solvers and the native operations may incur provider
+charges/Google credits. This adapter batch has offline verification only and
+does not establish Google generation acceptance.
+
+Native reference/edit/extension and image-upscale CLI/direct MCP provider mirrors
+remain a separate follow-up. Their existing supplied-token behavior is unchanged.
+Generic image generation uses its separate `ImageOverrides` policy and is not
+routed through the native token retry policy by this batch.

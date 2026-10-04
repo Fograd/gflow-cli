@@ -49,3 +49,9 @@ Missing playback remains optional; missing inventory is not proof of deletion.
 The selected project has no saved user voice fixture, so this enhancement has
 source/offline proof and no newly accepted live audio playback. R12 retains that
 acceptance requirement; no extra paid audio generation was attempted.
+
+Saved-voice `voice create` and direct MCP `gflow_create_saved_voice` now accept optional
+provider order/total-attempt controls. The SDK `saved_voice_operation` bridge exposes the
+same controls for `create` only; list/get/delete refuse them. Existing browser defaults
+and accepted-preview/unknown-save no-replay rules apply. See
+[native provider controls](NATIVE_CAPTCHA.md#saved-voice-and-promotion-clidirect-mcp-provider-controls).

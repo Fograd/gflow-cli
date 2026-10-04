@@ -2940,7 +2940,9 @@ async def gflow_get_saved_voice(
 @server.tool(
     name="gflow_create_saved_voice",
     description="Generate a TTS preview from a system preset and save a named voice. "
-    "Consumes credits; dialog/performance each 1..120. Optional single-use captcha_token.",
+    "Consumes credits; dialog/performance each 1..120. Optional single-use captcha_token "
+    "or exclusive captcha_order/captcha_retry(1..10 total confirmed-WAF attempts). "
+    "Omitted controls use browser once; explicit retry selects configured providers.",
 )
 @_guarded
 async def gflow_create_saved_voice(
@@ -2951,7 +2953,16 @@ async def gflow_create_saved_voice(
     performance: str,
     profile: str = "default",
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
+    from gflow_cli.services.native_captcha import native_captcha_controls
+
+    native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
     with native_captcha_or_none(captcha_token, project_id=project, action="AUDIO_GENERATION"):
         return await _saved_voice_tool(
             "create",
@@ -2961,6 +2972,8 @@ async def gflow_create_saved_voice(
             preset_voice=preset_voice,
             dialog=dialog,
             performance=performance,
+            **({"captcha_order": captcha_order} if captcha_order is not None else {}),
+            **({"captcha_retry": captcha_retry} if captcha_retry is not None else {}),
         )
 
 
@@ -3412,7 +3425,9 @@ async def gflow_download_native_asset(
     name="gflow_upscale_native_video",
     description=(
         "Generate a native promoted video at720p,1080p or4k using available models. "
-        "May spend credits; distinct from export. Optional confidential captcha_token."
+        "May spend credits; distinct from export. Optional confidential captcha_token or "
+        "exclusive captcha_order/captcha_retry(1..10 total confirmed-WAF attempts). "
+        "Omitted controls use browser once; explicit retry selects configured providers."
     ),
 )
 @_guarded
@@ -3424,20 +3439,36 @@ async def gflow_upscale_native_video(
     profile: str = "default",
     out_dir: str | None = None,
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
     from gflow_cli.api.native_captcha import native_captcha_or_none
     from gflow_cli.selfhost.video_promotion_worker import run_promotion
+    from gflow_cli.services.native_captcha import native_captcha_controls, native_provider_errors
 
+    controls = native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
     target = Path(out_dir) if out_dir else get_settings().output_dir / "promotions"
-    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
+    with (
+        native_provider_errors(active=bool(controls)),
+        native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"),
+    ):
         async with _profile_lock(resolved):
             result = await run_promotion(
                 resolved,
                 project,
-                {"mediaGenerationId": media_id, "resolution": resolution, "modelKey": model_key},
+                {
+                    "mediaGenerationId": media_id,
+                    "resolution": resolution,
+                    "modelKey": model_key,
+                    **controls,
+                },
                 target,
             )
     return {"status": "ok", **result}

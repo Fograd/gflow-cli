@@ -28,3 +28,10 @@ Native numeric promotion seed field4 is observed, but its allowed range is not e
 Polling follows the exact assigned media/workflow. The worker rereads owned output metadata and checks the requested short-side pixels720/1080/2160. Safe download validates the actual video against that metadata. Results include output identifiers, local paths, width and height; HTTP returns managed download paths, operation native-promotion and resolution. Signed Google URLs are transient.
 The private promotion-started.json contains known IDs, not CAPTCHA tokens. If interrupted, inspect those IDs and Flow before another request. Complete restart journal recovery remains R11 work.
 Source/codec/preflight evidence proves request construction and account discovery. It does not establish accepted paid promotion, final resolution quality or successful4K output. Those are R12 acceptance work.
+
+CLI `video upscale-native` mirrors REST provider controls with `--captcha-order` and
+`--captcha-retry`; direct MCP `gflow_upscale_native_video` uses `captcha_order` and
+`captcha_retry`. Omitted controls use the browser once; explicit retry selects providers.
+Supplied tokens are exclusive/single use. The existing promotion worker owns the single
+bounded exact-WAF retry loop; accepted/unknown work never replays. See
+[native provider controls](NATIVE_CAPTCHA.md#saved-voice-and-promotion-clidirect-mcp-provider-controls).
