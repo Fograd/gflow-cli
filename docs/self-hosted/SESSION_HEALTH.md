@@ -60,6 +60,14 @@ time and an observed renewal boundary without another human login. Capture the
 actual supported renewal behavior and keep a single serialized owner before
 implementing a timer; repeatedly launching health checks is not renewal.
 
+
+The operator subsequently reserved one account for UseAPI and disconnected the
+other two for gflow-only testing. Both UseAPI account removals returned200 and a
+fresh list verified the single retained healthy registration. gflow REST selection
+excludes the retained profile, and hosted CLI/MCP defaults use a test profile.
+This removes overlapping managed use during subsequent testing without establishing
+that it caused the original failure. See [verification](VERIFICATION.md#4-october-session-persistence-correction-and-isolated-test-accounts).
+
 ## On-demand actual access check
 
 `POST /v1/google-flow/accounts/{handle}/health` is a self-hosted extension. It

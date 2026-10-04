@@ -1557,3 +1557,42 @@ Active queue0. Backend local-ffmpeg made0Google generation requests and spent no
 Google credits. Original assets/profiles and Google attempt allowances unchanged.
 This proves the real HTTP/local worker/result/poll/idempotency path, not native
 video generation, Google-side scene composition or the final R12 campaign.
+
+## 4 October: session persistence correction and isolated test accounts
+
+Source checkpoint e0714d7b prevents the fallback cookie reader, headless verifier,
+shared login helper, bare Chrome fallback and standalone UI transport from pruning
+Session cookies in an existing private, owned Chrome profile. The existing guarded
+helper is reused; fresh identity checks and cookie expiry are unchanged.
+
+A network-isolated real Chrome reproduction failed before the correction: the
+actual cookie reader discarded both synthetic Session SSO/app cookies. It passed
+with three cold reads after correction. The complete corrected source gate passed
+**7686 tests, 5 skipped, 21 warnings, 90% coverage** in227.71seconds. Strict typing,
+lint, formatting, repository hygiene and documentation checks passed. The first
+full attempt's packaging failure was a missing uv executable in the shell PATH;
+the corrected environment passed the packaging tests and the complete gate.
+
+The operator's read-only comparison found all three matching UseAPI registrations
+reporting health OK and scheduled refreshes one hour before reported session
+expiry. This demonstrates a renewal lifecycle missing from gflow; it does not
+prove the exact renewal implementation or the cause of the hosted401 failures.
+Two independent pro3 reads retained unexpired persistent Google/Flow cookies but
+landed on public Flow/MyAccount pages, with a401 fresh People response. The second
+probe used an actual browser navigation, not only the request-context oracle.
+Neither probe generated media or called a solver.
+
+At the user's explicit request, two Google accounts were then disconnected from
+UseAPI via its account-configuration DELETE operation. Both returned200; a fresh
+account list contained only the retained account, whose detail still reported
+health OK with credit/model fields. The operation cancels scheduled UseAPI
+refreshes for the disconnected accounts; no Google project/media deletion was
+requested. The retained account is disabled for gflow REST selection; its browser
+and registration are preserved. Hosted CLI/MCP defaults now use pro2, with pro2
+and pro3 reserved for gflow testing. Account identities and private responses stay
+out of this public ledger.
+
+R10 remains open: automatic renewal, first-login durability and survival across
+idle/restart/renewal boundaries require a valid hosted session and successful
+observations. The corrected cold reader is not an automatic login repair. Human
+login for pro2 is prepared; paid-test counters are unchanged.
