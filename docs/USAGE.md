@@ -2491,7 +2491,7 @@ Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video u
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
-HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership or translate character/voice/generation/reference arguments. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
+HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership or translate generation/reference arguments. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
 
 
 ### Bounded native account history
@@ -2528,3 +2528,5 @@ The HTTP adapter separately maintains inventoryObservations, a private metadata-
 observation cache scoped to the exact profile/configured account. SDK/CLI/MCP
 history reads do not persist that cache. It never replaces fresh ownership or
 authorizes absence-based deletion.
+
+HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. They do not translate generation/mutation inputs. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).

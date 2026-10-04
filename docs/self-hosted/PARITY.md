@@ -12,7 +12,7 @@ Native Google upscaling is distinct from resizing with an image library.
 - **Missing**: no equivalent public CLI command found.
 - **Local equivalent**: an implementation can reproduce the output locally, but does not perform the same Google-side operation.
 
-Live baseline evidence available for text-to-image on the migrated host with two aspect ratios. Historical upstream baseline image upscale was rejected before submission; the fork supersedes that baseline with live-verified native2K CLI/HTTP/MCP results recorded below and in VERIFICATION.md. Video generation and other account profiles have not been live verified in this deployment. Update this inventory alongside implemented adapter capabilities and verification evidence.
+Live baseline evidence available for text-to-image on the migrated host with two aspect ratios. Historical upstream baseline image upscale was rejected before submission; the fork supersedes that baseline with live-verified native2K CLI/HTTP/MCP results recorded below and in VERIFICATION.md. All3 registered account profiles now have actual read-only health/catalog evidence. Accepted image generation is recorded separately; accepted native video rendering remains unverified in this deployment. Update this inventory alongside implemented adapter capabilities and verification evidence.
 
 ## Current fork endpoint inventory
 
@@ -28,7 +28,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. One paid CapSolver trial recorded 1 solved / 1 submitted / 0 accepted without retry. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
-| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Character/voice composite translation, full thumbnail cohorts and exact404 equivalence remain open. |
+| [GET assets/mediaGenerationId](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-mediagenerationid) | Path opaque media reference; optional `raw`; metadata or bytes | Managed registry default plus source=google fresh owned image/video URLs and video-only raw. Native UUID lookup requires explicit configured account/project scope; image raw and invalid supplied native raw controls return400. SDK/CLI/direct MCP mirrors and zero-write image/video download BDD passed. Explicit scoped HTTP image/video alias registration/read/removal is implemented; opaque URL-safe prefixes are not decoded. Explicit character/saved-voice detail mappings are implemented separately; automatic generation/reference translation, full thumbnail cohorts and exact404 equivalence remain open. |
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | Implemented local catalog default and source=google native 21-item opaque-cursor snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | Implemented managed local catalog default and source=google selected-project native timeline snapshots, including typed image/video arms. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Omitted projectId uses the selected account's configured project. Receipt-backed already-gone retries and mixed present/gone batches are verified; arbitrary absent UUIDs and all batch shapes are not claimed. |
@@ -189,7 +189,7 @@ separately under R12; an existing command or passing mock is insufficient eviden
   in39.95seconds with zero generation requests; the final complete offline suite
   passed5934tests with5skips at89.00%coverage. These establish implementation and
   attachment, not accepted mixed/native REST or registered MCP output; R12 retains
-  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. Generated-arm live coverage, voice/character/thumbnail detail, useAPI composite mapping and exact error equivalence remain open; this image/video batch is published/deployed atb3d25237. Registered HTTP MCP37tools, REST native URL/raw video and MCP lookup/image download passed actual deployed read checks. Character reference/thumbnail detail is now implemented in the working tree with ordered workflow-parent/primary-image joins and SDK/CLI/MCP/REST wiring. The tagged live detail BDD passed in39.12seconds with fixture cleanup and zero generation. This character-image batch is published/deployed at1216368e; actual deployed REST no-store and registered MCP include_urls reference/thumbnail reads passed with fixture removal; Candidate primary images omitted from the media projection and independently
+  those acceptance requirements. Image/video lookup/download now has current public-source field evidence, strict current GetMedia identities/unions, trusted content validation and synchronous SDK/CLI/MCP/REST mirrors. The zero-write uploaded image/video BDD passed with concurrency one in18.92seconds. At the b3d25237 image/video checkpoint, generated-arm/detail/composite/error evidence was still open; later generated-image and character-detail/alias evidence is recorded below. Exact error equivalence and live saved-user audio remain open. Registered HTTP MCP37tools, REST native URL/raw video and MCP lookup/image download passed actual deployed read checks. Character reference/thumbnail detail was implemented and subsequently published with ordered workflow-parent/primary-image joins and SDK/CLI/MCP/REST wiring. The tagged live detail BDD passed in39.12seconds with fixture cleanup and zero generation. This character-image batch is published/deployed at1216368e; actual deployed REST no-store and registered MCP include_urls reference/thumbnail reads passed with fixture removal; Candidate primary images omitted from the media projection and independently
 projected thumbnails now have strict owned workflow/GetMedia adapters; unresolved
 workflow variants and composite semantics remain open. Saved-user voice fresh
 performance/dialogue/preset/playback details are published at3d35e1d; live saved
@@ -218,15 +218,17 @@ unsafe-caption canonical attachment proof.
   Exhaustion is reported separately from `complete=None`; cycles/duplicates
   refuse and no absent row triggers deletion. The live two-page read-only
   BDD passed in9.04seconds, then repeated in13.86seconds with concurrency
-  explicitly pinned to one and zero generation. Attached media/history and
-  account-wide character/user-voice inventories remain open until catalog delivery.
+  explicitly pinned to one and zero generation. At that traversal checkpoint attached media/history and account-wide character/
+  user-voice inventories remained open; later attached-media and bounded-history
+  deliveries are recorded below. Complete character/user-voice cohorts remain gaps.
   Optional include_catalogs/max_projects now aggregates observed media, workflow
   history, characters and saved user voices from one fresh payload per project.
   CLI/MCP and REST includeCatalogs/maxProjects share the one-page/180second
   boundary, known counts and explicit pending discovered IDs. The one-project
-  live BDD passed10.14seconds with zero generation. Complete history/paging
-  beyond the measured project snapshot and destructive synchronization remain
-  unimplemented; unknown completeness never becomes deletion evidence.
+  live BDD passed10.14seconds with zero generation. At that catalog checkpoint account-history paging was not implemented. It is now
+  published at41784983 with bounded continuation and durable REST observations.
+  Complete history, generated-only summaries and destructive synchronization
+  remain unproven; unknown completeness never becomes deletion evidence.
   Follow-up 2026-10-04: read inventories now merge the source-derived timeline
   and attached collection, preserve origin/attachment project identities, exclude
   positively verified bundled preset wrappers, and expose exact typed upload
@@ -235,8 +237,9 @@ unsafe-caption canonical attachment proof.
   by default; explicit pagination is a fork extension. count/likelyUploads describe
   returned rows and observedCount the full snapshot. Cached real payloads passed
   for all3 accounts (53/556/565 observed media), and fresh catalog BDD passed in the
- 3-test batch. Account generation-history paging/completeness and persistent
-  reconciliation remain open; no absent row authorizes deletion.
+ 3-test batch. Later41784983 delivers bounded generation-history paging and metadata-only
+  observation upserts. Complete history and authoritative reconciliation remain
+  open; no absent row authorizes deletion.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
@@ -262,8 +265,10 @@ unsafe-caption canonical attachment proof.
   rejected the single submission with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC7):
   accepted outputs0, no retry. It counts as1of2 video attempts in the new campaign.
   A read-only alternative-engine probe exposed missing main-world WIZ context;
-  a private correction passed native model reads with0generation. Production
-  adapter correction and accepted rendered character/audio/video proof remain open.
+  a private correction passed native model reads with0generation. The production page-context correction was subsequently published/deployed
+  at4f2b4cc3, with an actual pro3 read-only model BDD. The later pro3
+  character+preset submission was explicitly WAF-rejected, accepted0,unknown=false.
+  Accepted rendered character/audio/video proof remains open.
 - [x] **R05 — Native video controls (bounded discovery, limits recorded).** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the
@@ -476,3 +481,22 @@ are bounded observations, not complete account inventories. REST-only durable
 inventoryObservations now upserts validated metadata under the exact configured
 account/profile, excludes URLs/prompts/captions/cursors and preserves absent
 observations without deleting or establishing fresh GetMedia authority. R03 stays open.
+
+
+### R02 explicit resource aliases — 2026-10-04
+
+HTTP character and saved-user-voice aliases now have explicit fresh-owned
+registration/detail/local-removal routes. Character image count is exactly1or2
+and excludes thumbnails; an optional voice suffix requires active saved-user
+workflow/audio proof, not a system preset. Saved-voice aliases verify distinct
+workflow/audio IDs and protected playback. Opaque URL-safe prefixes are not vendor
+identity and aliases never widen generation/mutation inputs. SDK/CLI/MCP remain raw.
+Actual character alias REST BDD passed on pro1:1passed,1saved-voice fixture skip,
+2warnings in26.26seconds, with zero generation/Google mutation. Fresh registration,
+no-store read, local removal and raw original read were verified. Saved-user audio
+requires a suitable fixture/user permission and remains pending. Final source
+gates passed6602tests,5skips,89%coverage; R02 stays unchecked.
+
+Prior history batch41784983 is published across all3 registrations and deployed
+with services active. Its actual SDK18.39s and REST18.77s two-page/40joined-media
+proofs remain separate from this new resource-alias batch and full history claims.

@@ -1216,3 +1216,35 @@ Frozen-source history gate:6556tests passed,5skipped,89%coverage in211.92seconds
 Hygiene, documentation links, public PII, generated mirrors, council references,
 Ruff, formatting and strict source Pyright passed. Publication/deployment is
 recorded separately; source functionality does not prove paid R04 acceptance.
+
+
+## R02 explicit resource aliases — 2026-10-04
+
+Current resource-alias module/server tests:57passed. Fresh detail checks exact
+owned character/project/reference count and optional saved-user workflow/audio;
+voice mappings require exact distinct workflow/audio IDs and protected playback.
+Character/voice read routes derive registered scope, revalidate and use no-store;
+local removal performs no Google mutation. SDK/CLI/MCP and generation/mutation
+inputs remain unchanged. Real character alias BDD was pending at this initial source checkpoint; its
+subsequent actual result is recorded below. Saved-user audio and final full gates
+remain pending. R02 is not complete.
+
+Prior41784983 history batch is published across all3 registrations, deployed and
+services active. Prior SDK18.39s and REST18.77s two-page40join evidence remains
+historical; it is not new resource-alias acceptance or complete-history proof.
+
+Actual current-source resource-alias REST BDD on pro1:1passed(character),
+1skipped(saved-user voice absent),2warnings in26.26seconds. It used the real
+private worker with zero generation/Google mutation. Unknown alias404, fresh
+registration, no-store GET, local removal and fresh raw-original read passed.
+This proves the character mapping lifecycle; saved-user voice acceptance requires
+an available fixture/user permission and remains open. Owned pro1 resource-alias fixture cleanup subsequently finished successfully
+(phase:cleaned), preserving original character IDs and the fresh source image,
+with zero generations. Full frozen-source gates remain underway.
+
+Resource-alias final frozen-source gates passed:6602tests,5skips,15warnings,
+89%coverage in214.84seconds. Hygiene, document links, published PII, website
+mirrors, council checks, Ruff/formatting and Pyright0errors all passed. Character
+live alias acceptance and fixture cleanup are recorded above. Saved-user voice
+fixture/playback acceptance and broader R02 parity remain open. Publication and
+deployment are separate coordinator steps, not claimed by this gate result.

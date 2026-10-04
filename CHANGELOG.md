@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add explicit HTTP character and saved-user-voice alias registration, fresh owned detail and local-only mapping removal. Character count excludes thumbnails; optional saved voice and dual-ID audio mappings require fresh proof. SDK/CLI/MCP and generation/mutation inputs remain unchanged; live cohorts and broader R02 parity remain pending.
+
 - REST history enrichment records private account/profile-scoped metadata observations and returns inventoryObservations counts; no protected URLs, prompts or cursors are persisted, and absence never authorizes deletion or fresh ownership.
 
 - Add bounded native account-history SDK reads and optional CLI/MCP/HTTP project-list enrichment with independent continuation/page/media controls, URL-free DTOs and separate cursor exhaustion/unknown completeness. Full history, generated-only summaries and reconciliation remain unclaimed.

@@ -19,6 +19,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, cast
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -36,6 +37,11 @@ from gflow_cli.selfhost.config import (
 )
 from gflow_cli.selfhost.native_aliases import NativeAlias, NativeAliasStore, alias_spec
 from gflow_cli.selfhost.native_observations import NativeObservationStore
+from gflow_cli.selfhost.native_resource_aliases import (
+    NativeResourceAlias,
+    NativeResourceAliasStore,
+    resource_alias_spec,
+)
 from gflow_cli.selfhost.runtime import (
     contained_file,
     deliver_callbacks,
@@ -84,6 +90,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     store = Store(cfg.root)
     aliases = NativeAliasStore(cfg.root)
     observations = NativeObservationStore(cfg.root)
+    resource_aliases = NativeResourceAliasStore(cfg.root)
     store.account_seed(cfg.accounts)
     cfg.accounts = {
         row["profile"]: {"email": row["email"], "project": row["project"]}
@@ -714,6 +721,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/media-native-timeline",
                 "assets/media-native-attached-inventory",
                 "assets/verified-composite-read-mappings",
+                "characters/verified-composite-read-mappings",
+                "voices/verified-composite-read-mappings",
                 "assets/media-native-upload-and-source-time",
                 "assets/archive-native-whole-batch",
                 "assets/delete-native-individual",
@@ -1372,7 +1381,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(404, "Managed asset not found") from None
         return FileResponse(path, media_type=row["mime"], filename=path.name)
 
-    def verified_alias_account(binding: NativeAlias) -> None:
+    def verified_alias_account(binding: NativeAlias | NativeResourceAlias) -> None:
         configured = cfg.accounts.get(binding.profile)
         row = next((row for row in store.accounts() if row["profile"] == binding.profile), None)
         if (
@@ -1899,14 +1908,228 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             },
         )
 
+    def resource_alias_scope(request: Request, alias: str, kind: str) -> NativeResourceAlias:
+        try:
+            binding = resource_aliases.get(alias)
+        except ValueError:
+            raise HTTPException(400, "Unsupported resource composite alias") from None
+        if binding is None:
+            raise HTTPException(404, "Resource composite alias is not registered")
+        if binding.kind != kind:
+            raise HTTPException(400, "Resource composite alias has another kind")
+        verified_alias_account(binding)
+        account = request.query_params.get("email")
+        if account is not None and account != binding.account:
+            raise HTTPException(403, "Resource composite alias belongs to another account")
+        if (
+            "projectId" in request.query_params
+            and uuid_value(request.query_params["projectId"], "projectId") != binding.project_id
+        ):
+            raise HTTPException(403, "Resource composite alias belongs to another project")
+        return binding
+
+    def verify_resource_declarations(
+        binding: NativeResourceAlias, row: dict[str, Any], *, registration: bool
+    ) -> None:
+        mismatch = 400 if registration else 502
+        audio: dict[str, Any]
+        if binding.kind == "voice":
+            if row.get("project_id") != binding.project_id or row.get("ref") != binding.native_id:
+                raise HTTPException(502, "Saved voice alias ownership is unresolved")
+            if row.get("workflow_id") != binding.workflow_id:
+                raise HTTPException(mismatch, "Saved voice workflow does not match its alias")
+            audio = row
+        else:
+            if (
+                row.get("project_id") != binding.project_id
+                or row.get("entity_id") != binding.native_id
+            ):
+                raise HTTPException(502, "Character alias ownership is unresolved")
+            images = row.get("image_references")
+            if not isinstance(images, list):
+                raise HTTPException(502, "Character alias image details are unavailable")
+            images = cast(list[Any], images)
+            if len(images) != binding.image_count:
+                raise HTTPException(mismatch, "Character image count does not match its alias")
+            identifiers: set[str] = set()
+            for candidate in images:
+                if not isinstance(candidate, dict):
+                    raise HTTPException(502, "Character alias image ownership is unresolved")
+                image = cast(dict[str, Any], candidate)
+                identifier = uuid_value(image.get("media_id"), "native image identity")
+                uuid_value(image.get("workflow_id"), "native workflow identity")
+                if identifier in identifiers:
+                    raise HTTPException(502, "Character alias image identity is ambiguous")
+                identifiers.add(identifier)
+            if binding.voice_workflow_id is None:
+                return
+            raw_audio = row.get("voice_detail")
+            if not isinstance(raw_audio, dict):
+                raise HTTPException(mismatch, "Character alias requires an owned saved voice")
+            audio = cast(dict[str, Any], raw_audio)
+            if audio.get("source") != "user":
+                raise HTTPException(mismatch, "Character alias requires an owned saved voice")
+            if audio.get("project_id") != binding.project_id:
+                raise HTTPException(502, "Character saved voice project is unresolved")
+            if audio.get("workflow_id") != binding.voice_workflow_id:
+                raise HTTPException(
+                    mismatch, "Character saved voice workflow does not match its alias"
+                )
+            uuid_value(audio.get("ref"), "native saved voice identity")
+            if audio.get("voice") != audio.get("ref"):
+                raise HTTPException(502, "Character saved voice identity is unresolved")
+        if audio.get("deleted") is True or audio.get("source") != "user":
+            raise HTTPException(502, "Saved voice playback is unavailable")
+        value = audio.get("audio_url")
+        if not isinstance(value, str) or len(value) > 8192:
+            raise HTTPException(502, "Saved voice playback is unavailable")
+        try:
+            parsed = urlsplit(value)
+        except ValueError:
+            raise HTTPException(502, "Saved voice playback is unavailable") from None
+        if (
+            parsed.scheme != "https"
+            or parsed.netloc != "flow-content.google"
+            or not parsed.path.startswith("/audio/")
+            or parsed.fragment
+        ):
+            raise HTTPException(502, "Saved voice playback is unavailable")
+
+    async def resource_alias_metadata(binding: NativeResourceAlias) -> dict[str, Any]:
+        character = binding.kind == "character"
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "character-detail" if character else "voice-saved-get",
+                binding.profile,
+                json.dumps(
+                    {
+                        "project_id": binding.project_id,
+                        "entity_id" if character else "ref": binding.native_id,
+                    }
+                ),
+            ],
+            120,
+        )
+        try:
+            result = parse_json_output(raw)
+            row = result["character"] if character else result
+            if code or result.get("status") != "ok" or not isinstance(row, dict):
+                raise ValueError
+            if result.get("project_id") != binding.project_id:
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(502, "Fresh resource alias detail is unavailable") from None
+        return cast(dict[str, Any], row)
+
+    @app.post(prefix + "/characters/{email}/aliases", status_code=201)
+    @app.post(prefix + "/voices/{email}/aliases", status_code=201)
+    async def register_resource_alias(
+        request: Request, email: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        character = request.url.path.split("/")[3] == "characters"
+        check_unknown(
+            payload,
+            {"alias", "projectId", "entityId"}
+            if character
+            else {"alias", "projectId", "mediaId", "workflowId"},
+        )
+        alias = payload.get("alias")
+        if not isinstance(alias, str):
+            raise HTTPException(422, "Resource composite alias requires a supported shape")
+        try:
+            spec = resource_alias_spec(alias)
+        except ValueError:
+            raise HTTPException(
+                422, "Resource composite alias requires a supported shape"
+            ) from None
+        if (spec.kind == "character") != character:
+            raise HTTPException(422, "Resource alias kind does not match the endpoint")
+        native = uuid_value(payload.get("entityId" if character else "mediaId"), "native identity")
+        if native != spec.native_id:
+            raise HTTPException(422, "Resource alias does not match its explicit native identity")
+        if (
+            not character
+            and uuid_value(payload.get("workflowId"), "workflowId") != spec.workflow_id
+        ):
+            raise HTTPException(422, "Voice alias does not match its explicit workflow identity")
+        profile = pick_account(email, [])
+        project = uuid_value(
+            payload.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        binding = NativeResourceAlias(
+            alias,
+            profile,
+            cfg.accounts[profile]["email"],
+            project,
+            spec.kind,
+            native,
+            workflow_id=spec.workflow_id,
+            image_count=spec.image_count,
+            voice_workflow_id=spec.voice_workflow_id,
+        )
+        verified_alias_account(binding)
+        existing = resource_aliases.get(alias)
+        if existing is not None and existing != binding:
+            raise HTTPException(409, "Resource composite alias conflicts with its existing binding")
+        row = await resource_alias_metadata(binding)
+        verify_resource_declarations(binding, row, registration=True)
+        try:
+            resource_aliases.register(binding)
+        except ValueError:
+            raise HTTPException(
+                409, "Resource composite alias conflicts with its existing binding"
+            ) from None
+        return {
+            "alias": alias,
+            "ref": alias,
+            "nativeRef": native,
+            "projectId": project,
+            "kind": spec.kind,
+            "verified": True,
+            "scope": "exact local mapping verified by fresh native resource detail",
+        }
+
+    @app.delete(prefix + "/characters/{email}/aliases/{alias}")
+    @app.delete(prefix + "/voices/{email}/aliases/{alias}")
+    async def remove_resource_alias(request: Request, email: str, alias: str) -> dict[str, Any]:
+        if request.query_params:
+            raise HTTPException(422, "Local alias removal accepts no query controls")
+        profile = pick_account(email, [])
+        try:
+            spec = resource_alias_spec(alias)
+            if (spec.kind == "character") != (request.url.path.split("/")[3] == "characters"):
+                raise ValueError
+            removed = resource_aliases.remove(alias, profile, cfg.accounts[profile]["email"])
+        except ValueError:
+            raise HTTPException(
+                403, "Resource alias is invalid or belongs to another scope"
+            ) from None
+        if not removed:
+            raise HTTPException(404, "Resource composite alias is not registered")
+        return {
+            "alias": alias,
+            "removed": True,
+            "googleResourceDeleted": False,
+            "scope": "local-alias",
+        }
+
     @app.get(prefix + "/characters/{ref}")
     async def get_character(request: Request, ref: str) -> JSONResponse:
         if request.query_params.get("source", "google") != "google":
             raise HTTPException(422, "Character source requires google")
         if "catalog" in request.query_params:
             raise HTTPException(422, "catalog is a voice-only option")
-        profile, project = character_project(dict(request.query_params))
-        ref = uuid_value(ref, "ref")
+        binding = (
+            resource_alias_scope(request, ref, "character") if ref.startswith("user:") else None
+        )
+        if binding is None:
+            profile, project = character_project(dict(request.query_params))
+            ref = uuid_value(ref, "ref")
+        else:
+            profile, project, ref = binding.profile, binding.project_id, binding.native_id
         code, raw = await subprocess_run(
             [
                 sys.executable,
@@ -1929,6 +2152,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 or row["project_id"] != project
             ):
                 raise ValueError
+            if binding is not None:
+                verify_resource_declarations(binding, row, registration=False)
             item = character_item(row, detail=True)
             item["entityId"] = ref
             item["imageReferences"] = [
@@ -1960,6 +2185,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                         item["voice"][public] = voice[original]
         except (KeyError, TypeError, ValueError):
             raise HTTPException(502, "Native character detail unresolved") from None
+        if binding is not None:
+            item["ref"] = binding.alias
+            item["nativeRef"] = ref
         return JSONResponse(item, headers={"Cache-Control": "no-store"})
 
     @app.get(prefix + "/characters")
@@ -2092,8 +2320,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.get(prefix + "/voices/{ref}", response_model=None)
     async def voice(request: Request, ref: str) -> dict[str, Any] | JSONResponse:
-        if request.query_params.get("source", "system") in {"custom", "user"}:
-            profile, project = character_project(dict(request.query_params))
+        binding = resource_alias_scope(request, ref, "voice") if ref.startswith("user:") else None
+        source = request.query_params.get("source", "user" if binding is not None else "system")
+        if binding is not None and source not in {"custom", "user"}:
+            raise HTTPException(422, "Saved voice alias source requires user or custom")
+        if source in {"custom", "user"}:
+            if binding is None:
+                profile, project = character_project(dict(request.query_params))
+            else:
+                profile, project, ref = binding.profile, binding.project_id, binding.native_id
             code, raw = await subprocess_run(
                 [
                     sys.executable,
@@ -2112,7 +2347,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(502, "Saved voice detail unavailable")
             if result.get("project_id") != project or result.get("ref") != uuid_value(ref, "ref"):
                 raise HTTPException(502, "Saved voice detail ownership unresolved")
-            return JSONResponse(saved_voice_item(result), headers={"Cache-Control": "no-store"})
+            if binding is not None:
+                verify_resource_declarations(binding, result, registration=False)
+            item = saved_voice_item(result)
+            if binding is not None:
+                item["ref"] = item["voice"] = binding.alias
+                item["nativeRef"] = ref
+            return JSONResponse(item, headers={"Cache-Control": "no-store"})
         match = next(
             (
                 item

@@ -653,8 +653,8 @@ Supported syntax is user:OPAQUE-email:OPAQUE-image:UUID, or video:UUID. Prefixes
 use only ASCII letters, digits and . _ ~ -; user is1–128 characters and email
 is1–512, with a1024-character total cap. These are opaque local labels, not decoded
 useapi user/account identities. The media suffix must match the explicit UUID.
-Character/voice aliases, arbitrary vendor encodings and automatic generation or
-reference-argument translation are unsupported.
+Character/voice aliases use the separate explicit resource routes below; arbitrary
+vendor encodings and automatic generation/reference translation are unsupported.
 
 ```python
 media_uuid = "11111111-1111-4111-8111-111111111111" # replace with an owned image
@@ -718,3 +718,53 @@ stores no URLs, prompts, captions or cursors. Missing rows remain observed rathe
 than deleted; counts accumulate observations, not complete or current inventory.
 This REST-only cache never authorizes GetMedia, generation references or deletion.
 SDK/CLI/MCP do not create it.
+
+
+## Explicit character and saved-voice aliases
+
+HTTP resource aliases bind existing owned native detail, never decoded vendor
+identity. Prefixes follow the image/video URL-safe opaque subset above. Character
+syntax: user:X-email:Y-character:ENTITY_UUID-imgs:1 (or2), optionally suffixed
+with -voice:SAVED_VOICE_WORKFLOW_UUID. Saved voice syntax:
+user:X-email:Y-voice:WORKFLOW_UUID-mid:AUDIO_UUID.
+
+POST /characters/{configuredAccount}/aliases accepts alias, entityId and optional
+projectId (configured default). Fresh owned character detail must match the exact
+entity/project and image count; a separate thumbnail does not count as an image
+reference. An optional voice suffix requires fresh active source=user saved-voice
+workflow/audio proof in that project; a system preset does not satisfy it.
+
+POST /voices/{configuredAccount}/aliases accepts alias, mediaId, workflowId and
+optional projectId. Fresh saved-voice detail must prove the exact owned audio UUID,
+workflow/project and protected playback URL. Unresolved/deleted playback refuses.
+Registration returns201 after fresh verification; repeated identical mappings
+reverify, and conflicting immutable bindings return409. No protected URL is stored.
+
+```python
+entity_uuid = "11111111-1111-4111-8111-111111111111" # replace with an owned character
+alias = f"user:local-email:account-one-character:{entity_uuid}-imgs:1"
+created = client.post("/characters/account-one/aliases", json={
+    "alias": alias, "entityId": entity_uuid,
+})
+created.raise_for_status()
+detail = client.get(f"/characters/{alias}")
+detail.raise_for_status() # confidential detail URLs: do not log
+client.delete(f"/characters/account-one/aliases/{alias}").raise_for_status()
+```
+
+GET /characters/{alias} and /voices/{alias} derive account/project from the exact
+registered mapping and revalidate fresh detail. Voice alias reads default to user
+detail; explicit foreign email/projectId returns403. Responses expose ref as the
+alias, nativeRef as the raw entity/audio UUID and confidential transient detail
+URLs under Cache-Control:no-store. Missing local mapping404 is not proof that
+the Google resource is missing; unresolved native ownership/detail returns502.
+
+DELETE /characters/{account}/aliases/{alias} or /voices/{account}/aliases/{alias}
+removes the scoped local mapping only, returning googleResourceDeleted:false.
+It performs no Google resource mutation. The generic HTTP asset endpoint rejects
+character/voice aliases with400. Aliases are not automatically stripped or
+accepted as generation/reference/mutation inputs. Raw SDK/CLI/MCP inputs retain
+their existing contract. Saved-user audio acceptance and broader R02 equivalence
+remain pending. Actual character-alias REST lifecycle passed without generation
+or Google mutation, and final frozen-source gates passed. Saved-voice fixture
+coverage and broader R02 equivalence remain open.
