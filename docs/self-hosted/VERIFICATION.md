@@ -1434,3 +1434,13 @@ missing identity; original registration/profile stayed intact. No paid generatio
 The first whole gate had7197passes/3integration failures/5skips/90%coverage;
 missing E2E tags/audio registry and a moved policy mock were corrected
 (222focused passes/1skip). Final frozen-source release gate remains pending.
+
+
+## First overnight release and actual deployed reads — 4 October
+Source b8aba7b4d28edd08ecf15e1fb34a181b3df5e0d6 passed all release gates:7218tests,5skips,90%coverage; hygiene/docs/website mirror/council/Ruff/format/strict Pyright green. It is atomically published on all three fork branches and fast-forward deployed on CC LXC. Actual authenticated REST accounts/defaultjobsummary/CAPTCHAstats HTTP200, configured GUI capability and MCP initialize/list41tools passed. Deployed REST and registered MCP inventory sync each advanced one bounded read step with zero generation. These are read/transport proofs, not accepted solver output.
+
+The ten-reference probe after the270second budget fix still failed291.83seconds before submit/capture. A different first-miss-only diagnostic attached two26-character references then saw zero options for the third; no generation requests were forwarded. Fixture archive was acknowledged; fresh cleanup confirmation is recorded separately. Successful pro3 staged cookie import did not occur: candidate verifier reported no_session; original registration/profile preserved. Two real pro3 audio previews were explicitly WAF-refused,1050credits unchanged, accepted0.
+
+
+## R01 ten-reference live correction
+After the append-caret source correction and RED/GREEN actual DOM regression, the real logged-in native HARBOR_SEAL ten-reference abort-only BDD passed1test,2warnings in226.35seconds. It validated all ten exact media identities and canonical prompt order in the captured native body; generation requests forwarded0. Cleanup acknowledged only invocation-owned fixtures and verified all original active media. This establishes retention/transport, not generated output.

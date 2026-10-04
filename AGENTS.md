@@ -489,3 +489,8 @@ remains unknown. See [sync](https://github.com/Fograd/gflow-cli/blob/develop/doc
 Dedicated native video/TTS REST workers support explicit provider selection and
 confirmed-WAF-only bounded retries. Public SDK scopes and CLI/MCP supplied-token
 inputs remain one use; see [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).
+
+
+Observed account characters/saved voices: SDK list_account_resources, CLI project account-resources, direct MCP gflow_list_account_resources and REST GET assets/resources/{email} share bounded opaque continuation. Completeness is unknown; no absence deletion. See [resources](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/ACCOUNT_RESOURCES.md).
+Generic video count1 provider controls: SDK services.video_captcha wrapper, CLI t2v/i2v/r2v provider-order/retry/private-token-file and queued MCP gflow_generate_video provider controls; HTTP videos accepts mutually exclusive token/order/retry. Queued confidential tokens refuse. See [generic CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/GENERIC_VIDEO_CAPTCHA.md).
+Image upscale2K/4K explicit REST provider controls support1–10 positively confirmed WAF-only attempts. Fresh4K availability is checked before paid mint and dispatch; unavailable Pro options refuse. Existing SDK scopes/CLI token-file/direct MCP token remain single sequence. See [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).

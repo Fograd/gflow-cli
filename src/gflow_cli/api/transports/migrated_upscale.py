@@ -27,7 +27,10 @@ from gflow_cli.api.transports.migrated_composer import (
     MIGRATED_PROJECT_URL,
     _submit_refusal,  # pyright: ignore[reportPrivateUsage]
 )
-from gflow_cli.api.transports.migrated_upscale_overrides import UpscaleOverride
+from gflow_cli.api.transports.migrated_upscale_overrides import (
+    UpscaleOverride,
+    native_upscale_enum,
+)
 from gflow_cli.api.transports.native_asset_lookup import lookup_asset
 from gflow_cli.errors import (
     TransportTimeoutError,
@@ -37,7 +40,7 @@ from gflow_cli.errors import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from playwright.async_api import Page, Response
+    from playwright.async_api import ElementHandle, Page, Response
 
 log = structlog.get_logger(__name__)
 
@@ -60,9 +63,8 @@ def matches_upscale_request(
 ) -> bool:
     """Correlate the observed SPrCad request before accepting its response.
 
-    2K is numeric value 1 on the measured wire. The Pro account cannot submit
-    4K, so its numeric value remains unmeasured here; media and project still
-    bind that request to this operation.
+    Google's current frontend maps image 2K/4K to numeric 1/2. Native image
+    and selected project bind the synchronous in-place output to this operation.
     """
     if not isinstance(body, str):
         return False
@@ -77,7 +79,7 @@ def matches_upscale_request(
         args = cast("list[Any]", raw_args)
         if len(args) < 3 or args[0] != media_id:
             return False
-        if target_resolution is TargetResolution.RES_2K and args[1] != 1:
+        if type(args[1]) is not int or args[1] != native_upscale_enum(target_resolution):
             return False
         pending: list[Any] = [args[2]]
         while pending:
@@ -93,49 +95,8 @@ def matches_upscale_request(
         return False
 
 
-async def upscale_image_migrated(
-    page: Page,
-    *,
-    project_id: str,
-    media_id: str,
-    target_resolution: TargetResolution,
-    timeout_s: float = _DEFAULT_TIMEOUT_S,
-) -> bytes:
-    """Upscale an image on the migrated ``flow.google.com`` frontend.
-
-    Navigates directly to the image detail view, opens
-    the download menu, checks whether the requested scale is available on the
-    current account tier, triggers the upscale, and decodes the resulting
-    ``SPrCad`` payload into raw image bytes.
-
-    Returns:
-        Raw decoded JPEG/PNG bytes.
-    """
-    project_url = MIGRATED_PROJECT_URL.format(project_id=project_id)
-    override = None
-    context = copy_context()
-    if native_captcha_active():
-        if target_resolution is not TargetResolution.RES_2K:
-            raise UpscaleUnavailableError(
-                detail="Explicit CAPTCHA override currently supports measured 2K upscale only",
-                route="image_upscale",
-                status=501,
-            )
-        await page.goto(project_url, wait_until="domcontentloaded")
-        owned = await lookup_asset(page, project_id=project_id, media_id=media_id)
-        if owned.media_id != media_id or owned.project_id != project_id or owned.kind != "image":
-            raise WireFormatError(
-                detail="Explicit image upscale requires fresh selected-project owned image proof",
-                route="image_upscale",
-            )
-        token = await TokenMinter(page).mint("IMAGE_GENERATION")
-        override = UpscaleOverride(project=project_id, media=media_id, token=token)
-    log.info("migrated_upscale.navigate", project_id=project_id, media_id=media_id)
-    # The project gallery virtualises old tiles out of the DOM. Opening a
-    # validated detail URL works independently of gallery size and scroll state.
-    detail_url = f"{project_url}/edit/{media_id}"
-    await page.goto(detail_url, wait_until="domcontentloaded")
-
+async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> ElementHandle:
+    """Read the current exact detail-menu availability; never dispatch or mint."""
     # Click the download button in the image detail viewer (exact icon match)
     try:
         download_btn = await page.wait_for_selector(
@@ -193,6 +154,57 @@ async def upscale_image_migrated(
             route="upsampleImage",
             status=403,
         )
+
+    return btn_target
+
+
+async def upscale_image_migrated(
+    page: Page,
+    *,
+    project_id: str,
+    media_id: str,
+    target_resolution: TargetResolution,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+) -> bytes:
+    """Upscale an image on the migrated ``flow.google.com`` frontend.
+
+    Navigates directly to the image detail view, opens
+    the download menu, checks whether the requested scale is available on the
+    current account tier, triggers the upscale, and decodes the resulting
+    ``SPrCad`` payload into raw image bytes.
+
+    Returns:
+        Raw decoded JPEG/PNG bytes.
+    """
+    native_upscale_enum(target_resolution)  # refuse unknown input before navigation or mint
+    project_url = MIGRATED_PROJECT_URL.format(project_id=project_id)
+    detail_url = f"{project_url}/edit/{media_id}"
+    override = None
+    context = copy_context()
+    if native_captcha_active():
+        await page.goto(project_url, wait_until="domcontentloaded")
+        owned = await lookup_asset(page, project_id=project_id, media_id=media_id)
+        if owned.media_id != media_id or owned.project_id != project_id or owned.kind != "image":
+            raise WireFormatError(
+                detail="Explicit image upscale requires fresh selected-project owned image proof",
+                route="image_upscale",
+            )
+        if target_resolution is TargetResolution.RES_4K:
+            # A source-proven enum does not establish this account's entitlement.
+            # Probe fresh UI availability before paid mint, then recheck after mint.
+            await page.goto(detail_url, wait_until="domcontentloaded")
+            await _upscale_menu(page, target_resolution)
+            await page.goto(project_url, wait_until="domcontentloaded")
+        token = await TokenMinter(page).mint("IMAGE_GENERATION")
+        override = UpscaleOverride(
+            project=project_id, media=media_id, token=token, target_resolution=target_resolution
+        )
+    log.info("migrated_upscale.navigate", project_id=project_id, media_id=media_id)
+    # The project gallery virtualises old tiles out of the DOM. Opening a
+    # validated detail URL works independently of gallery size and scroll state.
+    await page.goto(detail_url, wait_until="domcontentloaded")
+
+    btn_target = await _upscale_menu(page, target_resolution)
 
     loop = asyncio.get_running_loop()
     found_b64: asyncio.Future[str] = loop.create_future()

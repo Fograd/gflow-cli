@@ -24,6 +24,7 @@ from gflow_cli.api.native_catalogs import (
     validate_project_traversal,
 )
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
+from gflow_cli.cli_account_resources import resources_subcommand
 from gflow_cli.cli_data import _db_path, _emit_projects_table
 from gflow_cli.cli_inventory_sync import sync_subcommand
 from gflow_cli.config import get_settings
@@ -47,6 +48,7 @@ def project() -> None:
 
 
 project.add_command(sync_subcommand)
+project.add_command(resources_subcommand)
 
 
 @project.command("list")

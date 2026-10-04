@@ -47,6 +47,12 @@ class _Loc:
     async def click(self, **_: Any) -> None:
         if self.kind == "composer":
             self.page.composer_clicks += 1
+            self.page.caret_at_end = False
+
+    async def evaluate(self, script: str) -> None:
+        assert self.kind == "composer"
+        assert "selectNodeContents(e)" in script and "collapse(false)" in script
+        self.page.caret_at_end = True
 
 
 class _Keyboard:
@@ -56,6 +62,7 @@ class _Keyboard:
     async def type(self, text: str, **_: Any) -> None:
         self.page.typed.append(text)
         if text == "@":
+            assert self.page.caret_at_end
             self.page.dialog_open = True
             self.page.active = 0
 
@@ -99,6 +106,7 @@ class FakePage:
         self.dialog_open = False
         self.active = 0
         self.composer_clicks = 0
+        self.caret_at_end = False
 
     def options(self) -> list[tuple[str, str]]:
         return [] if self.searches <= self.miss_first else self._options

@@ -30,7 +30,7 @@ Run individual opted-in scenarios, not the whole paid marker tier.
 ## Surface coverage
 CLI and direct registered MCP share SDK operations. Queued MCP and REST can
 execute different workers, so verify those paths explicitly. Native direct MCP
-adapters have no queued twin; do not imply one. Registered source now has41tools,
+adapters have no queued twin; do not imply one. Registered source now has42tools,
 including gflow_sync_native_inventory. API route scopes are in [API.md](API.md).
 
 ## Current boundaries
@@ -45,3 +45,6 @@ separate. Stop on accepted/unknown partial writes, inspect retained actual handl
 and continue a different unblocked case. Extra paid allowance or human login is
 requested only after the current authorized work and preparation are complete.
 See [roadmap](PARITY.md#roadmap) and [verification](VERIFICATION.md).
+
+
+Before final R12: the ten-reference picker failure is fixed and its live abort-only proof passed; run bounded observed account-resource continuation over character/voice kinds; verify generic count1 provider controls and2K refusal retry with remaining operator budget. Entitled4K requires an actually enabled account option; unavailable Pro tiers are refusal tests. Successful cookie import/renewal and accepted saved voice/audio binding remain prerequisites for their complete lifecycle tests. Whole-source tests and actual read proofs do not replace these acceptance checks.

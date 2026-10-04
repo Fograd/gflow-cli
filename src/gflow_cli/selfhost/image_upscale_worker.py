@@ -1,4 +1,4 @@
-"""Private measured 2K upscale token/provider bridge, with no credential argv."""
+"""Private source-backed image upscale token/provider bridge, with no credential argv."""
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ from typing import Any
 
 from gflow_cli._cli_helpers import _make_provider_dir, run_with_handlers
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.image_upscale import TargetResolution
+from gflow_cli.api.image_upscale import TargetResolution, UpsampleImageRequest
 from gflow_cli.config import get_settings
-from gflow_cli.selfhost.native_captcha import private_native_captcha
+from gflow_cli.selfhost.native_captcha_policy import run_with_native_captcha_policy
 
 
 async def upscale(profile: str, project: str, request_path: Path) -> None:
     payload: dict[str, Any] = json.loads(request_path.read_text(encoding="utf-8"))
     resolution = TargetResolution.from_cli(payload["resolution"])
-    if resolution is not TargetResolution.RES_2K:
-        raise ValueError("Explicit native CAPTCHA supports measured 2K upscale only")
-    if type(payload.get("captchaRetry", 1)) is not int or payload.get("captchaRetry", 1) != 1:
-        raise ValueError("Image upscale currently supports one explicit CAPTCHA attempt")
+    UpsampleImageRequest(
+        media_id=payload["mediaGenerationId"], project_id=project, target_resolution=resolution
+    )
     settings = get_settings()
     out = request_path.parent
-    with private_native_captcha(payload, project, "IMAGE_GENERATION"):
+
+    async def attempt() -> None:
         async with FlowApiClient(
             profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
         ) as client:
@@ -33,6 +33,8 @@ async def upscale(profile: str, project: str, request_path: Path) -> None:
                 target_resolution=resolution,
                 out_path=out / "upscaled.png",
             )
+
+    await run_with_native_captcha_policy(payload, project, "IMAGE_GENERATION", attempt)
 
 
 def main() -> None:

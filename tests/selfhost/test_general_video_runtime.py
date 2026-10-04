@@ -18,7 +18,8 @@ W = "33333333-3333-4333-8333-333333333333"
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["ok", "unknown", "malformed"])
-async def test_generic_private_worker_and_cleanup(tmp_path, monkeypatch, outcome):
+@pytest.mark.parametrize("configured", [False, True])
+async def test_generic_private_worker_and_cleanup(tmp_path, monkeypatch, outcome, configured):
     cfg = settings(tmp_path)
     store = Store(tmp_path)
     directory = tmp_path / "captcha-input"
@@ -35,7 +36,11 @@ async def test_generic_private_worker_and_cleanup(tmp_path, monkeypatch, outcome
             "aspectRatio": "16:9",
             "count": 1,
             "model": "veo-3.1-lite",
-            "captchaSecret": str(secret),
+            **(
+                {"captchaOrder": "CapSolver", "captchaRetry": 2}
+                if configured
+                else {"captchaSecret": str(secret)}
+            ),
         },
         None,
     )
@@ -48,7 +53,11 @@ async def test_generic_private_worker_and_cleanup(tmp_path, monkeypatch, outcome
         seen.append(path)
         assert path.stat().st_mode & 0o777 == 0o600
         payload = json.loads(path.read_text())
-        assert payload["captchaSecret"] == str(secret)
+        if configured:
+            assert payload["captchaOrder"] == "CapSolver" and payload["captchaRetry"] == 2
+            assert "captchaSecret" not in payload
+        else:
+            assert payload["captchaSecret"] == str(secret)
         assert "private-test-token" not in " ".join(args)
         if outcome == "ok":
             video = path.parent / "video.mp4"
@@ -78,7 +87,7 @@ async def test_generic_private_worker_and_cleanup(tmp_path, monkeypatch, outcome
     monkeypatch.setattr(runtime, "subprocess_run", subprocess)
     result = await runtime.execute(cfg, store, job)
     assert all(not path.exists() for path in seen)
-    assert not secret.exists()
+    assert secret.exists() is configured
     assert "private-unsafe-value" not in json.dumps(result)
     if outcome == "ok":
         assert result["captchaProvider"] == "supplied"

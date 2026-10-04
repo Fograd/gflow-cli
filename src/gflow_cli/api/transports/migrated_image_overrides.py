@@ -172,17 +172,21 @@ def rewrite_submit(
         ) from None
 
 
-def reload_metadata(url: str, body: bytes) -> dict[str, str] | None:
+def reload_metadata(
+    url: str, body: bytes, *, expected_action: str = "IMAGE_GENERATION"
+) -> dict[str, str] | None:
     """Read measured public metadata, never retain the private reload envelope.
 
     Two aborted image submits on 2026-10-02 observed protobuf field8 action and
     field14 sitekey. The latter must match the trusted request's public k query.
     Unknown or truncated envelopes refuse solver tasks rather than invent an action.
     """
+    if expected_action not in ("IMAGE_GENERATION", "VIDEO_GENERATION"):
+        raise ValueError("Unknown CAPTCHA action")
     parsed = urlsplit(url)
     if (
         parsed.scheme != "https"
-        or parsed.hostname not in ("www.google.com", "www.recaptcha.net")
+        or parsed.netloc not in ("www.google.com", "www.recaptcha.net")
         or parsed.path != "/recaptcha/enterprise/reload"
     ):
         return None
@@ -238,7 +242,7 @@ def reload_metadata(url: str, body: bytes) -> dict[str, str] | None:
     except (KeyError, UnicodeError):
         raise ValueError("Missing CAPTCHA metadata fields") from None
     if (
-        action != "IMAGE_GENERATION"
+        action != expected_action
         or sitekey != keys[0]
         or not re.fullmatch(r"[A-Za-z0-9_-]+", sitekey)
     ):

@@ -251,6 +251,11 @@ def build_video_request(payload: dict[str, Any]) -> GenerateVideoRequest:
     Callers needing a stable typed failure use :func:`decode_payload`, which
     wraps these into ``QueueSchemaError``.
     """
+    from gflow_cli.selfhost.video_captcha_policy import validate_video_captcha_controls
+
+    validate_video_captcha_controls(
+        payload, payload.get("project") or payload.get("project_id"), queued=True
+    )
     prompt = payload["prompt"]
 
     mode_val = payload.get("mode")

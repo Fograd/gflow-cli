@@ -23,7 +23,7 @@ import time
 import uuid
 from dataclasses import replace as _dataclass_replace
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, ClassVar, NoReturn, Self, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, Self, TypeVar, cast
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import structlog
@@ -3685,6 +3685,49 @@ class FlowApiClient:
             max_projects=max_projects,
             **history_options,
         )
+
+    async def list_account_resources(
+        self,
+        *,
+        kind: Literal["character", "voice"],
+        cursor: str | None = None,
+        max_projects: int = 10,
+        max_pages: int = 1,
+        max_seconds: int = 180,
+    ) -> dict[str, Any]:
+        """Read a bounded observed account resource extension; completeness is unknown."""
+        from gflow_cli.services.account_resources import (
+            account_resource_scope,
+            list_account_resources,
+            validate_account_resource_options,
+        )
+
+        try:
+            validate_account_resource_options(kind, cursor, max_projects, max_pages, max_seconds)
+            root, profile, account = account_resource_scope(self)
+
+            def verify_scope() -> None:
+                if account_resource_scope(self) != (root, profile, account):
+                    raise ConfigurationError(
+                        detail="Account resource identity changed during the read"
+                    )
+
+            result = await list_account_resources(
+                self,
+                root,
+                profile=profile,
+                account=account,
+                kind=kind,
+                cursor=cursor,
+                max_projects=max_projects,
+                max_pages=max_pages,
+                max_seconds=max_seconds,
+                verify_scope=verify_scope,
+            )
+            verify_scope()
+            return result
+        except ValueError as exc:
+            raise ConfigurationError(detail=str(exc)) from None
 
     async def list_native_history(
         self,

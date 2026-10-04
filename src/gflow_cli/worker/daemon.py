@@ -410,14 +410,33 @@ class FlowWorker:
                             except Exception as exc:
                                 logger.warning("Failed to record started video", exc_info=exc)
 
-                        result = await client.generate_video(
-                            req=req,
-                            project_id=project_id,
-                            out_dir=out_dir,
-                            download=True,
-                            on_started=on_started,
-                            on_checkpoint=observe_checkpoint,
-                        )
+                        if any(
+                            task.payload.get(key) is not None
+                            for key in ("captchaOrder", "captchaRetry")
+                        ):
+                            from gflow_cli.services.video_captcha import generate_video_with_captcha
+
+                            assert project_id is not None
+                            result = await generate_video_with_captcha(
+                                client,
+                                req=req,
+                                project_id=project_id,
+                                captcha_order=task.payload.get("captchaOrder"),
+                                captcha_retry=task.payload.get("captchaRetry"),
+                                out_dir=out_dir,
+                                download=True,
+                                on_started=on_started,
+                                on_checkpoint=observe_checkpoint,
+                            )
+                        else:
+                            result = await client.generate_video(
+                                req=req,
+                                project_id=project_id,
+                                out_dir=out_dir,
+                                download=True,
+                                on_started=on_started,
+                                on_checkpoint=observe_checkpoint,
+                            )
                         flow_media_id = result.status.media_id
 
                         output_file_val = task.payload.get("output_file")

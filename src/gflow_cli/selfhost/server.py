@@ -170,6 +170,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     allowed = {"email", "status", "kind", "limit", "cursor", "options", "source"}
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
+                elif path.startswith("/v1/google-flow/assets/resources/"):
+                    allowed = {"kind", "cursor", "maxProjects", "maxPages", "maxSeconds"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
                     allowed = {
                         "limit",
@@ -555,9 +557,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     raise HTTPException(
                         422, "captchaToken requires one bounded token without whitespace"
                     ) from None
-            prepare_image_controls(
-                payload, cfg.root, persist_token=False, native_retry=kind != "images/upscale"
-            )
+            prepare_image_controls(payload, cfg.root, persist_token=False, native_retry=True)
             captcha_token = raw_token if isinstance(raw_token, str) else None
         asynchronous = payload.get("async", False)
         job = await enqueue(request, kind, payload, profile, captcha_token)
@@ -1148,10 +1148,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         )
         if payload.setdefault("resolution", "2k") not in ("2k", "4k"):
             raise HTTPException(422, "resolution requires 2k or 4k")
-        if payload["resolution"] == "4k" and any(
-            key in payload for key in ("captchaToken", "captchaOrder", "captchaRetry")
-        ):
-            feature_missing("Image upscale CAPTCHA overrides currently require resolution=2k")
         try:
             asset = store.asset_get(payload["mediaGenerationId"])
         except KeyError:
@@ -3159,6 +3155,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
         allowed = {
             "captchaToken",
+            "captchaOrder",
+            "captchaRetry",
             "prompt",
             "email",
             "projectId",
@@ -3185,8 +3183,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "Invalid video aspect ratio")
         if type(payload.setdefault("count", 1)) is not int or not 1 <= payload["count"] <= 4:
             raise HTTPException(422, "Video count requires an integer from 1 to 4")
-        if "captchaToken" in payload and payload["count"] != 1:
-            feature_missing("Generic video supplied tokens currently require count=1")
+        if payload["count"] != 1 and any(
+            field in payload for field in ("captchaToken", "captchaOrder", "captchaRetry")
+        ):
+            feature_missing("Generic video CAPTCHA controls currently require count=1")
         model = payload.setdefault("model", "veo-3.1-fast")
         if not isinstance(model, str) or model not in VIDEO_ALIASES:
             raise HTTPException(422, "Unsupported video model")
@@ -3460,6 +3460,20 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(422, "projectId does not own the requested media")
             payload["projectId"] = asset["project"]
         return await submit(request, "videos/promote" if promoting else kind, payload, profile)
+
+    from gflow_cli.selfhost.account_resource_routes import (
+        capture_bound_scope,
+    )
+    from gflow_cli.selfhost.account_resource_routes import (
+        mount as mount_resource_reads,
+    )
+
+    mount_resource_reads(
+        app,
+        pick_account=pick_account,
+        run=subprocess_run,
+        bind_scope=lambda profile, public: capture_bound_scope(cfg, store, profile, public),
+    )
 
     @app.get("/openapi.json")
     async def openapi() -> dict[str, Any]:

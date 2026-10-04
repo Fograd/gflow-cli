@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from gflow_cli.selfhost import image_upscale_worker as worker
+from gflow_cli.selfhost import native_captcha_policy as policy
 
 P = "11111111-1111-4111-8111-111111111111"
 M = "22222222-2222-4222-8222-222222222222"
@@ -41,7 +42,7 @@ async def test_private_upscale_forwards_owned_ids_and_scopes_before_api(tmp_path
     context = MagicMock()
     context.__aenter__ = AsyncMock(return_value=client)
     context.__aexit__ = AsyncMock(return_value=None)
-    monkeypatch.setattr(worker, "private_native_captcha", scope)
+    monkeypatch.setattr(policy, "private_native_captcha", scope)
     monkeypatch.setattr(worker, "FlowApiClient", MagicMock(return_value=context))
     monkeypatch.setattr(worker, "_make_provider_dir", lambda profile: tmp_path)
     monkeypatch.setattr(worker, "get_settings", lambda: SimpleNamespace(headless=True))
@@ -52,14 +53,15 @@ async def test_private_upscale_forwards_owned_ids_and_scopes_before_api(tmp_path
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "controls", [{"resolution": "4k"}, {"captchaRetry": 2}, {"captchaRetry": True}]
+    "controls",
+    [{"resolution": "1k"}, {"captchaRetry": 0}, {"captchaRetry": 11}, {"captchaRetry": True}],
 )
-async def test_unmeasured_controls_refuse_before_scope_or_browser(tmp_path, monkeypatch, controls):
+async def test_invalid_controls_refuse_before_scope_or_browser(tmp_path, monkeypatch, controls):
     path = tmp_path / "request.json"
     path.write_text(json.dumps({"resolution": "2k", "mediaGenerationId": M, **controls}))
     scope = MagicMock()
     client = MagicMock()
-    monkeypatch.setattr(worker, "private_native_captcha", scope)
+    monkeypatch.setattr(policy, "private_native_captcha", scope)
     monkeypatch.setattr(worker, "FlowApiClient", client)
     with pytest.raises(ValueError):
         await worker.upscale("pro1", P, path)

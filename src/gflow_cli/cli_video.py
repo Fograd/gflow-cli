@@ -113,6 +113,56 @@ def _warn_persistence_failed_after_success(
     )
 
 
+def _video_captcha_options(function: Any) -> Any:
+    for option in reversed(
+        (
+            click.option(
+                "--captcha-order",
+                default=None,
+                help="Configured providers, e.g. CapSolver,2Captcha; native count one.",
+            ),
+            click.option(
+                "--captcha-retry",
+                type=click.IntRange(1, 10),
+                default=None,
+                help="Explicit WAF-only maximum attempts; native count one.",
+            ),
+            click.option(
+                "--captcha-token-file",
+                type=click.Path(exists=True, dir_okay=False, path_type=Path),
+                default=None,
+                help="Private one-use token file; never retries.",
+            ),
+        )
+    ):
+        function = option(function)
+    return function
+
+
+def _video_captcha_controls(
+    order: str | None,
+    retry: int | None,
+    token_file: Path | None,
+    count: int,
+    project: str | None,
+) -> dict[str, Any]:
+    from gflow_cli.api.native_captcha import read_native_token_file
+    from gflow_cli.selfhost.video_captcha_policy import validate_video_captcha_controls
+
+    controls: dict[str, Any] = {}
+    if order is not None:
+        controls["captchaOrder"] = order
+    if retry is not None:
+        controls["captchaRetry"] = retry
+    if token_file is not None:
+        controls["captcha_token"] = read_native_token_file(token_file)
+    try:
+        validate_video_captcha_controls({"count": count, **controls}, project)
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from None
+    return controls
+
+
 def _shared_gen_tail_options(f: Any) -> Any:
     """Option tail shared verbatim by ``t2v`` and ``i2v`` (profile → json).
 
@@ -273,6 +323,7 @@ async def _generate_and_report(
     project_id: str | None = None,
     project_name: str | None = None,
     tool_specs: tuple[str, ...] = (),
+    captcha_controls: dict[str, Any] | None = None,
 ) -> None:
     """Drive FlowApiClient for a single GenerateVideoRequest and print the
     result (or fail with a non-zero exit). Shared by t2v, i2v, and r2v.
@@ -339,14 +390,31 @@ async def _generate_and_report(
             resolver_kw: dict[str, Any] = (
                 {} if name_resolver is None else {"name_resolver": name_resolver}
             )
-            result = await client.generate_video(
-                req=request,
-                project_id=project_id,
-                out_dir=out_dir,
-                download=True,
-                on_started=on_started,
-                **resolver_kw,
-            )
+            if captcha_controls:
+                from gflow_cli.services.video_captcha import generate_video_with_captcha
+
+                assert project_id is not None
+                result = await generate_video_with_captcha(
+                    client,
+                    req=request,
+                    project_id=project_id,
+                    captcha_order=captcha_controls.get("captchaOrder"),
+                    captcha_retry=captcha_controls.get("captchaRetry"),
+                    captcha_token=captcha_controls.get("captcha_token"),
+                    out_dir=out_dir,
+                    download=True,
+                    on_started=on_started,
+                    **resolver_kw,
+                )
+            else:
+                result = await client.generate_video(
+                    req=request,
+                    project_id=project_id,
+                    out_dir=out_dir,
+                    download=True,
+                    on_started=on_started,
+                    **resolver_kw,
+                )
 
         result = _relocate_video_output(result, output_file)
 
@@ -425,6 +493,7 @@ async def _run_t2v(
     project_name: str | None = None,
     tool_specs: tuple[str, ...] = (),
     ui_mode: UiMode | None = None,
+    captcha_controls: dict[str, Any] | None = None,
 ) -> None:
     from gflow_cli.api.video import Aspect, GenerateVideoRequest, Mode, VideoModel
 
@@ -455,6 +524,7 @@ async def _run_t2v(
         project_id=project_id,
         project_name=effective_title,
         tool_specs=tool_specs,
+        captcha_controls=captcha_controls,
     )
 
 
@@ -543,6 +613,7 @@ async def _run_i2v(
     count: int = 1,
     as_json: bool = False,
     project_id: str | None = None,
+    captcha_controls: dict[str, Any] | None = None,
 ) -> None:
     from gflow_cli.api.video import (
         I2V_DEFAULT_MODEL,
@@ -602,6 +673,7 @@ async def _run_i2v(
         as_json=as_json,
         project_id=project_id,
         project_name=effective_title,
+        captcha_controls=captcha_controls,
     )
 
 
@@ -626,6 +698,7 @@ async def _run_r2v(
     project_id: str | None = None,
     project_name: str | None = None,
     tool_specs: tuple[str, ...] = (),
+    captcha_controls: dict[str, Any] | None = None,
 ) -> None:
     from gflow_cli.api.video import Aspect, GenerateVideoRequest, Mode, VideoModel
 
@@ -656,6 +729,7 @@ async def _run_r2v(
         project_id=project_id,
         project_name=effective_title,
         tool_specs=tool_specs,
+        captcha_controls=captcha_controls,
     )
 
 
@@ -1192,6 +1266,7 @@ def video() -> None:
 @_reference_entity_option
 @_reference_entity_name_option
 @_shared_gen_tail_options
+@_video_captcha_options
 def t2v(
     prompt: str,
     aspect: str,
@@ -1209,8 +1284,14 @@ def t2v(
     out_dir: Path | None,
     output_file: Path | None,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
+    captcha_token_file: Path | None = None,
 ) -> None:
     """Generate a video from PROMPT."""
+    controls = _video_captcha_controls(
+        captcha_order, captcha_retry, captcha_token_file, count, project_id
+    )
     _reject_agentic_ui_mode(ui_mode)
     _reject_duration_without_control(model, duration)
     profile_name = _resolve_profile(profile)
@@ -1236,6 +1317,7 @@ def t2v(
             project_name=project_name,
             tool_specs=tool_specs,
             ui_mode=UiMode(ui_mode) if ui_mode else None,
+            **({"captcha_controls": controls} if controls else {}),
         ),
         cli_command="video t2v",
         as_json=as_json,
@@ -1371,6 +1453,7 @@ def _classify_frame(value: str | None, param_hint: str) -> tuple[str | None, str
 )
 @_ui_mode_option
 @_shared_gen_tail_options
+@_video_captcha_options
 def i2v(  # NOSONAR
     image: str | None,
     prompt: str | None,
@@ -1390,8 +1473,14 @@ def i2v(  # NOSONAR
     out_dir: Path | None,
     output_file: Path | None,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
+    captcha_token_file: Path | None = None,
 ) -> None:
     """Generate a video from an initial frame + motion PROMPT."""
+    controls = _video_captcha_controls(
+        captcha_order, captcha_retry, captcha_token_file, count, project_id
+    )
     _reject_agentic_ui_mode(ui_mode)
     # i2v binds I2V_DEFAULT_MODEL when --model is omitted, so the guard needs
     # that default to fire on the no-flag path (#630).
@@ -1452,6 +1541,7 @@ def i2v(  # NOSONAR
             output_file=output_file,
             as_json=as_json,
             project_id=project_id,
+            **({"captcha_controls": controls} if controls else {}),
         ),
         cli_command="video i2v",
         as_json=as_json,
@@ -1544,6 +1634,7 @@ def i2v(  # NOSONAR
     is_flag=True,
     help="Emit a machine-readable JSON result instead of Rich output.",
 )
+@_video_captcha_options
 def r2v(
     prompt: str,
     refs: tuple[str, ...],
@@ -1561,8 +1652,14 @@ def r2v(
     output_file: Path | None,
     out_dir: Path | None,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
+    captcha_token_file: Path | None = None,
 ) -> None:
     """Generate a video from reference images (--ref) + PROMPT."""
+    controls = _video_captcha_controls(
+        captcha_order, captcha_retry, captcha_token_file, count, project_id
+    )
     # Reject over-cap ref counts (and the unsupported model+R2V combo) at the
     # CLI boundary with a clear message (exit 2) rather than letting the domain
     # ValueError surface as a generic error. GenerateVideoRequest.__post_init__
@@ -1608,6 +1705,7 @@ def r2v(
             project_id=project_id,
             project_name=project_name,
             tool_specs=tool_specs,
+            **({"captcha_controls": controls} if controls else {}),
         ),
         cli_command="video r2v",
         as_json=as_json,

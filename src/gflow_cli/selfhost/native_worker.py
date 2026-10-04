@@ -63,9 +63,37 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "status": "ok",
             "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
         }
+    if verb == "account-resources":
+        from gflow_cli.services.account_resources import (
+            account_resource_scope,
+            bind_account_resource_identity,
+            validate_account_resource_options,
+        )
+
+        validate_account_resource_options(
+            payload.get("kind"),
+            payload.get("cursor"),
+            payload.get("max_projects", 10),
+            payload.get("max_pages", 1),
+            payload.get("max_seconds", 180),
+        )
+        with bind_account_resource_identity(payload.get("expected_account_sha256")):
+            client = FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False)
+            account_resource_scope(client)
+            async with client:
+                return {
+                    "status": "ok",
+                    **await client.list_account_resources(
+                        kind=payload["kind"],
+                        cursor=payload.get("cursor"),
+                        max_projects=payload.get("max_projects", 10),
+                        max_pages=payload.get("max_pages", 1),
+                        max_seconds=payload.get("max_seconds", 180),
+                    ),
+                }
     project_id = (
         ""
-        if verb in {"projects-list", "history-list", "inventory-sync"}
+        if verb in {"projects-list", "history-list", "inventory-sync", "account-resources"}
         else str(payload["project_id"])
     )
     if verb == "upload-video":

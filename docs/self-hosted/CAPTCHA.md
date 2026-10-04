@@ -108,13 +108,22 @@ Historical counters have no invented timestamps. anonymized=true returns501;
 global customer statistics, tier/SKU and latency buckets are not inferred.
 
 ## Other request paths
-Generic UI video accepts a supplied captchaToken for count1. Provider selection
-and multi-output supplied-token requests remain501; the current adapter returns
-one result and cannot claim every output in a paid batch.
-Native image2K upscale accepts a supplied token or configured provider selection,
-with captchaRetry1 only. Ownership is refreshed before a solver task and the
-override binds exact project/media/2K RPC. More than one retry or a4K override
-returns501 before queueing. Ordinary browser-token4K dispatch remains subject to
-fresh account entitlement. Exports/GIF/local concatenation need no generation token.
-CLI image upscale --captcha-token-file and direct MCP captcha_token use the
-same private one-use2K scope. Accepted externally solved2K output remains unverified.
+Generic UI video count1 supports supplied tokens, configured provider order and
+explicit1–10 WAF-only attempt budgets through HTTP. SDK wrapper/CLI/queued MCP
+provider mirrors are documented in [generic video controls](GENERIC_VIDEO_CAPTCHA.md).
+Generic count2–4 overrides refuse before queueing; supplied confidential queued
+MCP tokens also refuse. The current generic adapter tracks one result.
+
+Native image2K/4K upscale supports supplied/provider tokens and explicit HTTP
+captchaRetry1–10. Each positively confirmed refusal retry opens a fresh client,
+proves owned image/project, and binds the selected enum (2K=1,4K=2). Supplied
+tokens force one attempt. For4K, the current enabled detail-menu option is proved
+before paid mint and checked again before dispatch; Pro-disabled or missing
+options refuse without a solver task. Accepted/unknown/mixed outcomes and late
+download/save failures never replay. No entitled4K or solver-backed accepted
+output is claimed from source tests.
+
+Existing SDK native_captcha_token/native_captcha_provider scopes, CLI image
+upscale --captcha-token-file and direct MCP captcha_token share the same one-use
+2K/4K transport. Explicit retry budgets are private-worker/HTTP controls, not new
+SDK/CLI/MCP upscale flags. Exports/GIF/local concatenation need no generation token.

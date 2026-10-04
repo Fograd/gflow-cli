@@ -1,4 +1,4 @@
-"""Exact single-use token rewrite for the measured native 2K image upscale."""
+"""Exact single-use token rewrite for the source-proven native image upscale."""
 
 from __future__ import annotations
 
@@ -8,11 +8,28 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
+from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.native_captcha import native_captcha_submission, validate_native_captcha_token
 from gflow_cli.errors import WireFormatError
 
 
-def rewrite_upscale(body: str, *, project: str, media: str, token: str) -> str:
+def native_upscale_enum(resolution: TargetResolution) -> int:
+    """Google image-download switch -> Rpb -> l7a: 2K=1, 4K=2."""
+    if resolution is TargetResolution.RES_2K:
+        return 1
+    if resolution is TargetResolution.RES_4K:
+        return 2
+    raise WireFormatError(detail="Image upscale override refused an unknown resolution")
+
+
+def rewrite_upscale(
+    body: str,
+    *,
+    project: str,
+    media: str,
+    token: str,
+    target_resolution: TargetResolution = TargetResolution.RES_2K,
+) -> str:
     """Preserve every form/frame/argument field except the measured CAPTCHA token."""
     validate_native_captcha_token(token)
     try:
@@ -38,7 +55,7 @@ def rewrite_upscale(body: str, *, project: str, media: str, token: str) -> str:
         if (
             args[0] != media
             or type(cast(list[Any], args)[1]) is not int
-            or args[1] != 1
+            or args[1] != native_upscale_enum(target_resolution)
             or not isinstance(ctx, list)
             or len(cast(list[Any], ctx)) != 11
             or ctx[5] != project
@@ -65,6 +82,7 @@ class UpscaleOverride:
     project: str
     media: str
     token: str = field(repr=False)
+    target_resolution: TargetResolution = TargetResolution.RES_2K
     used: bool = False
     dispatched: bool = False
     request: Any = field(default=None, repr=False)
@@ -103,7 +121,11 @@ class UpscaleOverride:
             ):
                 raise WireFormatError(detail="Image upscale override refused endpoint")
             replacement = rewrite_upscale(
-                request.post_data or "", project=self.project, media=self.media, token=self.token
+                request.post_data or "",
+                project=self.project,
+                media=self.media,
+                token=self.token,
+                target_resolution=self.target_resolution,
             )
             self.used = True
             self.token = ""

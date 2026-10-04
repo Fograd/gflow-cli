@@ -28,7 +28,7 @@ import weakref
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import structlog
 from pydantic import StrictBool, StrictInt
@@ -1172,6 +1172,9 @@ async def gflow_generate_video(  # NOSONAR
     ui_mode: str | None = None,
     output: str | None = None,
     wait: bool = True,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
     """Generate a video via Google Flow's Veo.
 
@@ -1255,6 +1258,18 @@ async def gflow_generate_video(  # NOSONAR
         Dict with 'status', 'files' (list of local file paths), and metadata.
         On failure, 'status' is 'failed' or 'error' with an RFC 9457 'error' dict.
     """
+    from gflow_cli.selfhost.video_captcha_policy import validate_video_captcha_controls
+
+    controls = {
+        **({"captchaOrder": captcha_order} if captcha_order is not None else {}),
+        **({"captchaRetry": captcha_retry} if captcha_retry is not None else {}),
+        **({"captcha_token": captcha_token} if captcha_token is not None else {}),
+    }
+    try:
+        validate_video_captcha_controls({"count": count, **controls}, project, queued=True)
+    except ValueError as exc:
+        return _bad_param("Invalid Video CAPTCHA Controls", str(exc))
+
     if (proj_err := _validate_project(project)) is not None:
         return proj_err
 
@@ -1366,6 +1381,7 @@ async def gflow_generate_video(  # NOSONAR
         reference_entity_names=reference_entity_names,
     )
     payload.update(media)
+    payload.update(controls)
 
     # task_type matches the mode ("t2v", "i2v", "r2v")
     result = await _run_generation_task(
@@ -3449,4 +3465,44 @@ async def gflow_sync_native_inventory(
                 )
             except ValueError as exc:
                 raise ConfigurationError(detail=str(exc)) from None
+    return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_list_account_resources",
+    description="Read observed account characters or saved-user voices across bounded native "
+    "project catalogs. Explicit read extension; no generation/deletion or completeness claim.",
+)
+@_guarded
+async def gflow_list_account_resources(
+    kind: Literal["character", "voice"],
+    profile: str = "default",
+    cursor: str | None = None,
+    max_projects: StrictInt = 10,
+    max_pages: StrictInt = 1,
+    max_seconds: StrictInt = 180,
+) -> dict[str, Any]:
+    from gflow_cli.services.account_resources import validate_account_resource_options
+
+    try:
+        validate_account_resource_options(kind, cursor, max_projects, max_pages, max_seconds)
+    except ValueError as exc:
+        raise ConfigurationError(detail=str(exc)) from None
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with (
+        _profile_lock(resolved),
+        FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client,
+    ):
+        result = await client.list_account_resources(
+            kind=kind,
+            cursor=cursor,
+            max_projects=max_projects,
+            max_pages=max_pages,
+            max_seconds=max_seconds,
+        )
     return {"status": "ok", **result}

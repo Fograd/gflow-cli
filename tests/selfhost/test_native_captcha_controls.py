@@ -249,11 +249,11 @@ def test_general_video_supplied_token_has_one_output_scope(tmp_path, count, stat
         ({"captchaToken": TOKEN}, "2k", 201),
         ({"captchaOrder": "CapSolver"}, "2k", 201),
         ({"captchaRetry": 1}, "2k", 201),
-        ({"captchaRetry": 2}, "2k", 501),
-        ({"captchaToken": TOKEN}, "4k", 501),
+        ({"captchaRetry": 2}, "2k", 201),
+        ({"captchaToken": TOKEN}, "4k", 201),
     ],
 )
-def test_image_upscale_captcha_scope_is_measured_2k_once(
+def test_image_upscale_controls_enqueue_for_entitlement_checked_worker(
     tmp_path, monkeypatch, controls, resolution, status
 ):
     from gflow_cli.selfhost import captcha_routes

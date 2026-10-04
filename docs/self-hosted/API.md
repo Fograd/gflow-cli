@@ -49,6 +49,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
 | `GET /assets/projects/{handle}` | Generated history summaries by default; source=google native catalog, source=local managed cache |
 | `GET /assets/media/{handle}` | Native timeline/attached media by default; source=local managed cache |
+| `GET /assets/resources/{handle}` | Fork extension: bounded observed account characters/saved voices, opaque continuation, unknown completeness |
 | `GET /jobs`, `/jobs/{id}` | Default summary; source=local durable list with email/status/kind/limit/cursor |
 | `DELETE /assets/{handle}` | Native reversible whole-batch archive by default; operation=delete permanently removes only selected owned media IDs; explicit localOnly cache deletion is separate |
 | `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; image/native provider controls supported; see CAPTCHA.md |
@@ -377,7 +378,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 41 tools: the prior 24 plus 17 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+The registered MCP surface contains 42 tools: the prior 24 plus 18 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -613,7 +614,7 @@ captchaToken (20–20000 characters, one use). It is mutually exclusive with
 captchaOrder/captchaRetry, which are supported on dedicated native paths after validation. Raw tokens
 stay outside durable job JSON and are consumed through private worker files.
 Exact native project/action/host binding and no fallback/replay apply.
-Generic UI video supplied tokens support count1; provider selection/multi-output overrides remain501. Image2K supports supplied/provider tokens with retry1 only;4K overrides and retry>1 remain501. Exports use no generation override.
+Generic UI video supplied/provider controls require count1; configured order and explicit1–10 WAF-only retries are supported. Generic multi-output overrides remain501. Image2K/4K supports supplied/provider tokens and explicit1–10 WAF-only retries, with current4K availability checked before paid mint and dispatch. Exports use no generation override.
 See [native CAPTCHA controls](NATIVE_CAPTCHA.md).
 
 ## Explicit native video promotion
@@ -942,6 +943,9 @@ with the existing public-HTTPS/DNS/streaming limits.
 
 Current CAPTCHA coverage: images and dedicated native reference/edit/extension/
 promotion/TTS accept provider selection and explicit WAF-only retry1–10.
-Generic UI videos accept supplied tokens only at count1. Native image2K supports
-supplied/provider tokens with retry1;4K overrides and retry>1 remain501.
+Generic UI videos accept supplied/provider controls at count1 with explicit1–10 WAF-only retry. Native image2K/4K supports supplied/provider controls and explicit1–10 WAF-only retry;4K requires current enabled availability before mint and dispatch.
 See [CAPTCHA](CAPTCHA.md) for one-use, acknowledgement and unknown-outcome rules.
+
+
+## Account resource continuation and generic video providers
+See [observed account resources](ACCOUNT_RESOURCES.md) for SDK/CLI/direct MCP/HTTP query bounds, epoch-scoped opaque cursors, URL-free results and completeness limits. Existing /characters and /voices defaults remain project-scoped; this extension does not silently redefine them. See [generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md) for count1 SDK/CLI/queued MCP/REST provider controls. Queued confidential tokens refuse before enqueue; ordinary configured providers do not activate merely by saving a key.

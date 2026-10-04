@@ -2548,8 +2548,10 @@ class MigratedComposer:
         """
         for count, ref in enumerate(refs, start=1):
             query = _picker_query(ref)
+            # A center click can place @ inside prior draft text; native mention
+            # activation requires a boundary. Append each ordered owned reference.
             await self._mention_by_token(
-                page, query, tokens[ref.name], ref.name, expect_chips=count
+                page, query, tokens[ref.name], ref.name, expect_chips=count, at_end=True
             )
         media_ids = tuple(ref.name for ref in refs)
         # Distinct from `migrated.references_attached` (the upload path): this one means
@@ -3021,6 +3023,8 @@ class MigratedComposer:
         from gflow_cli.api.transports.migrated_video_upload import is_uuid  # noqa: PLC0415
 
         override = active_video_overrides.get()
+        if override is not None:
+            override.capture_metadata(page)
         video_route = "**/batchexecute*"
 
         async def video_guard(route: Any, request: Any) -> None:
@@ -3319,6 +3323,7 @@ class MigratedComposer:
             return final
         finally:
             if override is not None:
+                override.stop_capture(page)
                 override.close()
             try:
                 if override is not None:

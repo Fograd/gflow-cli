@@ -67,16 +67,18 @@ inputs rather than retrying that token. Expiry or a Google refusal does not
 authorize automatic replay. See [CAPTCHA](CAPTCHA.md) for provider trial evidence.
 
 
-## Native image2K and generic video scopes
+## Native image2K/4K and generic video scopes
 Image upscale --captcha-token-file and gflow_upscale_image(captcha_token=...)
-use one IMAGE_GENERATION token bound to exact project/media/2K. Fresh same-page
-image ownership is required before any solver task. The scoped token is consumed
-on the project home page before opening the detail view; only the exact correlated
-SPrCad request can use it. Explicit4K overrides and retry>1 refuse before mint.
-The native_captcha_provider async SDK scope also supports the same2K operation.
-REST images/upscale accepts captchaToken or configured captchaOrder/captchaRetry1.
+use one IMAGE_GENERATION token bound to exact project/media/selected2K or4K.
+Fresh same-page image ownership is required before a solver task. The scoped
+token is consumed on the project homepage before opening the detail view; only
+the exact correlated SPrCad request can use it. For4K, current enabled menu
+availability is checked before mint and rechecked before dispatch.
+The native_captcha_provider async SDK scope supports the same transport.
+REST images/upscale accepts mutually exclusive captchaToken, configured
+captchaOrder or captchaRetry1–10. Only confirmed single-RPC typed WAF refusals
+without any accepted/unknown result may advance an explicit retry budget.
 
-Generic REST video accepts captchaToken at count1 only, with a strict one-use
-same-project envelope guard. Generic provider controls/multiple-output token
-requests remain501. Default browser generation is unaffected by opting out.
-These transport controls do not prove accepted external-token output.
+Generic video provider controls and portable/queued mirrors are documented in
+[generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md). Count1 is required. These
+controls do not prove accepted external-token output or Ultra entitlement.

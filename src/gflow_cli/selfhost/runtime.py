@@ -672,7 +672,9 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             project,
             str(request_path),
         ]
-    if kind == "videos" and payload.get("captchaSecret"):
+    if kind == "videos" and any(
+        payload.get(key) is not None for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+    ):
         request_path = out / "request.json"
         worker_payload = {
             **payload,
@@ -710,7 +712,15 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             store.image_recovery(job)
         if request_path:
             request_path.unlink(missing_ok=True)
-    if code and kind == "videos" and payload.get("captchaSecret") and len(raw) <= 65536:
+    if (
+        code
+        and kind == "videos"
+        and any(
+            payload.get(key) is not None
+            for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+        )
+        and len(raw) <= 65536
+    ):
         try:
             failure = parse_json_output(raw)
             refusal = native_refusal_error(failure, code)

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import Awaitable, Callable
 from contextvars import Context, ContextVar, copy_context
 from dataclasses import dataclass, field
 from typing import Any, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit
+from uuid import UUID
 
+from gflow_cli.api.transports.migrated_image_overrides import reload_metadata
+from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import WireFormatError
 
 VIDEO_SUBMIT_RPCS = frozenset(("YhhmEf", "eb1hJf", "nprQif", "MZZa6b"))
@@ -91,6 +95,54 @@ class VideoOverrides:
     known_workflow_ids: list[str] = field(default_factory=lambda: list[str](), repr=False)
     context: Context = field(default_factory=copy_context, repr=False)
     observe: Callable[[str], None] | None = field(default=None, repr=False)
+    provider_name: str | None = None
+    metadata_required: bool = False
+    metadata: dict[str, str] | None = None
+    metadata_url: str | None = None
+    metadata_at: float = 0
+    observer: Callable[[Any], None] | None = field(default=None, repr=False)
+    previous_request_ids: set[str] | None = field(default=None, repr=False)
+
+    def page_matches(self, page: Any) -> bool:
+        url = urlsplit(str(getattr(page, "url", "")))
+        return (
+            url.scheme == "https"
+            and url.netloc == "flow.google.com"
+            and url.path.rstrip("/") == "/project/" + self.project
+        )
+
+    def capture_metadata(self, page: Any) -> None:
+        if not self.metadata_required or self.observer is not None:
+            return
+
+        def observe(request: Any) -> None:
+            if str(request.method) != "POST":
+                return
+            try:
+                metadata = reload_metadata(
+                    str(request.url),
+                    request.post_data_buffer or b"",
+                    expected_action="VIDEO_GENERATION",
+                )
+            except (ValueError, TypeError, AttributeError):
+                return
+            if (
+                metadata is not None
+                and not self.closed
+                and not self.used
+                and self.page_matches(page)
+            ):
+                self.metadata = metadata
+                self.metadata_url = str(page.url)
+                self.metadata_at = time.monotonic()
+
+        self.observer = observe
+        page.on("request", observe)
+
+    def stop_capture(self, page: Any) -> None:
+        if self.observer is not None:
+            page.remove_listener("request", self.observer)
+            self.observer = None
 
     def outcome(self, value: str) -> None:
         if self.closed or not self.dispatched or self.terminal is not None:
@@ -102,16 +154,36 @@ class VideoOverrides:
     def close(self) -> None:
         self.outcome("unknown")
         self.closed = True
+        self.metadata = None
 
     async def apply(self, page: Any, body: str) -> str:
         if self.closed or self.used:
             raise WireFormatError(detail="Video overrides cannot replay a submitted request")
-        _envelope(body, self.project, self.count)
+        _, _, frames, args = _envelope(body, self.project, self.count)
+        if self.previous_request_ids is not None:
+            if self.count != 1:
+                raise WireFormatError(detail="Provider video CAPTCHA requires count one")
+            rpcid = frames[0][0][0]
+            index = {"YhhmEf": 4, "eb1hJf": 5, "nprQif": 6, "MZZa6b": 5}[rpcid]
+            try:
+                requested_id: Any = args[0][0][index][4]
+            except (IndexError, TypeError):
+                raise WireFormatError(
+                    detail="Fresh native requested video identity is missing"
+                ) from None
+            if not is_uuid(requested_id):
+                raise WireFormatError(detail="Native video requested identity is invalid")
+            requested_id = str(UUID(requested_id))
+            if requested_id in self.previous_request_ids:
+                raise WireFormatError(detail="Native video attempt cannot reuse requested identity")
+            self.previous_request_ids.add(requested_id)
         if self.on_validated is not None:
             self.on_validated(body)
         # Mark before awaiting: concurrent callbacks must never spend one token twice.
         self.used = True
-        replacement = await asyncio.wait_for(self.token(page), timeout=110)
+        replacement = await asyncio.wait_for(
+            self.token(page), timeout=260 if self.metadata_required else 110
+        )
         if self.closed:
             raise WireFormatError(detail="Video override scope closed during token consumption")
         return rewrite_submit(body, project=self.project, count=self.count, token=replacement)

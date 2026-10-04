@@ -76,21 +76,34 @@ async def test_one_use_dispatch():
 
 
 @pytest.mark.asyncio
-async def test_active_4k_refuses_before_navigation_or_provider_mint():
+async def test_active_4k_disabled_refuses_before_provider_mint(monkeypatch):
     from gflow_cli.api.image_upscale import TargetResolution
     from gflow_cli.api.native_captcha import native_captcha_provider
-    from gflow_cli.api.transports.migrated_upscale import upscale_image_migrated
+    from gflow_cli.api.transports import migrated_upscale as transport
     from gflow_cli.errors import UpscaleUnavailableError
 
     mint = AsyncMock()
-    page = SimpleNamespace(goto=AsyncMock())
+    page = SimpleNamespace(url="", wait_for_timeout=AsyncMock())
+
+    async def goto(url, **kwargs):
+        page.url = url
+
+    page.goto = AsyncMock(side_effect=goto)
+    download = SimpleNamespace(click=AsyncMock())
+    target = SimpleNamespace(is_disabled=AsyncMock(return_value=True))
+    page.wait_for_selector = AsyncMock(side_effect=[download, target])
+    monkeypatch.setattr(
+        transport,
+        "lookup_asset",
+        AsyncMock(return_value=SimpleNamespace(project_id=P, media_id=M, kind="image")),
+    )
     with native_captcha_provider(mint, project_id=P, action="IMAGE_GENERATION"):
-        with pytest.raises(UpscaleUnavailableError, match="2K"):
-            await upscale_image_migrated(
+        with pytest.raises(UpscaleUnavailableError, match="4K"):
+            await transport.upscale_image_migrated(
                 page, project_id=P, media_id=M, target_resolution=TargetResolution.RES_4K
             )
     mint.assert_not_awaited()
-    page.goto.assert_not_awaited()
+    assert page.goto.await_count == 2
 
 
 @pytest.mark.asyncio

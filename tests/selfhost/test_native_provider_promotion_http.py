@@ -1,4 +1,4 @@
-"""Native promotion HTTP controls reach policy; image/export guards stay scoped."""
+"""Native promotion controls reach policy; export paths retain their own scope."""
 
 import json
 from types import SimpleNamespace
@@ -58,12 +58,17 @@ def test_promotion_duplicate_provider_order_refuses_before_queue(client):
     assert client.app.state.store.jobs() == []
 
 
-@pytest.mark.parametrize("route", ["videos"])
-def test_other_generation_paths_do_not_inherit_native_retry_enablement(client, route):
+@pytest.mark.parametrize("route", ["videos/upscale", "videos/gif"])
+def test_export_paths_do_not_inherit_generation_retry_enablement(client, route):
     response = client.post(
         "/v1/google-flow/" + route,
         headers=AUTH,
-        json={"prompt": "Fixture", "captchaRetry": 2, "async": True},
+        json={
+            "mediaGenerationId": M,
+            "captchaRetry": 2,
+            "async": True,
+            **({"operation": "export"} if route == "videos/upscale" else {}),
+        },
     )
     assert response.status_code == 501, response.text
     assert client.app.state.store.jobs() == []

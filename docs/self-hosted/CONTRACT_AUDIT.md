@@ -78,3 +78,7 @@ The table above records the baseline. Subsequent implementation changes:
 Read-only inventory synchronization is a fork extension, not fabricated vendor
 completeness. Seed/aspect/entitlement, some response fields, multipart and callback
 timing differences still require resolution.
+
+
+### Next overnight source scope
+Generic video count1 now supports configured provider order and explicit1–10 positive-WAF-only attempts across portable SDK/CLI/queued MCP and HTTP; confidential queued MCP tokens refuse. Image2K/4K overrides and explicit HTTP refusal retries are implemented with fresh4K availability-before-mint. Bounded observed account character/saved-voice listing is an additive extension with opaque continuations, unknown completeness and no deletion authority. Exact live ten-reference wire retention passed after the append-caret fix. Release/gate status remains in VERIFICATION.md; these source scopes do not prove accepted solver-backed output.

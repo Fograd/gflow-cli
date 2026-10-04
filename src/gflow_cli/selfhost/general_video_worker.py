@@ -17,7 +17,8 @@ from gflow_cli.api.transports.migrated_video_overrides import VideoOverrides, ac
 from gflow_cli.api.video import VideoStarted
 from gflow_cli.config import get_settings
 from gflow_cli.errors import ConfigurationError, ContentPolicyError, WafRejectionError
-from gflow_cli.selfhost.native_captcha import private_native_captcha
+from gflow_cli.selfhost.config import environment_root
+from gflow_cli.selfhost.video_captcha_policy import run_with_video_captcha_policy
 from gflow_cli.worker.codec import build_video_request
 
 
@@ -33,12 +34,28 @@ def _checkpoint(out: Path, project: str, media: list[str], workflows: list[str])
 async def generate_payload(profile: str, project: str, out: Path, payload: dict[str, Any]) -> None:
     if "seed" in payload:
         raise ValueError("Numeric video seed has no verified generic wire support")
-    if payload.get("captchaOrder") or payload.get("captchaRetry"):
-        raise ValueError("Generic video provider CAPTCHA controls are not yet supported")
+    if (
+        any(payload.get(key) is not None for key in ("captchaOrder", "captchaRetry"))
+        and active_video_overrides.get() is None
+    ):
+        raise ConfigurationError(detail="Explicit video provider policy is not installed")
     refs = payload.get("reference_paths", [])
+    request_payload = {
+        key: value
+        for key, value in payload.items()
+        if key
+        not in (
+            "captchaSecret",
+            "captchaOrder",
+            "captchaRetry",
+            "captcha_token",
+            "captcha_token_file",
+            "captchaToken",
+        )
+    }
     request = build_video_request(
         {
-            **payload,
+            **request_payload,
             "aspect": payload["aspectRatio"],
             "mode": "i2v" if payload.get("start_image") else "r2v" if refs else "t2v",
             "reference_images": refs,
@@ -52,7 +69,9 @@ async def generate_payload(profile: str, project: str, out: Path, payload: dict[
             raise ConfigurationError(detail="Private video CAPTCHA token is unavailable")
         return value
 
-    override = VideoOverrides(project=project, count=payload["count"], token=token)
+    override = active_video_overrides.get() or VideoOverrides(
+        project=project, count=payload["count"], token=token
+    )
     state = active_video_overrides.set(override)
     media: list[str] = []
     workflows: list[str] = []
@@ -67,17 +86,24 @@ async def generate_payload(profile: str, project: str, out: Path, payload: dict[
         async with FlowApiClient(
             profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
         ) as client:
+            from gflow_cli.services.video_captcha import require_native_video_captcha_host
+
+            require_native_video_captcha_host(client, active=True)
             result = await client.generate_video(
                 req=request, project_id=project, out_dir=out, download=True, on_started=started
             )
             output = json_output.video_result(
                 command="selfhost videos", request=request, result=result
             )
-            output["captchaProvider"] = "supplied"
+            # Actual selected provider is added by the owning explicit policy wrapper.
+            output["captchaProvider"] = override.provider_name or "supplied"
             json_output.emit(output)
-    except (ContentPolicyError, WafRejectionError):
-        raise
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, (ContentPolicyError, WafRejectionError)) and (
+            not override.dispatched
+            or (override.terminal == "rejected" and not override.known_media_ids)
+        ):
+            raise
         if override.dispatched:
             media[:] = list(dict.fromkeys(media + override.known_media_ids))[:4]
             workflows[:] = list(dict.fromkeys(workflows + override.known_workflow_ids))[:4]
@@ -103,8 +129,11 @@ async def generate_payload(profile: str, project: str, out: Path, payload: dict[
 
 async def generate(profile: str, project: str, job_path: Path) -> None:
     payload: dict[str, Any] = json.loads(job_path.read_text(encoding="utf-8"))
-    with private_native_captcha(payload, project, "VIDEO_GENERATION"):
+
+    async def attempt(override: VideoOverrides | None) -> None:
         await generate_payload(profile, project, job_path.parent, payload)
+
+    await run_with_video_captcha_policy(payload, project, environment_root(), attempt)
 
 
 def main() -> None:
