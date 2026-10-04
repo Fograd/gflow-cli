@@ -1913,11 +1913,13 @@ async def gflow_download_media(
     description=(
         "Upscale a platform-generated Flow image to 2K or 4K and save it locally. "
         "media_id is the UUID of the image to upscale. "
-        "scale is '2k' or '4k' (4k requires Ultra subscription; Pro/Plus accounts support 2k). "
+        "scale is '2k' or '4k' when the current image menu enables that target. "
         "project is optional (resolved from the local catalog when omitted). "
         "out_dir is the output directory (defaults to configured images directory). "
         "profile selects the auth profile (defaults to the active profile). "
-        "Spends no credits: image upscale is free."
+        "Optional captcha_order/captcha_retry select configured providers; omission uses "
+        "browser once. "
+        "Provider tasks may incur charges."
     ),
 )
 @_guarded
@@ -1928,20 +1930,36 @@ async def gflow_upscale_image(
     out_dir: str | None = None,
     profile: str = _DEFAULT_PROFILE,
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
     """Upscale a platform-generated image to 2K or 4K.
 
     Args:
         media_id: The Flow media ID (UUID) of the generated image.
-        scale: Target resolution: '2k' or '4k' (4k is Ultra-only).
+        scale: Target resolution: '2k' or '4k' if current menu availability permits.
         project: Project UUID that owns the media. Resolved from local catalog when omitted.
         out_dir: Output directory (defaults to configured images directory).
         profile: Profile name (overrides default).
-        captcha_token: Optional single-use native 2K CAPTCHA token.
+        captcha_token: Optional single-use native 2K/4K CAPTCHA token.
+        captcha_order: Explicit unique configured provider order; exclusive with token.
+        captcha_retry: 1–10 total confirmed-refusal attempts; None uses browser once.
 
     Returns:
         Dict with status, media_id, project_id, scale, path, and size bytes.
     """
+    from gflow_cli.services.native_captcha import (
+        native_captcha_client,
+        native_captcha_controls,
+        require_native_captcha_client,
+        run_native_captcha_with_controls,
+    )
+
+    native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
@@ -1974,23 +1992,33 @@ async def gflow_upscale_image(
     out_path = output_root / "images" / date.today().isoformat() / f"{media_id}_{scale_label}.png"
 
     log.info("mcp.tool.upscale_image", media_id=media_id, scale=scale_label, profile=resolved)
-    async with (
-        _profile_lock(resolved),
-        FlowApiClient(
-            profile_dir=profile_dir,
-            headless=settings.headless,
-            out_dir=output_root,
-        ) as client,
-    ):
-        with native_captcha_or_none(
-            captcha_token, project_id=resolved_project, action="IMAGE_GENERATION"
-        ):
-            target = await client.upsample_image(
-                media_id=media_id,
-                project_id=resolved_project,
-                target_resolution=resolution,
-                out_path=out_path,
-            )
+    async with _profile_lock(resolved):
+
+        async def attempt() -> Any:
+            async with native_captcha_client(
+                FlowApiClient(
+                    profile_dir=profile_dir, headless=settings.headless, out_dir=output_root
+                ),
+                active=captcha_order is not None or captcha_retry is not None,
+            ) as client:
+                require_native_captcha_client(
+                    client, active=captcha_order is not None or captcha_retry is not None
+                )
+                return await client.upsample_image(
+                    media_id=media_id,
+                    project_id=resolved_project,
+                    target_resolution=resolution,
+                    out_path=out_path,
+                )
+
+        target = await run_native_captcha_with_controls(
+            project_id=resolved_project,
+            action="IMAGE_GENERATION",
+            attempt=attempt,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            captcha_token=captcha_token,
+        )
 
     from gflow_cli.storage import is_cloud_path
 
@@ -3040,7 +3068,9 @@ async def _download_native_video_results(
     description="Generate standalone continuation clips from an owned native video. "
     "Optional native model_key; otherwise selects an available low-cost model. "
     "Count1..4; downloads MP4 outputs. "
-    "Consumes video generation credits.",
+    "Consumes video generation credits. Optional captcha_order/captcha_retry select "
+    "configured providers; omission uses browser once. Only confirmed rejection may "
+    "retry; supplied tokens are exclusive.",
 )
 @_guarded
 async def gflow_extend_native_video(
@@ -3055,38 +3085,54 @@ async def gflow_extend_native_video(
     out_dir: str | None = None,
     profile: str = "default",
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
-    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
-        from gflow_cli.api.native_extension import (
-            NativeExtensionUnknownError,
-            extension_args,
-            new_extension_started,
-        )
+    from gflow_cli.api.native_extension import (
+        NativeExtensionUnknownError,
+        extension_args,
+        new_extension_started,
+    )
+    from gflow_cli.services.native_captcha import (
+        native_captcha_client,
+        native_captcha_controls,
+        run_native_captcha_with_controls,
+    )
 
-        if not is_uuid(project) or not is_uuid(media_id):
-            return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
-        if type(count) is not int or not 1 <= count <= 4:
-            return _bad_param("Invalid video extension count", "count must be1..4")
-        extension_args(
-            new_extension_started(project, media_id, count),
-            prompt=prompt,
-            model_key=model_key or "validation-native-model",
-            aspect=aspect or "16:9",
-            token="validation-only",
-            trim_start_frame=trim_start_frame,
-            trim_end_frame=trim_end_frame,
-        )
-        resolved = _resolve_and_validate_profile(profile)
-        if isinstance(resolved, dict):
-            return resolved
-        if not await _rate_limiter.acquire():
-            return _rate_limited_envelope()
-        settings = get_settings()
-        target = Path(out_dir) if out_dir else settings.output_dir
-        target.mkdir(parents=True, exist_ok=True)
-        async with _profile_lock(resolved):
-            async with FlowApiClient(
-                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+    native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid video extension identifiers", "Project/media must be UUIDs")
+    if type(count) is not int or not 1 <= count <= 4:
+        return _bad_param("Invalid video extension count", "count must be1..4")
+    extension_args(
+        new_extension_started(project, media_id, count),
+        prompt=prompt,
+        model_key=model_key or "validation-native-model",
+        aspect=aspect or "16:9",
+        token="validation-only",
+        trim_start_frame=trim_start_frame,
+        trim_end_frame=trim_end_frame,
+    )
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+
+        async def attempt() -> dict[str, Any]:
+            async with native_captcha_client(
+                FlowApiClient(
+                    profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+                ),
+                active=captcha_order is not None or captcha_retry is not None,
             ) as client:
                 started = await client.extend_native_video(
                     project_id=project,
@@ -3103,12 +3149,21 @@ async def gflow_extend_native_video(
                 results = await _download_native_video_results(
                     client, records, target, NativeExtensionUnknownError(started)
                 )
-        return {
-            "status": "ok",
-            "project_id": project,
-            "source_media_id": media_id,
-            "results": results,
-        }
+            return {
+                "status": "ok",
+                "project_id": project,
+                "source_media_id": media_id,
+                "results": results,
+            }
+
+        return await run_native_captcha_with_controls(
+            project_id=project,
+            action="VIDEO_GENERATION",
+            attempt=attempt,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            captcha_token=captcha_token,
+        )
 
 
 @server.tool(
@@ -3165,7 +3220,9 @@ async def gflow_delete_native_media(
     "up to5 owned images,3 audio UUID/preset refs and owned characters with native limits. "
     "Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
-    "Consumes video credits; optional confidential single-use captcha_token.",
+    "Consumes video credits; optional confidential single-use captcha_token. Optional "
+    "captcha_order/captcha_retry select configured providers; omission uses browser once. "
+    "Only confirmed rejection may retry; supplied tokens are exclusive.",
 )
 @_guarded
 async def gflow_edit_native_video(
@@ -3181,38 +3238,54 @@ async def gflow_edit_native_video(
     out_dir: str | None = None,
     profile: str = "default",
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
-    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
-        from gflow_cli.api.native_extension import new_extension_started
-        from gflow_cli.api.native_video_edit import NativeVideoEditUnknownError, video_edit_args
+    from gflow_cli.api.native_extension import new_extension_started
+    from gflow_cli.api.native_video_edit import NativeVideoEditUnknownError, video_edit_args
+    from gflow_cli.services.native_captcha import (
+        native_captcha_client,
+        native_captcha_controls,
+        run_native_captcha_with_controls,
+    )
 
-        if not is_uuid(project) or not is_uuid(media_id):
-            return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
-        images, audio = tuple(image_ref or []), tuple(audio_ref or [])
-        characters = tuple(character_ref or [])
-        video_edit_args(
-            new_extension_started(project, media_id, 1),
-            prompt=prompt,
-            model_key=model_key,
-            aspect="16:9",
-            token="validation-only",
-            start_frame=start_frame,
-            end_frame=end_frame if end_frame is not None else 240,
-            image_ids=images,
-            audio_ids=audio,
-            character_ids=characters,
-        )
-        resolved = _resolve_and_validate_profile(profile)
-        if isinstance(resolved, dict):
-            return resolved
-        if not await _rate_limiter.acquire():
-            return _rate_limited_envelope()
-        settings = get_settings()
-        target = Path(out_dir) if out_dir else settings.output_dir
-        target.mkdir(parents=True, exist_ok=True)
-        async with _profile_lock(resolved):
-            async with FlowApiClient(
-                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+    native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
+    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    characters = tuple(character_ref or [])
+    video_edit_args(
+        new_extension_started(project, media_id, 1),
+        prompt=prompt,
+        model_key=model_key,
+        aspect="16:9",
+        token="validation-only",
+        start_frame=start_frame,
+        end_frame=end_frame if end_frame is not None else 240,
+        image_ids=images,
+        audio_ids=audio,
+        character_ids=characters,
+    )
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+
+        async def attempt() -> dict[str, Any]:
+            async with native_captcha_client(
+                FlowApiClient(
+                    profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+                ),
+                active=captcha_order is not None or captcha_retry is not None,
             ) as client:
                 started = await client.edit_native_video(
                     project_id=project,
@@ -3230,15 +3303,24 @@ async def gflow_edit_native_video(
                 results = await _download_native_video_results(
                     client, records, target, NativeVideoEditUnknownError(started)
                 )
-        return {
-            "status": "ok",
-            "project_id": project,
-            "source_media_id": media_id,
-            "results": results,
-            "startFrameIndex": started.start_frame,
-            "endFrameIndex": started.end_frame,
-            "sourceDurationSeconds": started.source_duration_seconds,
-        }
+            return {
+                "status": "ok",
+                "project_id": project,
+                "source_media_id": media_id,
+                "results": results,
+                "startFrameIndex": started.start_frame,
+                "endFrameIndex": started.end_frame,
+                "sourceDurationSeconds": started.source_duration_seconds,
+            }
+
+        return await run_native_captcha_with_controls(
+            project_id=project,
+            action="VIDEO_GENERATION",
+            attempt=attempt,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            captcha_token=captcha_token,
+        )
 
 
 @server.tool(
@@ -3266,7 +3348,9 @@ async def gflow_list_edit_models(project: str, profile: str = "default") -> dict
     description="Generate Omni Flash with owned image/audio/character or system-preset refs; "
     "the chosen account model imposes its own limits. Optional native model_key, "
     "duration/resolution; downloads MP4 outputs. Consumes video credits; "
-    "optional confidential single-use captcha_token.",
+    "optional confidential single-use captcha_token. Optional captcha_order/captcha_retry "
+    "select configured providers; omission uses browser once. Only confirmed rejection "
+    "may retry; supplied tokens are exclusive.",
 )
 @_guarded
 async def gflow_generate_native_reference_video(
@@ -3283,39 +3367,55 @@ async def gflow_generate_native_reference_video(
     out_dir: str | None = None,
     profile: str = "default",
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
-    with native_captcha_or_none(captcha_token, project_id=project, action="VIDEO_GENERATION"):
-        from gflow_cli.api.native_reference_video import new_reference_started, reference_args
-        from gflow_cli.errors import NativeVideoGenerationUnknownError
+    from gflow_cli.api.native_reference_video import new_reference_started, reference_args
+    from gflow_cli.errors import NativeVideoGenerationUnknownError
+    from gflow_cli.services.native_captcha import (
+        native_captcha_client,
+        native_captcha_controls,
+        run_native_captcha_with_controls,
+    )
 
-        if not is_uuid(project):
-            return _bad_param("Invalid project", "project must be a UUID")
-        images, audio = tuple(image_ref or []), tuple(audio_ref or [])
-        characters = tuple(character_ref or [])
-        reference_args(
-            new_reference_started(project, count),
-            prompt=prompt,
-            image_ids=images,
-            audio_ids=audio,
-            character_ids=characters,
-            model_key=model_key or "discover-native-model",
-            aspect=aspect,
-            resolution=resolution,
-            token="validation-only",
-        )
-        if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
-            return _bad_param("Invalid duration", "duration must match an available native model")
-        resolved = _resolve_and_validate_profile(profile)
-        if isinstance(resolved, dict):
-            return resolved
-        if not await _rate_limiter.acquire():
-            return _rate_limited_envelope()
-        settings = get_settings()
-        target = Path(out_dir) if out_dir else settings.output_dir
-        target.mkdir(parents=True, exist_ok=True)
-        async with _profile_lock(resolved):
-            async with FlowApiClient(
-                profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+    native_captcha_controls(
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        supplied_token=captcha_token is not None,
+    )
+    if not is_uuid(project):
+        return _bad_param("Invalid project", "project must be a UUID")
+    images, audio = tuple(image_ref or []), tuple(audio_ref or [])
+    characters = tuple(character_ref or [])
+    reference_args(
+        new_reference_started(project, count),
+        prompt=prompt,
+        image_ids=images,
+        audio_ids=audio,
+        character_ids=characters,
+        model_key=model_key or "discover-native-model",
+        aspect=aspect,
+        resolution=resolution,
+        token="validation-only",
+    )
+    if duration is not None and (type(duration) is not int or not 1 <= duration <= 10):
+        return _bad_param("Invalid duration", "duration must match an available native model")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    if not await _rate_limiter.acquire():
+        return _rate_limited_envelope()
+    settings = get_settings()
+    target = Path(out_dir) if out_dir else settings.output_dir
+    target.mkdir(parents=True, exist_ok=True)
+    async with _profile_lock(resolved):
+
+        async def attempt() -> dict[str, Any]:
+            async with native_captcha_client(
+                FlowApiClient(
+                    profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+                ),
+                active=captcha_order is not None or captcha_retry is not None,
             ) as client:
                 started = await client.generate_native_reference_video(
                     project_id=project,
@@ -3342,7 +3442,16 @@ async def gflow_generate_native_reference_video(
                         phase="video_poll",
                     ),
                 )
-        return {"status": "ok", "project_id": project, "results": results}
+            return {"status": "ok", "project_id": project, "results": results}
+
+        return await run_native_captcha_with_controls(
+            project_id=project,
+            action="VIDEO_GENERATION",
+            attempt=attempt,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            captcha_token=captcha_token,
+        )
 
 
 @server.tool(

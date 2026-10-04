@@ -11,6 +11,10 @@ from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
 from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.errors import NativeVideoGenerationUnknownError
 from gflow_cli.selfhost.reference_video_worker import run_reference_video
+from gflow_cli.services.native_captcha import (
+    native_captcha_controls,
+    native_provider_errors,
+)
 
 
 @click.command("reference-native")
@@ -33,6 +37,15 @@ from gflow_cli.selfhost.reference_video_worker import run_reference_video
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/reference-video"))
 @click.option("--json", "as_json", is_flag=True)
+@click.option(
+    "--captcha-order", default=None, help="Explicit unique provider order: CapSolver,2Captcha."
+)
+@click.option(
+    "--captcha-retry",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Total confirmed-WAF attempts; explicit use selects providers. Omitted: browser once.",
+)
 @native_captcha_option("VIDEO_GENERATION")
 def reference_native_command(
     project: str,
@@ -48,10 +61,14 @@ def reference_native_command(
     profile: str,
     out_dir: Path,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Generate once from UUID ingredients; download independently identified outputs."""
+    controls = native_captcha_controls(captcha_order=captcha_order, captcha_retry=captcha_retry)
     profile = _resolve_profile(profile)
     payload = {
+        **controls,
         "prompt": prompt,
         "referenceImageIds": image_ref,
         "referenceAudioIds": audio_ref,
@@ -65,7 +82,8 @@ def reference_native_command(
 
     async def action() -> None:
         try:
-            result = await run_reference_video(profile, project, payload, out_dir)
+            with native_provider_errors(active=bool(controls)):
+                result = await run_reference_video(profile, project, payload, out_dir)
             if as_json:
                 json_output.emit(result)
             else:

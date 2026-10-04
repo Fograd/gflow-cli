@@ -64,7 +64,10 @@ GFLOW_CLI_OUTPUT_DIR=/home/USER/.local/share/gflow-host/output
 GFLOW_CLI_HEADLESS=false
 GFLOW_CLI_BROWSER_ENGINE=patchright
 GFLOW_CLI_AUTH_LOGIN_TIMEOUT=7200
+GFLOW_SELFHOST_ROOT=/home/USER/.local/share/gflow-host/selfhost
 ```
+
+Keep GFLOW_SELFHOST_ROOT identical in the common and REST environments. Native SDK/CLI/MCP provider observations also use this root; without it, a process defaults to GFLOW_CLI_HOME/selfhost and its counters can be separate from REST. Load the common environment in operator shells and all relevant service units. This changes the private observation/storage location, not the browser profile or Google sign-in.
 
 Replace `/home/USER` with the service user's actual home. Example REST environment, initially with no enabled accounts:
 

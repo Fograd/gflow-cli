@@ -15,7 +15,7 @@ Use TLS or an SSH tunnel across untrusted networks.
 | --- | --- |
 | `GFLOW_DAEMON_TOKEN` | Required bearer token, shared with the existing MCP daemon if desired |
 | `GFLOW_SELFHOST_ACCOUNTS` | JSON object mapping enabled profile names to `{ "email": "account handle", "project": "Google project UUID" }` |
-| `GFLOW_SELFHOST_ROOT` | Private SQLite queue, uploads and output root; default `$GFLOW_CLI_HOME/selfhost` |
+| `GFLOW_SELFHOST_ROOT` | Private SQLite queue, uploads, output and native CAPTCHA observations; default `$GFLOW_CLI_HOME/selfhost`. Use the same explicit root for SDK/CLI/MCP and REST processes |
 | `GFLOW_SELFHOST_HOST` | Listen address; default `127.0.0.1` |
 | `GFLOW_SELFHOST_PORT` | Listen port; default `8844` |
 | `GFLOW_SELFHOST_CALLBACK_HOSTS` | Comma-separated exact HTTPS hostnames; empty disables callbacks |

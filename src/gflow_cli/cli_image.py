@@ -50,7 +50,7 @@ from gflow_cli.api.image import (
 )
 from gflow_cli.api.image_aspect_policy import ImageAspectDecision
 from gflow_cli.api.image_upscale import TargetResolution, UpsampleImageRequest
-from gflow_cli.api.native_captcha import native_captcha_or_none, read_native_token_file
+from gflow_cli.api.native_captcha import read_native_token_file
 from gflow_cli.api.transports import transport_choices
 from gflow_cli.api.video import is_media_uuid
 from gflow_cli.config import UiMode, get_settings, parse_jitter_range
@@ -107,6 +107,12 @@ from gflow_cli.image_batch import (
 from gflow_cli.paths import image_output_path, resolve_batch_output_dir
 from gflow_cli.services import catalog_sync
 from gflow_cli.services.image_aspect import aspect_decision_metadata, resolve_image_aspect
+from gflow_cli.services.native_captcha import (
+    native_captcha_client,
+    native_captcha_controls,
+    require_native_captcha_client,
+    run_native_captcha_with_controls,
+)
 from gflow_cli.storage import cloud_info_from_path
 
 if TYPE_CHECKING:
@@ -654,15 +660,15 @@ def upscale_capabilities(media_id: str, project: str, profile: str | None, as_js
         "  gflow image upscale <mediaId> --scale 4k --out ~/Downloads\n\n"
         "MEDIA_ID is the UUID of a platform-generated image — find one with "
         "`gflow data list images`. Only images Flow generated can be upscaled "
-        "(uploaded images are not supported). 4K requires a Flow Ultra "
-        "subscription; on other plans use --scale 2k."
+        "(uploaded images are not supported). Current per-image menu availability "
+        "determines supported targets; inspect image upscale-capabilities first."
     ),
 )
 @click.argument("media_id")
 @click.option(
     "--scale",
     required=True,
-    help="Target resolution: 2k or 4k (4k is Ultra-only). 1k is the original.",
+    help="Target resolution: 2k or 4k when available for this image. 1k is the original.",
 )
 @click.option(
     "--out",
@@ -693,7 +699,16 @@ def upscale_capabilities(media_id: str, project: str, profile: str | None, as_js
     "--captcha-token-file",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
-    help="Private single-use token file for native 2K upscale.",
+    help="Private single-use token file for native 2K/4K upscale.",
+)
+@click.option(
+    "--captcha-order", default=None, help="Explicit unique provider order: CapSolver,2Captcha."
+)
+@click.option(
+    "--captcha-retry",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Total confirmed-WAF attempts; explicit use selects providers. Omitted: browser once.",
 )
 def upscale(
     media_id: str,
@@ -703,6 +718,8 @@ def upscale(
     profile: str | None,
     transport: str | None,
     captcha_token_file: Path | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Upscale MEDIA_ID to the requested --scale and save it locally."""
     # Validate scale + mediaId format before doing anything (fail fast, exit 2).
@@ -729,6 +746,14 @@ def upscale(
     except ValueError as exc:
         raise click.BadParameter(str(exc)) from exc
 
+    try:
+        native_captcha_controls(
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            supplied_token=captcha_token_file is not None,
+        )
+    except ConfigurationError as error:
+        raise click.UsageError(error.detail) from None
     token = read_native_token_file(captcha_token_file) if captcha_token_file else None
     provider_dir = _make_provider_dir(profile_name)
     settings = get_settings()
@@ -743,6 +768,8 @@ def upscale(
             out_dir=out_dir,
             transport=transport,
             captcha_token=token,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
         ),
         cli_command="image upscale",
     )
@@ -813,27 +840,43 @@ async def _run_upscale(
     out_dir: Path | None,
     transport: str | None = None,
     captcha_token: str | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     settings = get_settings()
     output_root = out_dir if out_dir is not None else settings.output_dir
     out_path = output_root / "images" / date.today().isoformat() / f"{media_id}_{scale_label}.png"
-    async with FlowApiClient(
-        profile_dir=profile_dir,
-        headless=headless,
-        transport=transport,
-        out_dir=output_root,
-    ) as client:
-        console.print(f"Upscaling [bold]{media_id}[/bold] to {scale_label.upper()}...")
-        with native_captcha_or_none(
-            captcha_token, project_id=project_id, action="IMAGE_GENERATION"
-        ):
+
+    async def attempt() -> None:
+        async with native_captcha_client(
+            FlowApiClient(
+                profile_dir=profile_dir,
+                headless=headless,
+                transport=transport,
+                out_dir=output_root,
+            ),
+            active=captcha_order is not None or captcha_retry is not None,
+        ) as client:
+            console.print(f"Upscaling [bold]{media_id}[/bold] to {scale_label.upper()}...")
+            require_native_captcha_client(
+                client, active=captcha_order is not None or captcha_retry is not None
+            )
             target = await client.upsample_image(
                 media_id=media_id,
                 project_id=project_id,
                 target_resolution=resolution,
                 out_path=out_path,
             )
-        console.print(f"[bold green]Saved:[/bold green] {safe_path_text(target)}")
+            console.print(f"[bold green]Saved:[/bold green] {safe_path_text(target)}")
+
+    await run_native_captcha_with_controls(
+        project_id=project_id,
+        action="IMAGE_GENERATION",
+        attempt=attempt,
+        captcha_order=captcha_order,
+        captcha_retry=captcha_retry,
+        captcha_token=captcha_token,
+    )
 
 
 # ---------------------------------------------------------------------------

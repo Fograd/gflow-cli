@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native reference video, edit, extension and image-upscale CLI/direct MCP expose explicit CAPTCHA provider order and bounded confirmed-WAF controls through the shared policy, with fresh client attempts and existing ownership/availability guards. Image controls require the native served host; no entitlement is inferred.
+
 - Explicit configured CAPTCHA provider order and bounded confirmed-WAF attempts for saved-voice creation and native video promotion in CLI/direct MCP, with shared SDK voice policy. Omitted controls preserve browser-owned one-attempt behavior; supplied tokens remain exclusive. Selected provider setup failures use typed, secret-free configuration errors.
 
 - Optional self-hosted idle project-access maintenance: disabled by default, serialized bounded health reads with persisted scheduling, quiet backoff and separate safe status. It does not renew authentication.

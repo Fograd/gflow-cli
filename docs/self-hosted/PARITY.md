@@ -807,3 +807,14 @@ checks completedOK on both isolated test profiles; the disabled reserved account
 had no maintenance job. These reads do not renew authentication.
 See [FINAL_E2E.md](FINAL_E2E.md#4-october-deployed-acceptance-follow-up)
 for retained budgets and remaining renewal/output boundaries.
+
+
+### R06 registered voice provider result and deployment stats alignment
+
+Saved-voice/promotion provider mirrors are published/deployed in7eed4278.
+The registered MCP voice trial solved/submitted through CapSolver but ended in
+a typed Google quota/model-access refusal, with no accepted audio or retry.
+CLI/MCP and REST now share the configured private stats root on CC LXC;
+historical split-root counters were preserved and four unique events imported
+once. This fixes observation visibility, not Google's quota/access decision.
+See [the final test notes](FINAL_E2E.md#registered-mcp-saved-voice-and-shared-stats-follow-up).

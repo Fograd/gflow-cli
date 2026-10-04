@@ -18,6 +18,11 @@ from gflow_cli.api.native_video_edit import (
 )
 from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.config import get_settings
+from gflow_cli.services.native_captcha import (
+    native_captcha_client,
+    native_captcha_controls,
+    run_native_captcha_with_controls,
+)
 
 
 @click.command("edit-native")
@@ -42,6 +47,15 @@ from gflow_cli.config import get_settings
 @click.option("--profile", default=None)
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
 @click.option("--json", "as_json", is_flag=True)
+@click.option(
+    "--captcha-order", default=None, help="Explicit unique provider order: CapSolver,2Captcha."
+)
+@click.option(
+    "--captcha-retry",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Total confirmed-WAF attempts; explicit use selects providers. Omitted: browser once.",
+)
 @native_captcha_option("VIDEO_GENERATION")
 def edit_native_command(
     media_id: str,
@@ -56,8 +70,11 @@ def edit_native_command(
     profile: str | None,
     out_dir: Path,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Edit one owned video slice; output duration follows the frame window."""
+    native_captcha_controls(captcha_order=captcha_order, captcha_retry=captcha_retry)
     selected = _resolve_profile(profile)
 
     async def action() -> None:
@@ -79,49 +96,62 @@ def edit_native_command(
             path.chmod(0o600)
 
         try:
-            async with FlowApiClient(
-                profile_dir=get_settings().profile_subdir(selected), headless=False
-            ) as client:
-                started = await edit_native_video(
-                    client,
-                    project_id=project,
-                    media_id=media_id,
-                    prompt=prompt,
-                    model_key=model_key,
-                    start_frame=start_frame,
-                    end_frame=end_frame,
-                    image_ids=image_ref,
-                    audio_ids=audio_ref,
-                    character_ids=character_ref,
-                    on_started=checkpoint,
-                )
-                records = await wait_native_video_edit(client, started)
-                outputs: list[dict[str, str]] = []
-                for record in records:
-                    if record.video_url is None:
-                        raise NativeVideoEditUnknownError(started)
-                    path = out_dir / f"{record.media_id}.mp4"
-                    await client.download(record.video_url, path)
-                    outputs.append(
-                        {
-                            "media_id": record.media_id,
-                            "workflow_id": record.workflow_id,
-                            "local_path": str(path),
-                        }
+
+            async def attempt() -> dict[str, object]:
+                async with native_captcha_client(
+                    FlowApiClient(
+                        profile_dir=get_settings().profile_subdir(selected), headless=False
+                    ),
+                    active=captcha_order is not None or captcha_retry is not None,
+                ) as client:
+                    started = await edit_native_video(
+                        client,
+                        project_id=project,
+                        media_id=media_id,
+                        prompt=prompt,
+                        model_key=model_key,
+                        start_frame=start_frame,
+                        end_frame=end_frame,
+                        image_ids=image_ref,
+                        audio_ids=audio_ref,
+                        character_ids=character_ref,
+                        on_started=checkpoint,
                     )
-                result = {
-                    "type": "video_edit_result",
-                    "project_id": project,
-                    "source_media_id": media_id,
-                    "startFrameIndex": started.start_frame,
-                    "endFrameIndex": started.end_frame,
-                    "sourceDurationSeconds": started.source_duration_seconds,
-                    "results": outputs,
-                }
-                if as_json:
-                    json_output.emit(result)
-                else:
-                    click.echo(f"Saved one edited clip in {out_dir}")
+                    records = await wait_native_video_edit(client, started)
+                    outputs: list[dict[str, str]] = []
+                    for record in records:
+                        if record.video_url is None:
+                            raise NativeVideoEditUnknownError(started)
+                        path = out_dir / f"{record.media_id}.mp4"
+                        await client.download(record.video_url, path)
+                        outputs.append(
+                            {
+                                "media_id": record.media_id,
+                                "workflow_id": record.workflow_id,
+                                "local_path": str(path),
+                            }
+                        )
+                    return {
+                        "type": "video_edit_result",
+                        "project_id": project,
+                        "source_media_id": media_id,
+                        "startFrameIndex": started.start_frame,
+                        "endFrameIndex": started.end_frame,
+                        "sourceDurationSeconds": started.source_duration_seconds,
+                        "results": outputs,
+                    }
+
+            result = await run_native_captcha_with_controls(
+                project_id=project,
+                action="VIDEO_GENERATION",
+                attempt=attempt,
+                captcha_order=captcha_order,
+                captcha_retry=captcha_retry,
+            )
+            if as_json:
+                json_output.emit(result)
+            else:
+                click.echo(f"Saved one edited clip in {out_dir}")
         except NativeVideoEditUnknownError as error:
             json_output.emit(
                 {

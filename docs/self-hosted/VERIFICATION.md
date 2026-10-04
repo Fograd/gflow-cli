@@ -1840,3 +1840,49 @@ rerun in5.15seconds. Coverage was89.79%; hygiene, docs/mirrors, lint/format and
 types passed. The duplication proxy reported only existing untouched alias
 storage code. This gate does not establish native saved-voice or video-promotion
 Google acceptance.
+
+
+### Registered MCP saved-voice and shared stats follow-up
+
+Deployed source7eed4278c31a5b0d6c98e8501fedbc0076754386 exposed the new
+saved-voice/promotion provider fields on the registered43-tool MCP service.
+One explicit CapSolver saved-voice request on the isolated second account
+recorded one solve, solved token, submission and rejection. Google returned a
+typed quota/model-access refusal (429), not an unusual-activity error. No accepted
+preview or acknowledged media handle was returned; the request was not replayed.
+The cause within quota versus account/model access remains unobserved.
+Accepted saved-voice playback/binding remains a separate proof requirement.
+
+The deployed MCP process initially used the default private stats root while
+REST used its configured root. The operator aligned GFLOW_SELFHOST_ROOT in
+the shared protected environment, restarted MCP/GUI after empty queues, and
+verified the running MCP environment. Both counter databases were backed up;
+the four unique MCP observations were imported once with an atomic receipt.
+No Google request, cookie/profile transfer or generation was performed by that
+alignment. SDK/CLI/MCP processes must load the same configured root to contribute
+to the same instance statistics; aggregate history remains locally observed,
+not a Google account-wide usage total.
+
+Retained campaign counts are nowpro2 images5/videos1/audio3 andpro3
+images4/videos1/audio2. Reservedpro1 remains images2/videos2/audio1.
+Each testing account retains one authorized video attempt. The private operator
+audio bound is3 per account; this request's reservation was conservatively kept.
+
+Second scheduled idle checks also completedOK: pro2 at16:52:39UTC and pro3 at16:53:13UTC, approximately30minutes after their first checks. Both preserved the original profiles and attempted no authentication refresh. The reserved disabled profile remained excluded. An actual renewal boundary and long unattended retention remain unproved.
+
+
+### Remaining native public CAPTCHA mirrors gate
+
+Native reference-video, edit, extension and image-upscale CLI/direct MCP
+provider controls passed296 focused tests and both independent reviews.
+The complete mandatory source gate passed7,875 tests,5 skipped, with89.85%
+coverage. Hygiene, docs/mirrors, lint/format and types passed. No new live native
+video or image-upscale provider acceptance is claimed by this gate.
+
+One registered MCP saved-voice request onpro3 selected CapSolver explicitly,
+recorded solveStarted/solved/submitted/rejected in the shared REST-visible
+stats root, and ended with a typed WAF unusual-activity refusal. There was no
+accepted audio, unknown result or retry. This differed frompro2's quota/access
+refusal; neither establishes the cause of Google's decision. Retained counts:
+pro2 images5/videos1/audio3;pro3 images4/videos1/audio3. Reservedpro1 remains
+images2/videos2/audio1. Saved-voice playback/binding acceptance is still open.

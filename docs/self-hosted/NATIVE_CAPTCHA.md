@@ -2,7 +2,7 @@
 
 Native reference video, Omni edit, extension, promotion and saved-TTS creation accept one
 supplied CAPTCHA token. This is explicit interception support; Google acceptance
-of external/provider tokens remains unverified. Ordinary browser-owned minting
+of external/provider tokens is surface-specific. Ordinary browser-owned minting
 is unchanged when no override is supplied.
 
 ## SDK
@@ -50,7 +50,7 @@ native workers. See [provider policy](CAPTCHA.md#dedicated-native-provider-contr
 This is explicit caller choice: default browser minting does not silently switch
 to a paid solver. Only confirmed typed WAF refusal may trigger the next explicitly
 requested attempt; accepted and unknown outcomes never replay. Provider-backed
-Google acceptance remains unverified. Generic UI video and image-upscale token
+Google acceptance evidence is surface-specific. Generic UI video and image-upscale token
 paths remain distinct from these native adapters.
 
 ## Verification and troubleshooting
@@ -118,6 +118,42 @@ charges/Google credits. This adapter batch has offline verification only and
 does not establish Google generation acceptance.
 
 Native reference/edit/extension and image-upscale CLI/direct MCP provider mirrors
-remain a separate follow-up. Their existing supplied-token behavior is unchanged.
+are documented below. Their supplied-token behavior remains single use.
 Generic image generation uses its separate `ImageOverrides` policy and is not
 routed through the native token retry policy by this batch.
+
+## Reference, edit, extension and image upscale CLI/direct MCP provider controls
+
+`video reference-native`, `video edit-native`, `video extend-native` and
+`image upscale` also accept `--captcha-order` and `--captcha-retry`.
+Their direct MCP twins `gflow_generate_native_reference_video`,
+`gflow_edit_native_video`, `gflow_extend_native_video` and
+`gflow_upscale_image` accept optional `captcha_order` and strict-integer
+`captcha_retry`. Omitted controls preserve one browser-owned attempt; explicit
+retry, including 1, selects existing configured providers. Retry means 1–10
+total attempts, not additional retries. Provider names are exact and unique.
+Supplied tokens and provider controls are exclusive before file consumption or
+client creation. Neither tokens nor provider keys enter durable job JSON.
+
+The CLI reference/extension adapters forward nonsecret camel-case controls to
+their existing workers. Edit, image upscale and direct MCP use the same existing
+native policy around complete fresh-client callbacks; no second retry engine is
+introduced. One direct MCP profile lock covers all attempts; video rate admission
+occurs once. Only the existing exact negatively acknowledged WAF predicate may
+permit another attempt. Accepted, uncertain, cancelled, partial, polling,
+download and surfaced client teardown failures do not replay. A second teardown
+failure following rejection stops selected-provider retries with a typed
+configuration error. Existing model, ownership, checkpoint and menu preflight
+remain in the SDK before minting. Disabled or unknown 4K capability never becomes
+a CAPTCHA retry reason.
+
+Explicit image providers require an actually loaded `flow.google.com` session
+before the SDK is called. Unsupported or unidentified hosts refuse before minting;
+settings alone do not prove the served host. Image uses IMAGE_GENERATION; video
+uses VIDEO_GENERATION. Existing direct supplied-token compatibility remains
+single use. The generic image generation `ImageOverrides` policy is separate.
+
+This adapter batch is verified offline with synthetic tokens and clients. Live
+provider/native acceptance for these four new CLI/MCP adapters was not run:
+the parent release owns profile leases and paid allowances. The parent REST
+image acceptance does not prove acceptance for native voice or video.

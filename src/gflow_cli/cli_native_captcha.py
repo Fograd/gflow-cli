@@ -13,6 +13,7 @@ import click
 from gflow_cli._cli_helpers import run_with_handlers
 from gflow_cli.api.native_captcha import native_captcha_token, read_native_token_file
 from gflow_cli.errors import ConfigurationError
+from gflow_cli.services.native_captcha import native_captcha_controls
 
 
 def native_captcha_option(action: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -20,11 +21,16 @@ def native_captcha_option(action: str) -> Callable[[Callable[..., Any]], Callabl
         @wraps(function)
         def run(*args: Any, **kwargs: Any) -> Any:
             path = kwargs.pop("captcha_token_file", None)
-            if path is None:
-                return function(*args, **kwargs)
             bound = signature(function).bind_partial(*args, **kwargs)
             project = bound.arguments.get("project")
             try:
+                native_captcha_controls(
+                    captcha_order=kwargs.get("captcha_order"),
+                    captcha_retry=kwargs.get("captcha_retry"),
+                    supplied_token=path is not None,
+                )
+                if path is None:
+                    return function(*args, **kwargs)
                 if not isinstance(project, str):
                     raise ConfigurationError(
                         detail="Supplied native CAPTCHA requires a project UUID"

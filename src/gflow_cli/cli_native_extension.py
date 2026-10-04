@@ -11,6 +11,10 @@ from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
 from gflow_cli.api.native_extension import NativeExtensionUnknownError
 from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.selfhost.extension_worker import run_extension
+from gflow_cli.services.native_captcha import (
+    native_captcha_controls,
+    native_provider_errors,
+)
 
 
 @click.command("extend-native")
@@ -29,6 +33,15 @@ from gflow_cli.selfhost.extension_worker import run_extension
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/extensions"))
 @click.option("--json", "as_json", is_flag=True)
+@click.option(
+    "--captcha-order", default=None, help="Explicit unique provider order: CapSolver,2Captcha."
+)
+@click.option(
+    "--captcha-retry",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Total confirmed-WAF attempts; explicit use selects providers. Omitted: browser once.",
+)
 @native_captcha_option("VIDEO_GENERATION")
 def extend_native_command(
     media_id: str,
@@ -42,10 +55,14 @@ def extend_native_command(
     profile: str,
     out_dir: Path,
     as_json: bool,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Extend once; download only the independently identified extension outputs."""
+    controls = native_captcha_controls(captcha_order=captcha_order, captcha_retry=captcha_retry)
     profile = _resolve_profile(profile)
     payload = {
+        **controls,
         "mediaGenerationId": media_id,
         "prompt": prompt,
         "modelKey": model_key,
@@ -57,7 +74,8 @@ def extend_native_command(
 
     async def action() -> None:
         try:
-            result = await run_extension(profile, project, payload, out_dir)
+            with native_provider_errors(active=bool(controls)):
+                result = await run_extension(profile, project, payload, out_dir)
             if as_json:
                 json_output.emit(result)
             else:
