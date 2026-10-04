@@ -853,8 +853,8 @@ queued.raise_for_status()
 ```
 
 Actual workers-disabled forwarding/cache/queue BDD passed64.71seconds with zero
-generation. Final gates passed6746tests; paid accepted output and publication/deployment
-remain pending. Queue acceptance does not establish rendered acceptance; an
+generation. Final gates passed6746tests; paid accepted output and sourceea9cc2c5 is published/deployed with all3 production default-history
+HTTP200 reads and zero generation. Queue acceptance does not establish rendered acceptance; an
 explicit Google WAF refusal or unknown outcome is recorded separately.
 
 
@@ -862,8 +862,8 @@ explicit Google WAF refusal or unknown outcome is recorded separately.
 
 The R03 batch implements useapi generated-history project counts, distinct from
 project inventory counts. Actual default-summary/media BDD passed65.84seconds with zero generation;
-final frozen-source gates passed6746tests,5skips,89%coverage; publication/deployment
-remain pending. Positive generated
+final frozen-source gates passed6746tests,5skips,89%coverage; sourceea9cc2c5 is published/deployed with all3 production default-history
+HTTP200 reads and zero generation. Positive generated
 image/video arms alone supply per-call projectId/isCurrent/total/byType and
 optional oldest/newest source dates; uploads/audio/unknown are excluded. scanned
 includes all observed media. Up to50pages/20-workflow requests/45seconds with

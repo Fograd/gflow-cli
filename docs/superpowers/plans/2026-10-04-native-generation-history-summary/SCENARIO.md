@@ -13,5 +13,7 @@ is not complete. Actual BDD65.84seconds verified totals/dates/continuation/priva
 observations/original image,workers disabled0jobs0generations. Focused88passed7.31s,
 Pyright0/RuffGO. Fixture cleaned,originals preserved0generation. Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
 322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
-source strict Pyright0errors passed. Candidate awaits publication/deployment.
+source strict Pyright0errors passed. Published atomically to all3 fork branches and clean fast-forward deployed at
+source ea9cc2c5bc8ee35362ee81427fb1b1c83bff9a6e; environment synchronized, API/MCP
+active, queues0 before/after actual production reads.
  earlier6744checkpoint is not the final correction proof. R03 overall open.

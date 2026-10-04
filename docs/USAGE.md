@@ -2567,8 +2567,8 @@ behavior stays unchanged. Actual workers-disabled cache/forwarding BDD passed
 
 The R03 batch implements useapi generated-history project counts, distinct from
 project inventory counts. Actual default-summary/media BDD passed65.84seconds with zero generation;
-final frozen-source gates passed6746tests,5skips,89%coverage; publication/deployment
-remain pending. Positive generated
+final frozen-source gates passed6746tests,5skips,89%coverage; sourceea9cc2c5 is published/deployed with all3 production default-history
+HTTP200 reads and zero generation. Positive generated
 image/video arms alone supply per-call projectId/isCurrent/total/byType and
 optional oldest/newest source dates; uploads/audio/unknown are excluded. scanned
 includes all observed media. Up to50pages/20-workflow requests/45seconds with

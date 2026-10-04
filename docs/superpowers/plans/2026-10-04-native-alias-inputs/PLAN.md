@@ -27,7 +27,9 @@ Pro1 video allowance is2of2 consumed; no further pro1 paid video trial is author
 
 Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
 322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
-source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6693pass checkpoint preceded the root-loader correction; the final
+source strict Pyright0errors passed. Published atomically to all3 fork branches and clean fast-forward deployed at
+source ea9cc2c5bc8ee35362ee81427fb1b1c83bff9a6e; environment synchronized, API/MCP
+active, queues0 before/after actual production reads. The earlier6693pass checkpoint preceded the root-loader correction; the final
 6746pass result certifies the corrected source.
 Rendered/provider acceptance, saved-user voice cohort and broader R02 remain open.
 

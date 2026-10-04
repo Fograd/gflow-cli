@@ -23,10 +23,23 @@ with0generation.
 
 Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
 322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
-source strict Pyright0errors passed. Candidate awaits publication/deployment. The earlier6744checkpoint overlapped the missing-primary correction; the final
+source strict Pyright0errors passed. Published atomically to all3 fork branches and clean fast-forward deployed at
+source ea9cc2c5bc8ee35362ee81427fb1b1c83bff9a6e; environment synchronized, API/MCP
+active, queues0 before/after actual production reads. The earlier6744checkpoint overlapped the missing-primary correction; the final
 6746pass result above certifies the frozen correction.
-Publication/deployment are pending. R03 remains unchecked for complete histories,
+Production proof is recorded below. R03 remains unchecked for complete histories,
 saved-user cohorts and authoritative reconciliation; no accepted R04 video is claimed.
 Contract: per-call projectId/isCurrent/total/byType/optional oldest/newest;
 scanned/truncated/cursor/stoppedOn:timeBudget. Use positive typed source arms,
 not prompts; isCurrent uses configured project. No complete-history implication.
+
+Actual deployed default history HTTP200 passed for all3 accounts at source
+ea9cc2c5:pro1 projects3/scanned138;pro2 projects1/scanned260;pro3 projects1/
+scanned200. All were truncated:true, complete:null, with validated continuations
+and generated totals no greater than scanned. Private result files were0600.
+These are fresh bounded observations, not complete account inventories.
+
+Zero generation; campaign reservations unchanged:pro1 images1/videos2,pro2
+images0/videos1,pro3 images1/videos1. API/MCP remained active and queues0. No
+accepted native video/provider-backed rendering is claimed. Docs-only follow-up
+reuses the unchanged frozen source6746pass gate; no source rerun is needed.

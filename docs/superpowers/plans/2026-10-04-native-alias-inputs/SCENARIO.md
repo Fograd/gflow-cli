@@ -14,4 +14,6 @@ root-loader failure, corrected/audited with0submissions and reservation release.
 Root-loader fix and privacy regressions pass; pro1videos2of2,no further paid trial.
 Final frozen-source gates passed6746tests,5skips,15warnings,89%coverage in
 322.79seconds. Repository/link/PII/mirror/council/Ruff/format checks and whole
-source strict Pyright0errors passed. Candidate awaits publication/deployment. Broader output/provider/R02 acceptance open.
+source strict Pyright0errors passed. Published atomically to all3 fork branches and clean fast-forward deployed at
+source ea9cc2c5bc8ee35362ee81427fb1b1c83bff9a6e; environment synchronized, API/MCP
+active, queues0 before/after actual production reads. Broader output/provider/R02 acceptance open.
