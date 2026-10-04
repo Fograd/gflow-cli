@@ -49,6 +49,7 @@ def project() -> None:
 
 project.add_command(sync_subcommand)
 project.add_command(resources_subcommand)
+project.add_command(resources_subcommand, name="account-resources")
 
 
 @project.command("list")

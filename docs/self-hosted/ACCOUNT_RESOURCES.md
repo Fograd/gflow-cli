@@ -21,6 +21,7 @@ while page["next_cursor"] is not None:
 ```
 
 CLI: `gflow project account-resources --kind character --profile NAME --json`.
+The existing `gflow project resources` spelling remains a compatible alias.
 Pass `--kind voice` for saved voices, `--cursor TOKEN` to continue,
 `--max-projects`, `--max-pages`, and `--max-seconds` for bounds.
 Direct registered MCP: `gflow_list_account_resources(kind, profile="default",

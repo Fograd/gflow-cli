@@ -88,7 +88,8 @@ def fake_client(seen):
     return ClientContext
 
 
-def test_cli_registration_and_matching_controls(tmp_path, monkeypatch):
+@pytest.mark.parametrize("command", ["resources", "account-resources"])
+def test_cli_registration_and_matching_controls(tmp_path, monkeypatch, command):
     from gflow_cli import cli_account_resources as cli
     from gflow_cli.cli_project import project
 
@@ -104,7 +105,7 @@ def test_cli_registration_and_matching_controls(tmp_path, monkeypatch):
     result = CliRunner().invoke(
         project,
         [
-            "resources",
+            command,
             "--kind",
             "voice",
             "--max-projects",

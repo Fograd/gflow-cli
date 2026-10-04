@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Clear all migrated composer reference chips through normal editing events.
+- Select video rights dialogs by positive index in Patchright, preserving the exact three-button check and one-time agreement.
+- Preserve transport errors inside validated MP4 snapshots without losing acknowledged mutation handles.
+
+- Correct saved-TTS preview quota errors: terminal Google quota/access refusals
+  remain typed refusals; metadata-save failures preserve acknowledged audio handles.
+- Add an explicit one-shot ten-reference image rendering BDD with a private
+  persistent invocation marker; retain the existing zero-submit retention proof.
+- Register documented project account-resources CLI alias while retaining resources.
+- Preserve exact typed WAF/content-policy refusals through generic image, upscale
+  and video API workers, using the existing bounded safe projection.
+
 - HTTP project listing now defaults to generated-history summaries and media listing to native Google inventory; explicit source=local retains managed caches and project source=google retains discovery/catalogs. Existing SDK/CLI/MCP history DTOs gain generated-only per-call summaries without new flags/tools; complete history remains unknown.
 
 - Private native CAPTCHA workers resolve the configured root through a shared path-only helper without requiring daemon bearer credentials; token-file privacy checks remain unchanged. Provider acceptance remains separately verified.

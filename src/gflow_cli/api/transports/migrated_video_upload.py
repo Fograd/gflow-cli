@@ -163,17 +163,24 @@ async def _upload_video_snapshot(
         deadline = time.monotonic() + 120
         while not reply.done() and time.monotonic() < deadline:
             dialogs = page.locator("mat-dialog-container")
-            if await dialogs.count() > dialogs_before:
+            dialog_count = await dialogs.count()
+            if dialog_count > dialogs_before:
                 if not rights_confirmed:
                     raise UploadRightsRequiredError(
                         "Video rights confirmation required: affirm that you own upload rights "
                         "with X-Flow-Rights-Confirmed: true, or confirm in the logged-in browser"
                     )
-                buttons = dialogs.last.get_by_role("button")
+                # Patchright queryCount misreads negative nth selectors as empty.
+                buttons = dialogs.nth(dialog_count - 1).get_by_role("button")
                 # Measured video dialog order: cancel, agree persistently, agree once.
                 # Never choose the middle button or change an account-wide preference.
-                if await buttons.count() != 3:
-                    raise ValueError("Video rights dialog changed; confirm in the browser")
+                # Angular mounts the dialog shell before its buttons are ready.
+                await buttons.nth(2).wait_for(state="visible", timeout=5000)
+                mount_deadline = min(deadline, time.monotonic() + 5)
+                while await buttons.count() != 3:
+                    if time.monotonic() >= mount_deadline:
+                        raise ValueError("Video rights dialog changed; confirm in the browser")
+                    await asyncio.sleep(0.1)
                 await buttons.nth(2).click(timeout=5000)
                 dialogs_before = await dialogs.count()
             await asyncio.sleep(0.1)

@@ -64,6 +64,7 @@ of the harness, not successful Google execution.
 | `test_native_inventory_sync_bdd.py` | `GFLOW_CLI_E2E_NATIVE_SYNC=1` | Two bounded checkpoint steps, private observations, zero generation |
 | `test_native_asset_lookup_bdd.py` | `GFLOW_CLI_E2E_ASSET_LOOKUP=1`, `GFLOW_CLI_E2E_RESOURCES_PROJECT` | Fresh owned image/video metadata and content, no write |
 | `test_native_image_ten_retention_bdd.py` | `GFLOW_CLI_E2E_TEN_RETAIN=1`, project, `GFLOW_CLI_E2E_TEN_MODEL` | Abort before generation; ten exact ordered identities; requires10fresh active owned images or explicit GFLOW_CLI_E2E_TEN_UPLOAD_FIXTURE=1 for owned upload/archive fixtures |
+| test_native_image_ten_rendering_bdd.py | GFLOW_CLI_E2E_TEN_RENDER=1, TEN_OUTPUT private directory, project/model, owned fixture upload or explicit fixture, one reserved image | Separate paid acceptance; persistent invocation.marker forbids replay, validates exact ten-reference wire once and decoded owned output |
 | `test_native_video_batch_preflight_bdd.py` | `GFLOW_E2E_BATCH_PROFILE_DIR`, `GFLOW_E2E_BATCH_PROJECT_ID` | One intercepted four-output Lite request, zero forwarding |
 | `test_native_saved_voice_preview_bdd.py` | `GFLOW_CLI_E2E_SAVED_VOICE_PREVIEW=1`, private `GFLOW_CLI_E2E_SAVED_VOICE_FIXTURE` already reserved | One real preview, saved playback and owned cleanup; requires fresh accepted audio |
 | `test_native_video_paths_final_bdd.py` | Exactly one `GFLOW_CLI_E2E_NATIVE_VIDEO_PATH`, private output/source configuration, `GFLOW_CLI_E2E_RUN_VIDEO=1`, `GFLOW_CLI_E2E_NATIVE_VIDEO_BUDGET=1` | One selected reference/edit/extension output; audio-reference also needs its separate one-preview reservation |
@@ -123,3 +124,6 @@ FFmpeg job, async201/Location, same-key sync200 with the same jobId, completed
 polling, inputsCount2 and decoded64x64/3second MP4. Invocation-owned local fixtures
 were cleaned; Google generation0 and allowances unchanged. This local path can
 run while Google access needs renewal; it does not validate native generation.
+
+
+Current account isolation checkpoint — 4 October: pro1 is disabled and reserved for UseAPI, pro2/pro3 are the two testing profiles with fresh post-login access. No cookie-copy/import tests are permitted. The authoritative private campaign ledger counts pro2 images4/videos1/audio1 and pro3 images2/videos1/audio2 (pro1 images2/videos2/audio1 retained). Each active account has one video attempt remaining; image attempts may continue within50/account. Corrected ten-reference single-image BDD and fresh three-upload deletion-repeat/mixed BDD passed. Later reservations update the private ledger before submission; never reset these counters. Automatic renewal remains unverified.

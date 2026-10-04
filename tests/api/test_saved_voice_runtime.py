@@ -60,3 +60,47 @@ async def test_delete_owned_saved_voice_exact_source_fields(monkeypatch):
     result = await voice.delete_saved_voice(None, P, M, True)
     assert result["deleted"] == [M]
     assert rpc.await_args.args[2:] == ("cz8Z4b", [None, [W], P, None, None, None, [M]])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "PUBLIC_ERROR_USER_REQUESTS_THROTTLED",
+        "PUBLIC_ERROR_PER_MODEL_DAILY_QUOTA_REACHED",
+        "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC",
+        "PUBLIC_ERROR_MODEL_ACCESS_DENIED",
+    ],
+)
+async def test_preview_unique_quota_is_terminal_not_unknown(setup, monkeypatch, reason):
+    from types import SimpleNamespace
+
+    from gflow_cli.errors import NativeQuotaError
+    from tests.api.test_native_quota_producers import refusal
+
+    page = SimpleNamespace(
+        evaluate=AsyncMock(return_value={"status": 200, "text": refusal(voice.PREVIEW_RPC, reason)})
+    )
+    with pytest.raises(NativeQuotaError) as caught:
+        await voice.create_saved_voice(page, P, "Guide", "Charon", "Hello", "Warm")
+    assert caught.value.reason == reason
+    assert caught.value.retryable is False
+    page.evaluate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_quota_during_save_preserves_already_accepted_preview(setup, monkeypatch):
+    from gflow_cli.errors import NativeQuotaError
+
+    rpc = AsyncMock(
+        side_effect=[
+            [[[M, P, W]], []],
+            NativeQuotaError("PUBLIC_ERROR_USER_REQUESTS_THROTTLED", route="lt8g5"),
+        ]
+    )
+    monkeypatch.setattr(voice, "_rpc", rpc)
+    with pytest.raises(VoiceMutationUnknownError) as caught:
+        await voice.create_saved_voice(None, P, "Guide", "Charon", "Hello", "Warm")
+    assert caught.value.to_problem_details()["known_media_ids"] == [M]
+    assert caught.value.to_problem_details()["phase"] == "save"
+    assert rpc.await_count == 2

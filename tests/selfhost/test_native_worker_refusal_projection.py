@@ -114,3 +114,52 @@ def test_generic_waf_is_not_invented_unusual_activity():
     parsed = runtime.native_refusal_error(json_output.error_payload(WafRejectionError()), 10)
     assert parsed["code"] == "google_flow_waf_rejection"
     assert "unusual activity" not in parsed["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["images", "images/upscale", "videos"])
+@pytest.mark.parametrize(
+    "error,exit_code,expected",
+    [
+        (
+            WafRejectionError(detail="PUBLIC_ERROR_UNUSUAL_ACTIVITY private-captcha"),
+            10,
+            "google_flow_unusual_activity",
+        ),
+        (ContentPolicyError(detail="private-prompt"), 5, "google_flow_content_policy"),
+    ],
+)
+async def test_generic_worker_preserves_exact_typed_terminal_refusal(
+    kind, error, exit_code, expected, tmp_path, monkeypatch
+):
+    cfg = settings(tmp_path)
+    store = Store(tmp_path)
+    store.account_seed(cfg.accounts)
+    store.submit(
+        kind,
+        "pro1",
+        {
+            "project": P,
+            "prompt": "fixture",
+            "aspectRatio": "16:9",
+            "count": 1,
+            "model": "nano-banana-2" if kind != "videos" else "veo-3.1-lite",
+            "mediaGenerationId": "22222222-2222-4222-8222-222222222222",
+            "resolution": "2k",
+        },
+        None,
+    )
+    job = store.claim("pro1")
+    envelope = json_output.error_payload(error)
+    calls = []
+
+    async def run(args, timeout, **kwargs):
+        calls.append(args)
+        return exit_code, json.dumps(envelope).encode()
+
+    monkeypatch.setattr(runtime, "subprocess_run", run)
+    result = await runtime.execute(cfg, store, job)
+    assert len(calls) == 1
+    assert result["error"]["code"] == expected
+    assert result["error"]["retryable"] is False
+    assert "private" not in json.dumps(result)

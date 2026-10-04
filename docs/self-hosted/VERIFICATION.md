@@ -1672,3 +1672,91 @@ Repo hygiene, doc links, website PII/mirror, council memory, Ruff formatting/lin
 and strict source types passed. Earlier interrupted sweeps were not accepted
 as gates. The final real second-account owned-login check also passed native
 auto-close and independent expected-principal disk verification, without generation.
+
+### R02/R06 audio result and quota classification — 4 October 2026
+
+One isolated second-profile CapSolver audio preview solved a token but returned
+VoiceMutationUnknownError; one preview helper was invoked and no accepted audio
+was verified. The reservation remains counted and the uncertain request is not
+replayed. Credit reads were unavailable, so this does not establish billing.
+
+A separate reproducible bug wrapped a positively correlated terminal preview
+quota refusal as an unknown mutation. Four offline native-wire cases and an
+all-origins-intercepted real-browser scenario reproduced it before correction.
+The correction preserves the existing NativeQuotaError for a refused preview;
+a quota error during metadata save after acknowledged audio still preserves the
+known audio/workflow handles as an unknown save. No automatic replay is added.
+These intercepted tests spend no Google credits and do not explain the earlier
+live CapSolver outcome.
+
+### R03 fresh account resource traversal — 4 October 2026
+
+Fresh original test-profile reads passed through SDK (23.03s), CLI (57.86s),
+registered MCP (53.56s), and deployed REST (72.34s). Both character and saved-voice
+kinds read one discovery page and one fresh catalog, then resumed to a second
+fresh catalog. Each interface also passed fresh one-step sync and a catalog-
+committing resume. No call timed out; completeness remained null and deletion
+authority false. The sampled two catalogs returned zero resources, which proves
+neither account-wide absence nor authoritative exhaustion. Private scoped sync
+metadata remained URL/user-text/auth-free with directory0700 and database0600.
+
+The documented account-resources CLI spelling was previously unregistered and
+failed exit2. The compatibility alias now shares the existing resources command;
+24 focused adapter/parity tests pass. Its real fresh read and catalog resume also
+passed in24.24s. No generation, solver, cookie transfer, login or native deletion
+was performed.
+
+### Ten-reference rendering attempt — 4 October 2026
+
+Ten invocation-owned synthetic images were uploaded and attached in the selected
+Lite model. Canonical prompt reconstruction subsequently raised
+ReferenceNotFoundError before intercepted submission: captured0, forwarded0.
+The fixtures were reversibly archived and original active rows preserved.
+The campaign image reservation was released based on the generation guard's
+zero-forward observation. The ten-reference renderer is not yet accepted.
+
+### R06/R11 isolated provider image and worker error projection
+
+One isolated third-profile count-one Lite image API request explicitly selected
+CapSolver. The durable job ended failed with worker exit10 (WAF), accepted output
+zero; no generation replay was requested. An earlier invalid provider-control
+body returned422 and its reservation was released only after SQLite confirmed
+zero jobs. A solved provider token still does not establish Google acceptance.
+
+This exposed a generic worker projection gap: images, image upscales and default
+videos preserved quota errors but discarded canonical WAF/content-policy
+envelopes. Six offline worker cases reproduced the generic failure before the
+one-line correction; 53 focused worker/policy/projection tests pass afterward.
+The existing allow-listed type/class/exit-code proof and private-field stripping
+are retained; exit codes alone do not manufacture a native reason. This changes
+local public error plumbing, not the Google transport, and submits no generation.
+
+Saved-preview correction validation: 34 focused native-wire/runtime tests,
+including two all-origins-intercepted real-browser scenarios, pass. The latter
+observe one refused preview or one accepted preview plus one refused metadata
+save, with no replay and no Google traffic.
+
+
+### Composer and video upload corrections — 4 October
+
+The ten-reference campaign exposed a second composer defect: Ctrl+A cleared only the focused chip (ten became nine). Whole-editor Range selection plus a normal Backspace editing event clears all ten; an intercepted browser regression went RED then GREEN. One subsequent single-output request retained all ten ordered native identities and yielded a freshly owned 768x1376 JPEG. The first harness looked for its requested PNG instead of the returned JPEG path. Read-only recovery verified the existing output and archived all ten owned fixtures, without generation replay. This proves accepted output from a ten-reference request, not independent visual influence of every reference.
+
+The video rights failure was a Patchright negative-index counting defect: last-dialog counted zero buttons while positive index zero counted three. Positive dialog selection preserves the exact three-button check and chooses only the one-time agreement. Intercepted browser BDD went RED then GREEN; fresh isolated pro3 upload/delete BDD passed in50.83seconds: three synthetic uploads, two deletion writes, zero already-gone retry writes, present-only mixed deletion and originals preserved. Zero generation credits or solver calls.
+
+Automatic session renewal, accepted solver-backed audio/video and entitlement dependent higher-resolution results remain unfinished proofs. Pro1 remains reserved for UseAPI. Cookie transfer testing remains suspended.
+
+
+Corrected fresh ten-reference BDD follow-up passed: captured1, source dispatch-attempt1, ten exact ordered identities, accepted outputs1, decoded768x1376, fresh output ownership true, whole-composer clear10to0, owned fixture cleanup succeeded. This is a new authorized single image, separate from the earlier recovered output. No replay of the earlier invocation occurred.
+
+
+Isolated browser-token TTS follow-up: one fresh pro2 preview request was explicitly WafRejectionError, accepted audio0, outcome_unknown false, no retry. This differs from the prior CapSolver unknown outcome and does not attribute the Google refusal solely to the external solver. The new preview remains counted; pro2 audio previews2 of operator bound3. Browser-only and provider solve outcomes are recorded separately. Working batch whole gate pending, with one failure under investigation.
+
+
+Publication checks: CLI account-resources is an alias of the same existing resources command, with both mapped to the existing MCP tool; SDK, MCP direct/queued and REST request codecs are unchanged by this alias. No new generation defaults, token settings or templates were introduced. Existing native typed refusal mappings now propagate through saved-preview and generic-worker branches without changing dispatch/retry policy. API/CLI compatibility prose and CAPTCHA plural-control prose are reconciled, and published mirrors are checked separately. A runtime-configured unit run was interrupted after47failures/7399passes because production Patchright bypassed Playwright-specific test mocks; it is not accepted gate evidence. The corrected unit run explicitly selects Playwright, while separate intercepted and actual Patchright browser tests retain their own engine selection.
+
+The next run with only engine normalized still inherited production default profile and daemon token. It returned9failures/7715passes;6 were those unrelated environment defaults,3 were character-picker doubles lacking locator.evaluate for the editor selection. Production code was unchanged: the test double now models whole-editor selection and Backspace clearing while retaining kind/identity assertions. A clean-shell focused run passed all100tests; clean-shell whole gate follows. Neither failing run is reported as a passing gate.
+
+
+### Composer/upload delivery gate — 4 October
+
+Clean-shell whole gate passed7724tests,5skipped,21warnings in234.65seconds with89.60%coverage. Repository hygiene, documentation links, published PII/mirror/navigation, council memory, Ruff, format and strict Pyright all passed. Independent review GO89focused tests; final character-double/environment-focused100tests passed. Separate actual Patchright ten-reference rendering and isolated pro3 upload/delete retry proof passed. Source baseline890a6591; publication/deployment is the next checkpoint and subsequent capability work remains separate.

@@ -117,10 +117,12 @@ never expose tokens, cookies or solver keys.
 
 ## Roadmap
 
-**Current priority: R10 session persistence and automatic renewal.** Other feature
-acceptance work waits until unattended login is demonstrated. The reproducible
-cookie-reader correction and the still-missing renewal lifecycle are recorded in
-[session health](SESSION_HEALTH.md#login-persistence-priority--4-october-2026).
+**R10 remains a priority; independent roadmap work continues.** The corrected
+owned-login completion gate and fresh API health checks passed for both isolated
+test profiles on 4 October. Automatic renewal is still missing; current health
+does not prove an unattended login lifetime. Continue feature acceptance on those
+two profiles while preserving the first account exclusively for UseAPI.
+See [session health](SESSION_HEALTH.md#login-persistence-priority--4-october-2026).
 
 
 This is the execution roadmap for the self-hosted fork and the source for a
@@ -132,8 +134,10 @@ checks, then run a representative final E2E campaign. Keep changes limited to
 gflow-cli; Tee Pipeline and cloud-environment setup are outside this goal.
 The deployment target is CC LXC. Three Google AI Pro subscriptions are available,
 and all3 configured profiles have historical authentication/read-only health and
-catalog verification. Current renewal/read failures are tracked in the ledger. Successful import/atomic session refresh and rendered
-three-account acceptance remain separate unverified requirements. CapSolver is the
+catalog verification. The first account is disabled in gflow and retained in
+UseAPI; the two test profiles passed fresh post-deployment health checks.
+Successful import/automatic renewal and rendered three-account acceptance remain
+separate unverified requirements. CapSolver is the
 chosen provider; configured keys and solved tokens do not prove Google acceptance.
 
 ### Completed foundations
@@ -166,7 +170,7 @@ rendering and R13 records the published revision.
 |R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
 |R08|Lite10, independent character/image pools and fresh weighted caps; live ten-chip/wire proof passed|Rendered proof remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
-|R10|Atomic accepted-refresh lineage, historical three-account health, fresh-principal checks and staged Session-cookie retention|Successful import/automatic renewal proof; latest actual identity checks failed|
+|R10|Atomic accepted-refresh lineage, historical three-account health, fresh-principal checks and staged Session-cookie retention|Successful import/automatic renewal proof; both isolated test profiles currently pass fresh health|
 |R11|All29contract audit, defaults, WebP, local event timing, native concat/inputsCount, exact quota mapper/cooldowns and generic all-output batches|Vendor opaque IDs/envelopes and inferred reset semantics remain explicit differences|
 
 ### Ordered feature backlog
@@ -274,6 +278,15 @@ unsafe-caption canonical attachment proof.
  3-test batch. Later41784983 delivers bounded generation-history paging and metadata-only
   observation upserts. Complete history and authoritative reconciliation remain
   open; no absent row authorizes deletion.
+  Fresh isolated-profile follow-up: SDK, CLI, deployed registered MCP and REST
+  each passed a new discovery/catalog read and a real subsequent catalog resume
+  for both character and saved-user-voice kinds. Each also passed fresh inventory
+  sync plus catalog-committing resume. No zero-page or cached continuation was
+  counted as fresh access. The documented account-resources CLI alias is now
+  registered alongside resources; both spellings share one implementation.
+  Sampled resource counts were zero in two bounded catalogs, not evidence of
+  absence or globally complete cohorts; complete remains null and deletion
+  authority false.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
@@ -331,7 +344,7 @@ unsafe-caption canonical attachment proof.
   path while investigating higher resolutions.
 - [ ] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
-  ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; actual ordered ten-chip/wire retention passed. Rendering remains R12.
+  ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; actual ordered ten-chip/wire retention and one decoded owned image passed. Per-reference visual influence remains R12.
   Keep first-reference ordering and validation consistent across surfaces.
   Native Google Auto remains separate from the implemented approximation.
 - [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
@@ -365,7 +378,9 @@ unsafe-caption canonical attachment proof.
   test authorizations and remaining allowances; do not start an unbounded stress
   test or repeatedly submit the same known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Publish completed
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Published baseline before the composer/upload delivery batch: 890a65918255d5a71065a82af0e0bd61a404c2b0,
+  with REST/MCP/GUI active and both test accounts passing fresh queued health.
+  Further roadmap batches remain in progress. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
   verify actual API/MCP capabilities, and update this roadmap, endpoint matrix,
   [API guide](API.md) and [verification ledger](VERIFICATION.md). Record code
@@ -649,7 +664,7 @@ final R12 tests must be recorded separately.
 |R02/R04| Real saved-TTS preview tests and playback/binding paths | Browser and CapSolver preview WAF-refused; accepted lifecycle pending |
 |R03| Resumable project/catalog/history traversal; atomic URL-free checkpoint; SDK/CLI/MCP/REST | Real two-step resume passed; global completeness unknown |
 |R06| Image/native/generic count1-4 providers and explicit1–10 WAF-only retry;2K/4K overrides with fresh availability | Actual solver-backed rendering pending |
-|R08| Lite10, separate character cap, weighted image cap; corrected caret retains all ten exact ordered references | Actual rendered output remains R12 |
+|R08| Lite10, separate character cap, weighted image cap; corrected caret retains all ten exact ordered references | One decoded owned ten-reference output accepted; per-reference visual influence remains R12 |
 |R09| Exact registered alias mutation inputs, strict confirmed-delete receipts | Arbitrary vendor decoding and unknown missing IDs unsupported |
 |R10| Atomic accepted-refresh lineage, aliases/stats/idempotency/receipt continuity | Successful live import and automatic renewal unverified |
 |R11| Full29endpoint audit, summary jobs, combined voices, exact quota mapper/local cooldowns, WebP, elapsed event filters, native concat/inputsCount/default1080p promotion | Several vendor envelopes/defaults remain differences |
@@ -700,3 +715,20 @@ continuations with zero catalog reads are not renewed-session evidence. The fina
 [E2E run list](FINAL_E2E.md#executable-scenario-list) records executable scenarios,
 prerequisites and the two remaining single-video allowances. No sleeping-user
 login request or extra paid-video allowance was requested overnight.
+
+
+### Composer and video upload corrections — 4 October
+
+The ten-reference campaign exposed a second composer defect: Ctrl+A cleared only the focused chip (ten became nine). Whole-editor Range selection plus a normal Backspace editing event clears all ten; an intercepted browser regression went RED then GREEN. One subsequent single-output request retained all ten ordered native identities and yielded a freshly owned 768x1376 JPEG. The first harness looked for its requested PNG instead of the returned JPEG path. Read-only recovery verified the existing output and archived all ten owned fixtures, without generation replay. This proves accepted output from a ten-reference request, not independent visual influence of every reference.
+
+The video rights failure was a Patchright negative-index counting defect: last-dialog counted zero buttons while positive index zero counted three. Positive dialog selection preserves the exact three-button check and chooses only the one-time agreement. Intercepted browser BDD went RED then GREEN; fresh isolated pro3 upload/delete BDD passed in50.83seconds: three synthetic uploads, two deletion writes, zero already-gone retry writes, present-only mixed deletion and originals preserved. Zero generation credits or solver calls.
+
+Automatic session renewal, accepted solver-backed audio/video and entitlement dependent higher-resolution results remain unfinished proofs. Pro1 remains reserved for UseAPI. Cookie transfer testing remains suspended.
+
+
+Corrected fresh ten-reference BDD follow-up passed: captured1, source dispatch-attempt1, ten exact ordered identities, accepted outputs1, decoded768x1376, fresh output ownership true, whole-composer clear10to0, owned fixture cleanup succeeded. This is a new authorized single image, separate from the earlier recovered output. No replay of the earlier invocation occurred.
+
+
+### Composer/upload delivery gate — 4 October
+
+Clean-shell whole gate passed7724tests,5skipped,21warnings in234.65seconds with89.60%coverage. Repository hygiene, documentation links, published PII/mirror/navigation, council memory, Ruff, format and strict Pyright all passed. Independent review GO89focused tests; final character-double/environment-focused100tests passed. Separate actual Patchright ten-reference rendering and isolated pro3 upload/delete retry proof passed. Source baseline890a6591; publication/deployment is the next checkpoint and subsequent capability work remains separate.

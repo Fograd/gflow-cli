@@ -811,7 +811,11 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         except (ValueError, TypeError, KeyError, AttributeError):
             pass
     if code:
-        if code == 4 and kind in {"images", "images/upscale", "videos"} and len(raw) <= 65536:
+        if (
+            code in {4, 5, 10}
+            and kind in {"images", "images/upscale", "videos"}
+            and len(raw) <= 65536
+        ):
             try:
                 refusal = native_refusal_error(parse_json_output(raw), code)
                 if refusal is not None:

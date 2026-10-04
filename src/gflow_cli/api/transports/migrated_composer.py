@@ -2742,8 +2742,12 @@ class MigratedComposer:
         log.info("migrated.character_entities_attached", count=len(entity_ids), names=list(names))
 
     async def clear_composer(self, page: Page) -> None:
-        await page.locator(COMPOSER).first.click(timeout=5000)
-        await page.keyboard.press("Control+a")
+        # Flow's select-all shortcut can select only the focused mention chip.
+        # Select the complete editable document, then use the normal editing event.
+        await page.locator(COMPOSER).first.evaluate(
+            "e => { e.focus(); const r = document.createRange(); r.selectNodeContents(e);"
+            "const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }"
+        )
         await page.keyboard.press("Backspace")
         await page.wait_for_timeout(600)
 

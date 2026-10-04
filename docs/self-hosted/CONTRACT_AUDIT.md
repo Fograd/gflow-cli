@@ -69,7 +69,7 @@ The table above records the baseline. Subsequent implementation changes:
 |7| Timestamped local phase events, date/limit/provider filters, confirmed acceptance rate and matched local latency | Global/tier/SKU/billing statistics unavailable |
 |8| WebP validation and explicit PNG conversion | Native transport receives PNG/JPEG |
 |12,23,24,27| Exact alias mutation normalization and confirmed-delete receipts | Arbitrary vendor prefixes and unknown already-gone IDs unsupported |
-|13| Lite10 admission and separate character pool with actual image weights; live ten-chip/wire capture passed | Rendered acceptance separate |
+|13| Lite10 admission and separate character pool with actual image weights; live ten-chip/wire capture and one decoded owned output passed | Per-reference visual influence remains unproved |
 |13,14,Native video,18,20| Image/native/generic count1-4 provider controls and confirmed-WAF-only bounded retries | Real solver-backed acceptance unverified |
 |21| Fresh combined selected-account system/user default | Account-wide completeness unknown |
 |28| Default summary, durable-list extension, score-based automatic selection and exact quota/model local cooldowns | Native Google reset time unobserved |

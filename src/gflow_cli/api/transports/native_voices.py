@@ -443,13 +443,13 @@ async def create_saved_voice(
     except BaseException as error:
         import asyncio
 
-        from gflow_cli.errors import ContentPolicyError, WafRejectionError
+        from gflow_cli.errors import ContentPolicyError, NativeQuotaError, WafRejectionError
 
         if (
             phase == "preview"
             and media_id is None
             and workflow_id is None
-            and isinstance(error, (WafRejectionError, ContentPolicyError))
+            and isinstance(error, (WafRejectionError, ContentPolicyError, NativeQuotaError))
         ):
             raise
 

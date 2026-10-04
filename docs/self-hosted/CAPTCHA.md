@@ -111,8 +111,9 @@ global customer statistics, tier/SKU and latency buckets are not inferred.
 Generic UI video count1 supports supplied tokens, configured provider order and
 explicit1–10 WAF-only attempt budgets through HTTP. SDK wrapper/CLI/queued MCP
 provider mirrors are documented in [generic video controls](GENERIC_VIDEO_CAPTCHA.md).
-Generic count2–4 overrides refuse before queueing; supplied confidential queued
-MCP tokens also refuse. The current generic adapter tracks one result.
+Generic count2–4 uses one native request with all-output checkpointing and the
+same provider/supplied-token controls. Supplied confidential queued MCP tokens
+still refuse; direct SDK/CLI and private REST worker paths retain single-use scopes.
 
 Native image2K/4K upscale supports supplied/provider tokens and explicit HTTP
 captchaRetry1–10. Each positively confirmed refusal retry opens a fresh client,

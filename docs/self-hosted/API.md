@@ -165,6 +165,10 @@ to64 KiB before parsing, raw uploads to20 MiB. Paths and CLI switches cannot be
 supplied through the API. Prompts are passed as positional arguments after `--`,
 without a shell.
 
+Exact typed WAF and content-policy refusals from generic image, upscale and video
+workers retain safe public reasons. Unknown or malformed worker envelopes remain
+conservative generic failures; private CLI output is never projected.
+
 Image requests accept a native integer `seed` with room for `count` consecutive
 seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image supplied-token and provider controls are described in [CAPTCHA.md](CAPTCHA.md).
 captchaToken is one use. Configured captchaOrder and explicit captchaRetry1–10

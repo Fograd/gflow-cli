@@ -170,8 +170,10 @@ def upload_snapshot_context(
     from gflow_cli.errors import NativeMediaMutationUnknownError
 
     selected = validate_upload(project, rights_confirmed)
+    snapshot_ready = False
     try:
         with snapshot_video(path, rights_confirmed=rights_confirmed) as private:
+            snapshot_ready = True
             yield private
     except ValueError:
         media_id = outcome.get("media_id")
@@ -182,6 +184,8 @@ def upload_snapshot_context(
                 project_id=selected,
                 known_media_ids=(media_id,),
             ) from None
+        if snapshot_ready:
+            raise
         raise ConfigurationError(detail="Upload requires a stable bounded regular MP4") from None
 
 

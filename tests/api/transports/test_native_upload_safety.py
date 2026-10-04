@@ -154,3 +154,56 @@ async def test_native_project_readiness_precedes_upload_controls(tmp_path, monke
     ready.assert_awaited_once_with(page, P)
     page.locator.assert_not_called()
     page.on.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mount_count", [1, 4])
+async def test_rights_dialog_waits_for_one_time_button_before_counting(
+    tmp_path, monkeypatch, mount_count
+):
+    import json
+    from unittest.mock import MagicMock
+
+    path = tmp_path / "video.mp4"
+    path.write_bytes(b"\x00\x00\x00\x0cftypisom")
+    monkeypatch.setattr(migrated_resources, "read_project_payload", AsyncMock())
+    page = MagicMock()
+    listeners = {}
+    page.on.side_effect = lambda event, callback: listeners.update({event: callback})
+    page.locator.return_value.first.click = AsyncMock()
+    page.locator.return_value.count = AsyncMock(side_effect=[0, 1, 1])
+    buttons = page.locator.return_value.nth.return_value.get_by_role.return_value
+    ready = False
+
+    async def wait(**kwargs):
+        nonlocal ready
+        ready = True
+
+    counts = iter([mount_count, 3])
+
+    async def count():
+        return next(counts, 3) if ready else 1
+
+    buttons.count = AsyncMock(side_effect=count)
+    buttons.nth.return_value.wait_for = AsyncMock(side_effect=wait)
+    response = MagicMock(url=Request.url, request=Request(), status=200)
+    response.text = AsyncMock(
+        return_value=json.dumps({"mediaId": M, "media": {"name": M, "projectId": P}})
+    )
+
+    async def accept(**kwargs):
+        assert ready
+        listeners["request"](Request())
+        await listeners["response"](response)
+
+    buttons.nth.return_value.click = AsyncMock(side_effect=accept)
+    chooser = ChooserContext()
+    chooser.chooser = MagicMock(set_files=AsyncMock())
+    page.expect_file_chooser.return_value = chooser
+    result = await upload._upload_video_snapshot(page, P, path, rights_confirmed=True)
+    assert result[0] == M
+    page.locator.return_value.nth.assert_called_once_with(0)
+    page.locator.return_value.last.get_by_role.assert_not_called()
+    buttons.nth.return_value.wait_for.assert_awaited_once()
+    assert all(call.args == (2,) for call in buttons.nth.call_args_list)
+    buttons.nth.return_value.click.assert_awaited_once()

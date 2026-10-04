@@ -153,6 +153,10 @@ class FakeLoc:
     async def all_text_contents(self) -> list[str]:
         return [str(i) for i in self.items]
 
+    async def evaluate(self, script: str) -> None:
+        assert self.kind == "composer"
+        self.page.whole_editor_selected = True
+
     async def click(self, **_: Any) -> None:
         if self.kind == "upload":
             self.page.upload_clicked += 1
@@ -169,6 +173,9 @@ class FakeKeyboard:
 
     async def press(self, key: str) -> None:
         self.page.typed.append(f"<{key}>")
+        if key == "Backspace" and self.page.whole_editor_selected:
+            self.page.chips.clear()
+            self.page.whole_editor_selected = False
         if key == "Enter":
             self.page.on_enter()
 
@@ -187,6 +194,7 @@ class FakeComposerPage:
         upload_button: bool = True,
         miss_first: int = 0,
     ) -> None:
+        self.whole_editor_selected = False
         self.keyboard = FakeKeyboard(self)
         self.typed: list[str] = []
         self.chips: list[dict[str, str]] = []

@@ -240,3 +240,27 @@ async def test_primary_archive_unknown_survives_secondary_client_close(monkeypat
     with pytest.raises(NativeMediaMutationUnknownError) as caught:
         await native_media.archive_media("fixture", PROJECT, (MEDIA,))
     assert caught.value is primary and caught.value.known_media_ids == (MEDIA,)
+
+
+@pytest.mark.asyncio
+async def test_valid_video_downstream_value_error_is_not_a_file_validation_error(
+    tmp_path, monkeypatch
+):
+    from unittest.mock import Mock
+
+    value = client()
+    value._checkout_page = AsyncMock(return_value=object())
+    value._checkin_page = Mock()
+    error = ValueError("Video rights dialog changed; confirm in the browser")
+    call = AsyncMock(side_effect=error)
+    monkeypatch.setattr(
+        "gflow_cli.api.transports.migrated_video_upload._upload_video_snapshot", call
+    )
+    path = tmp_path / "valid.mp4"
+    path.write_bytes(b"\x00\x00\x00\x0cftypisom")
+    with pytest.raises(ValueError) as caught:
+        await value.upload_native_video(project_id=PROJECT, path=path, rights_confirmed=True)
+    assert caught.value is error
+    call.assert_awaited_once()
+    assert not call.call_args.args[2].exists()
+    value._checkin_page.assert_called_once()
