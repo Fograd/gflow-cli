@@ -50,6 +50,7 @@ from gflow_cli.api.image import (
 )
 from gflow_cli.api.image_aspect_policy import ImageAspectDecision
 from gflow_cli.api.image_upscale import TargetResolution, UpsampleImageRequest
+from gflow_cli.api.native_captcha import native_captcha_or_none, read_native_token_file
 from gflow_cli.api.transports import transport_choices
 from gflow_cli.api.video import is_media_uuid
 from gflow_cli.config import UiMode, get_settings, parse_jitter_range
@@ -660,6 +661,12 @@ async def _run_upload(
     default=None,
     help="Override transport strategy (advanced).",
 )
+@click.option(
+    "--captcha-token-file",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Private single-use token file for native 2K upscale.",
+)
 def upscale(
     media_id: str,
     scale: str,
@@ -667,6 +674,7 @@ def upscale(
     project_id: str | None,
     profile: str | None,
     transport: str | None,
+    captcha_token_file: Path | None = None,
 ) -> None:
     """Upscale MEDIA_ID to the requested --scale and save it locally."""
     # Validate scale + mediaId format before doing anything (fail fast, exit 2).
@@ -693,6 +701,7 @@ def upscale(
     except ValueError as exc:
         raise click.BadParameter(str(exc)) from exc
 
+    token = read_native_token_file(captcha_token_file) if captcha_token_file else None
     provider_dir = _make_provider_dir(profile_name)
     settings = get_settings()
     run_with_handlers(
@@ -705,6 +714,7 @@ def upscale(
             scale_label=scale.strip().lower(),
             out_dir=out_dir,
             transport=transport,
+            captcha_token=token,
         ),
         cli_command="image upscale",
     )
@@ -774,6 +784,7 @@ async def _run_upscale(
     scale_label: str,
     out_dir: Path | None,
     transport: str | None = None,
+    captcha_token: str | None = None,
 ) -> None:
     settings = get_settings()
     output_root = out_dir if out_dir is not None else settings.output_dir
@@ -785,12 +796,15 @@ async def _run_upscale(
         out_dir=output_root,
     ) as client:
         console.print(f"Upscaling [bold]{media_id}[/bold] to {scale_label.upper()}...")
-        target = await client.upsample_image(
-            media_id=media_id,
-            project_id=project_id,
-            target_resolution=resolution,
-            out_path=out_path,
-        )
+        with native_captcha_or_none(
+            captcha_token, project_id=project_id, action="IMAGE_GENERATION"
+        ):
+            target = await client.upsample_image(
+                media_id=media_id,
+                project_id=project_id,
+                target_resolution=resolution,
+                out_path=out_path,
+            )
         console.print(f"[bold green]Saved:[/bold green] {safe_path_text(target)}")
 
 

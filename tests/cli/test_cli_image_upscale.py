@@ -138,3 +138,48 @@ def test_upscale_4k_unavailable_maps_exit_22(runner: CliRunner, tmp_path: Path) 
         tmp_path=tmp_path,
     )
     assert result.exit_code == 22, result.output
+
+
+def test_upscale_private_token_file_installs_single_use_scope(runner, tmp_path):
+    from gflow_cli.api.native_captcha import take_native_captcha_token
+
+    token = "private-token-value-" * 3
+    file = tmp_path / "captcha.token"
+    file.write_text(token)
+    file.chmod(0o600)
+    client = _mock_client(tmp_path / "upscaled.png")
+
+    async def submit(**kwargs):
+        assert (
+            take_native_captcha_token(
+                "https://flow.google.com/project/" + _PROJECT_ID, "IMAGE_GENERATION"
+            )
+            == token
+        )
+        return tmp_path / "upscaled.png"
+
+    client.upsample_image.side_effect = submit
+    result = _invoke(
+        runner,
+        [
+            "image",
+            "upscale",
+            _MEDIA_ID,
+            "--scale",
+            "2k",
+            "--project",
+            _PROJECT_ID,
+            "--captcha-token-file",
+            str(file),
+        ],
+        client=client,
+        tmp_path=tmp_path,
+    )
+    assert result.exit_code == 0, result.output
+    assert token not in result.output
+    assert (
+        take_native_captcha_token(
+            "https://flow.google.com/project/" + _PROJECT_ID, "IMAGE_GENERATION"
+        )
+        is None
+    )

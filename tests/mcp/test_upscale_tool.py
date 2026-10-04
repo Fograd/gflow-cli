@@ -150,3 +150,43 @@ async def test_video_upscale_happy_path(tmp_path: Path, monkeypatch) -> None:
     assert res["bytes"] == out_file.stat().st_size
     mock_client.upsample_video.assert_awaited_once()
     assert mock_client.upsample_video.call_args.kwargs["scale"] == "1080p"
+
+
+@pytest.mark.asyncio
+async def test_upscale_supplied_token_scope_isolated(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    from gflow_cli.api.native_captcha import take_native_captcha_token
+
+    token = "private-token-value-" * 3
+    saved = tmp_path / "upscaled.png"
+    saved.write_bytes(b"test")
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    async def submit(**kwargs):
+        assert (
+            take_native_captcha_token(
+                "https://flow.google.com/project/" + _VALID_PROJECT_ID, "IMAGE_GENERATION"
+            )
+            == token
+        )
+        return saved
+
+    client.upsample_image = AsyncMock(side_effect=submit)
+    monkeypatch.setattr("gflow_cli.mcp.tools.FlowApiClient", lambda **kwargs: client)
+    result = await gflow_upscale_image(
+        media_id=_VALID_MEDIA_ID,
+        project=_VALID_PROJECT_ID,
+        out_dir=str(tmp_path),
+        captcha_token=token,
+    )
+    assert result["status"] == "ok"
+    assert token not in str(result)
+    assert (
+        take_native_captcha_token(
+            "https://flow.google.com/project/" + _VALID_PROJECT_ID, "IMAGE_GENERATION"
+        )
+        is None
+    )

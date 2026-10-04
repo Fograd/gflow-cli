@@ -106,7 +106,7 @@ def create_app(
     @app.get("/api/status")
     async def status() -> dict[str, Any]:
         public = await run_in_threadpool(storage.public)
-        return {"configured": "CapSolver" in public, "generationEnabled": False}
+        return {"configured": "CapSolver" in public, "generationEnabled": "CapSolver" in public}
 
     @app.post("/api/save")
     async def save(request: Request) -> dict[str, Any]:
@@ -142,7 +142,7 @@ def create_app(
                     balance = await Solver(client=app.state.connection).balance(key)
             except (SolverError, httpx.HTTPError, TimeoutError, ValueError):
                 raise HTTPException(502, "CapSolver could not verify the key or balance") from None
-            return {"verified": True, "balance": balance, "generationEnabled": False}
+            return {"verified": True, "balance": balance, "generationEnabled": True}
         finally:
             busy = False
 

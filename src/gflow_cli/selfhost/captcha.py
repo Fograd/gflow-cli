@@ -217,6 +217,12 @@ class CaptchaStats:
                 "CREATE TABLE IF NOT EXISTS stats "
                 "(provider TEXT,phase TEXT,count INTEGER,PRIMARY KEY(provider,phase))"
             )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS events "
+                "(id INTEGER PRIMARY KEY,timestamp TEXT NOT NULL,provider TEXT NOT NULL,"
+                "phase TEXT NOT NULL)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS events_timestamp ON events(timestamp)")
         self.path.chmod(0o600)
 
     def record(self, provider: str, phase: str) -> None:
@@ -237,6 +243,16 @@ class CaptchaStats:
                 "INSERT INTO stats VALUES(?,?,1) ON CONFLICT(provider,phase) "
                 "DO UPDATE SET count=count+1",
                 (provider, phase),
+            )
+            from datetime import UTC, datetime
+
+            conn.execute(
+                "INSERT INTO events(timestamp,provider,phase) VALUES(?,?,?)",
+                (
+                    datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+                    provider,
+                    phase,
+                ),
             )
 
     def public(self) -> dict[str, Any]:

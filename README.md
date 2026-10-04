@@ -303,7 +303,7 @@ Provider acceptance remains unverified. See docs/self-hosted/NATIVE_CAPTCHA.md.
 
 Native video promotion: SDK/CLI video upscale-native/upscale-models, direct MCP twins, HTTP explicit operation=promotion. Targets720p/1080p/4k require fresh tier/model/source proof. Paid acceptance remains R12. See [native promotion](docs/self-hosted/NATIVE_VIDEO_PROMOTION.md).
 
-Fresh native image reference budgets: SDK/CLI image reference-models, direct MCP twin, HTTP images/reference/models. Effective=min(advertised,transport), fresh before upload/mint; Lite3 conservative. See [budgets](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+Fresh native image reference budgets: SDK/CLI image reference-models, direct MCP twin, HTTP images/reference/models. Effective=min(advertised,transport), fresh before upload/mint; Lite10 fresh-model bounded. See [budgets](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_REFERENCE_BUDGETS.md).
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
@@ -320,3 +320,13 @@ HTTP alias inputs resolve registered image/video/character/saved-voice mappings 
 General HTTP video image aliases now fill the private verified image cache before queueing; raw UUID and public image-read behavior remain unchanged. See the alias-input API for limits and proof status.
 
 HTTP project-list defaults now return generated-history summaries (source=history); media-list defaults now read native Google inventory. Explicit source=local retains managed cache and project source=google retains catalog discovery. SDK/CLI/MCP history adds summary fields without new flags/tools. See [default changes](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#generated-history-summaries-and-http-defaults). Actual default-summary/media BDD passed65.84seconds with zero generation; final gates passed6746tests; sourceea9cc2c5 is published/deployed with all3 production HTTP200 reads, zero generation; complete history is not claimed.
+
+
+## Native synchronization and provider delivery — 4 October
+Native inventory synchronization is available through project sync, direct MCP
+gflow_sync_native_inventory, the SDK services.inventory_sync hook and REST
+POST assets/sync/{email}. Checkpoints are private and URL-free; completeness
+remains unknown. See [sync](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_INVENTORY_SYNC.md).
+Dedicated native video/TTS REST workers support explicit provider selection and
+confirmed-WAF-only bounded retries. Public SDK scopes and CLI/MCP supplied-token
+inputs remain one use; see [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).

@@ -41,6 +41,9 @@ class Store:
                 CREATE TABLE IF NOT EXISTS accounts (
                     profile TEXT PRIMARY KEY, email TEXT NOT NULL COLLATE NOCASE UNIQUE,
                     project TEXT NOT NULL, enabled INTEGER NOT NULL, verified INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS account_profile_lineage (
+                    profile TEXT PRIMARY KEY, account TEXT NOT NULL COLLATE NOCASE,
+                    current_profile TEXT NOT NULL, updated REAL NOT NULL);
                 PRAGMA user_version=2;
             """)
             columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
@@ -134,7 +137,21 @@ class Store:
             )
             if existing is not None:
                 if existing["fingerprint"] != fingerprint:
-                    raise ValueError("Idempotency-Key already used for a different request")
+                    # Only accepted identity-preserving refreshes can replay the
+                    # exact original request under its replacement physical profile.
+                    original_fingerprint = hashlib.sha256(
+                        f"{kind}:{existing['profile']}:{semantic}".encode()
+                    ).hexdigest()
+                    continuity = conn.execute(
+                        "SELECT 1 FROM account_profile_lineage lineage "
+                        "JOIN accounts account ON account.profile=lineage.current_profile "
+                        "AND account.email=lineage.account "
+                        "WHERE lineage.profile=? AND account.profile=? "
+                        "AND account.enabled=1 AND account.verified=1",
+                        (existing["profile"], profile),
+                    ).fetchone()
+                    if existing["fingerprint"] != original_fingerprint or continuity is None:
+                        raise ValueError("Idempotency-Key already used for a different request")
                 return self.public(existing)
             if (
                 conn.execute(
@@ -455,6 +472,10 @@ class Store:
                     raise ValueError("Account has an accepted or running job")
             if conn.execute("SELECT 1 FROM accounts WHERE profile=?", (profile,)).fetchone():
                 raise ValueError("Import profile is already registered")
+            if conn.execute(
+                "SELECT 1 FROM account_profile_lineage WHERE profile=?", (profile,)
+            ).fetchone():
+                raise ValueError("Import cannot reuse a historical account profile")
             if expected_old:
                 current = conn.execute(
                     "SELECT * FROM accounts WHERE profile=?", (old_profile,)
@@ -463,6 +484,16 @@ class Store:
                     raise ValueError("Original account registration changed during import")
                 if email.casefold() != current["email"].casefold() or project != current["project"]:
                     raise ValueError("Refresh must preserve account identity and project")
+                now = time.time()
+                conn.execute(
+                    "INSERT INTO account_profile_lineage VALUES(?,?,?,?)",
+                    (old_profile, email, profile, now),
+                )
+                conn.execute(
+                    "UPDATE account_profile_lineage SET current_profile=?,updated=? "
+                    "WHERE current_profile=? AND account=?",
+                    (profile, now, old_profile, email),
+                )
                 conn.execute(
                     "UPDATE accounts SET profile=?,enabled=1,verified=1,"
                     "verification_source='native-cookie-verified' WHERE profile=?",
@@ -477,8 +508,54 @@ class Store:
                     (profile, email, project, time.time()),
                 )
 
+    def resolve_profile_scope(self, profile: str, account: str) -> str | None:
+        """Resolve only exact current or accepted same-account cookie refresh scopes.
+
+        Tombstones survive removal: reusing a public account handle cannot adopt old aliases.
+        A resolved profile is routing continuity, never fresh Google ownership authority.
+        """
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT profile FROM accounts WHERE email=? AND enabled=1 AND verified=1",
+                (account,),
+            ).fetchone()
+            if row is None:
+                return None
+            lineage = conn.execute(
+                "SELECT account,current_profile FROM account_profile_lineage WHERE profile=?",
+                (profile,),
+            ).fetchone()
+            if lineage is not None:
+                if lineage["account"].casefold() != account.casefold():
+                    return None
+                return row["profile"] if lineage["current_profile"] == row["profile"] else None
+            return profile if row["profile"] == profile else None
+
+    def account_updated(self, profile: str, account: str, created: float) -> float:
+        """Last accepted cookie refresh time, or the original registration time."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT MAX(updated) FROM account_profile_lineage "
+                "WHERE current_profile=? AND account=?",
+                (profile, account),
+            ).fetchone()
+        return max(created, row[0] or created)
+
     def account_delete(self, profile: str) -> None:
         with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            now = time.time()
+            conn.execute(
+                "INSERT INTO account_profile_lineage "
+                "SELECT profile,email,'',? FROM accounts WHERE profile=? "
+                "ON CONFLICT(profile) DO UPDATE SET current_profile='',updated=excluded.updated",
+                (now, profile),
+            )
+            conn.execute(
+                "UPDATE account_profile_lineage SET current_profile='',updated=? "
+                "WHERE current_profile=?",
+                (now, profile),
+            )
             conn.execute("UPDATE accounts SET enabled=-1,verified=0 WHERE profile=?", (profile,))
 
     def profile_busy(self, profile: str) -> bool:

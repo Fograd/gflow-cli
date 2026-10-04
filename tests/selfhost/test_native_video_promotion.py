@@ -1,4 +1,4 @@
-"""Explicit promotion preserves existing export defaults."""
+"""Native promotion validates source resolution and account enablement."""
 
 import json
 

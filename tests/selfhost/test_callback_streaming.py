@@ -13,9 +13,15 @@ from gflow_cli.selfhost.store import Store
 
 
 @pytest.mark.parametrize("status", [200, 500, 302])
-def test_callback_body_never_read_and_stream_always_closed(tmp_path, monkeypatch, status):
+@pytest.mark.parametrize(
+    "kind,timeout",
+    [("images", 5), ("images/upscale", 5), ("videos", 10), ("assets", 10), ("voices/create", 10)],
+)
+def test_callback_body_never_read_and_stream_always_closed(
+    tmp_path, monkeypatch, status, kind, timeout
+):
     store = Store(tmp_path)
-    store.submit("images", "pro1", {"replyUrl": "https://callbacks.example/hook"}, None)
+    store.submit(kind, "pro1", {"replyUrl": "https://callbacks.example/hook"}, None)
     cfg = Settings(token="test", root=tmp_path, accounts={}, callbacks=("callbacks.example",))
 
     class Body(httpx.AsyncByteStream):
@@ -63,7 +69,7 @@ def test_callback_body_never_read_and_stream_always_closed(tmp_path, monkeypatch
     asyncio.run(run())
     assert body.reads == 0
     assert body.closed == 1
-    assert configs == [{"timeout": 10, "follow_redirects": False, "trust_env": False}]
+    assert configs == [{"timeout": timeout, "follow_redirects": False, "trust_env": False}]
     assert len(requests) == 1
     assert str(requests[0].url) == "https://8.8.8.8/hook"
     assert requests[0].headers["Host"] == "callbacks.example"

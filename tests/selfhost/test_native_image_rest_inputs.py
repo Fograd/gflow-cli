@@ -258,10 +258,10 @@ async def test_native_auto_resolution_failure_prevents_worker_generation(tmp_pat
     monkeypatch.setattr(image_worker, "FlowApiClient", MagicMock(return_value=context))
     monkeypatch.setattr(image_worker, "_make_provider_dir", lambda profile: tmp_path / profile)
     monkeypatch.setattr(image_worker, "get_settings", lambda: SimpleNamespace(headless=False))
-    monkeypatch.setattr(
-        image_worker, "ProviderKeys", lambda root: SimpleNamespace(get=lambda name: "")
-    )
+    captcha_policy = AsyncMock()
+    monkeypatch.setattr(image_worker, "run_with_image_captcha_policy", captcha_policy)
     with pytest.raises(ConfigurationError, match="no dimensions"):
         await image_worker.generate("pro1", PROJECT, path)
     client.resolve_native_image_aspect.assert_awaited_once_with(PROJECT, NATIVE)
     client.generate_images_batch.assert_not_awaited()
+    captcha_policy.assert_not_awaited()

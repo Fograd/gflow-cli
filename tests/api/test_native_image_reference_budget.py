@@ -99,10 +99,18 @@ async def test_invalid_identity_rejected_before_browser(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_two_image_entity_exceeds_lite_budget_with_two_image_refs(monkeypatch):
+async def test_two_image_entity_exceeds_observed_lite_budget_with_two_image_refs(monkeypatch):
     from gflow_cli.api.image import ImageRef, Model
 
     client = _fixtures(monkeypatch)
+    import gflow_cli.api.native_image_models as models
+    from tests.api.test_native_image_models import payload
+
+    monkeypatch.setattr(
+        models,
+        "_read_native",
+        AsyncMock(side_effect=[payload("HARBOR_SEAL", cap=3), [None, None, None, 2]]),
+    )
     request = GenerateImageRequest(
         prompt="portrait",
         model=Model.HARBOR_SEAL,
@@ -496,3 +504,204 @@ async def test_plain_native_refs_without_plan_use_fresh_budget_before_submit(mon
     client._mint_recaptcha_token.assert_not_awaited()
     submit.assert_not_awaited()
     checkpoint.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("character_cap", [0, 1])
+async def test_character_pool_refuses_entities_even_with_enough_image_slots(
+    monkeypatch, character_cap
+):
+    import gflow_cli.api.native_image_models as models
+    from gflow_cli.api.client import FlowApiClient
+    from tests.api.test_native_image_models import payload
+
+    second = "77777777-7777-4777-8777-777777777777"
+    fake = _fixtures(monkeypatch)
+    monkeypatch.setattr(
+        subject,
+        "parse_native_characters",
+        lambda *args: [
+            {"entity_id": entity, "project_id": P, "display_name": entity, "workflow_ids": [W1, W2]}
+            for entity in (E, second)
+        ],
+    )
+    data = payload(cap=10)
+    data[0][5][0][1][0][21][1] = character_cap
+    read = AsyncMock(side_effect=[data, [None, None, None, 2]])
+    monkeypatch.setattr(models, "_read_native", read)
+    client = object.__new__(FlowApiClient)
+    client._checkout_page = fake._checkout_page
+    client._checkin_page = fake._checkin_page
+    client._uses_native_characters = Mock(return_value=True)
+    client._mint_recaptcha_token = AsyncMock()
+    submit = AsyncMock()
+    client.transport = SimpleNamespace(generate_images=submit)
+    checkpoint = Mock()
+    with pytest.raises(ConfigurationError, match="character"):
+        await client._drive_images_generation_unseeded(
+            project_id=P,
+            req=GenerateImageRequest(prompt="Fixture", reference_entities=(second, E)),
+            recaptcha_action="IMAGE_GENERATION",
+            on_checkpoint=checkpoint,
+        )
+    assert read.await_count == 2
+    client._mint_recaptcha_token.assert_not_awaited()
+    submit.assert_not_awaited()
+    checkpoint.assert_not_called()
+    client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+async def test_character_pool_boundary_preserves_images_entities_and_markers(monkeypatch):
+    import gflow_cli.api.native_image_models as models
+    from gflow_cli.api.image import ImageRef
+    from gflow_cli.api.reference_markers import ReferenceSlot, prepare_image_slot_request
+    from tests.api.test_native_image_models import payload
+
+    second = "77777777-7777-4777-8777-777777777777"
+    client = _fixtures(monkeypatch)
+    monkeypatch.setattr(
+        subject,
+        "parse_native_characters",
+        lambda *args: [
+            {"entity_id": entity, "project_id": P, "display_name": entity, "workflow_ids": [W1, W2]}
+            for entity in (E, second)
+        ],
+    )
+    data = payload(cap=6)
+    data[0][5][0][1][0][21][1] = 2
+    monkeypatch.setattr(
+        models, "_read_native", AsyncMock(side_effect=[data, [None, None, None, 2]])
+    )
+    request = prepare_image_slot_request(
+        GenerateImageRequest(
+            prompt="@reference_1 @character_1 @character_2 @reference_2",
+            refs=(ImageRef(M2), ImageRef(M1)),
+            reference_entities=(second, E),
+        ),
+        {
+            "reference_1": ReferenceSlot("image", M2),
+            "reference_2": ReferenceSlot("image", M1),
+            "character_1": ReferenceSlot("character", second, 1),
+            "character_2": ReferenceSlot("character", E, 1),
+        },
+    )
+    result = await subject.validate_native_image_references(client, P, request)
+    assert tuple(ref.name for ref in result.refs) == (M2, M1)
+    assert result.reference_entities == (second, E)
+    assert result.reference_prompt_plan.spans == request.reference_prompt_plan.spans
+    assert [s.image_count for s in result.reference_prompt_plan.slots if s.kind == "character"] == [
+        2,
+        2,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_zero_character_pool_keeps_plain_owned_images_valid(monkeypatch):
+    import gflow_cli.api.native_image_models as models
+    from gflow_cli.api.image import ImageRef
+    from tests.api.test_native_image_models import payload
+
+    client = _fixtures(monkeypatch)
+    data = payload(cap=2)
+    data[0][5][0][1][0][21][1] = 0
+    monkeypatch.setattr(
+        models, "_read_native", AsyncMock(side_effect=[data, [None, None, None, 2]])
+    )
+    result = await subject.validate_native_image_references(
+        client, P, GenerateImageRequest(prompt="Fixture", refs=(ImageRef(M2), ImageRef(M1)))
+    )
+    assert tuple(ref.name for ref in result.refs) == (M2, M1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count", [4, 10])
+async def test_current_lite_native_local_inputs_reach_ten_budget_in_order(
+    monkeypatch, tmp_path, count
+):
+    from PIL import Image
+
+    from gflow_cli.api.image import Model
+
+    client = _fixtures(monkeypatch)
+    paths = tuple(tmp_path / f"reference-{i}.png" for i in range(count))
+    for path in paths:
+        Image.new("RGB", (2, 2), "red").save(path)
+    request = GenerateImageRequest(
+        prompt="Current Lite refs", model=Model.HARBOR_SEAL, ref_paths=paths
+    )
+    result = await subject.validate_native_image_references(client, P, request)
+    assert result.ref_paths == paths
+    client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+async def test_lite_fresh_capacity_shrink_refuses_before_mint_upload_or_submit(
+    monkeypatch, tmp_path
+):
+    from PIL import Image
+
+    import gflow_cli.api.native_image_models as models
+    from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.api.image import Model
+    from tests.api.test_native_image_models import payload
+
+    fake = _fixtures(monkeypatch)
+    paths = tuple(tmp_path / f"reference-{i}.png" for i in range(4))
+    for path in paths:
+        Image.new("RGB", (2, 2), "red").save(path)
+    monkeypatch.setattr(
+        models,
+        "_read_native",
+        AsyncMock(side_effect=[payload("HARBOR_SEAL", cap=3), [None, None, None, 2]]),
+    )
+    client = object.__new__(FlowApiClient)
+    client._checkout_page = fake._checkout_page
+    client._checkin_page = fake._checkin_page
+    client._uses_native_characters = Mock(return_value=True)
+    client._mint_recaptcha_token = AsyncMock()
+    submit = AsyncMock()
+    client.transport = SimpleNamespace(generate_images=submit)
+    checkpoint = Mock()
+    with pytest.raises(ConfigurationError, match="budget exceeded"):
+        await client._drive_images_generation_unseeded(
+            project_id=P,
+            req=GenerateImageRequest(
+                prompt="Current Lite refs", model=Model.HARBOR_SEAL, ref_paths=paths
+            ),
+            recaptcha_action="IMAGE_GENERATION",
+            on_checkpoint=checkpoint,
+        )
+    client._mint_recaptcha_token.assert_not_awaited()
+    submit.assert_not_awaited()
+    checkpoint.assert_not_called()
+    client._checkin_page.assert_called_once_with("page")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("local_count", [8, 9])
+async def test_current_lite_counts_actual_character_images_with_local_inputs(
+    monkeypatch, tmp_path, local_count
+):
+    from PIL import Image
+
+    from gflow_cli.api.image import Model
+
+    client = _fixtures(monkeypatch)
+    paths = tuple(tmp_path / f"reference-{i}.png" for i in range(local_count))
+    for path in paths:
+        Image.new("RGB", (2, 2), "red").save(path)
+    request = GenerateImageRequest(
+        prompt="Current Lite mixed refs",
+        model=Model.HARBOR_SEAL,
+        ref_paths=paths,
+        reference_entities=(E,),
+    )
+    if local_count == 9:
+        with pytest.raises(ConfigurationError, match="budget exceeded"):
+            await subject.validate_native_image_references(client, P, request)
+    else:
+        result = await subject.validate_native_image_references(client, P, request)
+        assert result.ref_paths == paths
+        assert result.reference_entities == (E,)
+    client._checkin_page.assert_called_once_with("page")

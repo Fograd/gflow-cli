@@ -66,7 +66,9 @@ def test_native_extension_explicit_or_discovered_model_queues(tmp_path):
             json={"mediaGenerationId": M, "prompt": "Continue.", "async": True},
         )
         assert default_model.status_code == 201, default_model.text
-        assert len(client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"]) == 2
+        assert (
+            len(client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"]) == 2
+        )
 
 
 def test_voice_invalid_preview_does_not_enqueue(tmp_path):
@@ -83,7 +85,7 @@ def test_voice_invalid_preview_does_not_enqueue(tmp_path):
             },
         )
         assert result.status_code == 422, result.text
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 def test_saved_voice_catalog_and_detail_use_native_rows(tmp_path, monkeypatch):
@@ -177,7 +179,9 @@ def test_video_edit_routes_omni_frame_controls_to_real_worker(tmp_path):
             },
         )
         assert invalid.status_code == 422
-        assert len(client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"]) == 1
+        assert (
+            len(client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"]) == 1
+        )
 
 
 def test_native_audio_ingredients_enqueue_reference_worker(tmp_path):
@@ -364,4 +368,4 @@ def test_duplicate_or_unknown_presets_never_queue(tmp_path):
                 json={"prompt": "Speak", "model": "omni-flash", "async": True, **extra},
             )
             assert result.status_code == 422, result.text
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []

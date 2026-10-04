@@ -358,6 +358,12 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
     for key in ("googleLibraryModified", "localCacheModified"):
         if type(result.get(key)) is bool:
             safe[key] = result[key]
+    if (
+        kind == "videos/concatenate"
+        and type(result.get("inputsCount")) is int
+        and 2 <= result["inputsCount"] <= 10
+    ):
+        safe["inputsCount"] = result["inputsCount"]
     duration = result.get("duration")
     if (
         type(duration) in (int, float)

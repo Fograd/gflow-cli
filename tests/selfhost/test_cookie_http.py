@@ -31,7 +31,7 @@ def imported(tmp_path, monkeypatch):
     async def create(table, profile, *, expected_email=None, project_id=None):
         seen.append((profile, expected_email, project_id))
         path = auth.profile_dir(profile)
-        path.mkdir()
+        path.mkdir(mode=0o700)
         (path / ".gflow_account").write_text(EMAIL)
         identity = (path.stat().st_dev, path.stat().st_ino)
         return ImportedProfile(
@@ -326,3 +326,77 @@ def test_refresh_replaces_worker_and_preserves_original_profile(tmp_path, import
         assert refreshed.wait(2)
         assert started == ["original", response.json()["profile"]]
         assert old_path.joinpath("Cookies").read_text() == "original-private-cookie"
+
+
+def test_http_refresh_preserves_registered_aliases_and_confirmed_delete_receipts(
+    tmp_path, imported, monkeypatch
+):
+    import hashlib
+    import json
+    from urllib.parse import quote
+
+    from gflow_cli.api.native_delete_receipts import DeleteReceipts
+    from gflow_cli.selfhost.native_aliases import NativeAlias, NativeAliasStore
+
+    old_path = original()
+    owner = hashlib.sha256(EMAIL.casefold().encode()).hexdigest()
+    DeleteReceipts(old_path, owner, P).record(OTHER, "image")
+    calls = []
+
+    async def run(argv, timeout):
+        calls.append(argv)
+        body = json.loads(argv[5])
+        return 0, json.dumps(
+            {
+                "status": "ok",
+                "projectId": body["project_id"],
+                "mediaGenerationId": body["media_id"],
+                "kind": "image",
+                "url": "https://flow-content.google/image/owned",
+            }
+        ).encode()
+
+    monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
+    cfg = config(tmp_path, old=True)
+    alias = "user:opaque-email:opaque-image:" + OTHER
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        NativeAliasStore(cfg.root).register(
+            NativeAlias(alias, "original", "alias", P, OTHER, "image")
+        )
+        response = client.post(
+            "/v1/google-flow/accounts", headers=AUTH, json={"cookies": COOKIES, "email": "alias"}
+        )
+        assert response.status_code == 200
+        new_profile = response.json()["profile"]
+        assert response.json()["preservedDeleteReceipts"] == 1
+        assert DeleteReceipts(auth.profile_dir(new_profile), owner, P).kind(OTHER) == "image"
+        assert DeleteReceipts(old_path, owner, P).kind(OTHER) == "image"
+        read = client.get("/v1/google-flow/assets/" + quote(alias, safe=""), headers=AUTH)
+        assert read.status_code == 200
+        assert calls[-1][4] == new_profile
+        assert NativeAliasStore(cfg.root).get(alias).profile == "original"
+        assert response.json()["updated"] >= response.json()["created"]
+
+
+def test_http_activation_failure_discards_carried_receipts(tmp_path, imported):
+    import hashlib
+
+    from gflow_cli.api.native_delete_receipts import DeleteReceipts
+
+    old_path = original()
+    owner = hashlib.sha256(EMAIL.casefold().encode()).hexdigest()
+    DeleteReceipts(old_path, owner, P).record(OTHER, "image")
+    with TestClient(create_app(config(tmp_path, old=True), start_workers=False)) as client:
+        with client.app.state.store.connection() as conn:
+            conn.execute(
+                "CREATE TRIGGER refuse_activation BEFORE UPDATE ON accounts BEGIN "
+                "SELECT RAISE(ABORT, 'synthetic'); END"
+            )
+        response = client.post(
+            "/v1/google-flow/accounts", headers=AUTH, json={"cookies": COOKIES, "email": "alias"}
+        )
+        assert response.status_code == 409
+        candidate = imported[1][-1][0]
+        assert not auth.profile_dir(candidate).exists()
+        assert DeleteReceipts(old_path, owner, P).kind(OTHER) == "image"
+        assert client.app.state.store.account_lookup("alias")["profile"] == "original"

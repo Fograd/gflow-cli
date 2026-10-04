@@ -166,30 +166,24 @@ _MODEL_FROM_CLI: Mapping[str, Model] = MappingProxyType(
     },
 )
 
-# Per-model I2I transport limits: measured for Nano2/Pro and Imagen4,
-# conservative for Lite. Native metadata can further reduce these limits.
-# Flow may keep only
-# the first N references when more are attached, so the request is rejected up
-# front rather than letting the caller believe every ref was used. NARWHAL
-# (Nano Banana 2) and GEM_PIX_2 (Nano Pro) accept 10; IMAGEN_3_5 (Imagen 4)
-# accepts 3. MAX_IMAGE_REFERENCES is the ceiling for any (incl. future) model.
+# Per-model admissible input ceilings. Fresh native account metadata may
+# restrict these further before any uploads, token mint or submission. The
+# 2026-10-04 HTrJv image usages advertise ten for Nano2/Pro/Lite; Google's
+# image composer consumes field22/image3 and actual character image weights.
+# This permits construction, not a claim of retained or rendered influence.
 MAX_IMAGE_REFERENCES = 10
 _IMAGE_REFERENCE_CAP: Mapping[Model, int] = MappingProxyType(
     {
         Model.NARWHAL: 10,
         Model.GEM_PIX_2: 10,
-        # ponytail: NOT observed. Lite's cap has never been measured (#787 checked t2i
-        # only), so it starts at the lowest cap any Flow image model is known to have.
-        # A too-low cap refuses up front; a too-high one silently drops billed refs.
-        # Raise it to what a live i2i with 4+ references actually keeps.
-        Model.HARBOR_SEAL: 3,
+        Model.HARBOR_SEAL: 10,
         Model.IMAGEN_3_5: 3,
     },
 )
 
 
 def reference_cap_for(model: Model) -> int:
-    """Maximum number of I2I reference images *model* accepts.
+    """Admissible I2I input ceiling; native requests also require fresh capacity.
 
     Unknown/future models fall back to :data:`MAX_IMAGE_REFERENCES` rather than
     raising, so adding a `Model` member without a cap entry degrades to the

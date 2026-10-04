@@ -93,9 +93,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     if not cfg.token:
         raise ValueError("Bearer token must be configured")
     store = Store(cfg.root)
-    aliases = NativeAliasStore(cfg.root)
+    aliases = NativeAliasStore(cfg.root, resolve_scope=store.resolve_profile_scope)
     observations = NativeObservationStore(cfg.root)
-    resource_aliases = NativeResourceAliasStore(cfg.root)
+    resource_aliases = NativeResourceAliasStore(cfg.root, resolve_scope=store.resolve_profile_scope)
     store.account_seed(cfg.accounts)
     cfg.accounts = {
         row["profile"]: {"email": row["email"], "project": row["project"]}
@@ -148,7 +148,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             path = request.url.path
             allowed: set[str] = set()
             if request.method == "GET":
-                if path == "/v1/google-flow/videos/upscale/models":
+                if path == "/v1/google-flow/accounts/captcha-stats":
+                    allowed = {"date", "limit", "provider", "anonymized"}
+                elif path == "/v1/google-flow/videos/upscale/models":
                     allowed = {"email", "projectId", "resolution"}
                 elif path == "/v1/google-flow/videos/reference/models":
                     allowed = {"email", "projectId", "withAudio"}
@@ -165,7 +167,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 ):
                     allowed = {"email", "source", "projectId"}
                 elif path == "/v1/google-flow/jobs":
-                    allowed = {"email", "status", "kind", "limit", "cursor", "options"}
+                    allowed = {"email", "status", "kind", "limit", "cursor", "options", "source"}
                 elif path.startswith("/v1/google-flow/assets/media/"):
                     allowed = {"projectId", "limit", "cursor", "source"}
                 elif path.startswith("/v1/google-flow/assets/projects/"):
@@ -193,7 +195,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 request.query_params.multi_items()
             ) != len(request.query_params):
                 raise HTTPException(
-                    501, {"code": "feature_not_implemented", "feature": "query parameters"}
+                    400 if path == "/v1/google-flow/accounts/captcha-stats" else 501,
+                    {"code": "feature_not_implemented", "feature": "query parameters"},
                 )
 
     app = FastAPI(
@@ -250,15 +253,12 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             return owner
         if selected:
             return selected
-        # Prefer the least loaded account; include running jobs to distribute independent callers.
-        with store.connection() as conn:
-            counts = dict(
-                conn.execute(
-                    "SELECT profile,COUNT(*) FROM jobs WHERE state IN ('created','running') "
-                    "GROUP BY profile"
-                )
-            )
-        return min(cfg.accounts, key=lambda name: counts.get(name, 0))
+        from gflow_cli.selfhost.account_scheduler import select_account
+
+        try:
+            return select_account(store, cfg.accounts)
+        except ValueError:
+            raise HTTPException(503, "No current verified accounts configured") from None
 
     def check_unknown(payload: dict[str, Any], allowed: set[str]) -> None:
         unknown = sorted(set(payload) - allowed)
@@ -266,7 +266,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             feature_missing(",".join(unknown))
 
     async def translate_input_aliases(
-        payload: dict[str, Any], fields: dict[str, str]
+        payload: dict[str, Any], fields: dict[str, str], *, confirmed_delete: bool = False
     ) -> dict[str, str]:
         """Resolve exact mappings and fresh declarations before durable submission."""
         bindings: list[tuple[str, NativeAlias | NativeResourceAlias]] = []
@@ -284,7 +284,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     raise HTTPException(400, "Unsupported composite input shape") from None
             if binding is None:
                 raise HTTPException(404, "Composite input mapping not found")
-            allowed = {"image", "character"} if expected == "image-or-character" else {expected}
+            allowed = (
+                {"image", "character"}
+                if expected == "image-or-character"
+                else {"image", "video", "audio"}
+                if expected == "media"
+                else {expected}
+            )
             if binding.kind not in allowed:
                 raise HTTPException(400, "Composite input has the wrong resource kind")
             verified_alias_account(binding)
@@ -308,6 +314,37 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         for field, binding in bindings:
             identifier = binding.media_id if isinstance(binding, NativeAlias) else binding.native_id
             key = (binding.kind, binding.project_id, identifier)
+            if confirmed_delete and isinstance(binding, NativeAlias):
+                # Only a confirmed, exact scoped receipt can replace fresh asset proof.
+                # The permanent-delete worker re-verifies live account/project ownership.
+                import hashlib
+
+                from gflow_cli.api.native_delete_receipts import DeleteReceipts
+                from gflow_cli.auth import profile_dir
+                from gflow_cli.selfhost.account_marker import read_verified_account
+
+                location = profile_dir(binding.profile)
+                verified_email = read_verified_account(location)
+                owner = (
+                    hashlib.sha256(verified_email.casefold().encode("utf-8")).hexdigest()
+                    if verified_email is not None
+                    else None
+                )
+                receipt_root = (
+                    location / ".gflow_delete_receipts" / owner / binding.project_id
+                    if owner is not None
+                    else None
+                )
+                if owner is not None and receipt_root is not None and receipt_root.exists():
+                    try:
+                        receipt_kind = DeleteReceipts(location, owner, binding.project_id).kind(
+                            identifier
+                        )
+                    except (ValueError, OSError):
+                        raise HTTPException(409, "Confirmed delete receipt is invalid") from None
+                    if receipt_kind == binding.kind:
+                        replacements[field] = identifier
+                        continue
             if key not in metadata:
                 metadata[key] = (
                     await native_alias_metadata(binding.profile, binding.project_id, identifier)
@@ -497,6 +534,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         from gflow_cli.selfhost.http_jobs import error_record, http_status, result_record
 
         if kind in {
+            "images/upscale",
+            "videos",
             "videos/extend",
             "videos/edit",
             "videos/reference",
@@ -516,9 +555,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     raise HTTPException(
                         422, "captchaToken requires one bounded token without whitespace"
                     ) from None
-            prepare_image_controls(payload, cfg.root, persist_token=False)
-            if "captchaOrder" in payload or "captchaRetry" in payload:
-                raise HTTPException(501, "Provider replacement-token acceptance remains unverified")
+            prepare_image_controls(
+                payload, cfg.root, persist_token=False, native_retry=kind != "images/upscale"
+            )
             captcha_token = raw_token if isinstance(raw_token, str) else None
         asynchronous = payload.get("async", False)
         job = await enqueue(request, kind, payload, profile, captcha_token)
@@ -605,6 +644,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "created": datetime.fromtimestamp(row["created"], UTC)
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z"),
+            "updated": datetime.fromtimestamp(
+                store.account_updated(row["profile"], row["email"], row["created"]), UTC
+            )
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
             "scope": "local-profile-registration",
         }
 
@@ -630,6 +674,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             discard_imported_profile,
             import_cookie_profile,
         )
+        from gflow_cli.selfhost.receipt_refresh import carry_delete_receipts
         from gflow_cli.selfhost.session_import import CookieTableError, parse_cookie_table
 
         check_unknown(payload, {"cookies", "email", "profile", "projectId"})
@@ -675,6 +720,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         imported = None
         activated = False
         cleanup_pending = False
+        preserved_receipts = 0
         failure: HTTPException | None = None
         try:
             imported = await import_cookie_profile(
@@ -723,6 +769,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     actual = read_verified_account(profile_dir(old["profile"]))
                     if not actual or actual.casefold() != imported.email.casefold():
                         raise ValueError("Original account identity changed during import")
+                if old:
+                    preserved_receipts = carry_delete_receipts(
+                        profile_dir(old["profile"]), target, imported.email
+                    )
                 store.account_activate_import(
                     profile, selected_email, selected_project, expected_old=old
                 )
@@ -744,6 +794,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 {
                     **account_metadata(row),
                     "cookieCount": imported.cookie_count,
+                    "preservedDeleteReceipts": preserved_receipts,
                     "browserProfileDeleted": False,
                 },
                 status_code=200 if old else 201,
@@ -1065,11 +1116,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         from gflow_cli.selfhost.captcha_routes import prepare_image_controls
 
         supplied_token = payload.get("captchaToken")
-        prepare_image_controls(payload, cfg.root, persist_token=False)
-        if "captchaOrder" in payload or "captchaRetry" in payload:
-            feature_missing(
-                "provider CAPTCHA solving: Google replacement-token acceptance is unverified"
-            )
+        prepare_image_controls(payload, cfg.root, persist_token=False, native_retry=True)
         return await submit(
             request,
             "images",
@@ -1083,6 +1130,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(
             payload,
             {
+                "captchaToken",
+                "captchaOrder",
+                "captchaRetry",
                 "mediaGenerationId",
                 "resolution",
                 "email",
@@ -1098,6 +1148,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         )
         if payload.setdefault("resolution", "2k") not in ("2k", "4k"):
             raise HTTPException(422, "resolution requires 2k or 4k")
+        if payload["resolution"] == "4k" and any(
+            key in payload for key in ("captchaToken", "captchaOrder", "captchaRetry")
+        ):
+            feature_missing("Image upscale CAPTCHA overrides currently require resolution=2k")
         try:
             asset = store.asset_get(payload["mediaGenerationId"])
         except KeyError:
@@ -1119,8 +1173,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     @app.post(prefix + "/assets/{email}")
     async def upload(request: Request, email: str | None = None) -> dict[str, Any]:
         mime = request.headers.get("content-type", "").split(";")[0]
-        if mime not in ("image/png", "image/jpeg", "video/mp4"):
-            raise HTTPException(415, "Upload requires raw PNG, JPEG or MP4")
+        if mime not in ("image/png", "image/jpeg", "image/webp", "video/mp4"):
+            raise HTTPException(415, "Upload requires raw PNG, JPEG, WebP or MP4")
         rights = request.headers.get("x-flow-rights-confirmed")
         if rights is not None and (rights not in ("true", "false") or mime != "video/mp4"):
             raise HTTPException(
@@ -1134,6 +1188,18 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             data.extend(part)
             if len(data) > MAX_ASSET:
                 raise HTTPException(413, "Asset exceeds 20 MiB")
+        source_mime = mime
+        converted = False
+        if mime == "image/webp":
+            from gflow_cli.selfhost.image_upload import prepare_image_upload
+
+            try:
+                prepared = prepare_image_upload(bytes(data), mime)
+            except ValueError:
+                raise HTTPException(422, "Invalid or unsupported WebP upload") from None
+            data = bytearray(prepared.data)
+            mime = prepared.content_type
+            converted = prepared.converted
         valid = (
             data.startswith(b"\x89PNG\r\n\x1a\n")
             if mime == "image/png"
@@ -1159,7 +1225,12 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         while time.monotonic() < deadline:
             result = store.get(job["jobId"])
             if result["status"] == "completed":
-                return result
+                return {
+                    **result,
+                    "contentType": mime,
+                    "sourceContentType": source_mime,
+                    "converted": converted,
+                }
             if result["status"] in ("failed", "interrupted"):
                 raise HTTPException(502, result.get("error", "Upload failed"))
             await asyncio.sleep(0.25)
@@ -1173,15 +1244,20 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.get(prefix + "/jobs")
     async def jobs(request: Request) -> dict[str, Any]:
-        if "options" in request.query_params:
-            if set(request.query_params) != {"options"}:
+        source = request.query_params.get("source")
+        if source not in (None, "local"):
+            raise HTTPException(400, "Job source requires local for the durable job list")
+        list_controls = {"email", "status", "kind", "limit", "cursor"}
+        explicit_list = source == "local" or bool(list_controls & set(request.query_params))
+        if "options" in request.query_params or not explicit_list:
+            if set(request.query_params) - {"options"}:
                 raise HTTPException(
                     400, "Statistics options cannot be combined with job-list filters"
                 )
             from gflow_cli.selfhost.job_statistics import statistics
 
             try:
-                return statistics(store, request.query_params["options"])
+                return statistics(store, request.query_params.get("options", "summary"))
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from None
         limit, cursor = pagination(request)
@@ -1214,6 +1290,53 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             return store.get_record(job_id)
         except KeyError:
             raise HTTPException(404, "Job not found") from None
+
+    @app.post(prefix + "/assets/sync/{email}")
+    async def synchronize_inventory(email: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Fork extension: bounded read-only traversal with private resumable checkpoints."""
+        from gflow_cli.services.inventory_sync import validate_sync_options
+
+        if set(payload) - {"maxSteps", "maxSeconds", "restart"}:
+            raise HTTPException(422, "Unknown inventory sync controls")
+        max_steps = payload.get("maxSteps", 10)
+        max_seconds = payload.get("maxSeconds", 180)
+        restart = payload.get("restart", False)
+        try:
+            validate_sync_options(max_steps, max_seconds, restart)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        profile = pick_account(email, [])
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "inventory-sync",
+                profile,
+                json.dumps(
+                    {"max_steps": max_steps, "max_seconds": max_seconds, "restart": restart}
+                ),
+            ],
+            max_seconds + 45,
+        )
+        try:
+            result = parse_json_output(raw)
+            if code or result.get("status") != "ok" or result.get("complete") is not None:
+                raise ValueError("Unavailable inventory synchronization")
+            if (
+                type(result.get("steps_read")) is not int
+                or not 0 <= result["steps_read"] <= max_steps
+                or type(result.get("traversal_finished")) is not bool
+                or type(result.get("timed_out")) is not bool
+                or not isinstance(result.get("observations"), dict)
+                or not isinstance(result.get("resource_scopes"), dict)
+            ):
+                raise ValueError("Invalid inventory synchronization envelope")
+        except ValueError:
+            raise HTTPException(
+                502, "Native inventory sync unavailable; committed progress retained"
+            ) from None
+        return result
 
     @app.get(prefix + "/assets/projects/{email}")
     async def projects(request: Request, email: str) -> dict[str, Any]:
@@ -1602,22 +1725,31 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if payload.get("localOnly") is not True:
             if payload.get("localOnly") not in (None, False):
                 raise HTTPException(422, "localOnly must be a boolean")
-            project = uuid_value(
-                payload.get("projectId", cfg.accounts[profile]["project"]), "projectId"
-            )
+            operation = payload.get("operation", "archive")
+            if operation not in {"archive", "delete"}:
+                raise HTTPException(422, "operation requires archive or delete")
             values = payload.get("mediaGenerationIds")
             if not isinstance(values, list) or not 1 <= len(cast(list[Any], values)) <= 100:
                 raise HTTPException(422, "Remote archive requires 1 to 100 mediaGenerationIds")
-            ids = [uuid_value(value, "mediaGenerationIds") for value in cast(list[Any], values)]
+            controls: dict[str, Any] = {
+                "email": email,
+                **({"projectId": payload["projectId"]} if "projectId" in payload else {}),
+            }
+            slots = {f"media_{index}": value for index, value in enumerate(cast(list[Any], values))}
+            controls.update(slots)
+            await translate_input_aliases(
+                controls, dict.fromkeys(slots, "media"), confirmed_delete=operation == "delete"
+            )
+            project = uuid_value(
+                controls.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+            )
+            ids = [uuid_value(controls[field], "mediaGenerationIds") for field in slots]
             if len(set(ids)) != len(ids):
                 raise HTTPException(422, "mediaGenerationIds must be distinct")
             if any(store.asset_in_use(identifier) for identifier in ids):
                 raise HTTPException(409, "Asset is referenced by an active job")
             payload["mediaGenerationIds"] = ids
             payload["projectId"] = project
-            operation = payload.get("operation", "archive")
-            if operation not in {"archive", "delete"}:
-                raise HTTPException(422, "operation requires archive or delete")
             return await submit(request, "assets/" + operation, payload, profile)
         ids = payload.get("mediaGenerationIds")
         if "projectId" in payload:
@@ -1666,7 +1798,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         configured = cfg.accounts.get(binding.profile)
         row = next((row for row in store.accounts() if row["profile"] == binding.profile), None)
         if (
-            configured is None
+            store.resolve_profile_scope(binding.profile, binding.account) != binding.profile
+            or configured is None
             or configured["email"] != binding.account
             or row is None
             or row["email"] != binding.account
@@ -1952,12 +2085,20 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         ]
 
     async def native_catalog(
-        request: Request, verb: str, key: str, controls: dict[str, Any] | None = None
+        request: Request,
+        verb: str,
+        key: str,
+        controls: dict[str, Any] | None = None,
+        *,
+        selection: tuple[str, str] | None = None,
     ) -> dict[str, Any]:
-        profile = pick_account(request.query_params.get("email"), [])
-        project = uuid_value(
-            request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
-        )
+        if selection is None:
+            profile = pick_account(request.query_params.get("email"), [])
+            project = uuid_value(
+                request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+            )
+        else:
+            profile, project = selection
         code, raw = await subprocess_run(
             [
                 sys.executable,
@@ -2097,9 +2238,16 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "voice",
             },
         )
+        translated = await translate_input_aliases(
+            payload, {"imageReference_1": "image", "imageReference_2": "image", "voice": "voice"}
+        )
         character_fields(payload)
         if "displayName" not in payload:
             raise HTTPException(422, "displayName is required")
+        await cache_alias_images(
+            payload,
+            [value for field, value in translated.items() if field.startswith("imageReference_")],
+        )
         media_ids = [uuid_value(payload.get("imageReference_1"), "imageReference_1")]
         if "imageReference_2" in payload:
             media_ids.append(uuid_value(payload["imageReference_2"], "imageReference_2"))
@@ -2179,13 +2327,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
 
     @app.delete(prefix + "/characters/{ref}")
     async def delete_character(request: Request, ref: str) -> dict[str, Any]:
-        profile, project = character_project(dict(request.query_params))
+        controls = {**dict(request.query_params), "ref": ref}
+        await translate_input_aliases(controls, {"ref": "character"})
+        profile, project = character_project(controls)
         return await character_mutation(
             profile,
             "character-delete",
             {
                 "project_id": project,
-                "entity_id": uuid_value(ref, "ref"),
+                "entity_id": uuid_value(controls["ref"], "ref"),
             },
         )
 
@@ -2564,16 +2714,69 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if asynchronous not in ("true", "false"):
             raise HTTPException(422, "async must be true or false")
         payload["async"] = asynchronous == "true"
+        payload["ref"] = ref
+        await translate_input_aliases(payload, {"ref": "voice"})
         profile, project = character_project(payload)
-        payload["projectId"], payload["ref"] = project, uuid_value(ref, "ref")
+        payload["projectId"], payload["ref"] = project, uuid_value(payload["ref"], "ref")
         return await submit(request, "voices/delete", payload, profile)
+
+    def system_voice_item(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ref": row["voice"],
+            "name": row["voice"],
+            "voice": row["voice"],
+            "displayName": row["voice"],
+            "description": row["description"],
+            "source": "system",
+            **({"sampleUrl": row["sample_url"]} if row.get("sample_url") else {}),
+        }
+
+    def saved_voice_list_item(row: dict[str, Any]) -> dict[str, Any]:
+        item = saved_voice_item(row)
+        item.pop("audioUrl", None)
+        return item
 
     @app.get(prefix + "/voices")
     async def voices(request: Request) -> dict[str, Any]:
+        combined = (
+            request.url.path == prefix + "/voices"
+            and "source" not in request.query_params
+            and "catalog" not in request.query_params
+        )
+        if combined:
+            if not request.query_params.get("email"):
+                raise HTTPException(422, "Combined voice inventory requires email")
+            profile = pick_account(request.query_params["email"], [])
+            configured = cfg.accounts[profile].copy()
+            project = uuid_value(
+                request.query_params.get("projectId", configured["project"]), "projectId"
+            )
+            selection = (profile, project)
+            system = await native_catalog(request, "voice-presets", "voices", selection=selection)
+            saved = await native_catalog(request, "voice-saved-list", "voices", selection=selection)
+            current = store.account_lookup(configured["email"])
+            if (
+                cfg.accounts.get(profile) != configured
+                or current is None
+                or current["profile"] != profile
+                or current["project"] != configured["project"]
+                or current["enabled"] != 1
+                or current["verified"] != 1
+            ):
+                raise HTTPException(409, "Voice inventory account changed during the read")
+            if any(row.get("project_id") != project for row in saved["voices"]):
+                raise HTTPException(502, "Saved voice inventory project scope is unresolved")
+            return {
+                "voices": [system_voice_item(row) for row in system["voices"]]
+                + [saved_voice_list_item(row) for row in saved["voices"]],
+                "projectId": system["projectId"],
+                "scope": "native Google project system and saved-user voice catalog",
+                "complete": None,
+            }
         source = request.query_params.get("source", "system")
         if source in {"custom", "user"}:
             result = await native_catalog(request, "voice-saved-list", "voices")
-            result["voices"] = [saved_voice_item(row) for row in result["voices"]]
+            result["voices"] = [saved_voice_list_item(row) for row in result["voices"]]
             return result
         if source != "system":
             raise HTTPException(422, "Voice source requires system or user")
@@ -2582,18 +2785,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "Voice catalog requires bundled or google")
         if catalog == "google":
             result = await native_catalog(request, "voice-presets", "voices")
-            result["voices"] = [
-                {
-                    "ref": row["voice"],
-                    "name": row["voice"],
-                    "voice": row["voice"],
-                    "displayName": row["voice"],
-                    "description": row["description"],
-                    "source": "system",
-                    **({"sampleUrl": row["sample_url"]} if row.get("sample_url") else {}),
-                }
-                for row in result["voices"]
-            ]
+            result["voices"] = [system_voice_item(row) for row in result["voices"]]
             return result
         if "projectId" in request.query_params:
             raise HTTPException(422, "projectId requires catalog=google")
@@ -2966,6 +3158,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
         allowed = {
+            "captchaToken",
             "prompt",
             "email",
             "projectId",
@@ -2985,20 +3178,31 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         prompt = payload.get("prompt")
         if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000 or "\x00" in prompt:
             raise HTTPException(422, "prompt requires 1 to 4000 characters without NUL")
-        if payload.setdefault("aspectRatio", "16:9") not in ("16:9", "9:16"):
+        aspect = payload.setdefault("aspectRatio", "16:9")
+        if isinstance(aspect, str):
+            payload["aspectRatio"] = {"landscape": "16:9", "portrait": "9:16"}.get(aspect, aspect)
+        if payload["aspectRatio"] not in ("16:9", "9:16"):
             raise HTTPException(422, "Invalid video aspect ratio")
         if type(payload.setdefault("count", 1)) is not int or not 1 <= payload["count"] <= 4:
             raise HTTPException(422, "Video count requires an integer from 1 to 4")
+        if "captchaToken" in payload and payload["count"] != 1:
+            feature_missing("Generic video supplied tokens currently require count=1")
         model = payload.setdefault("model", "veo-3.1-fast")
         if not isinstance(model, str) or model not in VIDEO_ALIASES:
             raise HTTPException(422, "Unsupported video model")
         if payload.get("duration") is not None and type(payload["duration"]) is not int:
             raise HTTPException(422, "Video duration must be an integer")
         resolution = payload.get("resolution")
-        if resolution is not None and (resolution not in ("360p", "720p") or model != "omni-flash"):
-            raise HTTPException(
-                422, "Explicit resolution is supported only for Omni Flash (360p/720p)"
-            )
+        if model != "omni-flash" and resolution == "720p":
+            # Native t7a omits the resolution submessage for enum1/720p.
+            # Veo has only that default; forwarding a UI resolution selection
+            # would look for an absent radio rather than preserve the same wire.
+            payload.pop("resolution")
+            resolution = None
+        elif resolution is not None and (
+            resolution not in ("360p", "720p") or model != "omni-flash"
+        ):
+            raise HTTPException(422, "Veo supports its 720p default; Omni Flash supports 360p/720p")
         if re.search(r"@(reference(?:Image|Audio|Video)?|character|audio)_\d+", prompt, re.I):
             feature_missing("inline useapi reference markers")
         translated = await translate_input_aliases(
@@ -3055,30 +3259,25 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     async def concatenate(
         request: Request, payload: dict[str, Any]
     ) -> dict[str, Any] | JSONResponse:
-        check_unknown(payload, {"media", "email", "replyUrl", "replyRef", "async"})
+        from gflow_cli.api.transports.native_asset_lookup import media_url
+        from gflow_cli.selfhost.native_video_cache import cache_native_video, verified_cache_account
+
+        check_unknown(payload, {"media", "email", "projectId", "replyUrl", "replyRef", "async"})
         items = payload.get("media")
         if not isinstance(items, list) or not 2 <= len(cast(list[Any], items)) <= 10:
-            raise HTTPException(422, "media requires 2 to 10 registered video clips")
-        refs: list[str] = []
+            raise HTTPException(422, "media requires 2 to 10 video clips")
         normalised: list[dict[str, Any]] = []
+        bindings: list[NativeAlias] = []
+        alias_ids: set[str] = set()
         for item in cast(list[Any], items):
             if not isinstance(item, dict):
                 raise HTTPException(422, "Each media item must be an object")
             typed_item = cast(dict[str, Any], item)
             check_unknown(typed_item, {"mediaGenerationId", "trimStart", "trimEnd"})
             ref = typed_item.get("mediaGenerationId")
-            if not isinstance(ref, str) or not 1 <= len(ref) <= 128:
-                raise HTTPException(422, "Each clip requires its registered mediaGenerationId")
-            try:
-                asset = store.asset_get(ref)
-                contained_file(asset["path"], cfg.root)
-            except (KeyError, ValueError):
-                raise HTTPException(
-                    422, "Video clip is not available in the managed registry"
-                ) from None
-            if asset["mime"] != "video/mp4":
-                raise HTTPException(422, "Concatenation requires registered MP4 clips")
-            trims = {}
+            if not isinstance(ref, str) or not 1 <= len(ref) <= 1024:
+                raise HTTPException(422, "Each clip requires a managed ID or exact native alias")
+            trims: dict[str, Any] = {}
             for field in ("trimStart", "trimEnd"):
                 value = typed_item.get(field, 0)
                 if (
@@ -3086,12 +3285,109 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     or not math.isfinite(value)
                     or not 0 <= value <= 10
                 ):
-                    raise HTTPException(422, "Trims must be finite numbers from 0 to 10 seconds")
+                    raise HTTPException(422, "Trims must be finite numbers from0to10seconds")
                 trims[field] = value
-            refs.append(ref)
+            if ref.startswith("user:"):
+                try:
+                    binding = aliases.get(ref)
+                except ValueError:
+                    raise HTTPException(400, "Unsupported composite video input") from None
+                if binding is None:
+                    raise HTTPException(404, "Composite input mapping not found")
+                if binding.kind != "video":
+                    raise HTTPException(400, "Concatenation requires native video aliases")
+                verified_alias_account(binding)
+                bindings.append(binding)
+                ref = binding.media_id
+                alias_ids.add(ref)
             normalised.append({"mediaGenerationId": ref, **trims})
-        profile = pick_account(payload.get("email"), refs)
+        if bindings:
+            first = bindings[0]
+            scope = (first.profile, first.account, first.project_id)
+            if any((b.profile, b.account, b.project_id) != scope for b in bindings):
+                raise HTTPException(409, "Video inputs require one account and project")
+            if payload.get("email") is not None and payload["email"] != first.account:
+                raise HTTPException(403, "Composite video belongs to another account")
+            if (
+                payload.get("projectId") is not None
+                and uuid_value(payload["projectId"], "projectId") != first.project_id
+            ):
+                raise HTTPException(403, "Composite video belongs to another project")
+            payload["email"] = first.account
+            payload["projectId"] = first.project_id
+        refs = [item["mediaGenerationId"] for item in normalised]
+        profile = pick_account(payload.get("email"), refs, allow_native=True)
+        native = set(alias_ids)
+        projects: set[str] = set()
+        for ref in dict.fromkeys(refs):
+            try:
+                row = store.asset_get(ref)
+            except KeyError:
+                native.add(uuid_value(ref, "mediaGenerationId"))
+                continue
+            if row["profile"] != profile or row["mime"] != "video/mp4":
+                raise HTTPException(422, "Video cache belongs to another account or media kind")
+            try:
+                contained_file(row["path"], cfg.root)
+            except ValueError:
+                raise HTTPException(422, "Managed video bytes are unavailable") from None
+            if row["project"]:
+                projects.add(row["project"])
+            if (
+                Path(row["path"])
+                .resolve()
+                .is_relative_to((cfg.root / "native-video-cache").resolve())
+            ):
+                native.add(uuid_value(ref, "mediaGenerationId"))
+        project = uuid_value(
+            payload.get("projectId")
+            or (next(iter(projects)) if len(projects) == 1 else cfg.accounts[profile]["project"]),
+            "projectId",
+        )
+        if any(value != project for value in projects):
+            raise HTTPException(422, "Video inputs require one project")
+        metadata: dict[str, dict[str, Any]] = {}
+        if native:
+            try:
+                verified_cache_account(cfg, store, profile)
+            except ValueError:
+                raise HTTPException(
+                    403, "Native videos require a current verified account"
+                ) from None
+            try:
+                async with asyncio.timeout(180):
+                    # All scoped identities and types must pass before any private download.
+                    for ref in dict.fromkeys(refs):
+                        if ref not in native:
+                            continue
+                        result = await native_alias_metadata(profile, project, ref)
+                        if result.get("kind") != "video":
+                            raise HTTPException(
+                                502, "Native concatenation input is not a verified video"
+                            )
+                        try:
+                            media_url(result.get("url"), "video")
+                        except ValueError:
+                            raise HTTPException(502, "Native video URL is unavailable") from None
+                        metadata[ref] = result
+                    try:
+                        for ref, result in metadata.items():
+                            await cache_native_video(
+                                cfg, store, profile, project, ref, result, subprocess_run
+                            )
+                    except (ValueError, KeyError, OSError, RuntimeError, TimeoutError):
+                        raise HTTPException(502, "Native video cache is unavailable") from None
+            except TimeoutError:
+                raise HTTPException(502, "Native video cache exceeded its read budget") from None
+        if native:
+            try:
+                verified_cache_account(cfg, store, profile)
+            except ValueError:
+                raise HTTPException(403, "Native video account changed before queueing") from None
+            if bindings:
+                verified_alias_account(bindings[0])
         payload["media"] = normalised
+        payload["projectId"] = project
         return await submit(request, "videos/concatenate", payload, profile)
 
     @app.post(prefix + "/videos/upscale", response_model=None)
@@ -3100,6 +3396,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         request: Request, payload: dict[str, Any]
     ) -> dict[str, Any] | JSONResponse:
         kind = "videos/gif" if request.url.path.endswith("/gif") else "videos/upscale"
+        if kind == "videos/upscale":
+            payload.setdefault("operation", "promotion")
         promoting = kind == "videos/upscale" and payload.get("operation") == "promotion"
         if promoting and not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")

@@ -20,15 +20,13 @@ putting keys directly into shell command arguments or source files.
 `POST /images` accepts `captchaToken`: 20–20000 characters, single submission.
 It is mutually exclusive with `captchaOrder` and `captchaRetry`.
 
-Provider generation is currently **guarded off**. `captchaOrder` and `captchaRetry`
-return HTTP 501 before queueing after normal validation, even when valid keys are configured.
-Missing provider keys or malformed controls return 422. Native reload probes now measure the actual action/site key, but a fresh same-page replacement was rejected for unusual activity. Actual CapSolver/2Captcha acceptance remains unproven. Retry values 2–10 also
-lack Google-refusal retry semantics. Configuration and statistics routes remain
-available for future integration.
-
-Other generation, voice and export operations reject these controls explicitly.
-A Google rejection does not trigger automatic generation. Tokens are single-use;
-callers must not reuse them for another job.
+Image requests accept configured captchaOrder and explicit captchaRetry1–10.
+Provider metadata must come from a fresh trusted reload for the exact project,
+IMAGE_GENERATION action and site key. Solve failure may select the next configured
+provider before Google submission. A typed, single-frame WAF refusal permits an
+explicit bounded retry with fresh token/request identities; partial, mixed,
+duplicate or uncertain acknowledgements stop without replay. Supplied tokens
+remain one use. Missing keys/malformed controls return422.
 
 The supplied-token hook replaces both observed token contexts in the validated
 `ogiZ0b` request. It checks project, output count and envelope shape before
@@ -39,8 +37,7 @@ wire slots and one-shot rewrite have offline coverage, but live acceptance of an
 externally supplied replacement token remains unverified. Ordinary browser-owned
 image generation and native seed enforcement are independently live verified.
 
-The provider clients below are implemented and tested as preparation; they are
-not enabled by the public generation endpoint until actual third-party replacement acceptance is proven.
+The provider clients below are enabled by explicit request controls. Their implementation and measured refusal paths do not prove Google acceptance.
 
 Clients use Enterprise v3 tasks according to
 [CapSolver's documentation](https://docs.capsolver.com/en/guide/captcha/ReCaptchaV3/)
@@ -65,16 +62,59 @@ Provider task contracts, key preservation/masking and malformed-response paths
 are tested offline. Native request token slots were observed with an aborted
 request. Earlier JavaScript hooks did not capture metadata; the native reload parser supersedes that failure. Provider controls are implemented, but actual CapSolver/2Captcha replacement acceptance remains unverified. Supplied-token slot rewriting is guarded; current live evidence must be checked in VERIFICATION.md before claiming acceptance.
 
-The `accepted` statistic is conservative: it is recorded after Google returns an image and its download succeeds. A download failure can therefore undercount Google acceptance; it never counts a solved token alone as accepted.
+Acceptance is recorded from the exact matching native acknowledgement before later download/storage. A solved token alone never counts as accepted.
 
 For a local masked key editor and credit-free balance check, see [the CapSolver GUI guide](CAPSOLVER_GUI.md). Saving a key does not automatically change generation or prove Google token acceptance.
 
-A fresh same-page TokenMinter replacement was submitted in a live BDD but Google rejected it with unusual-activity/WAF 403. No accepted image was returned. This does not prove all external tokens fail, nor does it permit claiming a successful replacement path. Actual CapSolver acceptance still needs a successful controlled live Google test before removing the provider-generation guard.
+A fresh same-page TokenMinter replacement was submitted in a live BDD but Google rejected it with unusual-activity/WAF 403. No accepted image was returned. This does not prove all external tokens fail, nor does it permit claiming a successful replacement path. Actual CapSolver acceptance still needs a successful controlled live Google test.
 
-Actual CapSolver proof: one paid task solved, one replacement request submitted to Google, zero accepted images (`solveStarted=1`, `solved=1`, `submitted=1`, `accepted=0`). Google rejected unusual activity (gRPC 7/HTTP 403); no retry was made. Public provider generation continues to return HTTP 501 and GUI generationEnabled remains false. A provider solution is distinct from Google acceptance.
+Actual CapSolver proof: one paid task solved, one replacement request submitted to Google, zero accepted images (`solveStarted=1`, `solved=1`, `submitted=1`, `accepted=0`). Google rejected unusual activity (gRPC 7/HTTP 403); no retry was made. Explicit provider controls are now available; the GUI capability indicator follows whether a key is configured, and does not claim Google acceptance. A provider solution is distinct from Google acceptance.
 
-Statistics record `rejected` only for a typed Google WAF refusal during generation. Post-submission timeouts, unknown errors and download failures record `unknown`; they are not labelled rejection. `accepted` is counted after a successful download, so it is a conservative completed-image observation. These counters never trigger automatic solving or generation retries.
+Statistics record `rejected` only for a typed Google WAF refusal during generation. Post-submission timeouts or mixed/unknown acknowledgements record unknown. An exact accepted acknowledgement stays accepted after a later download failure. These counters never trigger automatic solving or generation retries.
 
-Native reference/edit/extension/TTS supplied-token scopes are now implemented;
+Native reference/edit/extension/promotion/TTS supplied-token and provider scopes are implemented;
 see [exact native scope and verification](NATIVE_CAPTCHA.md). Provider-backed
-Google acceptance remains unverified and generation remains guarded.
+Google acceptance remains unverified; image and dedicated native provider controls are available.
+
+
+## Dedicated native provider controls
+Native R2V, Omni edit, extension, promotion and saved-TTS creation accept exactly
+one of captchaToken, captchaOrder, captchaRetry. captchaOrder is a comma-separated
+unique sequence of configured CapSolver and/or 2Captcha. Solve failures may fall
+back before Google submission. captchaRetry explicitly bounds 1–10 attempts;
+default requests remain one attempt. Each retry obtains a fresh scoped token and
+request identities. Only a typed WAF refusal plus confirmed submitted/rejected
+telemetry permits another attempt. Accepted or uncertain outcomes, content/auth/
+rate-limit errors, cancellation and later save/download failures stop. Supplied
+tokens remain one use and never trigger retries.
+
+Fresh trusted project-page site key discovery precedes paid solving. Keys remain
+private; tokens stay outside durable jobs. Scope exit invalidates inherited async
+work. Native acceptance is recorded at acknowledgement, so later download failure
+does not erase acceptance or justify generation again. Image UI provider solving
+remains guarded separately; enabling native controls is not proof of acceptance.
+
+Two real saved-TTS previews on 4 October—browser and CapSolver—were explicitly
+WAF-refused. The provider solved once and submitted once, with no accepted audio.
+Credits stayed unchanged on refused requests; successful audio cost is unproven.
+
+## Local event filters
+GET /accounts/captcha-stats accepts date=YYYY-MM-DD, limit=1..50000 and
+provider=CapSolver|2Captcha|UserProvided. Default date is today UTC; an explicit
+limit selects latest events independently of date. Events are local timestamped
+phase observations, not vendor billing/request records. Aggregate counters remain.
+Acceptance rate uses confirmed accepted/rejected outcomes, otherwise null.
+Historical counters have no invented timestamps. anonymized=true returns501;
+global customer statistics, tier/SKU and latency buckets are not inferred.
+
+## Other request paths
+Generic UI video accepts a supplied captchaToken for count1. Provider selection
+and multi-output supplied-token requests remain501; the current adapter returns
+one result and cannot claim every output in a paid batch.
+Native image2K upscale accepts a supplied token or configured provider selection,
+with captchaRetry1 only. Ownership is refreshed before a solver task and the
+override binds exact project/media/2K RPC. More than one retry or a4K override
+returns501 before queueing. Ordinary browser-token4K dispatch remains subject to
+fresh account entitlement. Exports/GIF/local concatenation need no generation token.
+CLI image upscale --captcha-token-file and direct MCP captcha_token use the
+same private one-use2K scope. Accepted externally solved2K output remains unverified.

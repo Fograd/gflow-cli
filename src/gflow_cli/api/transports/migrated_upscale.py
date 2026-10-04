@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+from contextvars import copy_context
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs
 
@@ -17,8 +18,17 @@ import structlog
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from gflow_cli.api.image_upscale import TargetResolution
-from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
-from gflow_cli.api.transports.migrated_composer import MIGRATED_PROJECT_URL
+from gflow_cli.api.native_captcha import native_captcha_active, native_captcha_outcome
+from gflow_cli.api.recaptcha import TokenMinter
+from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors, rpc_reply_frame_count
+
+# Shared typed-refusal decoder at the native transport boundary.
+from gflow_cli.api.transports.migrated_composer import (
+    MIGRATED_PROJECT_URL,
+    _submit_refusal,  # pyright: ignore[reportPrivateUsage]
+)
+from gflow_cli.api.transports.migrated_upscale_overrides import UpscaleOverride
+from gflow_cli.api.transports.native_asset_lookup import lookup_asset
 from gflow_cli.errors import (
     TransportTimeoutError,
     UiSelectorDriftError,
@@ -102,6 +112,24 @@ async def upscale_image_migrated(
         Raw decoded JPEG/PNG bytes.
     """
     project_url = MIGRATED_PROJECT_URL.format(project_id=project_id)
+    override = None
+    context = copy_context()
+    if native_captcha_active():
+        if target_resolution is not TargetResolution.RES_2K:
+            raise UpscaleUnavailableError(
+                detail="Explicit CAPTCHA override currently supports measured 2K upscale only",
+                route="image_upscale",
+                status=501,
+            )
+        await page.goto(project_url, wait_until="domcontentloaded")
+        owned = await lookup_asset(page, project_id=project_id, media_id=media_id)
+        if owned.media_id != media_id or owned.project_id != project_id or owned.kind != "image":
+            raise WireFormatError(
+                detail="Explicit image upscale requires fresh selected-project owned image proof",
+                route="image_upscale",
+            )
+        token = await TokenMinter(page).mint("IMAGE_GENERATION")
+        override = UpscaleOverride(project=project_id, media=media_id, token=token)
     log.info("migrated_upscale.navigate", project_id=project_id, media_id=media_id)
     # The project gallery virtualises old tiles out of the DOM. Opening a
     # validated detail URL works independently of gallery size and scroll state.
@@ -170,7 +198,13 @@ async def upscale_image_migrated(
     found_b64: asyncio.Future[str] = loop.create_future()
 
     async def on_response(response: Response) -> None:
-        if "batchexecute" in response.url and UPSCALE_RPCID in response.url:
+        if override is not None and (
+            not override.dispatched or response.request is not override.request
+        ):
+            return
+        if override is not None or (
+            "batchexecute" in response.url and UPSCALE_RPCID in response.url
+        ):
             if not matches_upscale_request(
                 response.request.post_data,
                 media_id=media_id,
@@ -180,9 +214,28 @@ async def upscale_image_migrated(
                 return
             try:
                 text = await response.text()
+                if override is not None and rpc_reply_frame_count(text, UPSCALE_RPCID) != 1:
+                    if not found_b64.done():
+                        found_b64.set_exception(
+                            WireFormatError(
+                                detail="Image upscale reply requires exactly one correlated frame",
+                                route="image_upscale",
+                            )
+                        )
+                    return
                 errors = rpc_errors(text)
                 if any(e.rpcid == UPSCALE_RPCID for e in errors):
                     err = next(e for e in errors if e.rpcid == UPSCALE_RPCID)
+                    if override is not None:
+                        same_rpc_payload = any(
+                            rpcid == UPSCALE_RPCID for rpcid, _ in parse_frames(text)
+                        )
+                        refusal = _submit_refusal(text, (UPSCALE_RPCID,))
+                        if refusal is not None and not same_rpc_payload:
+                            context.run(native_captcha_outcome, "rejected")
+                            if not found_b64.done():
+                                found_b64.set_exception(refusal)
+                            return
                     if not found_b64.done():
                         found_b64.set_exception(
                             WireFormatError(
@@ -199,6 +252,8 @@ async def upscale_image_migrated(
                             b64_val = items[1]
                             if isinstance(b64_val, str) and len(b64_val) > 0:
                                 if not found_b64.done():
+                                    if override is not None:
+                                        context.run(native_captcha_outcome, "accepted")
                                     found_b64.set_result(b64_val)
             except Exception as exc:  # noqa: BLE001
                 log.warning("migrated_upscale.parse_error", error_type=type(exc).__name__)
@@ -210,8 +265,19 @@ async def upscale_image_migrated(
                         )
                     )
 
+    async def guard(route: Any, request: Any) -> None:
+        assert override is not None
+        try:
+            await override.guard(route, request)
+        except Exception as exc:
+            if not found_b64.done():
+                found_b64.set_exception(exc)
+
+    route_pattern = "**/batchexecute*"
     page.on("response", on_response)
     try:
+        if override is not None:
+            await page.route(route_pattern, guard)
         # Override anchor click and preserve original to restore later
         await page.evaluate("""() => {
             window._origAnchorClick = HTMLAnchorElement.prototype.click;
@@ -229,7 +295,16 @@ async def upscale_image_migrated(
                 route="image_upscale",
             ) from exc
     finally:
+        if override is not None and override.dispatched:
+            context.run(native_captcha_outcome, "unknown")
         page.remove_listener("response", on_response)
+        if override is not None:
+            try:
+                await page.unroute(route_pattern, guard)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("migrated_upscale.unroute_error", error_type=type(exc).__name__)
+            finally:
+                override.token = ""
         try:
             await page.evaluate("""() => {
                 if (window._origAnchorClick) {

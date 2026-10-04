@@ -57,6 +57,14 @@ def parse_image_reference_models(payload: Any, *, tier: int) -> list[dict[str, A
                 raise ConfigurationError(
                     detail="Native image reference capacity is unavailable or malformed"
                 )
+            # The image-family decoder uses the same field22 pools as video:
+            # audio1, character2, image3. Character count and flattened image
+            # weight are independent composer limits (Q6a/$6a/OZa/c_a).
+            character_cap: Any = _at(usage, 21, 1)
+            if type(character_cap) is not int or not 0 <= character_cap <= 100:
+                raise ConfigurationError(
+                    detail="Native image character capacity is unavailable or malformed"
+                )
             if key in seen:
                 raise ConfigurationError(detail="Native image model inventory has ambiguous keys")
             seen.add(key)
@@ -67,6 +75,8 @@ def parse_image_reference_models(payload: Any, *, tier: int) -> list[dict[str, A
                     "display_name": _at(family, 0),
                     "family": _at(family, 3),
                     "advertised_reference_cap": advertised,
+                    "advertised_character_cap": character_cap,
+                    "effective_character_cap": min(7, character_cap),
                     "transport_reference_cap": transport,
                     "effective_reference_cap": min(transport, advertised),
                     "retained_reference_verified": False,
@@ -83,6 +93,17 @@ def image_reference_cap(rows: list[dict[str, Any]], model: Model) -> int:
             detail="Requested native image model reference capacity was not uniquely observed"
         )
     return matches[0]["effective_reference_cap"]
+
+
+def image_character_cap(rows: list[dict[str, Any]], model: Model) -> int:
+    """Current independent character pool, bounded by the seven public slots."""
+    matches = [row for row in rows if row["model_key"] == model.value]
+    cap: Any = matches[0].get("effective_character_cap") if len(matches) == 1 else None
+    if type(cap) is not int or not 0 <= cap <= 7:
+        raise ConfigurationError(
+            detail="Requested native image model character capacity was not uniquely observed"
+        )
+    return cap
 
 
 async def read_image_reference_models(page: Any, project: str) -> list[dict[str, Any]]:

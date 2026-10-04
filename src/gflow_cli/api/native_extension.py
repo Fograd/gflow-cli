@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
+from gflow_cli.api.native_captcha import native_captcha_outcome, native_captcha_submission
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors
 from gflow_cli.api.transports.migrated_composer import (
@@ -237,6 +238,7 @@ async def extend_native_video(
         if on_started:
             await on_started(started)
         try:
+            native_captcha_submission()
             result = await page.evaluate(
                 _NATIVE_FETCH,
                 {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
@@ -268,12 +270,14 @@ async def extend_native_video(
                     acknowledged.add((item[0], item[2]))
             if acknowledged != expected:
                 raise NativeExtensionUnknownError(started)
+            native_captcha_outcome("accepted")
             return started
         except asyncio.CancelledError:
             raise
         except NativeExtensionUnknownError:
             raise
         except (WafRejectionError, ContentPolicyError):
+            native_captcha_outcome("rejected")
             raise
         except Exception:
             raise NativeExtensionUnknownError(started) from None

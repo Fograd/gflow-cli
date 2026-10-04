@@ -45,11 +45,14 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
     )
     base = f"""
       WITH selected AS (
-        SELECT j.id,j.profile,a.email,{family_case} family,j.state,j.created,j.updated,
+        SELECT j.id,a.profile,a.email,{family_case} family,j.state,j.created,j.updated,
           CASE WHEN json_valid(j.result) THEN
             CASE WHEN json_type(j.result,'$.error.exit_code')='integer'
                  THEN json_extract(j.result,'$.error.exit_code') END END code
-        FROM jobs j JOIN accounts a ON a.profile=j.profile
+        FROM jobs j
+        LEFT JOIN account_profile_lineage lineage ON lineage.profile=j.profile
+        JOIN accounts a ON a.profile=COALESCE(lineage.current_profile,j.profile)
+          AND (lineage.account IS NULL OR lineage.account=a.email)
         WHERE a.enabled=1 AND a.verified=1 AND j.kind IN ({kinds})
           AND (j.state='running' OR
             (j.state IN ('completed','failed','interrupted') AND j.updated>=? AND j.updated<=?))

@@ -58,6 +58,7 @@ exactly the cost tier you can afford:
 | `e2e_auth` | 0 | < 30 s | auth/session/health-check — always safe to run |
 | `e2e_image` | **0** (daily cap) | 30–120 s | text-to-image or image-to-image golden path |
 | `e2e_batch` | **0** (daily cap) | 2–10 min | batch image generation |
+| `e2e_audio` | Successful cost unverified | 1–3 min | Explicit real TTS-preview opt-in and allowance |
 | `e2e_video` | ~1 Veo | 1–10 min | text-to-video or image-to-video |
 | `e2e_data` | (same as above) | +0 s | DB persistence check — combined with image/video |
 

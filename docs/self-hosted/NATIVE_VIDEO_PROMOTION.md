@@ -14,8 +14,8 @@ HTTP:
 ```json
 {"mediaGenerationId":"VIDEO_UUID","operation":"promotion","resolution":"720p","email":"ACCOUNT_HANDLE","projectId":"PROJECT_UUID","async":true}
 ```
-POST /v1/google-flow/videos/upscale; GET /v1/google-flow/videos/upscale/models?email=ACCOUNT_HANDLE&projectId=PROJECT_UUID&resolution=720p. Omit operation or set export to retain existing export behavior. GIF has no promotion selector.
-Promotion accepts optional modelKey,captchaToken,captchaOrder,captchaRetry,replyUrl,replyRef. Provider controls are still guarded501 because Google acceptance remains unverified. A supplied token is privately persisted outside the durable job payload and consumed once by the private worker.
+POST /v1/google-flow/videos/upscale; GET /v1/google-flow/videos/upscale/models?email=ACCOUNT_HANDLE&projectId=PROJECT_UUID&resolution=720p. Omit operation for native promotion1080p; set operation=export to retain legacy exports. GIF has no promotion selector.
+Promotion accepts optional modelKey,captchaToken,captchaOrder,captchaRetry,replyUrl,replyRef. Configured provider selection and explicit1–10 typed WAF-only retry are implemented; Google acceptance remains unverified. A supplied token is privately persisted outside the durable job payload and consumed once by the private worker.
 Unknown fields are refused. Unsupported targets are422. Fresh unavailable model/account/source combinations refuse before token mint or generation.
 
 ## Account and source checks

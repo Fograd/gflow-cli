@@ -278,6 +278,10 @@ async def _rpc(page: Any, project: str, rpc: str, args: list[Any]) -> Any:
 
     if rpc not in {PREVIEW_RPC, SAVE_MEDIA_RPC, SAVE_WORKFLOW_RPC, GET_MEDIA_RPC, DELETE_RPC}:
         raise ValueError("Unsupported saved voice operation")
+    from gflow_cli.api.native_captcha import native_captcha_outcome, native_captcha_submission
+
+    if rpc == PREVIEW_RPC:
+        native_captcha_submission()
     result = await page.evaluate(
         """async ({project,rpc,args}) => {
           if (location.hostname !== 'flow.google.com') throw Error('Native host required');
@@ -317,6 +321,8 @@ async def _rpc(page: Any, project: str, rpc: str, args: list[Any]) -> Any:
 
     refusal = _submit_refusal(result.get("text", ""), (rpc,))
     if refusal is not None:
+        if rpc == PREVIEW_RPC:
+            native_captcha_outcome("rejected")
         raise refusal
     for name, data in parse_frames(result.get("text", "")):
         if name == rpc:
@@ -327,9 +333,9 @@ async def _rpc(page: Any, project: str, rpc: str, args: list[Any]) -> Any:
 async def _mint_audio_token(page: Any) -> str:
     import asyncio
 
-    from gflow_cli.api.native_captcha import take_native_captcha_token
+    from gflow_cli.api.native_captcha import take_native_captcha_token_async
 
-    supplied = take_native_captcha_token(getattr(page, "url", None), AUDIO_ACTION)
+    supplied = await take_native_captcha_token_async(page, AUDIO_ACTION)
     if supplied is not None:
         return supplied
 
@@ -413,6 +419,9 @@ async def create_saved_voice(
             ),
         )
         media_id, workflow_id = preview_identity(reply, project)
+        from gflow_cli.api.native_captcha import native_captcha_outcome
+
+        native_captcha_outcome("accepted")
         # Retain these acknowledged handles before either saving metadata mutation.
         phase = "save"
         media_args, workflow_args = save_payloads(project, media_id, workflow_id, display_name)

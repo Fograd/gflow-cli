@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api._engine import mint_evaluate_kwargs, page_owned_evaluate_kwargs
+from gflow_cli.api.native_captcha import native_captcha_outcome, native_captcha_submission
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.native_extension import (
     _NATIVE_FETCH,  # pyright: ignore[reportPrivateUsage]
@@ -413,6 +414,7 @@ async def edit_native_video(
         if on_started:
             await on_started(started)
         try:
+            native_captcha_submission()
             result = await page.evaluate(
                 _NATIVE_FETCH,
                 {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
@@ -443,10 +445,12 @@ async def edit_native_video(
                     acknowledged.add((record[0], record[2]))
             if acknowledged != set(zip(started.media_ids, started.workflow_ids, strict=True)):
                 raise NativeVideoEditUnknownError(started)
+            native_captcha_outcome("accepted")
             return started
         except asyncio.CancelledError:
             raise
         except (WafRejectionError, ContentPolicyError):
+            native_captcha_outcome("rejected")
             raise
         except Exception:
             raise NativeVideoEditUnknownError(started) from None

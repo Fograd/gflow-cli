@@ -39,7 +39,7 @@ A bounded ten-image reliability pilot returned nine images across four submissio
 
 Post-stress reporting-fix regression:4972 passed, 47 skipped; 90.39% coverage. 94 selfhost tests passed, including short/exact/excess result counts and preserved assets. Whole-tree lint/format and strict types passed.
 
-Native CAPTCHA reload parser passed three abort-only metadata probes (IMAGE_GENERATION action and trusted-query-matched site key), superseding the earlier failed JavaScript hook. Fresh same-page TokenMinter replacement BDD submitted but Google rejected unusual activity (WAF 403/gRPC 7); no image was accepted. This is not successful CapSolver or external-token acceptance; provider generation remains disabled with HTTP 501.
+Native CAPTCHA reload parser passed three abort-only metadata probes (IMAGE_GENERATION action and trusted-query-matched site key), superseding the earlier failed JavaScript hook. Fresh same-page TokenMinter replacement BDD submitted but Google rejected unusual activity (WAF 403/gRPC 7); no image was accepted. This is not successful CapSolver or external-token acceptance; provider generation was guarded501 at that historical checkpoint; the4October delivery below enables explicit supported controls without claiming acceptance.
 
 Actual paid CapSolver trial: solveStarted 1 / solved 1 / submitted 1 / accepted 0; one replacement submit rejected PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7/HTTP 403), no retry. Provider generation remains disabled with HTTP 501. CLI/SDK/MCP/queued seed support now has offline parity and a callback-context regression fix; the corrected CLI path later produced one accepted native image with actual seed 42, JPEG 1024×1024 and 397,336 bytes, without a solver or retry. The successful REST seeded batch above is a separate proof and does not establish CLI/MCP live seed verification.
 
@@ -1382,3 +1382,55 @@ Zero generation; campaign reservations unchanged:pro1 images1/videos2,pro2
 images0/videos1,pro3 images1/videos1. API/MCP remained active and queues0. No
 accepted native video/provider-backed rendering is claimed. Docs-only follow-up
 reuses the unchanged frozen source6746pass gate; no source rerun is needed.
+
+
+## Overnight feature preparation — 4 October
+Source changes are not yet identified as a deployed release in this checkpoint.
+Focused independent reviews passed for native provider scope/fallback, positive
+refusal-only retry policy, scheduler, alias mutation and refresh lineage.
+
+Real short saved-TTS previews: browser token one submit, then CapSolver one solve
+and one submit. Both received explicit unusual-activity refusal with zero accepted
+audio, no automatic replay, unchanged1050credit observations. The failed key-path
+setup had zero preview RPCs and its reservation was released. This does not prove
+successful audio is free or its playback/binding lifecycle works.
+
+Native inventory synchronization: authenticated SDK BDD1passed,13.26seconds;
+two1step calls share a checkpoint/version and commit discovery then catalog.
+Two actual HTTP calls200 also resumed the production-private checkpoint with one
+step each. Completeness remains null;0generation.
+
+Source image capacities: fresh selected Pro catalog advertises ten image and ten
+character slots for all three known families. Lite10 admission and independent
+character cap are implemented; actual UI retention remains pending. Ten synthetic
+uploads became visible after propagation delay; an aborted UI test stopped at
+settings selection before any generation and archived only its own fixtures.
+
+Settings blocker narrowed by actual read-only DOM probe: one visible pane has
+three groups and eleven radios. A negative-index locator returned zero matches
+while first/nth0 returned one. Isolated browser regression reproduces the issue
+on the configured runtime; adapter fix and no-submit recapture are in progress.
+
+Image upscale token wire: one real2K menu request was captured and aborted before
+forwarding. SPrCad has three arguments, resolution enum1, and an11slot client
+context with a CAPTCHA pair. No upscaled output or generation was requested by
+that capture. This establishes the interception target, not solver acceptance.
+
+Existing campaign allowances persist: pro1 images1/videos2, pro2 images0/videos1,
+pro3 images1/videos1. New audio preview attempts are tracked separately. Final
+R12 rendering and entitlement tests remain independent.
+
+
+### 05:30 UTC focused preparation update
+Actual generic-video capture confirmed one fresh Enterprise reload with the
+VIDEO_GENERATION action and site key matching the trusted current script, one known
+UI submit envelope, and zero forwarded generation requests. The2K capture also
+aborted its measured SPrCad envelope before dispatch. These are token/shape proofs,
+not accepted output. The ten-image capture exposed a cumulative90-second picker
+deadline; a count-aware90–270second fix passed140affected offline tests. Fresh
+live ten-reference retention after that correction remains in progress.
+Standalone cookie import parsed27cookies but failed actual candidate no_session/
+missing identity; original registration/profile stayed intact. No paid generation.
+The first whole gate had7197passes/3integration failures/5skips/90%coverage;
+missing E2E tags/audio registry and a moved policy mock were corrected
+(222focused passes/1skip). Final frozen-source release gate remains pending.

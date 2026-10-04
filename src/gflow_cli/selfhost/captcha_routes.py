@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys
 
@@ -33,12 +33,29 @@ def mount(app: FastAPI, root: Path) -> None:
             ) from None
 
     @app.get(prefix + "/captcha-stats")
-    async def stats() -> dict[str, Any]:
-        return CaptchaStats(root).public()
+    async def stats(request: Request) -> dict[str, Any]:
+        from gflow_cli.selfhost.captcha_events import query_events
+
+        params = request.query_params
+        if set(params) - {"date", "limit", "provider", "anonymized"}:
+            raise HTTPException(400, "Unknown CAPTCHA statistics filters")
+        if params.get("anonymized", "false") not in {"true", "false"}:
+            raise HTTPException(400, "anonymized requires true or false")
+        if params.get("anonymized") == "true":
+            raise HTTPException(501, "Vendor-wide anonymized statistics are unavailable locally")
+        try:
+            raw_limit = params.get("limit")
+            limit = int(raw_limit) if raw_limit is not None else None
+            result = query_events(
+                root, date=params.get("date"), limit=limit, provider=params.get("provider")
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+        return {**CaptchaStats(root).public(), **result}
 
 
 def prepare_image_controls(
-    payload: dict[str, Any], root: Path, *, persist_token: bool = True
+    payload: dict[str, Any], root: Path, *, persist_token: bool = True, native_retry: bool = False
 ) -> None:
     fields = [
         field for field in ("captchaToken", "captchaRetry", "captchaOrder") if field in payload
@@ -50,8 +67,15 @@ def prepare_image_controls(
     field = fields[0]
     value = payload[field]
     if field == "captchaToken":
-        if not isinstance(value, str) or not 20 <= len(value) <= 20000 or "\x00" in value:
-            raise HTTPException(422, "captchaToken requires 20 to 20000 characters")
+        if (
+            not isinstance(value, str)
+            or not 20 <= len(value) <= 20000
+            or "\x00" in value
+            or any(character.isspace() for character in value)
+        ):
+            raise HTTPException(
+                422, "captchaToken requires 20 to 20000 characters without whitespace"
+            )
         directory = root / "captcha-input"
         directory.mkdir(exist_ok=True, mode=0o700)
         path = directory / (hashlib.sha256(value.encode()).hexdigest() + ".token")
@@ -65,11 +89,13 @@ def prepare_image_controls(
     if field == "captchaRetry":
         if type(value) is not int or not 1 <= value <= 10:
             raise HTTPException(422, "captchaRetry requires an integer from 1 to 10")
-        if value != 1:
+        if value != 1 and not native_retry:
             raise HTTPException(501, "Google-refusal CAPTCHA retry cycles are not implemented")
     names = value.split(",") if field == "captchaOrder" and isinstance(value, str) else []
     if field == "captchaOrder" and (
-        not 1 <= len(names) <= 10 or any(name not in PROVIDERS for name in names)
+        not 1 <= len(names) <= 10
+        or len(set(names)) != len(names)
+        or any(name not in PROVIDERS for name in names)
     ):
         raise HTTPException(422, "captchaOrder supports 1 to 10 CapSolver/2Captcha entries")
     configured = provider_keys().public()

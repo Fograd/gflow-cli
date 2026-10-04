@@ -47,6 +47,7 @@ def test_metadata_listener_cleanup_and_supplied_bypass():
     from types import SimpleNamespace
 
     class Page:
+        url = "https://flow.google.com/project/project"
         listener = None
 
         def on(self, name, callback):
@@ -80,7 +81,7 @@ async def test_supplied_token_needs_no_browser_metadata():
     assert not override.metadata_required
 
 
-def test_provider_generation_guard_is_501_before_queue(tmp_path, monkeypatch):
+def test_explicit_image_provider_controls_enqueue_without_acceptance_claim(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     from gflow_cli.selfhost.config import Settings
@@ -98,12 +99,18 @@ def test_provider_generation_guard_is_501_before_queue(tmp_path, monkeypatch):
     )
     cfg.sync_wait = 0
     with TestClient(create_app(cfg, start_workers=False)) as client:
-        for field, value in (("captchaOrder", "CapSolver"), ("captchaRetry", 1)):
+        for field, value in (
+            ("captchaOrder", "CapSolver"),
+            ("captchaRetry", 1),
+            ("captchaRetry", 10),
+        ):
             result = client.post(
                 "/v1/google-flow/images",
                 headers={"Authorization": "Bearer test"},
-                json={"prompt": "fixture", field: value},
+                json={"prompt": "fixture", field: value, "async": True},
             )
-            assert result.status_code == 501
-            assert "unverified" in result.json()["detail"]["feature"]
-        assert client.app.state.store.job_page(limit=100)["jobs"] == []
+            assert result.status_code == 201, result.text
+            assert "captchaProvider" not in result.text
+        jobs = client.app.state.store.job_page(limit=100)["jobs"]
+        assert len(jobs) == 3
+        assert all(job["status"] == "created" for job in jobs)

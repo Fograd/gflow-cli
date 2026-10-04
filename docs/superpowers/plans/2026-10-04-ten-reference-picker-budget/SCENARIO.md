@@ -1,0 +1,3 @@
+# Ten exact owned references remain selectable
+
+Given ten freshly proven same-project image UUIDs and ten unique exact grid/picker tokens, with safe 40-character captions, when the native selector applies existing typing and settling delays, all ten selections complete in original order within one bounded count-aware deadline. A duplicate picker token cannot attach an image. Grid ambiguity or missing identity still refuses, and reloads cannot extend the fixed deadline. One reference retains the previous 90-second allowance; batches beyond the ten-reference cap are rejected before page interaction.

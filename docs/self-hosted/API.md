@@ -45,14 +45,14 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /accounts/{handle}/health` | On-demand native project-access check through the serial queue; supports async and callbacks; preserves the saved profile and does not refresh login. See [session health](SESSION_HEALTH.md). |
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
 | `POST /images/upscale` | Native Google upscale via the fork's CLI, `resolution: "2k"` or `"4k"`; Google enforces plan entitlement |
-| `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
+| `POST /assets`, `/assets/{handle}` | Raw PNG/JPEG/WebP/MP4 upload, maximum 20 MiB; synchronous tee-compatible response |
 | `GET /assets/{id}`, `/assets/{id}/download` | Managed metadata/bytes by default; source=google fresh owned image/video URLs and video-only raw |
 | `GET /assets/projects/{handle}` | Generated history summaries by default; source=google native catalog, source=local managed cache |
 | `GET /assets/media/{handle}` | Native timeline/attached media by default; source=local managed cache |
-| `GET /jobs`, `/jobs/{id}` | Durable jobs; list filters email/status/kind plus limit/cursor |
+| `GET /jobs`, `/jobs/{id}` | Default summary; source=local durable list with email/status/kind/limit/cursor |
 | `DELETE /assets/{handle}` | Native reversible whole-batch archive by default; operation=delete permanently removes only selected owned media IDs; explicit localOnly cache deletion is separate |
-| `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; provider generation guarded with HTTP 501; see CAPTCHA.md |
-| `GET /voices`, `/voices/{ref}` | Bundled presets by default; catalog=google reads native presets; source=user reads owned saved TTS voices and fresh detail playback URLs |
+| `POST/GET /accounts/captcha-providers`, `GET /accounts/captcha-stats` | Private solver configuration/statistics; image/native provider controls supported; see CAPTCHA.md |
+| `GET /voices`, `/voices/{ref}` | Fresh combined system/selected-project user voices with email; explicit source=system/user; bundled catalog remains an extension |
 | `POST /voices`, `DELETE /voices/{ref}` | One TTS preview plus two metadata saves; permanent saved voice deletion; durable jobs; see [saved voices](VOICES.md) |
 | `GET /characters`, `/characters/{ref}` | Native project summaries/detail |
 | `PATCH/DELETE /characters/{ref}` | Native metadata changes/removal; inspect unconfirmed outcomes before retry |
@@ -60,8 +60,8 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `POST /videos` | Text, start/end image or image-ingredient video; referenceVideo_1 selects native Omni editing with frame trims, up to5 image/3 saved-audio references; ordinary Omni image/audio ingredients use the dedicated native adapter; explicitly enabled |
 | `POST /videos/extend` | Native standalone continuation outputs, count1–4; optional modelKey discovered by account tier/source aspect; see [extension](NATIVE_VIDEO_EXTENSION.md) |
 | `GET /videos/extend/models`, `/videos/edit/models`, `/videos/reference/models` | Fresh native model keys and credit costs for the selected account/project |
-| `POST /videos/upscale`, `/videos/gif` | Default exports:1080p/original720p,270p GIF. Explicit upscale operation=promotion generates720p/1080p/4k where fresh account models permit; paid acceptance remains pending. |
-| `POST /videos/concatenate` | Local ffmpeg equivalent on 2–10 managed MP4 clips; same account, same dimensions and valid trims |
+| `POST /videos/upscale`, `/videos/gif` | Default native1080p promotion, optional720p/4k subject to entitlement; explicit operation=export retains legacy exports. GIF is270p export. Paid promotion acceptance remains pending. |
+| `POST /videos/concatenate` | Local ffmpeg on 2–10 managed/native owned videos; fresh native validation/cache, same account/project/dimensions, trims and inputsCount |
 
 Generation, upscale, GIF export and concatenation accept async (boolean).
 Explicit async returns HTTP 201 with the durable job identity immediately.
@@ -84,7 +84,7 @@ References must be IDs issued by this service. The registry retains account,
 project and saved bytes. useapi's opaque identifiers cannot be used directly.
 Uploaded references are re-uploaded into the pinned generation project as needed.
 
-System voices use `source=system`; the default is the bundled catalog and
+System voices use `source=system`; the email-selected default is a fresh combined catalog and
 `catalog=google` reads native presets. Project-scoped saved preset-based TTS uses
 `source=user` for list/detail/delete and POST `/voices` for creation. These new
 adapters await final E2E verification. Voice cloning is unsupported. Read
@@ -165,8 +165,10 @@ supplied through the API. Prompts are passed as positional arguments after `--`,
 without a shell.
 
 Image requests accept a native integer `seed` with room for `count` consecutive
-seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image-only supplied-token rewriting and provider configuration are described in [CAPTCHA.md](CAPTCHA.md). `captchaToken` has a one-shot transport override; live replacement acceptance is
-unverified. `captchaOrder` and `captchaRetry` return501 before queueing because replacement-token acceptance remains unverified despite measured native action metadata. Provider keys alone do not enable generation.
+seeds (`0..2147483647-count+1`); see [seed evidence](SEEDS.md). Image supplied-token and provider controls are described in [CAPTCHA.md](CAPTCHA.md).
+captchaToken is one use. Configured captchaOrder and explicit captchaRetry1–10
+are supported with fresh project/action/site-key proof and typed WAF-only retry;
+ambiguous or accepted writes never replay. External-token acceptance is unverified.
 
 Image Auto aspect uses a labelled first-reference approximation across REST, CLI,
 MCP and reference batch manifests. Saved TTS lifecycle, saved-voice character binding,
@@ -174,9 +176,7 @@ individual permanent media deletion, native standalone extension and Omni editin
 are implemented from the deployed frontend codecs. A later native metadata read
 confirmed removal of one owned synthetic clip after delayed visibility; the final owned synthetic lifecycle subsequently passed in 28.91 seconds, with all originally active media preserved. The first saved TTS attempt was ambiguous with no acknowledged handles. After correcting its proven preset-case divergence, one captured no0P6 request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7). No audio or saved-voice binding lifecycle was accepted. One native R2V browser-token
 attempt was explicitly rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. Extension,
-editing and saved-voice binding acceptance remain pending. Still unsupported: canonical video positional grounding,
-full native library synchronization, numerical video seeds and video CAPTCHA
-overrides. Unknown controls return501.
+editing and saved-voice binding acceptance remain pending. Canonical video positional transport and bounded resumable inventory sync are implemented. Numerical generation seeds, global inventory completeness and some generic-video CAPTCHA controls remain unsupported. Unknown controls return501.
 
 `POST /voices` accepts `voice` (case-sensitive canonical preset), `displayName`,
 `dialog` and `voicePerformance`. Dialogue/performance each require1–120 characters;
@@ -269,7 +269,7 @@ characters = client.get("/characters", params={"email": "account-one", "source":
 voices = client.get("/voices", params={"email": "account-one", "source": "system", "catalog": "google"})
 ```
 
-Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; Canonical SDK image grounding has one accepted native proof. CLI/MCP/HTTP image acceptance remains pending after safe picker refusals; video grounding remains a gap. Native system voices are fetched dynamically (30 presets observed); default bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Saved preset-based TTS creation, project-scoped user listing/detail/deletion and
+Native character and voice reads accept optional `projectId`, defaulting to the configured project. Character summaries expose `ref`, `projectId`, `displayName`, `workflowIds` and optional `thumbnailMediaId`; they are project-scoped, not account-wide useapi character CRUD. Native detail/metadata patch/delete adapters are implemented below. One/two-image POST creation has native adapter and deployed HTTP lifecycle proof; Canonical SDK image grounding has one accepted native proof. CLI/MCP/HTTP image acceptance remains pending after safe picker refusals; video grounding remains a gap. Native system voices are fetched dynamically (30 presets observed); explicit bundled voices remain available. `GET /voices/{ref}` uses the selected catalog. Saved preset-based TTS creation, project-scoped user listing/detail/deletion and
 character binding are implemented and await final E2E. Cloning remains unsupported.
 
 
@@ -377,7 +377,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 40 tools: the prior 24 plus 16 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+The registered MCP surface contains 41 tools: the prior 24 plus 17 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -610,14 +610,14 @@ This is reference transport/preflight support; accepted rendered speech is R12.
 ### Native supplied CAPTCHA tokens
 Native reference/edit POST /videos, POST /videos/extend and POST /voices accept
 captchaToken (20–20000 characters, one use). It is mutually exclusive with
-captchaOrder/captchaRetry, which remain guarded501 after validation. Raw tokens
+captchaOrder/captchaRetry, which are supported on dedicated native paths after validation. Raw tokens
 stay outside durable job JSON and are consumed through private worker files.
 Exact native project/action/host binding and no fallback/replay apply.
-Image-upscale/UI-video and export controls are outside this batch.
+Generic UI video supplied tokens support count1; provider selection/multi-output overrides remain501. Image2K supports supplied/provider tokens with retry1 only;4K overrides and retry>1 remain501. Exports use no generation override.
 See [native CAPTCHA controls](NATIVE_CAPTCHA.md).
 
 ## Explicit native video promotion
-POST videos/upscale accepts operation=promotion with720p/1080p/4k, optional modelKey and native CAPTCHA controls. GET videos/upscale/models discovers target-specific account models. Omitted operation preserves exports. See [promotion](NATIVE_VIDEO_PROMOTION.md).
+POST videos/upscale accepts operation=promotion with720p/1080p/4k, optional modelKey and native CAPTCHA controls. GET videos/upscale/models discovers target-specific account models. Omitted operation selects native promotion at1080p; explicit operation=export selects legacy export. See [promotion](NATIVE_VIDEO_PROMOTION.md).
 
 ## Fresh image reference budgets
 GET images/reference/models exposes advertised, transport and effective capacities using fresh account metadata. All native reference-bearing SDK requests use that effective capacity before uploads/minting. See [budget contracts](IMAGE_REFERENCE_BUDGETS.md).
@@ -625,17 +625,17 @@ GET images/reference/models exposes advertised, transport and effective capaciti
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
 ## Account-load statistics (HTTP extension)
-GET /jobs?options=summary returns public configured account identifiers plus images/videos/combined summary objects. options=executing adds running jobs with elapsed time; options=history adds executing and the ten newest terminal records per generation family. The existing GET /jobs default remains the paginated job list. Statistics options cannot combine with listing filters; invalid options return400.
+GET /jobs?options=summary returns public configured account identifiers plus images/videos/combined summary objects. options=executing adds running jobs with elapsed time; options=history adds executing and the ten newest terminal records per generation family. GET /jobs defaults to summary; source=local selects the paginated job list. Statistics options cannot combine with listing filters; invalid options return400.
 
-Only enabled, verified registrations contribute. Image generation/upscaling and video text/reference/edit/extension/promotion jobs are counted; queued jobs, account maintenance, uploads/deletion, export/GIF and local composition are excluded. Running jobs remain visible regardless of age; terminal outcomes use a fifteen-minute window. Completed, failed and rateLimited counters are separate; recorded429 outcomes are excluded from failed. The observational score is executing+completed+10*failed+20*rateLimited. It does not change scheduling or implement useapi quarantine.
+Only enabled, verified registrations contribute. Image generation/upscaling and video text/reference/edit/extension/promotion jobs are counted; queued jobs, account maintenance, uploads/deletion, export/GIF and local composition are excluded. Running jobs remain visible regardless of age; terminal outcomes use a fifteen-minute window. Completed, failed and rateLimited counters are separate; recorded429 outcomes are excluded from failed. The observational score is executing+completed+10*failed+20*rateLimited. Automatic selection now uses the combined score, then queue load; native reason/model quarantine remains unsupported.
 
 timingPolicy=accepted-to-observation-or-terminal explicitly includes queue waiting. Elapsed timestamps start at durable acceptance; responseTime and avgResponseTime are milliseconds from acceptance to terminal update. The combined average weights actual timing samples; no samples return null. This is not proof of pure execution duration. rateLimitScope=recorded-terminal-jobs excludes queue-admission429 failures that have no job. Unknown stored failure codes project to502; interrupted jobs remain502. Metadata projection exposes no prompts, cookies, CAPTCHA tokens, result bodies, protected URLs or filesystem paths.
 
-The account and job metadata come from one SQLite read snapshot; aggregate counts do not inherit the old100-row listing cap. Current differences from [useapi GET jobs](https://useapi.net/docs/api-google-flow-v1/get-google-flow-jobs) include the default response, timing provenance, excluded job types/admission failures and scheduler/quarantine behavior.
+The account and job metadata come from one SQLite read snapshot; aggregate counts do not inherit the old100-row listing cap. Current differences from [useapi GET jobs](https://useapi.net/docs/api-google-flow-v1/get-google-flow-jobs) include timing provenance, excluded job types/admission failures and scheduler/quarantine behavior.
 
 Deprecated HTTP image model aliases are normalized before validation and queue creation: nano-banana to nano-banana-2, imagen-4 to nano-banana-2-lite. Job request records expose the canonical model; Imagen itself is not restored by this alias. Direct SDK/CLI/MCP model aliases are unchanged.
 
-HTTP image aspect aliases landscape/portrait normalize to16:9/9:16 before validation and queueing. Explicit native video promotion accepts useapi's4K spelling and stores canonical4k. The video upscale default still exports; callers must choose operation=promotion for native Google promotion. Fresh tier/model/source checks still determine entitlement; case normalization does not grant Pro accounts4K access. SDK/CLI/MCP controls are unchanged.
+HTTP image aspect aliases landscape/portrait normalize to16:9/9:16 before validation and queueing. Explicit native video promotion accepts useapi's4K spelling and stores canonical4k. Video upscale defaults to native promotion1080p; explicit operation=export retains export behavior. Fresh tier/model/source checks still determine entitlement; case normalization does not grant Pro accounts4K access. SDK/CLI/MCP controls are unchanged.
 
 
 ## Explicit native image/video aliases
@@ -895,3 +895,53 @@ and add media generation_source/likely_upload, scanned, project_summaries and
 continuation flags. Native summary names remain snake_case (project_id, by_type
 with image/video counts, stopped_on); HTTP default summary projects use camelCase
 and uppercase media type names. No new public MCP tool/CLI flag is added.
+
+
+## 4 October delivery additions
+- GET /jobs defaults to summary; source=local selects the durable list. Conflicting
+  modes refuse. Automatic selection ranks eligible accounts by the existing
+  last15minute combined score, queue load, then stable profile order. Explicit
+  accounts and owned references remain pinned. Quarantine is not inferred.
+- GET /voices with email defaults to fresh combined system and selected-project
+  user catalogs. Explicit source modes remain. Both reads revalidate one scope;
+  saved-user list entries omit protected playback URLs.
+- Raw image/webp uploads validate and convert to PNG for the native transport.
+  Response contentType, sourceContentType, converted report actual conversion.
+  Animated, malformed, mismatched or oversized WebP refuse before queueing;
+  PNG/JPEG bytes retain existing handling.
+- POST /assets/sync/{email} adds resumable read-only synchronization; see
+  [inventory sync](NATIVE_INVENTORY_SYNC.md).
+- Exact registered aliases are accepted for character creation, character/voice
+  deletion and media deletion. Fresh account/project/type proof remains required.
+  Confirmed deletion receipts match exact profile, identity, project and media.
+- Accepted verified same-account cookie refresh activates durable profile lineage:
+  aliases, recent statistics and same-payload idempotency survive that proven
+  transition. Original audit records remain immutable. Account removal closes
+  lineage; unrelated registration cannot adopt old jobs/references. Private deletion
+  receipts transfer only after exact identity/scope verification.
+- Dedicated native generation supports explicit configured provider order and
+  bounded confirmed-refusal retries; see [CAPTCHA](CAPTCHA.md). Image UI solving,
+  generic video overrides and upscale controls retain their separate boundaries.
+
+Successful live cookie import, accepted video/TTS rendering, Ultra-only4K, arbitrary
+vendor IDs and complete global inventory remain independently recorded gaps.
+
+### Native concatenate and updated defaults
+POST /videos/concatenate accepts2–10 managed video references, exact registered
+native aliases, or raw owned native UUIDs pinned by explicit email/projectId.
+Every native input is freshly owned/type-validated before download, then decoded
+and dimension-checked in a private bounded cache (256MiB per input,180seconds
+overall). Same account/project/dimensions and valid duration/trims are required.
+Repeated input positions are preserved; downloads may deduplicate. The result
+includes integer inputsCount and a managed local ffmpeg output, not Google editing.
+
+POST /videos/upscale defaults to operation=promotion,resolution=1080p.
+Explicit operation=export retains legacy exports. Fresh entitlement and model
+checks remain mandatory. Image callbacks allow5seconds; other callbacks10seconds,
+with the existing public-HTTPS/DNS/streaming limits.
+
+Current CAPTCHA coverage: images and dedicated native reference/edit/extension/
+promotion/TTS accept provider selection and explicit WAF-only retry1–10.
+Generic UI videos accept supplied tokens only at count1. Native image2K supports
+supplied/provider tokens with retry1;4K overrides and retry>1 remain501.
+See [CAPTCHA](CAPTCHA.md) for one-use, acknowledgement and unknown-outcome rules.

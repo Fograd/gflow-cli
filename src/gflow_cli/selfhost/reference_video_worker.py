@@ -25,10 +25,14 @@ from gflow_cli.errors import ConfigurationError, NativeVideoGenerationUnknownErr
 async def run_reference_video(
     profile: str, project: str, payload: dict[str, Any], out: Path
 ) -> dict[str, Any]:
-    from gflow_cli.selfhost.native_captcha import private_native_captcha
+    from gflow_cli.selfhost.native_captcha_policy import run_with_native_captcha_policy
 
-    with private_native_captcha(payload, project, "VIDEO_GENERATION"):
-        return await _run_reference_video(profile, project, payload, out)
+    return await run_with_native_captcha_policy(
+        payload,
+        project,
+        "VIDEO_GENERATION",
+        lambda: _run_reference_video(profile, project, payload, out),
+    )
 
 
 async def _run_reference_video(

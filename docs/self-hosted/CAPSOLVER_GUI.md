@@ -1,6 +1,6 @@
 # Private CapSolver key editor
 
-This small local page saves/removes a CapSolver key and checks its balance through the fixed CapSolver endpoint. It never creates a paid solving task. Storage and a successful balance check do not prove Google Flow accepts a solver token: native metadata is measured, while provider generation is disabled with HTTP 501 pending actual third-party acceptance. See [CAPTCHA controls and limits](CAPTCHA.md).
+This small local page saves/removes a CapSolver key and checks its balance through the fixed CapSolver endpoint. It never creates a paid solving task. Storage and a successful balance check do not prove Google Flow accepts a solver token: fresh native metadata is measured and explicit image/native provider controls are implemented. Saving a key never silently selects paid solves. The generationEnabled status means configured capability, not accepted Google output. See [CAPTCHA controls and limits](CAPTCHA.md).
 
 ## Start and open
 

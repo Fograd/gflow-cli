@@ -294,3 +294,32 @@ async def test_build_for_project_empty_sources_are_not_unavailable() -> None:
     # means no characters/media exist yet for this project.
     index = await AssetIndex.build_for_project(_EmptyCharacterClient(), "proj-1")
     assert index.entries == []
+
+
+@pytest.mark.parametrize("count", [4, 10])
+def test_lite_mentions_reach_current_native_budget_in_order(count):
+    media = [
+        {"media_id": f"media-{index}", "display_name": f"asset{index}"} for index in range(count)
+    ]
+    prompt = " ".join(f"@asset{index}" for index in range(count))
+    result = resolve_mentions(
+        parse_mentions(prompt),
+        AssetIndex(entities=[], media_assets=media),
+        path="image",
+        model="nano2-lite",
+        prompt=prompt,
+    )
+    assert [mention.id for mention in result.mentions] == [f"media-{i}" for i in range(count)]
+
+
+def test_lite_eleven_mentions_refuse():
+    media = [{"media_id": f"media-{index}", "display_name": f"asset{index}"} for index in range(11)]
+    prompt = " ".join(f"@asset{index}" for index in range(11))
+    with pytest.raises(ConfigurationError, match="cap of 10"):
+        resolve_mentions(
+            parse_mentions(prompt),
+            AssetIndex(entities=[], media_assets=media),
+            path="image",
+            model="nano2-lite",
+            prompt=prompt,
+        )

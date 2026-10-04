@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 import stat
-from collections.abc import Generator
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from gflow_cli.api.transports.native_voices import validate_identifier
@@ -128,3 +129,128 @@ def native_captcha_or_none(
         if value is None
         else native_captcha_token(value, project_id=project_id, action=action)
     )
+
+
+@dataclass(repr=False)
+class _NativeProvider:
+    mint: Callable[[Any, str], Awaitable[str]] = field(repr=False)
+    project: str
+    action: str
+    observe: Callable[[str], None] | None = field(default=None, repr=False)
+    consumed: bool = False
+    ready: bool = False
+    submitted: bool = False
+    terminal: str | None = None
+    closed: bool = False
+
+
+_PROVIDER: ContextVar[_NativeProvider | None] = ContextVar(
+    "gflow_native_captcha_provider", default=None
+)
+
+
+def _provider_scope(page: Any, action: str, state: _NativeProvider) -> None:
+    if state.closed:
+        raise ConfigurationError(detail="Native CAPTCHA provider scope is closed")
+    value = getattr(page, "url", None)
+    try:
+        if not isinstance(value, str):
+            raise ValueError()
+        url = urlsplit(value)
+        if (
+            url.scheme != "https"
+            or url.netloc != "flow.google.com"
+            or url.path.rstrip("/") != "/project/" + state.project
+            or action != state.action
+        ):
+            raise ValueError()
+    except ValueError:
+        raise ConfigurationError(detail="Native CAPTCHA provider scope mismatch") from None
+
+
+@contextmanager
+def native_captcha_provider(
+    mint: Callable[[Any, str], Awaitable[str]],
+    *,
+    project_id: str,
+    action: str,
+    observe: Callable[[str], None] | None = None,
+) -> Generator[None]:
+    """Install one explicit provider mint, never an after-Google retry."""
+    try:
+        project = validate_identifier(project_id)
+    except ValueError:
+        raise ConfigurationError(detail="Native CAPTCHA scope requires a project UUID") from None
+    if action not in _ACTIONS:
+        raise ConfigurationError(
+            detail="Native CAPTCHA scope requires an observed generation action"
+        )
+    state = _NativeProvider(mint, project, action, observe)
+    handle = _PROVIDER.set(state)
+    try:
+        yield
+    finally:
+        try:
+            if state.submitted and state.terminal is None:
+                native_captcha_outcome("unknown")
+        finally:
+            state.closed = True
+            _PROVIDER.reset(handle)
+
+
+async def take_native_captcha_token_async(page: Any, action: str) -> str | None:
+    """Supplied token wins; child tasks share one provider attempt consumed before await."""
+    supplied = take_native_captcha_token(getattr(page, "url", None), action)
+    if supplied is not None:
+        return supplied
+    state = _PROVIDER.get()
+    if state is None:
+        return None
+    _provider_scope(page, action, state)
+    if state.consumed:
+        raise ConfigurationError(detail="Native CAPTCHA provider already consumed")
+    state.consumed = True
+    value = await state.mint(page, action)
+    _provider_scope(page, action, state)
+    result = validate_native_captcha_token(value)
+    state.ready = True
+    return result
+
+
+def native_captcha_submission() -> None:
+    """Record provider token dispatch immediately before the actual Google fetch."""
+    state = _PROVIDER.get()
+    if state is None or state.closed or not state.ready or state.submitted:
+        return
+    state.submitted = True
+    if state.observe is not None:
+        state.observe("submitted")
+
+
+def native_captcha_outcome(outcome: Literal["accepted", "rejected", "unknown"]) -> None:
+    """Record one positively known acceptance/refusal, otherwise dispatch uncertainty."""
+    if outcome not in ("accepted", "rejected", "unknown"):
+        raise ValueError("Invalid native CAPTCHA outcome")
+    state = _PROVIDER.get()
+    if state is None or state.closed or not state.submitted or state.terminal is not None:
+        return
+    state.terminal = outcome
+    if state.observe is not None:
+        state.observe(outcome)
+
+
+def native_captcha_refused() -> bool:
+    """Positive refusal evidence for the current dispatched provider attempt only."""
+    state = _PROVIDER.get()
+    return bool(
+        state is not None
+        and not state.closed
+        and state.ready
+        and state.submitted
+        and state.terminal == "rejected"
+    )
+
+
+def native_captcha_active() -> bool:
+    """Whether an explicit scope is installed, without exposing its credentials."""
+    return _SCOPE.get() is not None or ((state := _PROVIDER.get()) is not None and not state.closed)

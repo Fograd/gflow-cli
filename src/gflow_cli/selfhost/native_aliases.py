@@ -6,8 +6,9 @@ import os
 import re
 import sqlite3
 import stat
+from collections.abc import Callable
 from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, cast
 from uuid import UUID
@@ -88,7 +89,10 @@ def _private(path: Path, *, directory: bool) -> None:
 
 
 class NativeAliasStore:
-    def __init__(self, root: Path) -> None:
+    def __init__(
+        self, root: Path, *, resolve_scope: Callable[[str, str], str | None] | None = None
+    ) -> None:
+        self.resolve_scope = resolve_scope
         root.mkdir(parents=True, mode=0o700, exist_ok=True)
         _private(root, directory=True)
         self.path = root / "aliases.sqlite3"
@@ -107,6 +111,12 @@ class NativeAliasStore:
                 "kind TEXT NOT NULL CHECK(kind IN ('image','video')))"
             )
 
+    def _resolved(self, binding: NativeAlias) -> NativeAlias:
+        if self.resolve_scope is None:
+            return binding
+        profile = self.resolve_scope(binding.profile, binding.account)
+        return binding if profile is None else _validated(replace(binding, profile=profile))
+
     def register(self, binding: NativeAlias) -> None:
         item = _validated(binding)
         values = (item.alias, item.profile, item.account, item.project_id, item.media_id, item.kind)
@@ -114,7 +124,7 @@ class NativeAliasStore:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute("INSERT OR IGNORE INTO aliases VALUES(?,?,?,?,?,?)", values)
             stored = conn.execute("SELECT * FROM aliases WHERE alias=?", (item.alias,)).fetchone()
-            if stored != values:
+            if self._resolved(_validated(NativeAlias(*stored))) != item:
                 raise ValueError("Native alias conflicts with an existing binding")
 
     def get(self, alias: str) -> NativeAlias | None:
@@ -123,7 +133,7 @@ class NativeAliasStore:
             row = conn.execute("SELECT * FROM aliases WHERE alias=?", (alias,)).fetchone()
         if row is None:
             return None
-        return _validated(NativeAlias(*row))
+        return self._resolved(_validated(NativeAlias(*row)))
 
     def remove(self, alias: str, profile: str, account: str) -> bool:
         alias_spec(alias)
@@ -135,7 +145,13 @@ class NativeAliasStore:
             ).fetchone()
             if row is None:
                 return False
-            if row != (profile, account):
+            stored_profile, stored_account = row
+            resolved = (
+                self.resolve_scope(stored_profile, stored_account)
+                if self.resolve_scope is not None
+                else stored_profile
+            )
+            if (resolved, stored_account) != (profile, account):
                 raise ValueError("Native alias belongs to another scope")
             conn.execute("DELETE FROM aliases WHERE alias=?", (alias,))
             return True

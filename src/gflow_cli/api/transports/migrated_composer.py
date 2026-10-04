@@ -47,8 +47,8 @@ import structlog
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from gflow_cli.api.dto import GeneratedImage, ProjectInfo
+from gflow_cli.api.image import MAX_IMAGE_REFERENCES, ImageRef
 from gflow_cli.api.image import Aspect as ImageAspect
-from gflow_cli.api.image import ImageRef
 from gflow_cli.api.image import Model as ImageModel
 from gflow_cli.api.transports._common import (
     expired_link_hint,
@@ -64,6 +64,7 @@ from gflow_cli.api.transports.batchexecute import (
     image_records,
     parse_frames,
     rpc_errors,
+    rpc_reply_frame_count,
 )
 from gflow_cli.api.transports.image_entity_grounding import entity_submit_problem
 from gflow_cli.api.transports.migrated_image_overrides import (
@@ -307,6 +308,8 @@ _OPTION_TOKENS_JS = (
 #: (#913). The enclosing deadline cancels in-flight attempts; restoration may add
 #: up to two seconds of bounded cleanup.
 EXISTING_REF_WAIT_S = 90.0
+# 7.4 seconds fixed picker waits + at most 12 seconds typing a 120-character query.
+_EXISTING_REF_EXTRA_S = 20.0
 #: Pause before each editor reload while waiting for it.
 EXISTING_REF_RELOAD_PAUSE_S = 5.0
 #: ArrowDown loads the highlighted asset's detail (`UpteDb`); an Enter sent before it
@@ -314,6 +317,15 @@ EXISTING_REF_RELOAD_PAUSE_S = 5.0
 ARROW_SETTLE_MS = 3500
 #: Flow writes captions with its own model; they reach the composer by typing.
 _CAPTION_MAX = 120
+
+
+def _existing_reference_budget(refs: tuple[ImageRef, ...]) -> float:
+    """Give additional images bounded picker time without renewing the batch deadline."""
+    if len(refs) > MAX_IMAGE_REFERENCES:
+        raise ConfigurationError(
+            detail=f"Native image picker allows at most {MAX_IMAGE_REFERENCES} references"
+        )
+    return EXISTING_REF_WAIT_S + _EXISTING_REF_EXTRA_S * max(0, len(refs) - 1)
 
 
 def _picker_query(ref: ImageRef) -> str:
@@ -729,14 +741,17 @@ def _unique_display_name(image_path: Path) -> str:
     return f"{image_path.stem}-{uuid4().hex[:8]}{image_path.suffix}"
 
 
-def _picker_pane(page: Any) -> Any:
-    """The **live** library popover.
+async def _picker_pane(page: Any) -> Any:
+    """The **live** library popover, selected with a nonnegative index.
 
-    ``.last`` is load-bearing: a search miss re-opens the picker (up to
+    The newest matching pane is load-bearing: a search miss re-opens the picker (up to
     ``FRAME_SEARCH_ATTEMPTS`` times), so an earlier detached-but-hidden pane can still be
     in the DOM, and a ``.first`` hidden-wait would pass while the live picker is up.
+    Patchright can resolve ``nth=-1`` as empty even with a populated single pane.
+    Index zero when no pane is present retains the locator's lazy opening/hidden waits.
     """
-    return page.locator(OVERLAY).filter(has=page.locator(PICKER)).last
+    panes = page.locator(OVERLAY).filter(has=page.locator(PICKER))
+    return panes.nth(max(await panes.count() - 1, 0))
 
 
 def _ligature(page: Any, name: str) -> Any:
@@ -765,6 +780,13 @@ def _submit_refusal(
         if err.rpcid not in rpcids:
             continue
         route = f"batchexecute:{err.rpcid}"
+        if (
+            UNUSUAL_ACTIVITY_REASON in err.reasons
+            or any(reason in CONTENT_SAFETY_REASONS for reason in err.reasons)
+        ) and rpc_reply_frame_count(text, err.rpcid) != 1:
+            # A same-RPC sibling can contain accepted work or a masked status that
+            # queued and ran. Its presence prevents a positive refusal/no-billing claim.
+            raise WireFormatError(detail="Ambiguous native submit refusal", route=route)
         if err.reasons:
             log.info("migrated.submit_refused", rpc=err.rpcid, code=err.code, reasons=err.reasons)
         if UNUSUAL_ACTIVITY_REASON in err.reasons:
@@ -1084,6 +1106,22 @@ async def _guard_image_submit(
     such a run: by then Flow has generated it, spent quota and added an image (#913,
     SCENARIO #15). Returns the problem when aborted, ``None`` when let through.
     """
+    override = override or active_overrides.get()
+    if override is not None and override.token is not None:
+        from urllib.parse import urlsplit
+
+        url = urlsplit(str(getattr(request, "url", "")))
+        if (
+            getattr(request, "method", None) != "POST"
+            or url.scheme != "https"
+            or url.netloc != "flow.google.com"
+            or url.path != "/_/AiSandboxAngularFrontend/data/batchexecute"
+        ):
+            problem = "Image CAPTCHA requires the exact native POST endpoint"
+            if on_abort is not None:
+                on_abort(problem)
+            await route.abort()
+            return problem
     problem = _image_body_problem(_post_data(request), reference_ids, model)
     if problem is None and expected_prompt is not None:
         problem = prompt_submit_problem(_post_data(request), project_id or "", expected_prompt)
@@ -1096,7 +1134,6 @@ async def _guard_image_submit(
             on_abort(problem)
         await route.abort()
         return problem
-    override = override or active_overrides.get()
     if override is not None:
         try:
             rewritten = await override.apply(page, request.post_data or "")
@@ -1109,6 +1146,7 @@ async def _guard_image_submit(
             return problem
         if on_submit is not None:
             on_submit()
+        override.mark_submitted()
         await route.continue_(post_data=rewritten)
     else:
         if on_submit is not None:
@@ -1733,7 +1771,13 @@ class MigratedComposer:
         try:
             if not await bar.is_visible():
                 return
-            await bar.locator(COOKIE_BAR_REJECT).first.click(timeout=3000)
+            dismiss = bar.locator(COOKIE_BAR_REJECT).first
+            if not await dismiss.count():
+                # Measured 2026-10-04: this bar can expose only BUTTON.accept
+                # plus A.more. Prefer reject whenever present; never fall through
+                # to accept after a failed reject click or select the link.
+                dismiss = bar.locator("button.glue-cookie-notification-bar__accept").first
+            await dismiss.click(timeout=3000)
             await bar.wait_for(state="hidden", timeout=3000)
         except Exception as e:  # noqa: BLE001 - the click post-mortem reports what is left
             log.warning("migrated.cookie_bar_not_dismissed", error=str(e)[:120])
@@ -1782,8 +1826,16 @@ class MigratedComposer:
         # menu (a second overlay) has opened and closed, a detached menu pane can
         # still be the last one in the DOM, and every axis after `--model` then
         # reads "0 option groups" (measured 2026-09-05, $0 run).
-        pane = page.locator(OVERLAY).filter(has=page.locator(RADIOGROUP)).last
+        panes = page.locator(OVERLAY).filter(has=page.locator(RADIOGROUP))
         try:
+            await panes.first.locator(RADIOGROUP).first.wait_for(state="visible", timeout=8000)
+            # Patchright's negative nth=-1 can wait successfully yet later resolve
+            # an empty pane (measured 2026-10-04). Snapshot only after groups render,
+            # then preserve the final matching pane using its positive index.
+            pane_count = await panes.count()
+            if pane_count < 1:
+                raise ValueError("Settings pane disappeared after its option groups rendered")
+            pane = panes.nth(pane_count - 1)
             await pane.locator(RADIOGROUP).first.wait_for(state="visible", timeout=8000)
         except Exception as e:
             detail = await self._ui_failure_detail(
@@ -2359,7 +2411,7 @@ class MigratedComposer:
         self, page: Page, project_id: str, request: GenerateImageRequest
     ) -> tuple[str, ...]:
         """Reference owned images with an enclosing, non-extending discovery deadline."""
-        timeout = asyncio.timeout(EXISTING_REF_WAIT_S)
+        timeout = asyncio.timeout(_existing_reference_budget(request.refs))
         try:
             async with timeout:
                 return await self._reference_existing_until(page, project_id, request)
@@ -2381,7 +2433,7 @@ class MigratedComposer:
         """
         for ref in request.refs:
             _picker_query(ref)  # bounded safe locator; UUID/token proof remains required
-        deadline = time.monotonic() + EXISTING_REF_WAIT_S
+        deadline = time.monotonic() + _existing_reference_budget(request.refs)
         while True:
             try:
                 tokens = await self.await_existing_references(page, request.refs)
@@ -2788,7 +2840,7 @@ class MigratedComposer:
                 ),
             )
         await chip.click(timeout=4000)
-        picker = _picker_pane(page)
+        picker = await _picker_pane(page)
         try:
             await picker.locator(PICKER_SEARCH).first.wait_for(
                 state="visible", timeout=int(FRAME_PICKER_OPEN_S * 1000)
@@ -2858,7 +2910,7 @@ class MigratedComposer:
                 await options.first.click(timeout=4000)
                 break
         try:
-            await _picker_pane(page).wait_for(
+            await (await _picker_pane(page)).wait_for(
                 state="hidden", timeout=int(FRAME_COMMIT_GRACE_S * 1000)
             )
         except PlaywrightTimeoutError:
@@ -2870,7 +2922,7 @@ class MigratedComposer:
             #
             # Visibility, not count(): a detached pane's button still counts, and clicking
             # one waits out its own timeout on something that cannot be clicked.
-            confirm = _picker_pane(page).locator(PICKER_CONFIRM).first
+            confirm = (await _picker_pane(page)).locator(PICKER_CONFIRM).first
             had_confirm = await confirm.is_visible()
             if had_confirm:
                 try:
@@ -2883,7 +2935,7 @@ class MigratedComposer:
                 else:
                     log.info("migrated.frame_confirm_clicked", media_id=media_id, issue_ref="#792")
             try:
-                await _picker_pane(page).wait_for(
+                await (await _picker_pane(page)).wait_for(
                     state="hidden", timeout=int(FRAME_COMMIT_HIDDEN_S * 1000)
                 )
             except Exception as e:
@@ -2961,6 +3013,29 @@ class MigratedComposer:
         frame (``expect_end_media_id``) switches the submit to the interpolation
         rpc (``nprQif``), whose name travels in the ``f.req`` body rather than the
         URL; that body must carry the interpolation key and both frame ids."""
+        from gflow_cli.api.transports.migrated_video_overrides import (
+            acknowledgement_allowed,
+            active_video_overrides,
+            guard_video_submit,
+        )
+        from gflow_cli.api.transports.migrated_video_upload import is_uuid  # noqa: PLC0415
+
+        override = active_video_overrides.get()
+        video_route = "**/batchexecute*"
+
+        async def video_guard(route: Any, request: Any) -> None:
+            if override is None:
+                await route.fallback()
+                return
+            try:
+                await guard_video_submit(route, request, page, override)
+            except Exception:
+                if not route_error.done():
+                    route_error.set_result(
+                        WireFormatError(detail="Video CAPTCHA override could not be safely applied")
+                    )
+                await route.abort()
+
         loop = asyncio.get_running_loop()
         submitted: asyncio.Future[GenerationRecord] = loop.create_future()
         route_error: asyncio.Future[WireFormatError] = loop.create_future()
@@ -3052,10 +3127,57 @@ class MigratedComposer:
                 text = await response.text()
             except Exception:  # noqa: BLE001 - an aborted/streamed body is not our frame
                 return
-            refusal = _submit_refusal(text, SUBMIT_RPCS)
+            if override is not None:
+                if override.closed or not override.dispatched:
+                    return
+                submit_reply = any(rid in SUBMIT_RPCS for rid, _ in parse_frames(text))
+                if not submitted.done():
+                    if getattr(response, "request", None) is not override.request:
+                        return
+                    # Parse source-proven handles before any ambiguous-envelope refusal.
+                    for rid, payload in parse_frames(text):
+                        if rid != override.rpcid:
+                            continue
+                        try:
+                            known = generation_record(rid, payload)
+                        except WireFormatError:
+                            continue
+                        if (
+                            not acknowledgement_allowed(override, known.project_id)
+                            or not is_uuid(known.media_id)
+                            or not is_uuid(known.workflow_id)
+                        ):
+                            continue
+                        if known.media_id not in override.known_media_ids:
+                            override.known_media_ids.append(known.media_id)
+                        if known.workflow_id not in override.known_workflow_ids:
+                            override.known_workflow_ids.append(known.workflow_id)
+                        del override.known_media_ids[4:]
+                        del override.known_workflow_ids[4:]
+                    if override.rpcid is None or rpc_reply_frame_count(text, override.rpcid) != 1:
+                        submitted.set_exception(
+                            WireFormatError(
+                                detail="Controlled video reply requires one exact frame"
+                            )
+                        )
+                        return
+                elif submit_reply or rpcid in SUBMIT_RPCS:
+                    # A late submit envelope cannot change an already accepted run.
+                    return
+            try:
+                controlled_rpcs = (
+                    (override.rpcid,) if override is not None and override.rpcid else SUBMIT_RPCS
+                )
+                refusal = _submit_refusal(text, controlled_rpcs) if not submitted.done() else None
+            except WireFormatError as exc:
+                if not submitted.done():
+                    submitted.set_exception(exc)
+                return
             # An envelope arriving after an accepted submit is ignored: that run's outcome
             # is already decided, and it now belongs to the terminal wait.
             if refusal is not None and not submitted.done():
+                if override is not None:
+                    override.outcome("rejected")
                 submitted.set_exception(refusal)
                 return
             for rid, payload in parse_frames(text):
@@ -3064,12 +3186,29 @@ class MigratedComposer:
                 # URL-only diagnostic reports "rpcs seen: none" for the very reply shape
                 # whose absence it is trying to explain (#639).
                 seen_submit_rpcs.add(rid)
-                if rid in SUBMIT_RPCS and not submitted.done():
+                if (
+                    rid in SUBMIT_RPCS
+                    and not submitted.done()
+                    and (override is None or rid == override.rpcid)
+                ):
                     try:
                         rec = generation_record(rid, payload)
                     except WireFormatError as exc:
                         submitted.set_exception(exc)
                         return
+                    if override is not None and (
+                        not acknowledgement_allowed(override, rec.project_id)
+                        or not is_uuid(rec.media_id)
+                        or not is_uuid(rec.workflow_id)
+                    ):
+                        submitted.set_exception(
+                            WireFormatError(
+                                detail="Video CAPTCHA acknowledgment has no exact selected project"
+                            )
+                        )
+                        return
+                    if override is not None:
+                        override.outcome("accepted")
                     workflow["id"] = rec.workflow_id
                     log.info(
                         "migrated.submit_observed",
@@ -3087,6 +3226,12 @@ class MigratedComposer:
                         continue
                     if rec.workflow_id != workflow["id"]:
                         continue
+                    if override is not None and (
+                        not acknowledgement_allowed(override, rec.project_id)
+                        or not is_uuid(rec.media_id)
+                        or not is_uuid(rec.workflow_id)
+                    ):
+                        continue
                     log.info("migrated.status", rpc=rid, status=rec.status, bytes=rec.size_bytes)
                     _settle(rec)
 
@@ -3101,6 +3246,8 @@ class MigratedComposer:
         # early for a t2v submit it has nothing to assert about.
         page.on("request", on_request)
         try:
+            if override is not None:
+                await page.route(video_route, video_guard)
             submit = page.locator("button").filter(has=_ligature(page, "arrow_forward")).first
             if not await submit.count():
                 # A credit shortfall and a moved frontend look identical here: both are
@@ -3171,13 +3318,19 @@ class MigratedComposer:
             )
             return final
         finally:
+            if override is not None:
+                override.close()
+            try:
+                if override is not None:
+                    await page.unroute(video_route, video_guard)
+            finally:
+                page.remove_listener("response", on_response)
+                page.remove_listener("request", on_request)
             # A submit reply that failed to parse sets an exception on `submitted`;
             # when the body assertion raised first, nobody read it, and asyncio would
             # log "Future exception was never retrieved" at GC. Consume it.
             if submitted.done() and not submitted.cancelled():
                 submitted.exception()
-            page.remove_listener("response", on_response)
-            page.remove_listener("request", on_request)
 
     async def _verify_submit_target(self, page: Page, submit: Locator) -> None:
         """Prove the submit button is visible and receives pointer events."""
@@ -3308,14 +3461,16 @@ class MigratedComposer:
         result: asyncio.Future[list[GeneratedImage]] = loop.create_future()
         route_error: asyncio.Future[WireFormatError] = loop.create_future()
         submitted = False
+        dispatched_request: Any = None
         clicked = False
         guard_aborted = False
         known_media: tuple[str, ...] = ()
         known_workflows: tuple[str, ...] = ()
 
-        def mark_submit() -> None:
-            nonlocal submitted
+        def mark_submit(raw_request: Any) -> None:
+            nonlocal submitted, dispatched_request
             submitted = True
+            dispatched_request = raw_request
 
         def unknown(
             phase: Literal["image_submit", "image_response", "image_cancelled"],
@@ -3342,6 +3497,11 @@ class MigratedComposer:
             url = str(getattr(response, "url", ""))
             if _rpcid(url) != IMAGE_SUBMIT_RPC or result.done():
                 return
+            controlled = override is not None and override.token is not None
+            if controlled and (
+                not submitted or getattr(response, "request", None) is not dispatched_request
+            ):
+                return
             status = int(getattr(response, "status", 0) or 0)
             if status != 200:
                 result.set_exception(
@@ -3354,9 +3514,6 @@ class MigratedComposer:
                 return
             try:
                 text = await response.text()
-                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,))
-                if refusal is not None:
-                    raise refusal
                 parsed = parse_frames(text)
                 records = [
                     record
@@ -3364,6 +3521,36 @@ class MigratedComposer:
                     if rpcid == IMAGE_SUBMIT_RPC
                     for record in image_records(rpcid, payload)
                 ]
+                matching_records = [r for r in records if r.project_id == submission_project]
+                known_media = tuple(r.media_id for r in matching_records)
+                known_workflows = tuple(r.workflow_id for r in matching_records)
+                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,))
+                if refusal is not None:
+                    if records:
+                        raise WireFormatError(detail="Ambiguous image acceptance and refusal")
+                    if (
+                        override is not None
+                        and controlled
+                        and isinstance(refusal, WafRejectionError)
+                    ):
+                        from gflow_cli.api.transports.migrated_image_overrides import (
+                            confirmed_image_refusal,
+                        )
+
+                        if not confirmed_image_refusal(text):
+                            raise WireFormatError(detail="Ambiguous image refusal acknowledgement")
+                        override.outcome("rejected")
+                    raise refusal
+                if (
+                    override is not None
+                    and controlled
+                    and (
+                        len(records) != override.count
+                        or len({r.media_id for r in records}) != override.count
+                        or any(r.project_id != override.project for r in records)
+                    )
+                ):
+                    raise WireFormatError(detail="Image acknowledgement scope mismatch")
                 if not records:
                     log.warning(
                         "migrated.image_submit_unparsed_reply",
@@ -3401,6 +3588,8 @@ class MigratedComposer:
             except Exception as exc:  # noqa: BLE001 - delivered through the waiting future
                 result.set_exception(exc)
                 return
+            if override is not None and controlled:
+                override.outcome("accepted")
             result.set_result(images)
 
         def is_image_submit(url: str) -> bool:
@@ -3419,7 +3608,7 @@ class MigratedComposer:
                 entity_names=request.reference_entity_names,
                 project_id=submission_project,
                 expected_prompt=expected_prompt,
-                on_submit=mark_submit,
+                on_submit=lambda: mark_submit(raw_request),
                 on_abort=mark_abort,
             )
             log.info(

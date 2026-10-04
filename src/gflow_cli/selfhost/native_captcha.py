@@ -32,15 +32,26 @@ def native_secret_path(payload: dict[str, Any], root: Path) -> Path | None:
 
 @contextmanager
 def private_native_captcha(payload: dict[str, Any], project: str, action: str) -> Generator[None]:
-    if payload.get("captchaSecret") is None:
+    if (
+        payload.get("captchaSecret") is None
+        and payload.get("captchaOrder") is None
+        and payload.get("captchaRetry") is None
+    ):
         yield
         return
-    path = native_secret_path(payload, environment_root())
-    if path is None:
-        raise ConfigurationError(detail="Private CAPTCHA input unavailable")
-    try:
-        token = read_native_token_file(path)
-    finally:
-        path.unlink(missing_ok=True)
-    with native_captcha_token(token, project_id=project, action=action):
-        yield
+    from gflow_cli.selfhost.native_provider import native_provider_context
+
+    root = environment_root()
+    with native_provider_context(payload, project, action, root=root):
+        if payload.get("captchaSecret") is None:
+            yield
+            return
+        path = native_secret_path(payload, root)
+        if path is None:
+            raise ConfigurationError(detail="Private CAPTCHA input unavailable")
+        try:
+            token = read_native_token_file(path)
+        finally:
+            path.unlink(missing_ok=True)
+        with native_captcha_token(token, project_id=project, action=action):
+            yield

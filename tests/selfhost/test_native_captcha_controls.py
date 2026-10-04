@@ -90,14 +90,15 @@ def test_invalid_or_unverified_controls_do_not_enqueue(tmp_path, kind, monkeypat
         for controls, status in (
             ({"captchaToken": "short"}, 422),
             ({"captchaToken": TOKEN + " whitespace"}, 422),
-            ({"captchaOrder": "CapSolver"}, 501),
+            ({"captchaRetry": 11}, 422),
+            ({"captchaOrder": "CapSolver,CapSolver"}, 422),
             ({"captchaToken": TOKEN, "captchaRetry": 1}, 422),
         ):
             result = client.post(
                 "/v1/google-flow" + endpoint, headers=AUTH, json={**body, **controls, "async": True}
             )
             assert result.status_code == status, result.text
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 @pytest.mark.asyncio
@@ -181,3 +182,98 @@ async def test_runtime_cleans_private_token_on_failed_start_or_cancel(
     with pytest.raises(error):
         await runtime.execute(cfg, None, {"payload": json.dumps({"captchaSecret": str(path)})})
     assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    "kind", ["voices/create", "videos/extend", "videos/edit", "videos/reference"]
+)
+@pytest.mark.parametrize(
+    "controls", [{"captchaOrder": "CapSolver"}, {"captchaRetry": 2}, {"captchaRetry": 10}]
+)
+def test_explicit_provider_controls_enqueue_without_secrets(tmp_path, kind, controls, monkeypatch):
+    from gflow_cli.selfhost import captcha_routes
+
+    monkeypatch.setattr(
+        captcha_routes,
+        "provider_keys",
+        lambda: SimpleNamespace(public=lambda: {"CapSolver": {"configured": True}}),
+    )
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    endpoint, body = request(kind)
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        result = client.post(
+            "/v1/google-flow" + endpoint, headers=AUTH, json={**body, **controls, "async": True}
+        )
+        assert result.status_code == 201, result.text
+        job = client.app.state.store.claim("pro1")
+        assert job["kind"] == kind
+        queued = json.loads(job["payload"])
+        assert all(queued[key] == value for key, value in controls.items())
+        assert "captchaSecret" not in queued and "captchaToken" not in queued
+
+
+@pytest.mark.parametrize("count,status", [(1, 201), (2, 501)])
+def test_general_video_supplied_token_has_one_output_scope(tmp_path, count, status):
+    cfg = settings(tmp_path)
+    cfg.allow_video = True
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        result = client.post(
+            "/v1/google-flow/videos",
+            headers=AUTH,
+            json={
+                "prompt": "A simple circle",
+                "model": "veo-3.1-lite",
+                "count": count,
+                "captchaToken": TOKEN,
+                "async": True,
+            },
+        )
+        assert result.status_code == status, result.text
+        assert TOKEN not in result.text
+        if status == 201:
+            job = client.app.state.store.claim("pro1")
+            assert job["kind"] == "videos" and TOKEN not in job["payload"]
+            payload = json.loads(job["payload"])
+            path = native_secret_path(payload, cfg.root)
+            assert path.read_text() == TOKEN and path.stat().st_mode & 0o777 == 0o600
+        else:
+            assert (
+                client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
+            )
+
+
+@pytest.mark.parametrize(
+    "controls,resolution,status",
+    [
+        ({"captchaToken": TOKEN}, "2k", 201),
+        ({"captchaOrder": "CapSolver"}, "2k", 201),
+        ({"captchaRetry": 1}, "2k", 201),
+        ({"captchaRetry": 2}, "2k", 501),
+        ({"captchaToken": TOKEN}, "4k", 501),
+    ],
+)
+def test_image_upscale_captcha_scope_is_measured_2k_once(
+    tmp_path, monkeypatch, controls, resolution, status
+):
+    from gflow_cli.selfhost import captcha_routes
+
+    monkeypatch.setattr(
+        captcha_routes,
+        "provider_keys",
+        lambda: SimpleNamespace(public=lambda: {"CapSolver": {"configured": True}}),
+    )
+    cfg = settings(tmp_path)
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        result = client.post(
+            "/v1/google-flow/images/upscale",
+            headers=AUTH,
+            json={"mediaGenerationId": M, "resolution": resolution, "async": True, **controls},
+        )
+        assert result.status_code == status, result.text
+        assert TOKEN not in result.text
+        if status == 201:
+            job = client.app.state.store.claim("pro1")
+            assert job["kind"] == "images/upscale" and TOKEN not in job["payload"]
+        else:
+            assert client.app.state.store.jobs() == []

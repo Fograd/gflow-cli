@@ -50,8 +50,9 @@ button:focus-visible{outline:3px solid #91b29b}
 </form>
 <div id="message" role="status" aria-live="polite"></div>
 <p class="note">The connection check reads your balance and does not
-create a CAPTCHA task. Saving a key does not yet enable
-CAPTCHA solving for image or video generation.</p>
+create a CAPTCHA task. To use the saved key for supported image or native
+video requests, choose CapSolver in the request’s CAPTCHA controls.
+Saving a key does not automatically use paid solves; Google acceptance is unverified.</p>
 </section></main><script nonce="__NONCE__">
 const csrf = document.querySelector('meta[name="csrf-token"]').content;
 const status = document.querySelector('#status');

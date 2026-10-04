@@ -6,17 +6,17 @@ import json
 import sys
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _make_provider_dir, run_with_handlers
 from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import GenerateImageRequest
-from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
+from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides
 from gflow_cli.config import get_settings
 from gflow_cli.errors import ConfigurationError, WafRejectionError, WireFormatError
 from gflow_cli.image_recovery import create_journal, download_images
-from gflow_cli.selfhost.captcha import CaptchaStats, ProviderKeys, Solver, SolverError
+from gflow_cli.selfhost.image_captcha_policy import run_with_image_captcha_policy
 
 
 def failure_phase(error: BaseException, *, generating: bool) -> str:
@@ -50,45 +50,6 @@ async def prepare_image_aspect(
 async def generate(profile: str, project: str, job_path: Path) -> None:
     payload: dict[str, Any] = json.loads(job_path.read_text(encoding="utf-8"))
     out = job_path.parent
-    stats = CaptchaStats(out.parent.parent)
-    secret_path = Path(payload["captchaSecret"]) if payload.get("captchaSecret") else None
-    supplied = secret_path.read_text(encoding="utf-8") if secret_path else None
-    if secret_path:
-        secret_path.unlink(missing_ok=True)
-    keys = ProviderKeys(Path.home() / ".config/homelab")
-    order = payload.get("captchaOrder", "")
-    names = (
-        order.split(",")
-        if order
-        else [name for name in ("CapSolver", "2Captcha") if keys.get(name)]
-    )
-    selected_solver = bool(payload.get("captchaOrder") or payload.get("captchaRetry"))
-    chosen: str | None = None
-
-    async def token(page: Any) -> str:
-        nonlocal chosen
-        if supplied:
-            chosen = "supplied"
-            return supplied
-        metadata: Any = override.metadata
-        if not isinstance(metadata, dict):
-            raise SolverError("Browser did not expose CAPTCHA metadata")
-        data = cast(dict[str, Any], metadata)
-        sitekey, action = data.get("sitekey"), data.get("action")
-        if not isinstance(sitekey, str) or not isinstance(action, str) or not action:
-            raise SolverError("Browser CAPTCHA metadata is incomplete")
-        for name in names:
-            stats.record(name, "solveStarted")
-            try:
-                solution = await Solver().solve(name, keys.get(name), page.url, sitekey, action)
-            except SolverError:
-                stats.record(name, "solveFailed")
-                continue
-            chosen = name
-            stats.record(name, "solved")
-            return solution.token
-        raise SolverError("All configured providers failed before Google submission")
-
     from gflow_cli.worker.codec import build_image_request
 
     request = build_image_request(
@@ -100,55 +61,40 @@ async def generate(profile: str, project: str, job_path: Path) -> None:
             "reference_syntax": payload.get("reference_syntax", "names"),
         }
     )
-    override = ImageOverrides(
-        project=project,
-        count=payload["count"],
-        seed=payload.get("seed"),
-        token=token if (supplied or selected_solver) else None,
-        metadata_required=selected_solver and not bool(supplied),
-    )
-    state = active_overrides.set(override)
-    generating = False
-    try:
-        settings = get_settings()
-        async with FlowApiClient(
-            profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
-        ) as client:
-            request, aspect_metadata = await prepare_image_aspect(client, project, request, payload)
-            generating = True
-            images = await client.generate_images_batch(
+    settings = get_settings()
+    async with FlowApiClient(
+        profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
+    ) as client:
+        request, aspect_metadata = await prepare_image_aspect(client, project, request, payload)
+
+        async def attempt(override: ImageOverrides) -> Any:
+            return await client.generate_images_batch(
                 project_id=project, req=request, count=payload["count"]
             )
-            generating = False
-            create_journal(out, images)
-            if payload.get("seed") is not None:
-                actual = sorted(image.seed for image in images)
-                expected = list(range(payload["seed"], payload["seed"] + payload["count"]))
-                if actual != expected:
-                    raise WireFormatError(detail="Google returned different seeds than requested")
-            paths = await download_images(
-                client, images, [out / (image.media_name + ".png") for image in images]
-            )
-            result = json_output.image_result(
-                command="selfhost images",
-                project_id=project,
-                model=payload["model"],
-                images=images,
-                saved_paths=paths,
-            )
-            result.update(aspect_metadata)
-            if chosen:
-                stats.record(chosen, "accepted")
-                result["captchaProvider"] = chosen
-            json_output.emit(result)
-    except BaseException as error:
-        if chosen and override.used:
-            stats.record(chosen, failure_phase(error, generating=generating))
-        raise
-    finally:
-        if chosen and override.used:
-            stats.record(chosen, "submitted")
-        active_overrides.reset(state)
+
+        images, chosen = await run_with_image_captcha_policy(
+            payload, project, out.parent.parent, attempt
+        )
+        create_journal(out, images)
+        if payload.get("seed") is not None:
+            actual = sorted(image.seed for image in images)
+            expected = list(range(payload["seed"], payload["seed"] + payload["count"]))
+            if actual != expected:
+                raise WireFormatError(detail="Google returned different seeds than requested")
+        paths = await download_images(
+            client, images, [out / (image.media_name + ".png") for image in images]
+        )
+        result = json_output.image_result(
+            command="selfhost images",
+            project_id=project,
+            model=payload["model"],
+            images=images,
+            saved_paths=paths,
+        )
+        result.update(aspect_metadata)
+        if chosen:
+            result["captchaProvider"] = chosen
+        json_output.emit(result)
 
 
 def main() -> None:

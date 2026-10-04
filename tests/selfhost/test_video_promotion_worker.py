@@ -35,9 +35,6 @@ async def test_completion_checks_target_and_no_protected_url(monkeypatch, tmp_pa
     monkeypatch.setattr(
         module, "get_settings", lambda: SimpleNamespace(profile_subdir=lambda profile: tmp_path)
     )
-    from contextlib import nullcontext
-
-    monkeypatch.setattr(module, "private_native_captcha", lambda *args: nullcontext())
 
     async def submit(client, **kwargs):
         assert kwargs["resolution"] == "720p" and kwargs["model_key"] == "specific"

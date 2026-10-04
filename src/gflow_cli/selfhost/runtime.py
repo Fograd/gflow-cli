@@ -500,6 +500,7 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         store.asset(artifact, profile, "", str(output.path), "video/mp4")
         result: dict[str, Any] = {
             "backend": "local-ffmpeg",
+            "inputsCount": len(clips),
             "localArtifactId": artifact,
             "downloadPath": f"/v1/google-flow/assets/{artifact}/download",
             "duration": output.duration,
@@ -656,6 +657,49 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             project,
             str(request_path),
         ]
+    if kind == "images/upscale" and any(
+        payload.get(key) is not None for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+    ):
+        request_path = out / "request.json"
+        descriptor = os.open(request_path, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(payload, file)
+        args = [
+            sys.executable,
+            "-m",
+            "gflow_cli.selfhost.image_upscale_worker",
+            profile,
+            project,
+            str(request_path),
+        ]
+    if kind == "videos" and payload.get("captchaSecret"):
+        request_path = out / "request.json"
+        worker_payload = {
+            **payload,
+            "model": VIDEO_ALIASES[payload["model"]] if payload.get("model") else None,
+            "start_image": str(
+                contained_file(store.asset_get(payload["startImage"])["path"], cfg.root)
+            )
+            if payload.get("startImage")
+            else None,
+            "end_image": str(contained_file(store.asset_get(payload["endImage"])["path"], cfg.root))
+            if payload.get("endImage")
+            else None,
+            "reference_paths": [
+                str(contained_file(store.asset_get(ref)["path"], cfg.root)) for ref in refs
+            ],
+        }
+        descriptor = os.open(request_path, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(worker_payload, file)
+        args = [
+            sys.executable,
+            "-m",
+            "gflow_cli.selfhost.general_video_worker",
+            profile,
+            project,
+            str(request_path),
+        ]
     try:
         if kind == "images":
             code, raw = await subprocess_run(args, cfg.timeout, image_recovery_id=job["id"])
@@ -666,6 +710,44 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             store.image_recovery(job)
         if request_path:
             request_path.unlink(missing_ok=True)
+    if code and kind == "videos" and payload.get("captchaSecret") and len(raw) <= 65536:
+        try:
+            failure = parse_json_output(raw)
+            refusal = native_refusal_error(failure, code)
+            if refusal is not None:
+                return {"projectId": project, "error": refusal}
+            error = failure.get("error", {})
+            media_ids = error.get("media_ids")
+            workflow_ids = error.get("workflow_ids")
+            if (
+                code == 40
+                and error.get("class") == "GeneralVideoOutcomeUnknown"
+                and error.get("project_id") == project
+                and error.get("outcome_unknown") is True
+                and error.get("phase") in ("video_submit", "video_poll")
+                and isinstance(media_ids, list)
+                and isinstance(workflow_ids, list)
+                and len(cast(list[Any], media_ids)) <= 4
+                and len(cast(list[Any], workflow_ids)) <= 4
+            ):
+                media = [str(uuid.UUID(value)) for value in cast(list[Any], media_ids)]
+                workflows = [str(uuid.UUID(value)) for value in cast(list[Any], workflow_ids)]
+                unknown = {
+                    "projectId": project,
+                    "knownMediaGenerationIds": media,
+                    "outcomeUnknown": True,
+                    "error": {
+                        "code": "video_generation_outcome_unknown",
+                        "retryable": False,
+                        "phase": error["phase"],
+                        "media_ids": media,
+                        "workflow_ids": workflows,
+                    },
+                }
+                store.checkpoint(job["id"], unknown)
+                return unknown
+        except (ValueError, TypeError, KeyError, AttributeError):
+            pass
     if code:
         if kind == "assets" and payload["mime"] == "video/mp4" and len(raw) <= 65536:
             from gflow_cli.selfhost.unknown_native_media import unknown_native_media_result
@@ -913,8 +995,13 @@ async def deliver_callbacks(cfg: Settings, store: Store) -> None:
                 raise ValueError("Callback resolved to a private address")
             netloc = f"[{ip}]" if ":" in ip else ip
             pinned = urlunsplit(("https", netloc, parsed.path or "/", parsed.query, ""))
+            message: Any = json.loads(pending["payload"])
+            is_image = (
+                isinstance(message, dict) and cast(dict[str, Any], message).get("type") == "image"
+            )
+            timeout = 5 if is_image else 10
             async with httpx.AsyncClient(
-                timeout=10, follow_redirects=False, trust_env=False
+                timeout=timeout, follow_redirects=False, trust_env=False
             ) as client:
                 # Callback acknowledgment needs headers/status only. Never buffer
                 # an unbounded recipient response; the context closes every stream.
@@ -922,7 +1009,7 @@ async def deliver_callbacks(cfg: Settings, store: Store) -> None:
                     "POST",
                     pinned,
                     headers={"Host": host},
-                    json=json.loads(pending["payload"]),
+                    json=cast(Any, message),
                     extensions={"sni_hostname": host},
                 ) as response:
                     success = 200 <= response.status_code < 300

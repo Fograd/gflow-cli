@@ -172,13 +172,15 @@ async def validate_native_image_references(
             verified_counts[entity] = len(workflows)
             total += len(workflows)
         from gflow_cli.api.native_image_models import (
+            image_character_cap,
             image_reference_cap,
             read_image_reference_models,
         )
 
-        cap = image_reference_cap(
-            await read_image_reference_models(page, project_id), request.model
-        )
+        models = await read_image_reference_models(page, project_id)
+        cap = image_reference_cap(models, request.model)
+        if entities and len(entities) > image_character_cap(models, request.model):
+            raise ConfigurationError(detail="Native image character reference budget exceeded")
         if total > cap:
             raise ConfigurationError(
                 detail=f"Native image reference budget exceeded; model allows {cap} image slots"

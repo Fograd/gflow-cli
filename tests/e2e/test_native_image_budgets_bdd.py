@@ -43,7 +43,7 @@ def preflight(case, monkeypatch):
             models = await client.list_native_image_reference_models(project)
             by_key = {row["model_key"]: row for row in models}
             assert by_key["NARWHAL"]["effective_reference_cap"] == 10
-            assert by_key["HARBOR_SEAL"]["effective_reference_cap"] == 3
+            assert by_key["HARBOR_SEAL"]["effective_reference_cap"] == 10
             page = await client._checkout_page()
 
             async def guard(route):

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
+from gflow_cli.api.native_captcha import native_captcha_outcome, native_captcha_submission
 from gflow_cli.api.native_catalogs import parse_media_snapshot
 from gflow_cli.api.native_extension import (
     _NATIVE_FETCH,
@@ -298,6 +299,7 @@ async def upscale_native_video(
         if on_started:
             await on_started(started)
         try:
+            native_captcha_submission()
             result = await page.evaluate(
                 _NATIVE_FETCH,
                 {"rpc": RPC, "args": args, "source": f"/project/{project}"},
@@ -330,10 +332,14 @@ async def upscale_native_video(
                     acknowledged.add(cast(tuple[str, str, str], tuple(cast(list[Any], record)[:3])))
             if acknowledged != expected:
                 raise NativeVideoUpscaleUnknownError(started)
+            native_captcha_outcome("accepted")
             return started
         except asyncio.CancelledError:
             raise
-        except (NativeVideoUpscaleUnknownError, ContentPolicyError, WafRejectionError):
+        except (ContentPolicyError, WafRejectionError):
+            native_captcha_outcome("rejected")
+            raise
+        except NativeVideoUpscaleUnknownError:
             raise
         except Exception:
             raise NativeVideoUpscaleUnknownError(started) from None

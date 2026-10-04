@@ -42,13 +42,15 @@ def test_save_mask_check_and_remove_without_paid_task(tmp_path):
         assert saved.status_code == 200
         assert "private-capsolver-key" not in saved.text
         assert keys.path.stat().st_mode & 0o777 == 0o600
+        assert client.get("/api/status").json()["generationEnabled"] is True
         assert "private-capsolver-key" not in client.get("/").text
         checked = client.post("/api/check", headers=h, json={})
-        assert checked.json() == {"verified": True, "balance": 3.125, "generationEnabled": False}
+        assert checked.json() == {"verified": True, "balance": 3.125, "generationEnabled": True}
         assert "private-package-secret" not in checked.text
         assert len(calls) == 1
         assert client.post("/api/remove", headers=h, json={}).json() == {"configured": False}
         assert keys.public() == {}
+        assert client.get("/api/status").json()["generationEnabled"] is False
 
 
 @pytest.mark.parametrize("origin", [None, "null", "https://malicious.example", URL + ".evil"])

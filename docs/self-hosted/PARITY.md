@@ -24,7 +24,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts) | Object keyed by account email with health/configuration | Implemented registered-account listing with redacted operator-attested or native-cookie-verified metadata. On-demand native health is a separate queued extension, not automatic login refresh. |
 | [GET accounts/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-email) | Account details for path email | Implemented selected registered-account metadata through explicit public handle/account mapping; no cookies or credentials returned. |
 | [DELETE accounts/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-accounts-email) | Remove registered account | Implemented registration removal only; refuses active jobs and preserves browser profile files. |
-| [POST accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/post-google-flow-accounts-captcha-providers) | Provider keys; empty key removes provider; masked response | Implemented private mode 600 key storage/removal and masked response for CapSolver/2Captcha. Actual CapSolver solve succeeded but its one Google submission was rejected; provider generation controls remain HTTP 501. |
+| [POST accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/post-google-flow-accounts-captcha-providers) | Provider keys; empty key removes provider; masked response | Implemented private mode 600 key storage/removal and masked response for CapSolver/2Captcha. Actual CapSolver solve succeeded but its one Google submission was rejected; explicit image/native provider controls are implemented; accepted solver-backed output remains unverified. |
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. One paid CapSolver trial recorded 1 solved / 1 submitted / 0 accepted without retry. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
@@ -32,22 +32,22 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET assets/projects/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-projects-email) | Account projects; optional cursor pagination | Implemented local catalog default and source=google native 21-item opaque-cursor snapshots. Two disjoint pages live verified; no inferred global completeness. SDK/CLI/MCP native mirrors also verified. |
 | [GET assets/media/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-assets-media-email) | Project media; optional `projectId` | Implemented managed local catalog default and source=google selected-project native timeline snapshots, including typed image/video arms. SDK/CLI/MCP mirrors verified; unknown completeness is explicit and absent rows do not imply deletion. |
 | [DELETE assets/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-assets-email) | Required `mediaGenerationIds`1–100 image/video IDs; optional `projectId`; validate the whole batch first | Native reversible full-batch archive remains the default and is live verified. operation=delete now wires permanent selected-media deletion across SDK/CLI/MCP/REST, with source-derived preflight/acknowledgement checks; owned synthetic upload/delete lifecycle passed in 28.91 seconds after bounded metadata-only polling, preserving all original active media. localOnly cache deletion remains separate. Omitted projectId uses the selected account's configured project. Receipt-backed already-gone retries and mixed present/gone batches are verified; arbitrary absent UUIDs and all batch shapes are not claimed. |
-| [POST images](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images) | See image parameter matrix | Implemented text/local-reference generation, seeds and explicit canonical image slots with weighted fresh native character ownership. One positional SDK image was accepted; CLI/MCP/HTTP positional acceptance remains pending after safe picker refusals. Provider controls remain HTTP 501; see image matrix and picker limits. |
-| [POST images/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images-upscale) | `mediaGenerationId`, `resolution` default2k; captcha controls; encoded JPEG | Native 2K CLI/HTTP/MCP upscale live verified. 4K dispatch is implemented but Pro entitlement refuses it; accepted 4K requires appropriate entitlement and remains unverified. CAPTCHA overrides are not complete upscale parity. |
-| [POST videos](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos) | See video parameter matrix | Text/start-end adapters and dedicated native image/audio R2V and Omni V2V adapters are wired across SDK/CLI/MCP/REST, with model discovery, typed ownership and output checkpoints. Video is disabled by default; paid acceptance is pending. Source-derived R2V character/positional grounding is wired; rendered acceptance, numerical seeds and CAPTCHA overrides remain gaps. |
-| [POST videos/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-upscale) | `mediaGenerationId`; resolution720p/1080p/4K default1080p; async/callback/captcha | Existing exports remain. Native720p/1080p/4k promotion now has separate SDK/CLI/directMCP/privateworker surfaces and explicit HTTP operation=promotion, fresh tier/model checks and output dimension verification. Paid accepted promotion and4K entitlement proof remain R12; source construction is not output acceptance. |
+| [POST images](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images) | See image parameter matrix | Implemented text/local-reference generation, seeds and explicit canonical image slots with weighted fresh native character ownership. One positional SDK image was accepted; CLI/MCP/HTTP positional acceptance remains pending after safe picker refusals. Configured provider controls and typed WAF-only explicit retries are implemented; acceptance and picker limits remain separate. |
+| [POST images/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-images-upscale) | `mediaGenerationId`, `resolution` default2k; captcha controls; encoded JPEG | Native 2K CLI/HTTP/MCP upscale live verified. 4K dispatch is implemented but Pro entitlement refuses it; accepted 4K requires appropriate entitlement and remains unverified. 2K one-use supplied/provider overrides are implemented; retry>1 and4K overrides refuse before queue. |
+| [POST videos](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos) | See video parameter matrix | Text/start-end adapters and dedicated native image/audio R2V and Omni V2V adapters are wired across SDK/CLI/MCP/REST, with model discovery, typed ownership and output checkpoints. Video is disabled by default; paid acceptance is pending. Source-derived R2V character/positional grounding is wired; rendered acceptance/numerical seeds remain gaps. Generic count1 supplied tokens and dedicated native providers are implemented; generic providers/multi-output overrides remain gaps. |
+| [POST videos/upscale](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-upscale) | `mediaGenerationId`; resolution720p/1080p/4K default1080p; async/callback/captcha | HTTP defaults to native1080p promotion; explicit operation=export retains legacy export. Native720p/1080p/4k promotion has SDK/CLI/directMCP/privateworker surfaces, fresh tier/model checks and output dimension verification. Paid accepted promotion and4K entitlement proof remain R12; source construction is not output acceptance. |
 | [POST videos/gif](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-gif) | `mediaGenerationId`; synchronous `encodedGif` | Implemented CLI 270p/native GIF export and HTTP encodedGif adapter. GIF export is not a paid live video proof; promotion/source-video acceptance remains unverified. |
 | [POST videos/extend](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-extend) | `mediaGenerationId`, `prompt`, `model`, count 1–4, seed, async/callback/captcha | Standalone native extension is wired across SDK/CLI/MCP/REST with native model discovery, source ownership, independent output IDs and polling/download. Accepted paid extension output remains unverified; legacy scene-combining extension is separate. |
-| [POST videos/concatenate](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-concatenate) | `media`2–10 items: ID, trimStart/trimEnd0–10s; sum trims less than clip duration; encodedVideo | Implemented local ffmpeg composition of 2–10 managed owned clips with duration/trim/aspect checks, local artifact IDs and offline real-ffmpeg tests. This is labeled local composition, not Google-side scene editing; no paid generation required. |
+| [POST videos/concatenate](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-concatenate) | `media`2–10 items: ID, trimStart/trimEnd0–10s; sum trims less than clip duration; encodedVideo | Implemented local ffmpeg composition of 2–10 managed or freshly owned native clips with duration/trim/aspect checks, local artifact IDs and offline real-ffmpeg tests. This is labeled local composition, not Google-side scene editing; no paid generation required. |
 | [POST voices](https://useapi.net/docs/api-google-flow-v1/post-google-flow-voices) | email, preset voice, dialog1–120 chars, voicePerformance1–120, displayName1–200, captcha | Native saved-TTS creation is wired across SDK/CLI/MCP/REST: one TTS preview then two metadata saves, with partial identities preserved. The first preview returned an ambiguous outcome without recovery handles; preset casing was corrected and the corrected captured request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), so rendered TTS acceptance is unverified. This is preset/dialog/performance generation, not voice cloning. |
-| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | Implemented bundled offline default and dynamic native system preset catalog in REST/SDK/CLI/MCP; same 30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; account-wide completeness and final live adapter proof remain pending. |
+| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | REST email-selected default combines fresh system and selected-project user voices; explicit bundled discovery remains. Dynamic native system preset catalog exists in SDK/CLI/MCP; same30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; account-wide completeness and final live adapter proof remain pending. |
 | [GET voices/ref](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices-ref) | Preset name or custom ref; fresh audio URL for user voice | Implemented selected system preset lookup/sample metadata. Saved user-TTS detail uses strict typed ownership, fresh canonical base-preset/dialogue/performance metadata and optional playback URL across SDK/CLI/MCP/REST; REST no-store; published/deployed at3d35e1d5. Final live playback proof remains pending. |
 | [DELETE voices/ref](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-voices-ref) | Custom voice reference | Permanent selected saved-TTS deletion is wired across SDK/CLI/MCP/REST; final live lifecycle proof remains pending. System presets are not deletable. |
 | [POST characters](https://useapi.net/docs/api-google-flow-v1/post-google-flow-characters) | displayName1–200, imageReference_1 required, optional second, personalityNotes≤2000, optional voice | Implemented project-scoped one/two-existing-image copy creation with notes and system preset metadata; owned saved-TTS voice binding is also wired with fresh ownership validation, pending final E2E; SDK/CLI/registered MCP/deployed HTTP lifecycle verified. Originals preserved. Legacy CLI create separately generates portraits; account-wide exact useapi semantics remain gaps. |
 | [GET characters](https://useapi.net/docs/api-google-flow-v1/get-google-flow-characters) | email required | Implemented project-scoped native summaries in REST and shared SDK/CLI/MCP; live lifecycle/catalog reads verified. Not an account-wide inventory guarantee. |
 | [GET characters/ref](https://useapi.net/docs/api-google-flow-v1/get-google-flow-characters-ref) | Character ref; images/voice/thumbnail signed URLs | Native notes/preset metadata plus fresh ordered image previews and proven reference-thumbnail URLs are implemented across SDK/CLI/MCP/REST; projected-image detail BDD passed39.12seconds. Saved-user-voice acceptance, nonprojected thumbnail variants and composite refs remain open. |
 | [DELETE characters/ref](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-characters-ref) | Character ref | Implemented native permanent owned-character removal in REST/SDK/CLI/MCP, with explicit MCP confirmation and live cleanup proof. Unknown/partial acknowledgements preserve identity without replay. |
-| [GET jobs](https://useapi.net/docs/api-google-flow-v1/get-google-flow-jobs) | options=summary/executing/history; per-account load statistics, recent outcomes and executing/history detail | Explicit options=summary/executing/history now provides enabled verified account statistics, running metadata and newest10 terminal records per generation family from one SQLite snapshot. Default remains the paginated job list. Timing includes queue waiting; admission429, non-generation kinds and scheduler/quarantine equivalence remain gaps. SDK/CLI/MCP queued runner is separate. |
+| [GET jobs](https://useapi.net/docs/api-google-flow-v1/get-google-flow-jobs) | options=summary/executing/history; per-account load statistics, recent outcomes and executing/history detail | Explicit options=summary/executing/history now provides enabled verified account statistics, running metadata and newest10 terminal records per generation family from one SQLite snapshot. Default is summary; source=local selects the paginated job list. Timing includes queue waiting; admission429, non-generation kinds and scheduler/quarantine equivalence remain gaps. SDK/CLI/MCP queued runner is separate. |
 | [GET jobs/jobid](https://useapi.net/docs/api-google-flow-v1/get-google-flow-jobs-jobid) | Job identifier; status, request/response/error | Implemented durable stable job ID with safe request/response/error projection, started/completed/failed states and callbacks. Unknown billed mutation outcomes retain safe handles and nonretryable inspection guidance. |
 
 ## Feature-batch checkpoint
@@ -72,7 +72,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
-Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes40 tools.
+Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes41 tools.
 The same checked-out project page mints generation tokens. Preassigned identities
 are derived from invocation-owned seeds, checkpointed before dispatch and
 correlated with acknowledgements; ambiguous writes are not automatically replayed.
@@ -80,31 +80,31 @@ Focused source/codec tests establish implementation, not Google acceptance.
 
 ## Remaining concrete feature gaps
 
-- Numerical video seeds and complete video/upscale/TTS supplied-token/provider
-  CAPTCHA controls. Provider keys/statistics are implemented; one solved CapSolver
-  trial was Google-rejected and provider-backed image generation remains guarded501.
-- Five distinct Veo aspect ratios: current native video codec collapses4:3/3:4;
-  input-choice expansion alone would misstate support. See the
-  [primary codec inspection](../superpowers/spikes/2026-10-03-veo-five-aspect-codec.md).
-- Accepted rendered video character/entity grounding. R2V/V2V character and
-  canonical positional image/entity/audio transport is implemented; attachments
-  and free preflight do not establish rendered semantic acceptance.
-- Native360p-to-720p promotion and video4K; three Pro subscriptions do not establish
-  Ultra entitlements. Image2K is live verified; accepted image4K remains unverified.
-- Arbitrary remote media and complete fresh signed image/character/voice/thumbnail
-  resolution beyond currently supported managed/saved-TTS paths.
-- Account-wide merged attached-media/history counts, account-wide character/voice
-  inventories and full native library synchronization. Snapshot absence is not deletion.
-- Exact already-gone individual-delete compatibility; registry/operator scope and
-  native deletion acknowledgement remain distinct from useapi opaque IDs.
-- Full ten-image model budgets: the conservative Lite transport cap stays3. Native audio,
-  available system presets and character inputs are implemented on dedicated
-  V2V; rendered acceptance remains pending.
-  Image Auto supports owned native UUID dimensions on CLI/MCP; unregistered native
-  UUID lookup on REST and native Google Auto remain separate gaps.
-- Successful live cookie-table import and automatic refresh are not established.
-  Existing saved-profile reuse/project-access health proof is an observation, not
-  a login-lifetime guarantee.
+- Numerical video generation seeds and distinct4:3/3:4: current primary generation
+  builders do not expose the seed and collapse those aspect enums. See the bounded
+  [seed inspection](../superpowers/spikes/2026-10-04-generic-video-numeric-seed.md)
+  and earlier aspect codec inspection.
+- Generic UI-video provider selection/multi-output token overrides; native2K
+  retries beyond one and4K token overrides. Implemented image/native provider
+  controls still need accepted solver-backed output.
+- Accepted rendered video/character/audio grounding, saved-TTS lifecycle and
+  promotion remain R12 proofs; source construction/preflight is implemented.
+- Native4K output on an entitled account. Three Pro subscriptions do not grant
+  Ultra; image2K output is live verified and4K dispatch has fresh entitlement gates.
+- Arbitrary vendor composite decoding and unobserved thumbnail/voice variants;
+  exact registered typed aliases work, unsupported opaque refs remain explicit.
+- Account-wide authoritative completeness/history/character/user-voice cohorts.
+  Resumable URL-free synchronization is implemented across SDK/CLI/MCP/REST;
+  traversal exhaustion remains distinct from complete=None and never deletes.
+- Arbitrary already-gone raw UUID success cannot be inferred. Exact confirmed
+  receipts and supported registered-alias mutations are implemented.
+- Ten-reference UI retention/rendering remains a final test. Lite10 admission,
+  separate character caps and actual image weights are implemented.
+- Successful live cookie import/automatic renewal remains unproved. Accepted
+  refresh lineage preserves aliases/jobs/stats/idempotency/receipts; saved-profile
+  health is an observation rather than a guaranteed login lifetime.
+- Native quota reason/model quarantine and exact vendor envelopes/error/timing/
+  global-statistics semantics remain differences documented in CONTRACT_AUDIT.md.
 
 Unknown controls fail explicitly before generation. Local ffmpeg concatenate is
 not a Google scene join. Local registration/cache removal is distinct from native
@@ -140,6 +140,26 @@ chosen provider; configured keys and solved tokens do not prove Google acceptanc
   edited-video rendering remains part of R12.
 - [x] CapSolver private configuration, masked key GUI, balance checks and outcome
   statistics. Solver-backed accepted generation remains part of R06.
+
+### Overnight implementation status
+
+The table records concrete delivered code, not a blanket completion claim.
+Focused tests and independent reviews accompany each batch; R12 owns accepted
+rendering and R13 records the published revision.
+
+|Task|Implementation ready for final E2E|Open implementation or external boundary|
+|---|---|---|
+|R01|Current picker/composer, cookie banner, positive-index settings/picker fix|Ten-reference retention and remaining cohorts require final proof|
+|R02|Fresh typed media/character/saved-voice URLs and exact alias inputs|Unobserved variants/arbitrary vendor encoding|
+|R03|Resumable SDK/CLI/MCP/REST sync with atomic continuation|Global authoritative completeness unknown|
+|R04|Canonical image/entity/audio reference transport and fresh capacities|Rendered grounding remains R12|
+|R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
+|R06|Images and native generation providers/retries; generic count1 supplied token;2K one-use override|Generic providers/multi-output,2K multi-retry/4K override and accepted solver output|
+|R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
+|R08|Lite10, independent character/image pools and fresh weighted caps|Ten-chip/rendered proof remains R12|
+|R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
+|R10|Atomic accepted-refresh lineage and three-account health|Successful import/automatic renewal proof|
+|R11|All29contract audit, defaults, scheduler, WebP, event filters, native concat and inputsCount|Quota mapper and vendor-specific envelopes remain differences|
 
 ### Ordered feature backlog
 
@@ -303,7 +323,7 @@ unsafe-caption canonical attachment proof.
   path while investigating higher resolutions.
 - [ ] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
-  ten-image cases where actually supported. The conservative Lite transport cap remains 3.
+  ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; UI retention/rendering remain final tests.
   Keep first-reference ordering and validation consistent across surfaces.
   Native Google Auto remains separate from the implemented approximation.
 - [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
@@ -324,11 +344,11 @@ unsafe-caption canonical attachment proof.
   supported controls, response/error fields, sync/async status, polling,
   callbacks and timeout/unknown semantics. Unknown controls must fail explicitly
   before generation. Update the endpoint matrix and API documentation with exact
-  scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image model aliases normalize to current Nano2/Lite models; landscape/portrait image aspects and explicit native promotion4K normalize to canonical controls. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default response and scheduler/quarantine equivalence remain gaps. The 29 primary contracts were retrieved for comparison; the complete parameter audit remains in progress.
+  scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image model aliases normalize to current Nano2/Lite models; landscape/portrait image aspects and explicit native promotion4K normalize to canonical controls. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default summary and score-based automatic selection are implemented; reason/model quarantine remains a gap. The 29 primary contracts were retrieved for comparison; the full29endpoint audit is in CONTRACT_AUDIT.md with delivery changes and remaining differences.
 
 ### Final verification and delivery
 
-- [ ] **R12 — Representative final E2E campaign.** After the feature backlog,
+- [ ] **R12 — Representative final E2E campaign.** Prepared matrix: [FINAL_E2E.md](FINAL_E2E.md). After the feature backlog,
   verify accepted text/local/native-reference images, canonical grounding, Auto,
   native2K, available higher-resolution paths, video generation/reference/edit/
   extension/export/GIF, saved TTS CRUD/binding and native media lifecycles.
@@ -611,3 +631,20 @@ Zero generation; campaign reservations unchanged:pro1 images1/videos2,pro2
 images0/videos1,pro3 images1/videos1. API/MCP remained active and queues0. No
 accepted native video/provider-backed rendering is claimed. Docs-only follow-up
 reuses the unchanged frozen source6746pass gate; no source rerun is needed.
+
+
+## 4 October overnight feature checkpoint
+Implementation delivery and accepted output remain distinct; release revisions and
+final R12 tests must be recorded separately.
+| Item | New delivery | Remaining evidence or limit |
+|---|---|---|
+|R02/R04| Real saved-TTS preview tests and playback/binding paths | Browser and CapSolver preview WAF-refused; accepted lifecycle pending |
+|R03| Resumable project/catalog/history traversal; atomic URL-free checkpoint; SDK/CLI/MCP/REST | Real two-step resume passed; global completeness unknown |
+|R06| Image/native providers and explicit1–10 WAF-only retry; generic count1 supplied token;2K one-use overrides | Generic providers/multi-output and4K override gaps; actual solver-backed rendering pending |
+|R08| Lite10, separate character cap, weighted image cap | UI retention/rendering test remains independent |
+|R09| Exact registered alias mutation inputs, strict confirmed-delete receipts | Arbitrary vendor decoding and unknown missing IDs unsupported |
+|R10| Atomic accepted-refresh lineage, aliases/stats/idempotency/receipt continuity | Successful live import and automatic renewal unverified |
+|R11| Full29endpoint audit, summary jobs, combined voices, scheduler, WebP, event filters, native concat/inputsCount/default1080p promotion | Quota reason/model mapper and several vendor envelopes/defaults remain differences |
+
+Retained allowances and fresh ownership govern final E2E. Feature progress is not
+a completion percentage.

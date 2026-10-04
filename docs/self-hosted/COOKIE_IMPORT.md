@@ -121,3 +121,14 @@ profile, actual project access and a single canonical reference/character image
 generation succeeded. Repeated normal context closures/reopenings retained
 session access. This verifies restored original-profile operation, not cookie
 transfer acceptance, and does not establish the cause of the earlier challenge.
+
+
+### 4 October staged acceptance probe
+A once-only standalone transfer from a working profile parsed27allowed cookies,
+without device-bound/partitioned input. The actual candidate verifier returned
+no_session with no identity, so the candidate was rejected and cleaned; original
+registration/profile remained intact. No account activation or generation occurred.
+This narrows the observed failure to candidate authentication rather than parser
+validation; it does not establish why Google or persistence rejected the session.
+Vivaldi DevTools can provide the documented TSV format, but export acceptance must
+still be verified. Preserve the working hosted profiles while investigating.

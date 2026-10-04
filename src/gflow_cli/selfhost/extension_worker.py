@@ -46,10 +46,14 @@ async def generate(profile: str, project: str, request_path: Path) -> None:
 async def run_extension(
     profile: str, project: str, payload: dict[str, Any], out: Path
 ) -> dict[str, Any]:
-    from gflow_cli.selfhost.native_captcha import private_native_captcha
+    from gflow_cli.selfhost.native_captcha_policy import run_with_native_captcha_policy
 
-    with private_native_captcha(payload, project, "VIDEO_GENERATION"):
-        return await _run_extension(profile, project, payload, out)
+    return await run_with_native_captcha_policy(
+        payload,
+        project,
+        "VIDEO_GENERATION",
+        lambda: _run_extension(profile, project, payload, out),
+    )
 
 
 async def _run_extension(

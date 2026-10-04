@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
+from gflow_cli.api.native_captcha import native_captcha_outcome, native_captcha_submission
 from gflow_cli.api.native_extension import (
     _NATIVE_FETCH,
     _read_native,
@@ -353,6 +354,7 @@ async def generate_native_reference_video(
         if on_started:
             await on_started(started)
         try:
+            native_captcha_submission()
             result = await page.evaluate(
                 _NATIVE_FETCH,
                 {"rpc": "MZZa6b", "args": args, "source": f"/project/{started.project_id}"},
@@ -374,10 +376,12 @@ async def generate_native_reference_video(
                 zip(started.media_ids, started.workflow_ids, strict=True)
             ):
                 raise _unknown(started)
+            native_captcha_outcome("accepted")
             return started
         except NativeVideoGenerationUnknownError:
             raise
         except (WafRejectionError, ContentPolicyError):
+            native_captcha_outcome("rejected")
             raise
         except Exception:
             raise _unknown(started) from None

@@ -125,6 +125,11 @@ def _wrb_rows(text: str) -> list[list[Any]]:
     return rows
 
 
+def rpc_reply_frame_count(text: str, rpcid: str) -> int:
+    """Count reply frames including null/masked payloads for one exact RPC."""
+    return sum(row[1] == rpcid for row in _wrb_rows(text))
+
+
 def parse_frames(text: str) -> list[tuple[str, Any]]:
     """Every ``wrb.fr`` frame in a batchexecute body as ``(rpcid, decoded payload)``.
 

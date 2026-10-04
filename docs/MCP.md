@@ -572,7 +572,7 @@ not implied. Offline adapter tests pass; new live CLI/MCP proof is pending.
 
 Image CLI leaf commands accept `--reference-syntax slots`; MCP image generation accepts `reference_syntax="slots"`. The default `names` retains saved asset-name expansion. Slot mode uses ordered image and character inputs as `@reference_1..10` and `@character_1..7`, matches tokens case-insensitively, preserves repeated positions and requires matching inputs. Unknown token families and email text stay literal. Queue codecs retain and validate the immutable plan; they do not strip markers into text that appears grounded.
 
-Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite cap remains 3. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Canonical video positional syntax is not yet implemented.
+Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite admission cap is10, further constrained by fresh metadata. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Dedicated native R2V/V2V canonical positional syntax is implemented; rendered acceptance remains separate.
 
 
 ### Native MP4 upload and reversible archive
@@ -614,7 +614,7 @@ See [saved voices](self-hosted/VOICES.md), [native media](self-hosted/NATIVE_MED
 
 ## Current feature proof boundary
 
-The source registers 40 tools, comprising the prior 24 and 16 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
+The source registers 41 tools, comprising the prior 24 and 17 feature adapters. Native model/catalog and credit reads passed live. Permanent media deletion was confirmed for one owned synthetic clip by later native timeline absence and exact GetMedia not-found, following an immediate stale read; the final owned synthetic upload/deletion lifecycle passed in 28.91 seconds, preserving all original active media. One native reference-video attempt using the browser token was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY. The corrected canonical Charon preview was submitted once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); no audio or binding lifecycle was accepted. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token and submitted once, but Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); zero outputs were accepted and no retry occurred.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -780,7 +780,7 @@ Their direct MCP twins accept optional captcha_token; the SDK uses a scoped
 native_captcha_token helper bound to the exact project/action and one use.
 REST native /videos, /videos/extend and /voices use captchaToken with private
 offqueue file storage. No token is returned or persisted in normal job results.
-Provider controls remain guarded501 and acceptance remains unverified.
+REST dedicated native paths support configured provider selection and explicit typed WAF-only retry. Direct MCP/CLI supplied-token surfaces remain distinct; accepted provider output is unverified.
 See [native CAPTCHA controls](self-hosted/NATIVE_CAPTCHA.md) for exact scope,
 limitations, cleanup, verification and troubleshooting.
 
@@ -788,7 +788,7 @@ limitations, cleanup, verification and troubleshooting.
 Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video upscale-native`/`upscale-models` have direct MCP twins and REST `videos/upscale` accepts `operation: promotion`. Fresh account model/task/target checks determine availability. See [native promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) for billing, supplied-token, ownership and output verification contracts; paid acceptance remains R12.
 
 ### Fresh native image reference limits (R08)
-`image reference-models`, SDK `list_native_image_reference_models`, direct MCP `gflow_list_image_reference_models` and HTTP GET `images/reference/models` share fresh account capacity discovery. Native reference-bearing SDK requests enforce the smaller of advertised and transport capacities before upload/mint, preserving image order and character weights. Lite remains conservatively3; metadata advertises10 but does not prove retained/rendered use. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+`image reference-models`, SDK `list_native_image_reference_models`, direct MCP `gflow_list_image_reference_models` and HTTP GET `images/reference/models` share fresh account capacity discovery. Native reference-bearing SDK requests enforce the smaller of advertised and transport capacities before upload/mint, preserving image order and character weights. Lite permits10 with fresh advertised capacity enforcement; metadata advertises10 but does not prove retained/rendered use. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
@@ -882,3 +882,13 @@ keeps project inventory/catalogs and source=local keeps cached listing. assets/m
 default source=google keeps whole observed native project; source=local selects
 the managed cache. This changes the prior implicit local-list defaults. Existing clients requiring
 managed caches should now explicitly supply source=local.
+
+
+## Native synchronization and provider delivery — 4 October
+Native inventory synchronization is available through project sync, direct MCP
+gflow_sync_native_inventory, the SDK services.inventory_sync hook and REST
+POST assets/sync/{email}. Checkpoints are private and URL-free; completeness
+remains unknown. See [sync](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_INVENTORY_SYNC.md).
+Dedicated native video/TTS REST workers support explicit provider selection and
+confirmed-WAF-only bounded retries. Public SDK scopes and CLI/MCP supplied-token
+inputs remain one use; see [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).

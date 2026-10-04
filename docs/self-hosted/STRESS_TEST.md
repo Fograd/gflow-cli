@@ -50,8 +50,7 @@ buying CAPTCHA solves would fix it.
 Treat a measured token rejection or unusual-activity refusal as a CAPTCHA/WAF
 investigation trigger. Quota, entitlement, content-policy, timeout and partial-count
 failures need their own diagnosis. A solver improves a failure only if a controlled
-comparison shows Google accepts its replacement token; that integration remains
-guarded off while the native action is unmeasured. Do not retry a partially accepted
+comparison shows Google accepts its replacement token; the earlier guarded integration has since gained fresh action/site-key measurement and explicit provider controls. Accepted solver-backed rendering remains unproved. Do not retry a partially accepted
 job automatically, because its existing outputs may already have consumed allowance.
 
 For a larger test, retain a fixed image budget, gradually change one variable

@@ -17,6 +17,7 @@ so you can run only what you can afford:
 | e2e_auth   | 0 credits        | < 30 s            |
 | e2e_image  | 0 (daily cap)    | 30–120 s          |
 | e2e_batch  | 0 (daily cap)    | 2–10 min          |
+| e2e_audio  | unverified       | explicit allowance |
 | e2e_video  | 1 Veo credit     | 1–10 min          |
 | e2e_data   | same as above *  | +0 s              |
 

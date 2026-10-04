@@ -102,7 +102,7 @@ the five other mirror axes), which no command here can check and no CI gate can 
 - Documentation is a first-class deliverable. Every behavior, workflow, config, or operator-facing change must update the relevant docs or state why no docs changed in the PR/checklist. `scripts/ci/check_doc_links.py` is a merge gate.
 - **A PR is not done until its SonarCloud gate is green (zero new issues).** The nine gates above are local/pre-commit; SonarCloud is server-side and runs in CI (`sonar.qualitygate.wait=true` → a red gate turns the `SonarCloud analysis` check red). Before calling a PR merge-ready, verify it with `/gflow:sonar <N>` (it is skipped on fork PRs — maintainer-checked there).
 - **E2E is the decisive layer, and it is required for every behavior change that touches a Flow surface.** Run the `tests/e2e/` test that covers the change, or write one — offline-green proves only that *our* code does what we think, never that Flow still behaves as captured. `/gflow:live-verify` does **not** satisfy this: it drives CLI commands by hand into a gitignored note and never runs `pytest -m e2e`. The two are complementary — an e2e test is a re-runnable regression, a live-verify ledger is a narrative record. A change touching no Flow surface at all (docs, help text, exit-code plumbing) is out of scope — say so explicitly rather than leaving it blank. Anything else follows the **Iron Law** above: run it, or name the external blocker that stops you. "A maintainer will run it" is a handoff, not a verification, and is only available once the blocker is named.
-- E2E tests require `GFLOW_CLI_E2E_PROFILE` and `-m e2e` (excluded from the default `addopts`, so they never run by accident). Cost sub-markers: `e2e_auth` (zero credits, browser only), `e2e_image` (zero credits, daily cap), `e2e_scene`, `e2e_data`, `e2e_batch`, `e2e_character` (opt in with `GFLOW_CLI_E2E_RUN_CHARACTER=1`), the migrated refusal e2e (`e2e_image`, opt in with `GFLOW_CLI_E2E_RUN_REFUSAL=1` — it sends one corrupted reCAPTCHA token, so run it on a probe profile), `e2e_video` (spends Veo credits — opt in with `GFLOW_CLI_E2E_RUN_VIDEO=1`). Redact account identifiers and any token or cookie value before pasting output into a PR.
+- E2E tests require `GFLOW_CLI_E2E_PROFILE` and `-m e2e` (excluded from the default `addopts`, so they never run by accident). Cost sub-markers: `e2e_audio` (real TTS preview, explicit allowance; successful cost unverified), `e2e_auth` (zero credits, browser only), `e2e_image` (zero credits, daily cap), `e2e_scene`, `e2e_data`, `e2e_batch`, `e2e_character` (opt in with `GFLOW_CLI_E2E_RUN_CHARACTER=1`), the migrated refusal e2e (`e2e_image`, opt in with `GFLOW_CLI_E2E_RUN_REFUSAL=1` — it sends one corrupted reCAPTCHA token, so run it on a probe profile), `e2e_video` (spends Veo credits — opt in with `GFLOW_CLI_E2E_RUN_VIDEO=1`). Redact account identifiers and any token or cookie value before pasting output into a PR.
 - Live tests (`@pytest.mark.live`) opt in via `GFLOW_LIVE=1`.
 
 ## Code style
@@ -453,7 +453,7 @@ Provider acceptance remains unverified. See docs/self-hosted/NATIVE_CAPTCHA.md.
 
 Native video promotion: SDK/CLI video upscale-native/upscale-models, direct MCP twins, HTTP explicit operation=promotion. Targets720p/1080p/4k require fresh tier/model/source proof. Paid acceptance remains R12. See [native promotion](docs/self-hosted/NATIVE_VIDEO_PROMOTION.md).
 
-Fresh native image reference budgets: SDK/CLI image reference-models, direct MCP twin, HTTP images/reference/models. Effective=min(advertised,transport), fresh before upload/mint; Lite3 conservative. See [budgets](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+Fresh native image reference budgets: SDK/CLI image reference-models, direct MCP twin, HTTP images/reference/models. Effective=min(advertised,transport), fresh before upload/mint; Lite10 fresh-model bounded. See [budgets](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_REFERENCE_BUDGETS.md).
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
@@ -479,3 +479,13 @@ behavior stays unchanged. Actual workers-disabled cache/forwarding BDD passed
 64.71seconds with zero generation; rendered acceptance remains pending.
 
 HTTP project-list defaults now return generated-history summaries (source=history); media-list defaults now read native Google inventory. Explicit source=local retains managed cache and project source=google retains catalog discovery. SDK/CLI/MCP history adds summary fields without new flags/tools. See [default changes](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#generated-history-summaries-and-http-defaults). Actual default-summary/media BDD passed65.84seconds with zero generation; final gates passed6746tests; sourceea9cc2c5 is published/deployed with all3 production HTTP200 reads, zero generation; complete history is not claimed.
+
+
+## Native synchronization and provider delivery — 4 October
+Native inventory synchronization is available through project sync, direct MCP
+gflow_sync_native_inventory, the SDK services.inventory_sync hook and REST
+POST assets/sync/{email}. Checkpoints are private and URL-free; completeness
+remains unknown. See [sync](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_INVENTORY_SYNC.md).
+Dedicated native video/TTS REST workers support explicit provider selection and
+confirmed-WAF-only bounded retries. Public SDK scopes and CLI/MCP supplied-token
+inputs remain one use; see [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).

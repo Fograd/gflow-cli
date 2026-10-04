@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import re
+import time
 from collections.abc import Awaitable, Callable, Generator
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -26,6 +27,42 @@ class ImageOverrides:
     metadata: dict[str, str] | None = None
     observer: Callable[[Any], None] | None = field(default=None, repr=False)
 
+    metadata_url: str | None = None
+    metadata_at: float = 0
+    submitted: bool = False
+    terminal: str | None = None
+    closed: bool = False
+    observe: Callable[[str], None] | None = field(default=None, repr=False)
+
+    def page_matches(self, page: Any) -> bool:
+        url = urlsplit(str(getattr(page, "url", "")))
+        return (
+            url.scheme == "https"
+            and url.netloc == "flow.google.com"
+            and url.path.rstrip("/") == "/project/" + self.project
+        )
+
+    def mark_submitted(self) -> None:
+        if self.closed or not self.used or self.submitted:
+            return
+        self.submitted = True
+        if self.observe is not None:
+            self.observe("submitted")
+
+    def outcome(self, phase: str) -> None:
+        if phase not in ("accepted", "rejected", "unknown"):
+            raise ValueError("Invalid image CAPTCHA outcome")
+        if self.closed or not self.submitted or self.terminal is not None:
+            return
+        self.terminal = phase
+        if self.observe is not None:
+            self.observe(phase)
+
+    def close(self) -> None:
+        self.outcome("unknown")
+        self.closed = True
+        self.metadata = None
+
     def capture_metadata(self, page: Any) -> None:
         if not self.metadata_required or self.token is None or self.observer is not None:
             return
@@ -35,8 +72,15 @@ class ImageOverrides:
                 metadata = reload_metadata(str(request.url), request.post_data_buffer or b"")
             except (ValueError, TypeError, AttributeError):
                 return
-            if metadata is not None:
+            if (
+                metadata is not None
+                and not self.closed
+                and not self.used
+                and self.page_matches(page)
+            ):
                 self.metadata = metadata
+                self.metadata_url = str(page.url)
+                self.metadata_at = time.monotonic()
 
         self.observer = observe
         page.on("request", observe)
@@ -47,14 +91,19 @@ class ImageOverrides:
             self.observer = None
 
     async def apply(self, page: Any, body: str) -> str:
-        if self.used:
+        if self.closed or self.used:
             raise WireFormatError(detail="Image overrides cannot replay a submitted request")
-        replacement = await asyncio.wait_for(self.token(page), timeout=110) if self.token else None
-        result = rewrite_submit(
+        # Validate the complete native envelope before touching a provider or token.
+        rewrite_submit(body, project=self.project, count=self.count, seed=self.seed)
+        if self.token is not None and not self.page_matches(page):
+            raise WireFormatError(detail="Image CAPTCHA project scope mismatch")
+        self.used = True
+        replacement = await asyncio.wait_for(self.token(page), timeout=260) if self.token else None
+        if self.closed or (self.token is not None and not self.page_matches(page)):
+            raise WireFormatError(detail="Image CAPTCHA scope changed during solving")
+        return rewrite_submit(
             body, project=self.project, count=self.count, seed=self.seed, token=replacement
         )
-        self.used = True
-        return result
 
 
 active_overrides: ContextVar[ImageOverrides | None] = ContextVar("image_overrides", default=None)
@@ -70,8 +119,12 @@ def rewrite_submit(
     """
     if seed is not None and (type(seed) is not int or not 0 <= seed <= 2147483647 - count + 1):
         raise ValueError("seed must fit the supported signed 32-bit batch range")
-    if token is not None and not 20 <= len(token) <= 20000:
-        raise ValueError("Invalid supplied CAPTCHA token")
+    if type(count) is not int or not 1 <= count <= 4 or len(body) > 2 * 1024 * 1024:
+        raise WireFormatError(detail="Invalid bounded image submit")
+    if token is not None:
+        from gflow_cli.api.native_captcha import validate_native_captcha_token
+
+        token = validate_native_captcha_token(token)
     try:
         pairs = parse_qsl(body, keep_blank_values=True)
         indexes = [i for i, (key, _) in enumerate(pairs) if key == "f.req"]
@@ -88,13 +141,21 @@ def rewrite_submit(
             not isinstance(rows, list)
             or len(cast(list[Any], rows)) != count
             or context[5] != project
+            or type(context[10][1]) is not int
+            or context[10][1] != 1
         ):
             raise ValueError()
         original = context[10][0]
         if not isinstance(original, str) or len(original) < 20:
             raise ValueError()
         for i, row in enumerate(cast(list[Any], rows)):
-            if row[7][5] != project or row[7][10][0] != original or type(row[3]) is not int:
+            if (
+                row[7][5] != project
+                or row[7][10][0] != original
+                or type(row[3]) is not int
+                or type(row[7][10][1]) is not int
+                or row[7][10][1] != 1
+            ):
                 raise ValueError()
             if seed is not None:
                 row[3] = seed + i
@@ -205,3 +266,18 @@ def image_seed_scope(project: str, count: int, seed: int) -> Generator[ImageOver
             yield override
         finally:
             active_overrides.reset(state)
+
+
+def confirmed_image_refusal(text: str) -> bool:
+    """Only one measured negative frame permits replay; masked siblings are uncertain."""
+    from gflow_cli.api.transports.batchexecute import rpc_errors, rpc_reply_frame_count
+
+    if len(text) > 2 * 1024 * 1024 or rpc_reply_frame_count(text, "ogiZ0b") != 1:
+        return False
+    errors = [error for error in rpc_errors(text) if error.rpcid == "ogiZ0b"]
+    return (
+        len(errors) == 1
+        and type(errors[0].code) is int
+        and errors[0].code == 7
+        and errors[0].reasons == ("PUBLIC_ERROR_UNUSUAL_ACTIVITY",)
+    )

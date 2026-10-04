@@ -1836,6 +1836,7 @@ async def gflow_upscale_image(
     project: str | None = None,
     out_dir: str | None = None,
     profile: str = _DEFAULT_PROFILE,
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
     """Upscale a platform-generated image to 2K or 4K.
 
@@ -1845,6 +1846,7 @@ async def gflow_upscale_image(
         project: Project UUID that owns the media. Resolved from local catalog when omitted.
         out_dir: Output directory (defaults to configured images directory).
         profile: Profile name (overrides default).
+        captcha_token: Optional single-use native 2K CAPTCHA token.
 
     Returns:
         Dict with status, media_id, project_id, scale, path, and size bytes.
@@ -1889,12 +1891,15 @@ async def gflow_upscale_image(
             out_dir=output_root,
         ) as client,
     ):
-        target = await client.upsample_image(
-            media_id=media_id,
-            project_id=resolved_project,
-            target_resolution=resolution,
-            out_path=out_path,
-        )
+        with native_captcha_or_none(
+            captcha_token, project_id=resolved_project, action="IMAGE_GENERATION"
+        ):
+            target = await client.upsample_image(
+                media_id=media_id,
+                project_id=resolved_project,
+                target_resolution=resolution,
+                out_path=out_path,
+            )
 
     from gflow_cli.storage import is_cloud_path
 
@@ -3395,3 +3400,53 @@ async def gflow_list_image_reference_models(
         ) as client:
             models = await client.list_native_image_reference_models(project)
     return {"status": "ok", "project_id": project, "models": models}
+
+
+@server.tool(
+    name="gflow_sync_native_inventory",
+    description=(
+        "Resume bounded native project discovery/catalogs and account history. "
+        "Private metadata/checkpoints persist across calls; completeness stays unknown. "
+        "Read-only direct execution; no generation queue."
+    ),
+)
+@_guarded
+async def gflow_sync_native_inventory(
+    profile: str = "default",
+    max_steps: StrictInt = 10,
+    max_seconds: StrictInt = 180,
+    restart: StrictBool = False,
+) -> dict[str, Any]:
+    from gflow_cli.profile_store import read_account_file
+    from gflow_cli.services.inventory_sync import sync_native_inventory, validate_sync_options
+
+    try:
+        validate_sync_options(max_steps, max_seconds, restart)
+    except ValueError as exc:
+        raise ConfigurationError(detail=str(exc)) from None
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    account = read_account_file(settings.profile_subdir(resolved))
+    if account is None:
+        raise ConfigurationError(
+            detail="Native inventory sync requires a recorded account identity"
+        )
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            try:
+                result = await sync_native_inventory(
+                    client,
+                    settings.home / "native_inventory",
+                    profile=resolved,
+                    account=account,
+                    max_steps=max_steps,
+                    max_seconds=max_seconds,
+                    restart=restart,
+                )
+            except ValueError as exc:
+                raise ConfigurationError(detail=str(exc)) from None
+    return {"status": "ok", **result}

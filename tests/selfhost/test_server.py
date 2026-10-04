@@ -46,7 +46,10 @@ def test_auth_and_validation_do_not_enqueue(tmp_path):
             ).status_code
             == 201
         )
-        assert len(client.get("/v1/google-flow/jobs", headers=headers).json()["jobs"]) == 1
+        assert (
+            len(client.get("/v1/google-flow/jobs?source=local", headers=headers).json()["jobs"])
+            == 1
+        )
 
 
 def test_idempotency_and_restart_never_replay_running_job(tmp_path):
@@ -140,7 +143,7 @@ def test_streaming_json_limit_before_parse(tmp_path):
             content=iter([b'{"prompt":"', b"a" * 65536, b'"}']),
         )
         assert response.status_code == 413
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 @pytest.mark.parametrize(
@@ -192,7 +195,9 @@ def test_multi_profile_retry_keeps_original_account(tmp_path):
         second = client.post("/v1/google-flow/images", headers=headers, json={"prompt": "x"})
         assert first.status_code == second.status_code == 408
         assert first.json()["jobId"] == second.json()["jobId"]
-        assert len(client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"]) == 1
+        assert (
+            len(client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"]) == 1
+        )
 
 
 def test_one_running_job_per_profile(tmp_path):
@@ -307,7 +312,7 @@ def test_video_dto_validation_before_enqueue(tmp_path):
             json={"prompt": "x", "model": "veo-3.1-fast", "duration": 10},
         )
         assert response.status_code == 422
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 def test_system_voices_case_insensitive_and_owned_saved_route(tmp_path, monkeypatch):
@@ -352,7 +357,7 @@ def test_system_voices_case_insensitive_and_owned_saved_route(tmp_path, monkeypa
         worker.assert_awaited_once()
         assert worker.await_args.args[0][3:5] == ["voice-saved-list", "pro1"]
         assert client.post("/v1/google-flow/voices", headers=AUTH, json={}).status_code == 422
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 def test_openapi_requires_auth(tmp_path):
@@ -397,7 +402,7 @@ def test_concatenation_account_and_trim_validation(tmp_path):
             ).status_code
             == 422
         )
-        assert client.get("/v1/google-flow/jobs", headers=AUTH).json()["jobs"] == []
+        assert client.get("/v1/google-flow/jobs?source=local", headers=AUTH).json()["jobs"] == []
 
 
 async def test_concatenation_result_is_local_and_preserves_sources(tmp_path, monkeypatch):
@@ -426,6 +431,7 @@ async def test_concatenation_result_is_local_and_preserves_sources(tmp_path, mon
     monkeypatch.setattr("gflow_cli.selfhost.concatenate.execute", fake_concatenate)
     result = await execute(cfg, store, store.claim("pro1"))
     assert result["backend"] == "local-ffmpeg"
+    assert result["inputsCount"] == 2
     assert result["localArtifactId"].startswith("local_")
     assert "mediaGenerationId" not in result
     assert "encodedVideo" in result

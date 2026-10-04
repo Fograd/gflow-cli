@@ -39,11 +39,15 @@ from gflow_cli.errors import (
 
 
 async def execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str, Any]:
-    from gflow_cli.selfhost.native_captcha import private_native_captcha
+    from gflow_cli.selfhost.native_captcha_policy import run_with_native_captcha_policy
 
     if verb == "voice-saved-create":
-        with private_native_captcha(payload, str(payload["project_id"]), "AUDIO_GENERATION"):
-            return await _execute(verb, profile, payload)
+        return await run_with_native_captcha_policy(
+            payload,
+            str(payload["project_id"]),
+            "AUDIO_GENERATION",
+            lambda: _execute(verb, profile, payload),
+        )
     if "captchaSecret" in payload:
         raise ConfigurationError(detail="CAPTCHA controls require a native generation operation")
     return await _execute(verb, profile, payload)
@@ -59,7 +63,11 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "status": "ok",
             "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
         }
-    project_id = "" if verb in {"projects-list", "history-list"} else str(payload["project_id"])
+    project_id = (
+        ""
+        if verb in {"projects-list", "history-list", "inventory-sync"}
+        else str(payload["project_id"])
+    )
     if verb == "upload-video":
         from gflow_cli.api.native_media import upload_snapshot_context, validate_upload
 
@@ -86,6 +94,26 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
+        if verb == "inventory-sync":
+            from gflow_cli.profile_store import read_account_file
+            from gflow_cli.services.inventory_sync import sync_native_inventory
+
+            settings = get_settings()
+            account = read_account_file(settings.profile_subdir(profile))
+            if account is None:
+                raise ValueError("Native inventory sync requires a recorded account identity")
+            return {
+                "status": "ok",
+                **await sync_native_inventory(
+                    client,
+                    settings.home / "native_inventory",
+                    profile=profile,
+                    account=account,
+                    max_steps=payload.get("max_steps", 10),
+                    max_seconds=payload.get("max_seconds", 180),
+                    restart=payload.get("restart", False),
+                ),
+            }
         if verb == "history-list":
             return {
                 "status": "ok",

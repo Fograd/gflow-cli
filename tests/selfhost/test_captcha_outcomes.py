@@ -38,9 +38,18 @@ async def run_failure(monkeypatch, tmp_path, error, *, download=False):
             }
         )
     )
-    monkeypatch.setattr(worker.ProviderKeys, "get", lambda *_: "private-test-key")
+    import time
+
+    import gflow_cli.selfhost.image_captcha_policy as policy
+    from gflow_cli.api.transports.migrated_image_overrides import active_overrides
+    from tests.api.test_migrated_image_overrides import PROJECT
+
+    monkeypatch.setattr(policy, "discover_site_key", AsyncMock(return_value="public-key"))
+    monkeypatch.setattr(policy.ProviderKeys, "get", lambda *_: "private-test-key")
     monkeypatch.setattr(
-        worker.Solver, "solve", AsyncMock(return_value=SimpleNamespace(token="private-test-token"))
+        policy.Solver,
+        "solve",
+        AsyncMock(return_value=SimpleNamespace(token="private-test-token" * 3)),
     )
     monkeypatch.setattr(worker, "_make_provider_dir", lambda _: tmp_path)
     monkeypatch.setattr(worker, "get_settings", lambda: SimpleNamespace(headless=False))
@@ -56,12 +65,18 @@ async def run_failure(monkeypatch, tmp_path, error, *, download=False):
             pass
 
         async def generate_images_batch(self, **kwargs):
-            override = worker.active_overrides.get()
+            override = active_overrides.get()
             override.metadata = {"sitekey": "public-key", "action": "IMAGE_GENERATION"}
-            await override.token(SimpleNamespace(url="https://flow.google.com/project/test"))
+            override.metadata_url = "https://flow.google.com/project/" + PROJECT
+            override.metadata_at = time.monotonic()
+            await override.token(SimpleNamespace(url=override.metadata_url))
             override.used = True
+            override.mark_submitted()
             if not download:
+                if isinstance(error, WafRejectionError):
+                    override.outcome("rejected")
                 raise error
+            override.outcome("accepted")
             return [
                 SimpleNamespace(
                     workflow_id="workflow", dimensions=(8, 8), media_name="test", seed=42
@@ -75,7 +90,7 @@ async def run_failure(monkeypatch, tmp_path, error, *, download=False):
     import pytest
 
     with pytest.raises(type(error)):
-        await worker.generate("pro1", "test", path)
+        await worker.generate("pro1", PROJECT, path)
     return CaptchaStats(tmp_path).public()["providers"]["CapSolver"]
 
 
@@ -86,8 +101,8 @@ async def test_worker_records_known_refusal_without_second_solve(monkeypatch, tm
 
 
 @pytest.mark.asyncio
-async def test_worker_download_failure_is_unknown_not_rejected(monkeypatch, tmp_path):
+async def test_worker_download_failure_preserves_positive_acceptance(monkeypatch, tmp_path):
     counts = await run_failure(
         monkeypatch, tmp_path, MediaDownloadError(detail="redacted"), download=True
     )
-    assert counts == {"solveStarted": 1, "solved": 1, "submitted": 1, "unknown": 1}
+    assert counts == {"solveStarted": 1, "solved": 1, "submitted": 1, "accepted": 1}

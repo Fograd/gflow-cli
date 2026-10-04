@@ -1,6 +1,6 @@
 # Supplied tokens on native generation adapters
 
-Native reference video, Omni edit, extension and saved-TTS creation accept one
+Native reference video, Omni edit, extension, promotion and saved-TTS creation accept one
 supplied CAPTCHA token. This is explicit interception support; Google acceptance
 of external/provider tokens remains unverified. Ordinary browser-owned minting
 is unchanged when no override is supplied.
@@ -45,12 +45,13 @@ failure or cancellation. No token is added to checkpoints, results or callbacks.
 The same token is single-use and short-lived; queue delay may expire it.
 An idempotent retrieval does not create another submission.
 
-Provider selection/retry controls are validated but remain HTTP501 until Google
-accepts a controlled provider-backed request. No automatic replay follows an
-unknown write or rejection. Image generation retains its separately measured
-request-rewrite hook. UI text/frame video, image upscale and CAPTCHA-free video
-exports are outside this native batch; unsupported controls remain explicit
-refusals and are tracked in R06/R07.
+Provider selection and bounded refusal retries are supported on these dedicated
+native workers. See [provider policy](CAPTCHA.md#dedicated-native-provider-controls).
+This is explicit caller choice: default browser minting does not silently switch
+to a paid solver. Only confirmed typed WAF refusal may trigger the next explicitly
+requested attempt; accepted and unknown outcomes never replay. Provider-backed
+Google acceptance remains unverified. Generic UI video and image-upscale token
+paths remain distinct from these native adapters.
 
 ## Verification and troubleshooting
 The free synthetic-video BDD passed1test,2warnings in35.73seconds. Actual native
@@ -64,3 +65,18 @@ GFLOW_CLI_E2E_NATIVE_CAPTCHA=1. Never send its synthetic tokens to Google.
 A scope mismatch means the selected page/project/action disagrees; correct the
 inputs rather than retrying that token. Expiry or a Google refusal does not
 authorize automatic replay. See [CAPTCHA](CAPTCHA.md) for provider trial evidence.
+
+
+## Native image2K and generic video scopes
+Image upscale --captcha-token-file and gflow_upscale_image(captcha_token=...)
+use one IMAGE_GENERATION token bound to exact project/media/2K. Fresh same-page
+image ownership is required before any solver task. The scoped token is consumed
+on the project home page before opening the detail view; only the exact correlated
+SPrCad request can use it. Explicit4K overrides and retry>1 refuse before mint.
+The native_captcha_provider async SDK scope also supports the same2K operation.
+REST images/upscale accepts captchaToken or configured captchaOrder/captchaRetry1.
+
+Generic REST video accepts captchaToken at count1 only, with a strict one-use
+same-project envelope guard. Generic provider controls/multiple-output token
+requests remain501. Default browser generation is unaffected by opting out.
+These transport controls do not prove accepted external-token output.

@@ -1593,3 +1593,37 @@ class TestImageInstructionsFlag:
 
         assert result.exit_code == 2, result.output
         assert "single-prompt" in result.output
+
+
+@pytest.mark.parametrize("count", [4, 10])
+def test_lite_reference_ceiling_preserves_cli_inputs(runner, tmp_path, count):
+    from gflow_cli.api.image import Model
+    from gflow_cli.cli import main
+
+    refs = [f"{index:08d}-1111-4111-8111-111111111111" for index in range(count)]
+    args = ["image", "i2i", "Current Lite inputs", "--model", "nano2-lite"]
+    for identifier in refs:
+        args.extend(["--ref", identifier])
+    run = AsyncMock()
+    with (
+        patch("gflow_cli.cli_image._run_i2i", run),
+        patch("gflow_cli.cli_image._make_provider_dir", return_value=tmp_path),
+        patch("gflow_cli.cli_image._resolve_profile", return_value="default"),
+    ):
+        result = runner.invoke(main, args, catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+    assert run.await_count == 1
+    params = run.call_args.kwargs["params"]
+    assert params.model is Model.HARBOR_SEAL
+    assert [ref.name for ref in params.classified_refs] == refs
+
+
+def test_lite_eleven_cli_references_refuse(runner):
+    from gflow_cli.cli import main
+
+    args = ["image", "i2i", "Too many", "--model", "nano2-lite"]
+    for index in range(11):
+        args.extend(["--ref", f"{index:08d}-1111-4111-8111-111111111111"])
+    result = runner.invoke(main, args, catch_exceptions=False)
+    assert result.exit_code == 2
+    assert "at most 10" in result.output

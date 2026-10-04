@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, cast
 
-from gflow_cli.api.native_captcha import take_native_captcha_token
+from gflow_cli.api.native_captcha import take_native_captcha_token_async
 from gflow_cli.errors import RecaptchaError
 
 __all__ = ["RecaptchaError", "TokenMinter", "discover_site_key"]
@@ -31,8 +31,15 @@ _DISCOVER_SITE_KEY_JS = """
 () => {
     const scripts = document.querySelectorAll('script[src*="recaptcha/enterprise.js"]');
     for (const s of scripts) {
-        const m = (s.getAttribute('src') || '').match(/[?&]render=([^&]+)/);
-        if (m) return m[1];
+        try {
+            const url = new URL(s.getAttribute('src') || '', location.href);
+            if (url.protocol !== 'https:' ||
+                !['www.google.com', 'www.recaptcha.net'].includes(url.hostname) ||
+                url.port || url.username || url.password ||
+                url.pathname !== '/recaptcha/enterprise.js') continue;
+            const keys = url.searchParams.getAll('render');
+            if (keys.length === 1 && keys[0] && keys[0] !== 'explicit') return keys[0];
+        } catch { /* Untrusted or malformed script URLs are not CAPTCHA metadata. */ }
     }
     return null;
 }
@@ -107,7 +114,7 @@ class TokenMinter:
         Tokens are single-use and expire in ~2 minutes — call this immediately
         before the API request that consumes the token.
         """
-        supplied = take_native_captcha_token(getattr(self._page, "url", None), action)
+        supplied = await take_native_captcha_token_async(self._page, action)
         if supplied is not None:
             return supplied
         site_key = await self.site_key()

@@ -192,7 +192,7 @@ class TestReferenceCap:
     def test_cap_values(self) -> None:
         assert reference_cap_for(Model.NARWHAL) == 10
         assert reference_cap_for(Model.GEM_PIX_2) == 10
-        assert reference_cap_for(Model.HARBOR_SEAL) == 3
+        assert reference_cap_for(Model.HARBOR_SEAL) == 10
         assert reference_cap_for(Model.IMAGEN_3_5) == 3
 
     def test_at_cap_is_allowed(self) -> None:
@@ -586,3 +586,22 @@ def test_project_brief_from_agent_info_skips_non_dict_cards() -> None:
     }
     brief = ProjectBrief.from_agent_info(info)
     assert tuple(c.id for c in brief.cards) == ("a",)
+
+
+@pytest.mark.parametrize("count", [4, 10])
+def test_lite_admissible_ceiling_reaches_current_native_preflight(count):
+    req = GenerateImageRequest(
+        prompt="Current Lite inputs",
+        model=Model.HARBOR_SEAL,
+        refs=tuple(ImageRef(f"ref-{i}") for i in range(count)),
+    )
+    assert tuple(ref.name for ref in req.refs) == tuple(f"ref-{i}" for i in range(count))
+
+
+def test_lite_eleven_inputs_refuse_before_discovery():
+    with pytest.raises(ValueError, match="at most 10"):
+        GenerateImageRequest(
+            prompt="Too many Lite inputs",
+            model=Model.HARBOR_SEAL,
+            refs=tuple(ImageRef(f"ref-{i}") for i in range(11)),
+        )

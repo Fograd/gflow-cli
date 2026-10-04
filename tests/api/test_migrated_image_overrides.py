@@ -69,3 +69,73 @@ async def test_submit_guard_uses_captured_override_outside_context():
     assert args[1][0][3] == 7
     assert override.used
     route.abort.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_invalid_image_envelope_never_consumes_provider():
+    from unittest.mock import AsyncMock
+
+    mint = AsyncMock(return_value="replacement" * 5)
+    override = ImageOverrides(PROJECT, 1, token=mint)
+    with pytest.raises(WireFormatError):
+        await override.apply(None, "invalid")
+    mint.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_image_override_consumes_before_provider_await():
+    import asyncio
+    from types import SimpleNamespace
+
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def mint(page):
+        entered.set()
+        await release.wait()
+        return "replacement" * 5
+
+    override = ImageOverrides(PROJECT, 1, token=mint)
+    page = SimpleNamespace(url="https://flow.google.com/project/" + PROJECT)
+    task = asyncio.create_task(override.apply(page, body()))
+    await entered.wait()
+    try:
+        with pytest.raises(WireFormatError):
+            await asyncio.wait_for(override.apply(page, body()), timeout=0.05)
+    finally:
+        release.set()
+        await task
+
+
+@pytest.mark.asyncio
+async def test_closed_scope_excludes_late_provider_completion_and_telemetry():
+    import asyncio
+    from types import SimpleNamespace
+
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def mint(page):
+        entered.set()
+        await release.wait()
+        return "replacement" * 5
+
+    phases = []
+    override = ImageOverrides(PROJECT, 1, token=mint, observe=phases.append)
+    page = SimpleNamespace(url="https://flow.google.com/project/" + PROJECT)
+    task = asyncio.create_task(override.apply(page, body()))
+    await entered.wait()
+    override.close()
+    release.set()
+    with pytest.raises(WireFormatError):
+        await task
+    override.mark_submitted()
+    override.outcome("accepted")
+    assert phases == []
+
+
+@pytest.mark.parametrize("sibling,expected", [("ogiZ0b", 2), ("foreign", 1)])
+def test_reply_frame_count_includes_null_masked_siblings_only_exact_rpc(sibling, expected):
+    from gflow_cli.api.transports.batchexecute import rpc_reply_frame_count
+    from tests.api.test_native_generation_refusal import refusal
+
+    masked = json.dumps([["wrb.fr", sibling, None, None, None, [5], "generic"]])
+    assert rpc_reply_frame_count(refusal("ogiZ0b") + "\n" + masked, "ogiZ0b") == expected

@@ -103,7 +103,7 @@ def test_job_statistics_reject_invalid_or_mixed_options_and_preserve_default(tmp
             "options=summary&email=account-one",
         ):
             assert client.get("/v1/google-flow/jobs?" + query, headers=AUTH).status_code == 400
-        assert "jobs" in client.get("/v1/google-flow/jobs", headers=AUTH).json()
+        assert "images" in client.get("/v1/google-flow/jobs", headers=AUTH).json()
         assert client.app.state.store.jobs() == []
 
 

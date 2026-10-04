@@ -25,6 +25,7 @@ from gflow_cli.api.native_catalogs import (
 )
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.cli_data import _db_path, _emit_projects_table
+from gflow_cli.cli_inventory_sync import sync_subcommand
 from gflow_cli.config import get_settings
 from gflow_cli.data.models import ProjectRecord
 from gflow_cli.data.queries import list_projects
@@ -43,6 +44,9 @@ logger = structlog.get_logger(__name__)
 @click.group()
 def project() -> None:
     """Manage Google Flow projects."""
+
+
+project.add_command(sync_subcommand)
 
 
 @project.command("list")
