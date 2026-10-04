@@ -117,10 +117,76 @@ inspected separately. It does not overwrite enabled/verified registration flags,
 which remain operator or prior-import attestations. A network or selector failure
 therefore cannot silently disable an account.
 
-There is no periodic browser keepalive, cookie copying, automatic reauthentication,
-challenge bypass, generation, CAPTCHA solve, or paid operation in this check.
+The on-demand check performs no cookie copying, automatic reauthentication,
+challenge bypass, generation, CAPTCHA solve, or paid operation. Optional periodic
+project-access scheduling is described below; it is separate from renewal.
 Public output contains fixed statuses and metadata rather than timeline data,
 cookie values, raw exception messages, or signed URLs.
+
+## Optional idle project-access maintenance
+
+Set `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS=1800` or a longer finite interval
+in the daemon environment and restart the service to enable periodic ordinary
+project access. The default is `0`, which performs no scheduled reads. This can
+exercise a saved session during idle time; whether Google naturally maintains
+that session is unverified. It does not extend a cookie, authenticate a private
+marker, refresh login, prevent a human identity challenge, or complete R10's
+unattended-renewal acceptance.
+
+The scheduler admits the existing `accounts/health` job only when its currently
+enabled, verified profile is due and has no created/running queue work. Disabled,
+unverified and removed registrations are skipped, including the reserved disabled
+account. There is at most one outstanding maintenance job across the daemon.
+The first due time is registration time plus the configured interval; an older
+idle registration can be due immediately when scheduling is first enabled.
+SQLite admission and a small registration-scoped scheduler record survive
+restart. A profile/email/project mapping change resets the scheduler record,
+including a change followed by a reversion; stale queued reads cannot regain
+permission from matching old field values.
+
+The existing serial worker owns the bounded native read and browser teardown.
+There is no resident browser or generation/solver/login/cookie-transfer operation.
+A CLI or MCP operation holding the profile lease remains authoritative: the health
+probe reports UNKNOWN/profile_busy and backs off rather than opening a competing
+browser or killing its owner. A generation accepted after maintenance admission
+can wait behind that bounded health read.
+
+Successful maintenance schedules the next check one interval after completion.
+UNKNOWN observations wait twice the interval, and LOGIN_REQUIRED observations
+wait four times the interval. Backoff is capped at 24 hours without shortening
+an operator interval already longer than 24 hours. Complete any human verification
+in the original hosted profile before using the on-demand health route to confirm
+access. Failure never changes account enabled/verified attestation.
+
+`GET /accounts` and `GET /accounts/{handle}` expose a separate
+`idleSessionMaintenance` object: `enabled`, `intervalSeconds`,
+`mode: "periodic-project-access"`, `refreshAttempted: false`, `state`,
+`nextDueAt`, `lastJobId` and `lastObservation`. `nextDueAt` is a Unix timestamp
+in seconds, or null while disabled/pending. State is disabled, due, waiting,
+queue_busy or pending. A global outstanding read can defer a due idle profile;
+that profile remains due until admitted. `lastObservation` is the existing fixed
+public health projection, or null before a completed check; raw principal,
+cookies, URLs and errors are omitted. Registration `health` keeps its existing
+attestation meaning. Poll `lastJobId` through the normal job route for its result.
+
+The queue now uses schema5. An older schema4 binary rejects this database; the
+immediate rollback is interval `0` on the current binary, preserving the queue.
+
+To stop scheduling, set the interval to `0` and restart. Before workers start,
+only scheduler-origin checks still in the created state are canceled. Manual
+health requests, active reads and generation jobs are preserved; a canceled
+maintenance job reports no new health observation. Restart recovery keeps the
+existing interrupted-health UNKNOWN behavior and never replays that read.
+Disabling a registration through the existing account route also cancels its
+queued maintenance. If an active/manual/generation job still occupies the
+profile, the existing busy refusal remains; wait for it to finish before disabling.
+No browser profile is deleted or signed out.
+
+Offline tests cover admission races, one global outstanding job, restart,
+configuration/account disable, manual-work preservation, registration reversion,
+backoff, pre-subprocess guards, private status projection and daemon cancellation.
+An actual scheduled native read is pending parent-coordinated testing; these
+checks do not establish idle-time or renewal-boundary survival.
 
 ## Verification
 

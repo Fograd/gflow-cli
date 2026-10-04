@@ -732,3 +732,64 @@ Corrected fresh ten-reference BDD follow-up passed: captured1, source dispatch-a
 ### Composer/upload delivery gate — 4 October
 
 Clean-shell whole gate passed7724tests,5skipped,21warnings in234.65seconds with89.60%coverage. Repository hygiene, documentation links, published PII/mirror/navigation, council memory, Ruff, format and strict Pyright all passed. Independent review GO89focused tests; final character-double/environment-focused100tests passed. Separate actual Patchright ten-reference rendering and isolated pro3 upload/delete retry proof passed. Source baseline890a6591; publication/deployment is the next checkpoint and subsequent capability work remains separate.
+
+
+### Original-library image lookup — 4 October
+
+A registered MCP canonical image/character test returned a reference lookup
+timeout before rendering. The original image was owned and active, but outside
+the first twelve grid windows in a 565-image project. This was a bounded-scan
+defect, not a CAPTCHA failure. The grid keeps its exact UUID/token checks,
+single enclosing deadline, no-progress exit and position restoration; its scan
+now allows at most 128 steps within 40 seconds.
+
+Two boundary regressions failed before the change and passed afterward.
+The opt-in older-owned-image browser BDD failed on the old limit and passed on
+the correction in 20.15 seconds, with zero generation requests, uploads or
+solver tasks. Registered MCP rendered grounding still needs a fresh, separately
+reserved invocation after deployment; the failed invocation is not replayed.
+
+The same older image was also outside the filtered picker's initial fifteen
+mounted options. A bounded current-picker scan found its exact thumbnail token,
+selected that item, verified its active token and used the unique enabled
+confirmation button. The existing first-window keyboard path remains unchanged.
+A real virtualized-DOM regression failed before this fallback and passed after
+it; duplicate-token and missing-confirm cases refuse. Independent review passed
+26 focused tests. The fresh-owned older-image browser attachment BDD then passed
+in 43.63 seconds with zero generation requests and composer cleanup.
+
+### R07 current image target observations — 4 October
+
+The new read-only capability API is documented in
+[IMAGE_UPSCALE_CAPABILITIES.md](IMAGE_UPSCALE_CAPABILITIES.md), with SDK, CLI,
+MCP and REST mirrors. It reports available, disabled or unknown for each target;
+a missed menu is unknown, never proof of an account restriction.
+
+One current generated image on the isolated second profile freshly reported
+2K available and 4K disabled in 12.66 seconds. The older image on the third
+profile returned unknown through both SDK and CLI because a resolution menu
+was not observed. These are per-image observations, not inferred subscription
+entitlements. All three reads used zero target clicks, token mints or generation
+requests. Native 2K accepted output already has its separate decoded proof.
+
+### R10 bounded idle access scheduling — 4 October
+
+Optional periodic project access now uses the existing account health worker.
+Only enabled verified accounts with an idle queue can be scheduled, with one
+maintenance job outstanding across the daemon. Registration-scoped history,
+restart handling and backoff persist; disabling maintenance cancels only queued
+scheduler jobs. The disabled UseAPI-only profile remains excluded. See
+[SESSION_HEALTH.md](SESSION_HEALTH.md) for configuration and the schema-5
+rollback boundary. Independent review and 178 focused tests passed.
+
+This is normal periodic browser access, not a separate authentication-renewal
+implementation. Actual scheduled access and long idle/renewal-boundary survival
+must be recorded independently after deployment.
+
+Final isolated-environment gate for this source batch:7,813passed,5skipped,
+27warnings,89.64%coverage in222.88seconds. Hygiene, documentation links,
+published-doc PII/mirror checks, council-memory references, whole-tree Ruff,
+format and strict Pyright passed. Old test doubles were updated to model the
+nonvirtual picker, the virtual DOM fixture now waits for actual render position,
+and generic video provider validation covers all supported counts1–4 plus
+invalid5. No production generation followed a failing gate.

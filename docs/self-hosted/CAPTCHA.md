@@ -119,7 +119,7 @@ Native image2K/4K upscale supports supplied/provider tokens and explicit HTTP
 captchaRetry1–10. Each positively confirmed refusal retry opens a fresh client,
 proves owned image/project, and binds the selected enum (2K=1,4K=2). Supplied
 tokens force one attempt. For4K, the current enabled detail-menu option is proved
-before paid mint and checked again before dispatch; Pro-disabled or missing
+before paid mint and checked again before dispatch; Disabled or missing
 options refuse without a solver task. Accepted/unknown/mixed outcomes and late
 download/save failures never replay. No entitled4K or solver-backed accepted
 output is claimed from source tests.

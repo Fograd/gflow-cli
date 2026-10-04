@@ -20,6 +20,7 @@ Use TLS or an SSH tunnel across untrusted networks.
 | `GFLOW_SELFHOST_PORT` | Listen port; default `8844` |
 | `GFLOW_SELFHOST_CALLBACK_HOSTS` | Comma-separated exact HTTPS hostnames; empty disables callbacks |
 | `GFLOW_SELFHOST_SYNC_WAIT_SECONDS` | Default 600; range 0–900; per-route ceiling 600 seconds (concatenation 180); zero returns HTTP 408 immediately while processing continues |
+| `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS` | Default 0 (disabled); finite seconds >=1800 when enabled; queues bounded idle project-access health reads. This is not authentication renewal. |
 | `GFLOW_SELFHOST_ALLOW_VIDEO` | Set `1` to enable generation that spends video credits; default disabled |
 
 Keep existing `GFLOW_CLI_HOME`, `GFLOW_CLI_HEADLESS=false`, and `DISPLAY` settings
@@ -40,7 +41,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 
 | Route | Behaviour and limits |
 | --- | --- |
-| `GET /accounts`, `/accounts/{handle}` | Read registered profiles and operator-attested or native-cookie-verified health |
+| `GET /accounts`, `/accounts/{handle}` | Read registered profiles, attested health and separate safe `idleSessionMaintenance` schedule/observation metadata |
 | `POST /accounts`, `DELETE /accounts/{handle}` | Register an existing operator-attested profile or import a bounded private cookie table into a staged new/refresh profile after actual identity and project-access checks; deletion removes registration only |
 | `POST /accounts/{handle}/health` | On-demand native project-access check through the serial queue; supports async and callbacks; preserves the saved profile and does not refresh login. See [session health](SESSION_HEALTH.md). |
 | `POST /images` | Text or registered image references; three Nano Banana model aliases, five image aspects, count 1–4 |
@@ -958,3 +959,8 @@ See [observed account resources](ACCOUNT_RESOURCES.md) for SDK/CLI/direct MCP/HT
 Text-only multipart requests now share the JSON mutation handlers. See [form requests](FORM_REQUESTS.md) for exact field conversion, duplicate/file refusal and private token lifecycle. Native binary asset uploads retain their separate contract.
 
 Generic count2–4 videos use one native request and retain every actual output; provider controls support the same range. See [batch results](VIDEO_BATCH.md), [text forms](FORM_REQUESTS.md) and [local quota routing](ACCOUNT_SCHEDULER.md).
+
+
+## Fresh per-image upscale capabilities
+
+GET /v1/google-flow/images/upscale/capabilities reads exact owned-image2K/4K detail-menu availability synchronously. Use email/projectId/mediaGenerationId; states are available/disabled/unknown with nullable availability and no inferred subscription entitlement. No generation job is created. See [capability reads](IMAGE_UPSCALE_CAPABILITIES.md).

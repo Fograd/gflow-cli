@@ -44,6 +44,10 @@ class _Loc:
     def first(self) -> _Loc:
         return self
 
+    async def count(self) -> int:
+        assert self.kind == "absent-virtual-picker"
+        return 0
+
     async def click(self, **_: Any) -> None:
         if self.kind == "composer":
             self.page.composer_clicks += 1
@@ -114,6 +118,12 @@ class FakePage:
     def locator(self, css: str) -> _Loc:
         if css == "[contenteditable='true']":
             return _Loc(self, "composer")
+        if css == (
+            "flow-add-menu-popover-content:visible cdk-virtual-scroll-viewport.asset-list-viewport"
+        ):
+            # This fixture models the nonvirtual picker cohort. Deep-window
+            # selection is exercised separately in the real virtualized DOM.
+            return _Loc(self, "absent-virtual-picker")
         raise AssertionError(f"unmodelled selector: {css!r}")
 
     async def wait_for_timeout(self, _ms: float) -> None:

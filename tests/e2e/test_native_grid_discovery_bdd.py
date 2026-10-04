@@ -32,6 +32,14 @@ def configured(monkeypatch):
     return values
 
 
+@given("an explicitly selected older owned image in a large project")
+def deep_reference(case):
+    target = os.getenv("GFLOW_CLI_E2E_GRID_DEEP_MEDIA", "")
+    if not target:
+        pytest.skip("Explicit older owned image identity required")
+    case["deep_target"] = target
+
+
 @when("a fresh owned unmounted image is discovered in the current project")
 def discover(case):
     async def perform():
@@ -74,6 +82,7 @@ def discover(case):
                         for row in owned
                         if row["kind"] == "image"
                         and row["media_id"] not in mounted
+                        and (not case.get("deep_target") or row["media_id"] == case["deep_target"])
                         and row["workflow_id"] in active
                         and type(row.get("width")) is int
                         and row["width"] > 0
@@ -82,11 +91,20 @@ def discover(case):
                     ),
                     None,
                 )
+                if target is None and case.get("deep_target"):
+                    pytest.fail("Selected older image must be fresh, active, owned and unmounted")
                 if target is None:
                     pytest.skip("Current project has no owned image outside its mounted window")
                 position = page.locator(".page-container.cdk-virtual-scrollable")
                 assert await position.count() == 1
                 before = await position.evaluate("e=>e.scrollTop")
+                if case.get("deep_target"):
+                    bounds = await position.evaluate(
+                        "e=>({height:e.clientHeight,total:e.scrollHeight})"
+                    )
+                    assert bounds["total"] > bounds["height"] * 12 * 0.8
+                    assert target == case["deep_target"]
+
                 tokens = await composer.await_existing_references(page, (ImageRef(target),))
                 case["resolved"] = bool(tokens.get(target))
                 case["restored"] = abs(await position.evaluate("e=>e.scrollTop") - before) < 1
@@ -189,3 +207,58 @@ def attached_without_generation(case):
     assert case["attached"] is True
     assert case["media_chip"] is True
     assert case["generation_requests"] == 0
+
+
+@when("the selected older owned image is hydrated and attached")
+def attach_older(case):
+    from gflow_cli.api.image import GenerateImageRequest
+    from gflow_cli.api.native_image_references import validate_native_image_references
+
+    async def perform():
+        async with FlowApiClient(
+            profile_dir=get_settings().profile_subdir(case["PROFILE"]), headless=False
+        ) as client:
+            page = await client._checkout_page()
+            composer = MigratedComposer()
+            editor_ready = False
+            try:
+
+                async def guard(route):
+                    request = route.request
+                    if any(
+                        rpc in request.url or rpc in (request.post_data or "")
+                        for rpc in ("ogiZ0b", "MZZa6b", "fZytfe", "jIps6", "no0P6", "SPrCad")
+                    ):
+                        case["generation_requests"] += 1
+                        await route.abort()
+                    else:
+                        await route.continue_()
+
+                await page.route("**/batchexecute*", guard)
+                client._checkin_page(page)
+                page = None
+                request = await validate_native_image_references(
+                    client,
+                    case["RESOURCES_PROJECT"],
+                    GenerateImageRequest(
+                        prompt="No-submit older image probe", refs=(ImageRef(case["deep_target"]),)
+                    ),
+                )
+                assert request.refs[0].in_project
+                page = await client._checkout_page()
+                await composer.ensure_editor(page, case["RESOURCES_PROJECT"])
+                await composer.clear_composer(page)
+                editor_ready = True
+                ids = await composer.reference_existing(page, case["RESOURCES_PROJECT"], request)
+                case["attached"] = ids == (case["deep_target"],)
+                chips = await composer.read_chips(page)
+                case["media_chip"] = len(chips) == 1 and chips[0].get("reference_type") == "media"
+            finally:
+                if page is not None:
+                    try:
+                        if editor_ready:
+                            await composer.clear_composer(page)
+                    finally:
+                        client._checkin_page(page)
+
+    asyncio.run(asyncio.wait_for(perform(), 120))

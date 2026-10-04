@@ -32,6 +32,7 @@ from gflow_cli.errors import (
     ConfigurationError,
     ContentPolicyError,
     NativeMediaMutationUnknownError,
+    TransportTimeoutError,
     VoiceMutationUnknownError,
     WafRejectionError,
     WireFormatError,
@@ -199,6 +200,13 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                 "path": str(downloaded_asset.path),
                 "mimeType": downloaded_asset.mime_type,
                 "bytes": downloaded_asset.bytes,
+            }
+        if verb == "image-upscale-capabilities":
+            return {
+                "status": "ok",
+                **await client.get_image_upscale_capabilities(
+                    project_id=project_id, media_id=str(payload["media_id"])
+                ),
             }
         if verb == "image-reference-models":
             return {
@@ -384,13 +392,30 @@ def main() -> None:
             "detail": "Affirm upload ownership with X-Flow-Rights-Confirmed: true or confirm "
             "once in the logged-in browser; no video ingestion was submitted",
         }
-    except (WireFormatError, ConfigurationError, ValueError, TimeoutError):
-        if sys.argv[1] not in {"asset-get", "asset-download", "asset-cache-image"}:
+    except (
+        WireFormatError,
+        ConfigurationError,
+        ValueError,
+        TimeoutError,
+        TransportTimeoutError,
+    ) as exc:
+        if isinstance(exc, TransportTimeoutError) and sys.argv[1] != "image-upscale-capabilities":
             raise
-        exit_code = 7
+        if sys.argv[1] not in {
+            "asset-get",
+            "asset-download",
+            "asset-cache-image",
+            "image-upscale-capabilities",
+        }:
+            raise
+        exit_code = 9 if isinstance(exc, TransportTimeoutError) else 7
         result = {
             "status": "error",
-            "code": "native_asset_read_failed",
+            "code": (
+                "image_upscale_capability_read_failed"
+                if sys.argv[1] == "image-upscale-capabilities"
+                else "native_asset_read_failed"
+            ),
             "detail": "Native asset read unavailable in the selected project",
         }
     sys.stdout.write(json.dumps(result) + "\n")

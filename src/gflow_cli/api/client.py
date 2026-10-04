@@ -3606,6 +3606,14 @@ class FlowApiClient:
 
         return await list_native_image_reference_models(self, project_id)
 
+    async def get_image_upscale_capabilities(
+        self, *, project_id: str, media_id: str
+    ) -> dict[str, Any]:
+        """Read fresh per-owned-image 2K/4K menu availability; no generation or tier inference."""
+        from gflow_cli.api.transports.migrated_upscale import read_image_upscale_capabilities
+
+        return await read_image_upscale_capabilities(self, project_id=project_id, media_id=media_id)
+
     async def list_native_promotion_models(
         self, project_id: str, *, resolution: str = "1080p"
     ) -> list[dict[str, Any]]:

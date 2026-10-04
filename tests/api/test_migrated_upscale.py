@@ -159,7 +159,7 @@ async def test_migrated_upscale_4k_disabled_raises_unavailable() -> None:
 
     page.wait_for_selector = AsyncMock(side_effect=wait_for_selector)
 
-    with pytest.raises(UpscaleUnavailableError, match="4K upscale requires a Flow Ultra"):
+    with pytest.raises(UpscaleUnavailableError, match="4K upscale is disabled"):
         await upscale_image_migrated(
             page,
             project_id="263ce917-9e5a-4a07-8206-7e56a63bcdd4",

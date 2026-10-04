@@ -22,7 +22,7 @@ class Store:
         self.path = self.root / "jobs.sqlite3"
         with self.connection() as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, 1, 2, 3, 4):
+            if version not in (0, 1, 2, 3, 4, 5):
                 raise ValueError("Unsupported self-host queue schema")
             conn.executescript("""
                 PRAGMA journal_mode=WAL;
@@ -50,6 +50,8 @@ class Store:
                     first_seen REAL NOT NULL, until REAL NOT NULL, last_job TEXT NOT NULL,
                     policy TEXT NOT NULL,
                     PRIMARY KEY(account,registration,operation,model,reason));
+                CREATE TABLE IF NOT EXISTS idle_session_maintenance (
+                    profile TEXT PRIMARY KEY, scope TEXT NOT NULL, last_job TEXT NOT NULL);
                 PRAGMA user_version=2;
             """)
             columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
@@ -61,7 +63,7 @@ class Store:
                     "DEFAULT 'operator-attested'"
                 )
             conn.execute("UPDATE accounts SET created=? WHERE created=0", (time.time(),))
-            conn.execute("PRAGMA user_version=4")
+            conn.execute("PRAGMA user_version=5")
         self.path.chmod(0o600)
         self._upgrade_pending_callbacks()
 
@@ -172,6 +174,165 @@ class Store:
             )
             self._callback(conn, job, "created", payload)
         return self.get(job)
+
+    def _idle_session_state(
+        self, conn: Any, profile: str, interval: float, now: float
+    ) -> dict[str, Any]:
+        from gflow_cli.selfhost.idle_session import maintenance_scope, maintenance_status
+
+        account = conn.execute("SELECT * FROM accounts WHERE profile=?", (profile,)).fetchone()
+        account = dict(account) if account else None
+        last_job = None
+        if account:
+            row = conn.execute(
+                "SELECT jobs.* FROM idle_session_maintenance scheduler "
+                "JOIN jobs ON jobs.id=scheduler.last_job "
+                "WHERE scheduler.profile=? AND scheduler.scope=?",
+                (profile, maintenance_scope(account)),
+            ).fetchone()
+            last_job = dict(row) if row else None
+        busy = (
+            conn.execute(
+                "SELECT 1 FROM jobs WHERE profile=? AND state IN ('created','running') LIMIT 1",
+                (profile,),
+            ).fetchone()
+            is not None
+        )
+        return maintenance_status(account, last_job, busy, interval, now)
+
+    def idle_session_status(self, profile: str, interval: float) -> dict[str, Any]:
+        from gflow_cli.selfhost.config import validate_idle_interval
+
+        validate_idle_interval(interval)
+        with self.connection() as conn:
+            return self._idle_session_state(conn, profile, interval, time.time())
+
+    def enqueue_idle_health(self, profile: str, interval: float) -> bool:
+        """Atomically admit one due read into an idle profile; bound daemon-wide work."""
+        from gflow_cli.selfhost.config import validate_idle_interval
+        from gflow_cli.selfhost.idle_session import maintenance_scope
+
+        validate_idle_interval(interval)
+        if not interval:
+            return False
+        now = time.time()
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if self._idle_session_state(conn, profile, interval, now)["state"] != "due":
+                return False
+            if conn.execute(
+                "SELECT 1 FROM jobs WHERE kind='accounts/health' "
+                "AND state IN ('created','running') "
+                "AND json_extract(payload,'$._idle_session_maintenance')=1 LIMIT 1"
+            ).fetchone():
+                return False
+            if (
+                conn.execute(
+                    "SELECT COUNT(*) FROM jobs WHERE state IN ('created','running')"
+                ).fetchone()[0]
+                >= 100
+            ):
+                return False
+            account = dict(
+                conn.execute("SELECT * FROM accounts WHERE profile=?", (profile,)).fetchone()
+            )
+            scope = maintenance_scope(account)
+            payload = {
+                "project": account["project"],
+                "projectId": account["project"],
+                "email": account["email"],
+                "_delivery_async": True,
+                "_idle_session_maintenance": True,
+                "_idle_session_scope": scope,
+            }
+            encoded = json.dumps(payload, sort_keys=True)
+            fingerprint = hashlib.sha256(
+                f"accounts/health:{profile}:{encoded}".encode()
+            ).hexdigest()
+            identifier = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    identifier,
+                    "accounts/health",
+                    profile,
+                    encoded,
+                    "created",
+                    now,
+                    now,
+                    None,
+                    None,
+                    fingerprint,
+                ),
+            )
+            conn.execute(
+                "INSERT INTO idle_session_maintenance VALUES(?,?,?) "
+                "ON CONFLICT(profile) DO UPDATE SET "
+                "scope=excluded.scope,last_job=excluded.last_job",
+                (profile, scope, identifier),
+            )
+        return True
+
+    def idle_health_current(
+        self, job: dict[str, Any], interval: float, profiles: dict[str, dict[str, str]]
+    ) -> bool:
+        from gflow_cli.selfhost.idle_session import maintenance_scope
+
+        if not interval or job["profile"] not in profiles:
+            return False
+        payload = json.loads(job["payload"])
+        with self.connection() as conn:
+            account = conn.execute(
+                "SELECT account.* FROM accounts account "
+                "JOIN idle_session_maintenance scheduler ON scheduler.profile=account.profile "
+                "WHERE account.profile=? AND account.enabled=1 AND account.verified=1 "
+                "AND scheduler.last_job=? AND scheduler.scope=?",
+                (job["profile"], job["id"], payload.get("_idle_session_scope")),
+            ).fetchone()
+        return bool(
+            account
+            and payload.get("_idle_session_maintenance") is True
+            and payload.get("_idle_session_scope") == maintenance_scope(dict(account))
+            and payload.get("project") == account["project"]
+            and profiles[job["profile"]]
+            == {"email": account["email"], "project": account["project"]}
+        )
+
+    def cancel_idle_health(self, interval: float, profiles: dict[str, dict[str, str]]) -> int:
+        """Cancel scheduler-origin queued reads only; active/manual jobs are untouched."""
+        from gflow_cli.selfhost.idle_session import maintenance_scope
+
+        cancelled = 0
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = conn.execute(
+                "SELECT * FROM jobs WHERE kind='accounts/health' AND state='created' "
+                "AND json_extract(payload,'$._idle_session_maintenance')=1"
+            ).fetchall()
+            for job in rows:
+                payload = json.loads(job["payload"])
+                account = conn.execute(
+                    "SELECT account.* FROM accounts account "
+                    "JOIN idle_session_maintenance scheduler ON scheduler.profile=account.profile "
+                    "WHERE account.profile=? AND account.enabled=1 AND account.verified=1 "
+                    "AND scheduler.last_job=? AND scheduler.scope=?",
+                    (job["profile"], job["id"], payload.get("_idle_session_scope")),
+                ).fetchone()
+                if (
+                    interval
+                    and account
+                    and payload.get("_idle_session_scope") == maintenance_scope(dict(account))
+                    and profiles.get(job["profile"])
+                    == {"email": account["email"], "project": account["project"]}
+                ):
+                    continue
+                conn.execute(
+                    "UPDATE jobs SET state='completed',updated=?,result=? "
+                    "WHERE id=? AND state='created'",
+                    (time.time(), json.dumps({"idleSessionMaintenanceCancelled": True}), job["id"]),
+                )
+                cancelled += 1
+        return cancelled
 
     def public(self, row: Any) -> dict[str, Any]:
         result = {
@@ -459,6 +620,11 @@ class Store:
                 raise ValueError(
                     "Historical account profile cannot be reused; register a fresh logical profile"
                 )
+            previous = conn.execute(
+                "SELECT email,project FROM accounts WHERE profile=?", (profile,)
+            ).fetchone()
+            if previous and (previous["email"] != email or previous["project"] != project):
+                conn.execute("DELETE FROM idle_session_maintenance WHERE profile=?", (profile,))
             conn.execute(
                 "INSERT INTO accounts(profile,email,project,enabled,verified,created) "
                 "VALUES(?,?,?,?,?,?) "

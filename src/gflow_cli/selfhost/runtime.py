@@ -205,6 +205,10 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
     profile = job["profile"]
     project = payload["project"]
     if job["kind"] == "accounts/health":
+        if payload.get("_idle_session_maintenance") is True and not store.idle_health_current(
+            job, cfg.idle_session_interval, cfg.accounts
+        ):
+            return {"projectId": project, "idleSessionMaintenanceCancelled": True}
         from gflow_cli.api._engine import CONTEXT_TEARDOWN_TIMEOUT_S, DRIVER_STOP_TIMEOUT_S
         from gflow_cli.selfhost.session_health import (
             HEALTH_TIMEOUT,

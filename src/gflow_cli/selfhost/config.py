@@ -42,8 +42,10 @@ class Settings:
     timeout: int = 900
     allow_video: bool = False
     sync_wait: float = 600
+    idle_session_interval: float = 0
 
     def __post_init__(self) -> None:
+        validate_idle_interval(self.idle_session_interval)
         if (
             type(self.sync_wait) not in (int, float)
             or not math.isfinite(self.sync_wait)
@@ -87,7 +89,15 @@ class Settings:
             ),
             allow_video=os.environ.get("GFLOW_SELFHOST_ALLOW_VIDEO") == "1",
             sync_wait=sync_wait,
+            idle_session_interval=float(
+                os.environ.get("GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS", "0")
+            ),
         )
+
+
+def validate_idle_interval(value: float) -> None:
+    if type(value) not in (int, float) or not math.isfinite(value) or (value != 0 and value < 1800):
+        raise ValueError("Idle session interval must be finite, zero or at least 1800 seconds")
 
 
 def validate_callback(url: Any, hosts: tuple[str, ...]) -> str:

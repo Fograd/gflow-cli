@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional self-hosted idle project-access maintenance: disabled by default, serialized bounded health reads with persisted scheduling, quiet backoff and separate safe status. It does not renew authentication.
+
 - Clear all migrated composer reference chips through normal editing events.
 - Select video rights dialogs by positive index in Patchright, preserving the exact three-button check and one-time agreement.
 - Preserve transport errors inside validated MP4 snapshots without losing acknowledged mutation handles.
@@ -97,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restored native image `--seed` for CLI t2i/i2i and retained the existing MCP seed through direct/queued execution. Returned Google seeds are checked; unsupported hosts and multi-prompt requests fail before submission. Corrected CLI handling was live-verified with one seed42 image and a valid1024×1024 download.
 
 ### Fixed
+- Discover older owned image references beyond the first twelve virtualized grid windows, with a bounded scan and restored scroll position.
 
 - Callback delivery closes streamed responses without buffering their bodies. Native human output preserves literal metadata, and fresh base installations include the image-validation runtime dependency.
 

@@ -296,8 +296,11 @@ _GRID_DISCOVERY_JS = r"""({action,key,ids}) => {
  }
  return {valid,tokens,can_scroll:!!container,moved};
 }"""
-_GRID_DISCOVERY_S = 20.0
-_GRID_DISCOVERY_STEPS = 12
+# A measured 565-image project spans ~63 screen heights. Twelve 0.8-height
+# steps covered only its newest assets. Scan farther while retaining one hard
+# time/step bound, exact identity checks, no-progress exit and scroll restoration.
+_GRID_DISCOVERY_S = 40.0
+_GRID_DISCOVERY_STEPS = 128
 
 #: The `/asb/<token>` of each picker option, in display order.
 _OPTION_TOKENS_JS = (
@@ -2597,6 +2600,7 @@ class MigratedComposer:
         await page.keyboard.type(query, delay=100)
         await page.wait_for_timeout(2500)
         tokens = [str(t) for t in await page.evaluate(_OPTION_TOKENS_JS, PICKER_OPTION)]
+        selected = False
         if tokens.count(token) == 1:
             # The option's position: >0 means another image shares the caption (#21).
             log.info("migrated.existing_reference_option", option_index=tokens.index(token))
@@ -2604,6 +2608,10 @@ class MigratedComposer:
                 await page.keyboard.press("ArrowDown")
                 await page.wait_for_timeout(ARROW_SETTLE_MS)
             await page.keyboard.press("Enter")
+            selected = True
+        elif tokens.count(token) == 0:
+            selected = await self._select_virtualized_image_token(page, token, expect_chips)
+        if selected:
             await page.wait_for_timeout(2500)
             chips = await self.read_chips(page)
             # A query can also match a character; only a media chip is this image.
@@ -2611,17 +2619,87 @@ class MigratedComposer:
                 if trailing_space:
                     await page.keyboard.type(" ", delay=80)
                 return
-        else:
-            log.info("migrated.mention_miss", offered=len(tokens), by="token")
-            # The picker is a dialog over the composer (measured, gate #39): close it.
-            await page.keyboard.press("Escape")
-            await page.wait_for_timeout(800)
+        log.info("migrated.mention_miss", offered=len(tokens), by="token")
+        # Close failed or ambiguous selection; never submit a plain-text reference.
+        await page.keyboard.press("Escape")
+        await page.wait_for_timeout(800)
         raise ReferenceNotFoundError(
             detail=(
                 f"migrated host: image {media_id} did not attach as a reference "
                 f"({len(tokens)} picker options; no unique matching owned image)"
             ),
         )
+
+    async def _select_virtualized_image_token(
+        self, page: Page, token: str, expect_chips: int
+    ) -> bool:
+        """Scan one current picker by exact token; click and verify its own confirm.
+
+        Older assets can be outside the filtered picker's mounted options. A mouse
+        selection loads the item's detail; its Add-to-prompt button then commits.
+        Keyboard indices from a scrolled virtual window are not global indices.
+        """
+        viewport = page.locator(f"{PICKER}:visible cdk-virtual-scroll-viewport.asset-list-viewport")
+        if await viewport.count() != 1:
+            return False
+        timeout = asyncio.timeout(_GRID_DISCOVERY_S)
+        try:
+            async with timeout:
+                await viewport.evaluate("e=>{e.scrollTop=0}")
+                await page.wait_for_timeout(250)
+                for _ in range(_GRID_DISCOVERY_STEPS):
+                    state = cast(
+                        dict[str, Any],
+                        await viewport.evaluate(
+                            r"""(e,token)=>{
+                            const options=[...e.querySelectorAll(
+                              'button.asset-item[role="option"]')];
+                            const found=options.flatMap((o,i)=>{
+                              const m=(o.querySelector('img')?.getAttribute('src')||'')
+                                .match(/\/asb\/([A-Za-z0-9_-]+)/);
+                              return m?.[1]===token?[i]:[];
+                            });
+                            const before=e.scrollTop;
+                            if(found.length===0)e.scrollTop=Math.min(
+                              before+e.clientHeight*.8,e.scrollHeight-e.clientHeight);
+                            return {found,moved:e.scrollTop!==before};
+                            }""",
+                            token,
+                        ),
+                    )
+                    found = state["found"]
+                    if len(found) > 1:
+                        return False
+                    if len(found) == 1:
+                        option = viewport.locator(PICKER_OPTION).nth(found[0])
+                        exact = r"""(e,token)=>
+                          (e.querySelector('img')?.getAttribute('src')||'')
+                            .match(/\/asb\/([A-Za-z0-9_-]+)/)?.[1]===token"""
+                        if not await option.evaluate(exact, token):
+                            return False
+                        await option.click(timeout=4000)
+                        await page.wait_for_timeout(1000)
+                        if len(await self.read_chips(page)) == expect_chips:
+                            return True
+                        active = viewport.locator(f"{PICKER_OPTION}.asset-item-active")
+                        if await active.count() != 1 or not await active.evaluate(exact, token):
+                            return False
+                        confirm = page.locator(f"{PICKER}:visible {PICKER_CONFIRM}")
+                        if (
+                            await confirm.count() != 1
+                            or not await confirm.is_visible()
+                            or not await confirm.is_enabled()
+                        ):
+                            return False
+                        await confirm.click(timeout=4000)
+                        return True
+                    if not state["moved"]:
+                        return False
+                    await page.wait_for_timeout(250)
+        except TimeoutError:
+            if not timeout.expired():
+                raise
+        return False
 
     async def attach_references(
         self, page: Page, project_id: str, paths: tuple[Path, ...]

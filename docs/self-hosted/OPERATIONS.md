@@ -75,6 +75,7 @@ GFLOW_SELFHOST_ROOT=/home/USER/.local/share/gflow-host/selfhost
 GFLOW_SELFHOST_ACCOUNTS='{}'
 GFLOW_SELFHOST_ALLOW_VIDEO=0
 GFLOW_SELFHOST_CALLBACK_HOSTS=
+GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS=0
 ```
 
 Generate a long random bearer token and save it as `GFLOW_DAEMON_TOKEN` in the secrets file. Do not paste it into a URL or commit it. Set environment files to mode600 and their directories to700. Keep profiles, uploads, queue and backups private.
@@ -161,6 +162,8 @@ Callbacks use an exact public HTTPS hostname allowlist, pinned DNS, no redirects
 ## Preserving the saved login
 
 Keep the full original browser profile on persistent LXC storage, under the same service user and configured profile path. Normal code updates preserve it. All CLI, MCP and REST access must use the profile lease; never open a second Chrome process against that directory or kill a browser to bypass contention. Do not clear the profile, replace it with a cookie-only export, or switch its browser engine as a routine response to an access failure.
+
+Optional idle project-access maintenance defaults to disabled. Set `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS` to finite seconds >=1800 and restart to queue idle-only serial health reads, at most one outstanding across the daemon. Set it back to0 and restart to cancel only queued maintenance; existing manual/active jobs and saved profiles remain intact. Read the [schedule/status contract](SESSION_HEALTH.md#optional-idle-project-access-maintenance). This is periodic access, not authentication renewal.
 
 The on-demand account health action verifies native project access through the serialized worker. An OK result proves access at its recorded time; it does not renew login or promise future access. A profile-busy, timeout or unknown result is not evidence of logout. See [the session health contract](SESSION_HEALTH.md) and [the measured restoration ledger](VERIFICATION.md).
 

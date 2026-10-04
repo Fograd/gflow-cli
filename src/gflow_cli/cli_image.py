@@ -611,6 +611,34 @@ async def _run_upload(
 
 
 # ---------------------------------------------------------------------------
+# Read-only per-owned-image discovery
+@image.command("upscale-capabilities")
+@click.argument("media_id")
+@click.option("--project", required=True, help="Exact native owning project UUID.")
+@click.option("--profile", default=None, help="Saved owning account profile.")
+@click.option("--json", "as_json", is_flag=True, help="Emit URL-free observation JSON.")
+def upscale_capabilities(media_id: str, project: str, profile: str | None, as_json: bool) -> None:
+    """Read fresh 2K/4K menu availability for this owned image; no generation."""
+    if not is_media_uuid(project) or not is_media_uuid(media_id):
+        raise click.UsageError("Project and media identifiers must be UUIDs")
+    resolved = _resolve_profile(profile)
+
+    async def act() -> None:
+        settings = get_settings()
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            result = await client.get_image_upscale_capabilities(
+                project_id=project, media_id=media_id
+            )
+        if as_json:
+            json_output.emit({"status": "ok", **result})
+        else:
+            Console().print(result)
+
+    run_with_handlers(act, cli_command="image upscale-capabilities", as_json=as_json)
+
+
 # upscale subcommand
 # ---------------------------------------------------------------------------
 

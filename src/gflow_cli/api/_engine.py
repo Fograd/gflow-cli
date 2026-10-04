@@ -207,6 +207,17 @@ def mint_evaluate_kwargs(engine: BrowserEngine | str | None = None) -> dict[str,
     return page_owned_evaluate_kwargs(engine)
 
 
+def engine_timeout_errors(engine: BrowserEngine | str | None = None) -> tuple[type[Exception], ...]:
+    """Selector timeout classes for the configured engine, plus Playwright compatibility."""
+    from playwright.async_api import TimeoutError as PwTimeout
+
+    errors: list[type[Exception]] = [PwTimeout]
+    if (engine if engine is not None else active_engine()) == BrowserEngine.PATCHRIGHT:
+        mod = importlib.import_module("patchright.async_api")
+        errors.append(cast("type[Exception]", mod.TimeoutError))
+    return tuple(errors)
+
+
 def retryable_engine_errors() -> tuple[type[BaseException], ...]:
     """Transport-level error classes to retry, unioned across installed engines.
 

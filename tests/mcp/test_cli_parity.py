@@ -78,6 +78,7 @@ CLI_TO_MCP: dict[str, str] = {
     # download is stranded exactly as a CLI user is, so this one is NOT exempt (#865).
     "data download": "gflow_download_media",
     "image upscale": "gflow_upscale_image",
+    "image upscale-capabilities": "gflow_get_image_upscale_capabilities",
     "video upscale": "gflow_upscale_video",
     "project sync": "gflow_sync_native_inventory",
     "project resources": "gflow_list_account_resources",

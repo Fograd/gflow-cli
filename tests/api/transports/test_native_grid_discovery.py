@@ -10,11 +10,12 @@ ID = "00000000-0000-4000-8000-000000000001"
 
 
 class Grid:
-    def __init__(self, *, found_after=1, invalid=False, restore_error=False):
+    def __init__(self, *, found_after=1, invalid=False, restore_error=False, last_step=12):
         self.found_after = found_after
         self.invalid = invalid
         self.restore_error = restore_error
         self.moves = 0
+        self.last_step = last_step
         self.restored = False
         self.wait_for_timeout = AsyncMock()
 
@@ -33,7 +34,7 @@ class Grid:
             "tokens": {ID: "exact-token"} if self.moves >= self.found_after else {},
             "valid": not self.invalid,
             "can_scroll": True,
-            "moved": self.moves < 12,
+            "moved": self.moves < self.last_step,
         }
 
 
@@ -146,4 +147,22 @@ async def test_immediate_scroll_no_progress_stops_after_one_step():
     with pytest.raises(ReferenceNotFoundError):
         await MigratedComposer().await_existing_references(page, (ImageRef(ID),))
     assert page.moves == 1
+    assert page.restored
+
+
+@pytest.mark.asyncio
+async def test_older_image_beyond_twelve_windows_is_discovered_and_restored():
+    page = Grid(found_after=64, last_step=128)
+    result = await MigratedComposer().await_existing_references(page, (ImageRef(ID),))
+    assert result == {ID: "exact-token"}
+    assert page.moves == 64
+    assert page.restored
+
+
+@pytest.mark.asyncio
+async def test_large_grid_still_has_a_finite_scan_cap_and_restores():
+    page = Grid(found_after=999, last_step=999)
+    with pytest.raises(ReferenceNotFoundError):
+        await MigratedComposer().await_existing_references(page, (ImageRef(ID),))
+    assert page.moves == 128
     assert page.restored

@@ -10,13 +10,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import re
 from contextvars import copy_context
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs
 
 import structlog
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from gflow_cli.api._engine import engine_timeout_errors
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.native_captcha import native_captcha_active, native_captcha_outcome
 from gflow_cli.api.recaptcha import TokenMinter
@@ -38,6 +39,7 @@ from gflow_cli.api.transports.migrated_upscale_overrides import (
 )
 from gflow_cli.api.transports.native_asset_lookup import lookup_asset
 from gflow_cli.errors import (
+    ConfigurationError,
     NativeQuotaError,
     TransportTimeoutError,
     UiSelectorDriftError,
@@ -101,20 +103,22 @@ def matches_upscale_request(
         return False
 
 
-async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> ElementHandle:
+async def _open_upscale_menu(page: Page, *, download_button: ElementHandle | None = None) -> None:
     """Read the current exact detail-menu availability; never dispatch or mint."""
     # Click the download button in the image detail viewer (exact icon match)
-    try:
-        download_btn = await page.wait_for_selector(
-            'button:has(mat-icon:text-is("download")), '
-            'button:has(.google-symbols:text-is("download"))',
-            timeout=15_000,
-        )
-    except PlaywrightTimeoutError as exc:
-        raise WireFormatError(
-            detail="Download button not found in image detail view",
-            route="image_upscale",
-        ) from exc
+    download_btn = download_button
+    if download_btn is None:
+        try:
+            download_btn = await page.wait_for_selector(
+                'button:has(mat-icon:text-is("download")), '
+                'button:has(.google-symbols:text-is("download"))',
+                timeout=15_000,
+            )
+        except engine_timeout_errors() as exc:
+            raise WireFormatError(
+                detail="Download button not found in image detail view",
+                route="image_upscale",
+            ) from exc
     if not download_btn:
         raise WireFormatError(
             detail="Download button not found in image detail view",
@@ -123,6 +127,10 @@ async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> Elem
     await download_btn.click()
     await page.wait_for_timeout(500)
 
+
+async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> ElementHandle:
+    """Strict paid-operation guard; menu opening is shared with discovery."""
+    await _open_upscale_menu(page)
     # Check 2K and 4K menu items availability
     scale_label = "4K" if target_resolution is TargetResolution.RES_4K else "2K"
     btn_target = None
@@ -130,7 +138,7 @@ async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> Elem
         btn_target = await page.wait_for_selector(
             f'[role="menuitem"]:has-text("{scale_label}")', timeout=5000
         )
-    except PlaywrightTimeoutError as exc:
+    except engine_timeout_errors() as exc:
         raise UiSelectorDriftError(
             detail=f"migrated upscale: menu item for {scale_label} was not found in the menu",
             route="image_upscale",
@@ -142,26 +150,220 @@ async def _upscale_menu(page: Page, target_resolution: TargetResolution) -> Elem
             route="image_upscale",
         )
 
-    is_disabled = await btn_target.is_disabled() or (
-        await btn_target.get_attribute("aria-disabled") == "true"
-    )
+    is_disabled = await _upscale_item_disabled(btn_target)
     if is_disabled:
-        if target_resolution is TargetResolution.RES_4K:
-            raise UpscaleUnavailableError(
-                detail=(
-                    "4K upscale requires a Flow Ultra subscription. "
-                    "Your account supports up to 2K (use --scale 2k)."
-                ),
-                route="upsampleImage",
-                status=403,
-            )
         raise UpscaleUnavailableError(
-            detail=f"{scale_label} upscale is not available on this account.",
+            detail=f"{scale_label} upscale is disabled in this image's current download menu.",
             route="upsampleImage",
             status=403,
         )
 
     return btn_target
+
+
+_CAPABILITY_SCOPE = "fresh owned image detail-menu observation"
+_DOWNLOAD_SELECTOR = (
+    'button:has(mat-icon:text-is("download")), button:has(.google-symbols:text-is("download"))'
+)
+_CAPABILITY_REASONS = {
+    "enabled_menu_item",
+    "disabled_menu_item",
+    "resolution_unobserved",
+    "resolution_ambiguous",
+    "menu_unobserved",
+    "menu_ambiguous",
+    "menu_context_unverified",
+    "download_trigger_unobserved",
+    "download_trigger_ambiguous",
+    "detail_context_unverified",
+    "observation_timeout",
+}
+
+
+def _capability(resolution: str, state: str, reason: str) -> dict[str, Any]:
+    return {
+        "resolution": resolution,
+        "status": state,
+        "available": True if state == "available" else False if state == "disabled" else None,
+        "reason": reason,
+    }
+
+
+def _unknown_capabilities(reason: str) -> list[dict[str, Any]]:
+    return [_capability(resolution, "unknown", reason) for resolution in ("2k", "4k")]
+
+
+def validate_upscale_capabilities(value: Any, *, project: str, media: str) -> dict[str, Any]:
+    """Allow only the correlated, URL-free observation envelope from a read worker."""
+    if not isinstance(value, dict):
+        raise ValueError("Image capability scope is unavailable")
+    payload = cast("dict[str, Any]", value)
+    if (
+        payload.get("project_id") != project
+        or payload.get("media_id") != media
+        or payload.get("scope") != _CAPABILITY_SCOPE
+    ):
+        raise ValueError("Image capability scope is unavailable")
+    raw_rows = payload.get("capabilities")
+    if not isinstance(raw_rows, list):
+        raise ValueError("Image capability resolutions are unavailable")
+    rows = cast("list[Any]", raw_rows)
+    if len(rows) != 2:
+        raise ValueError("Image capability resolutions are unavailable")
+    for resolution, raw in zip(("2k", "4k"), rows, strict=True):
+        if not isinstance(raw, dict):
+            raise ValueError("Image capability observation is invalid")
+        row = cast("dict[str, Any]", raw)
+        if (
+            set(row) != {"resolution", "status", "available", "reason"}
+            or row["resolution"] != resolution
+            or not isinstance(row["status"], str)
+            or row["status"] not in {"available", "disabled", "unknown"}
+            or not isinstance(row["reason"], str)
+            or row["reason"] not in _CAPABILITY_REASONS
+        ):
+            raise ValueError("Image capability observation is invalid")
+        expected = (
+            True if row["status"] == "available" else False if row["status"] == "disabled" else None
+        )
+        if row["available"] is not expected:
+            raise ValueError("Image capability availability is inconsistent")
+        if (
+            row["status"] != "unknown"
+            and row["reason"]
+            != {"available": "enabled_menu_item", "disabled": "disabled_menu_item"}[row["status"]]
+        ):
+            raise ValueError("Image capability reason is inconsistent")
+        if row["status"] == "unknown" and row["reason"] in {
+            "enabled_menu_item",
+            "disabled_menu_item",
+        }:
+            raise ValueError("Unknown image capability must retain uncertainty")
+    return {
+        "project_id": project,
+        "media_id": media,
+        "capabilities": rows,
+        "scope": _CAPABILITY_SCOPE,
+    }
+
+
+async def _upscale_item_disabled(item: Any) -> bool:
+    return await item.is_disabled() or await item.get_attribute("aria-disabled") == "true"
+
+
+async def inspect_upscale_menu(page: Page) -> list[dict[str, Any]]:
+    """Open one unique download menu; never select a resolution or mint a token."""
+    try:
+        await page.wait_for_selector(_DOWNLOAD_SELECTOR, state="visible", timeout=5000)
+        triggers = [
+            item
+            for item in await page.query_selector_all(_DOWNLOAD_SELECTOR)
+            if await item.is_visible()
+        ]
+        if len(triggers) != 1:
+            return _unknown_capabilities(
+                "download_trigger_unobserved" if not triggers else "download_trigger_ambiguous"
+            )
+        if any(
+            [await menu.is_visible() for menu in await page.query_selector_all('[role="menu"]')]
+        ):
+            return _unknown_capabilities("menu_context_unverified")
+        await _open_upscale_menu(page, download_button=triggers[0])
+        await page.wait_for_selector('[role="menu"]', state="visible", timeout=5000)
+        menus = [
+            item
+            for item in await page.query_selector_all('[role="menu"]')
+            if await item.is_visible()
+        ]
+        if len(menus) != 1:
+            return _unknown_capabilities("menu_unobserved" if not menus else "menu_ambiguous")
+        items: dict[str, list[Any]] = {"2k": [], "4k": []}
+        for item in await menus[0].query_selector_all('[role="menuitem"]'):
+            if not await item.is_visible():
+                continue
+            labels = re.findall(
+                r"(?<![A-Za-z0-9])([24])\s*K(?![A-Za-z0-9])", await item.inner_text(), re.IGNORECASE
+            )
+            if len(labels) == 1:
+                items[labels[0] + "k"].append(item)
+            elif labels:
+                for label in set(labels):
+                    items[label + "k"].extend((item, item))
+        result: list[dict[str, Any]] = []
+        for resolution, matches in items.items():
+            if len(matches) != 1:
+                result.append(
+                    _capability(
+                        resolution,
+                        "unknown",
+                        "resolution_unobserved" if not matches else "resolution_ambiguous",
+                    )
+                )
+                continue
+            disabled = await _upscale_item_disabled(matches[0])
+            result.append(
+                _capability(
+                    resolution,
+                    "disabled" if disabled else "available",
+                    "disabled_menu_item" if disabled else "enabled_menu_item",
+                )
+            )
+        return result
+    except (WireFormatError, *engine_timeout_errors()):
+        return _unknown_capabilities("observation_timeout")
+
+
+async def read_image_upscale_capabilities(
+    client: Any, *, project_id: str, media_id: str
+) -> dict[str, Any]:
+    """Bounded exact-owned-image read. UI uncertainty is distinct from ownership failure."""
+    from gflow_cli.api.native_extension import _uuid  # pyright: ignore[reportPrivateUsage]
+
+    project, media = _uuid(project_id), _uuid(media_id)
+    page = None
+    owned = False
+    result = _unknown_capabilities("observation_timeout")
+    project_url = MIGRATED_PROJECT_URL.format(project_id=project)
+    detail_url = f"{project_url}/edit/{media}"
+    try:
+        try:
+            async with asyncio.timeout(45):
+                page = await client._checkout_page()
+                await page.goto(project_url, wait_until="domcontentloaded", timeout=15000)
+                asset = await lookup_asset(page, project_id=project, media_id=media)
+                if asset.media_id != media or asset.project_id != project or asset.kind != "image":
+                    raise ConfigurationError(
+                        detail="Image capability discovery requires an exact owned image"
+                    )
+                owned = True
+                await page.goto(detail_url, wait_until="domcontentloaded", timeout=15000)
+                if page.url.split("?")[0].split("#")[0] != detail_url:
+                    result = _unknown_capabilities("detail_context_unverified")
+                else:
+                    result = await inspect_upscale_menu(page)
+                    if page.url.split("?")[0].split("#")[0] != detail_url:
+                        result = _unknown_capabilities("detail_context_unverified")
+        except (TimeoutError, *engine_timeout_errors()) as exc:
+            if not owned:
+                raise TransportTimeoutError(
+                    detail="Image capability ownership verification timed out",
+                    route="image_upscale_capabilities",
+                ) from exc
+    finally:
+        if page is not None:
+            try:
+                async with asyncio.timeout(1):
+                    await page.keyboard.press("Escape")
+            except (TimeoutError, *engine_timeout_errors()):
+                pass
+            finally:
+                client._checkin_page(page)
+    return {
+        "project_id": project,
+        "media_id": media,
+        "capabilities": result,
+        "scope": _CAPABILITY_SCOPE,
+    }
 
 
 async def upscale_image_migrated(

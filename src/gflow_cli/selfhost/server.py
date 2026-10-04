@@ -118,6 +118,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 lock.close()
                 raise RuntimeError("Another self-host daemon already owns this queue") from None
             store.recover()
+            # Disable/rebinding drops only queued scheduler reads before any worker can claim them.
+            store.cancel_idle_health(cfg.idle_session_interval, cfg.accounts)
             worker_tasks.update(
                 {
                     profile: asyncio.create_task(worker(cfg, store, profile))
@@ -125,6 +127,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 }
             )
             tasks.append(asyncio.create_task(deliver_callbacks(cfg, store)))
+            if cfg.idle_session_interval:
+                from gflow_cli.selfhost.idle_session import maintain_idle_sessions
+
+                tasks.append(asyncio.create_task(maintain_idle_sessions(cfg, store)))
         try:
             yield
         finally:
@@ -152,6 +158,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if request.method == "GET":
                 if path == "/v1/google-flow/accounts/captcha-stats":
                     allowed = {"date", "limit", "provider", "anonymized"}
+                elif path == "/v1/google-flow/images/upscale/capabilities":
+                    allowed = {"email", "projectId", "mediaGenerationId"}
                 elif path == "/v1/google-flow/videos/upscale/models":
                     allowed = {"email", "projectId", "resolution"}
                 elif path == "/v1/google-flow/videos/reference/models":
@@ -673,6 +681,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z"),
             "scope": "local-profile-registration",
+            "idleSessionMaintenance": store.idle_session_status(
+                row["profile"], cfg.idle_session_interval
+            ),
         }
 
     @app.post(
@@ -881,6 +892,12 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(
                 422, "Profile does not exist; complete local hosted-browser login first"
             )
+        if not enabled:
+            # Allow stopping pending maintenance without canceling accepted operator work.
+            remaining_profiles = {
+                key: value for key, value in cfg.accounts.items() if key != profile
+            }
+            store.cancel_idle_health(cfg.idle_session_interval, remaining_profiles)
         if store.profile_busy(profile):
             raise HTTPException(409, "Profile has an accepted or running job")
         try:
@@ -2893,6 +2910,46 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if match is None:
             raise HTTPException(404, "System voice not found")
         return match
+
+    @app.get(prefix + "/images/upscale/capabilities")
+    async def image_upscale_capabilities(request: Request) -> JSONResponse:
+        """Fresh per-image menu observation; synchronous, URL-free and never queued."""
+        from gflow_cli.api.transports.migrated_upscale import validate_upscale_capabilities
+
+        profile = pick_account(request.query_params.get("email"), [])
+        project = uuid_value(
+            request.query_params.get("projectId", cfg.accounts[profile]["project"]), "projectId"
+        )
+        media = uuid_value(request.query_params.get("mediaGenerationId"), "mediaGenerationId")
+        code, raw = await subprocess_run(
+            [
+                sys.executable,
+                "-m",
+                "gflow_cli.selfhost.native_worker",
+                "image-upscale-capabilities",
+                profile,
+                json.dumps({"project_id": project, "media_id": media}),
+            ],
+            60,
+        )
+        if code:
+            raise HTTPException(502, "Image capability ownership/read verification unavailable")
+        try:
+            result = parse_json_output(raw)
+            if result.get("status") != "ok":
+                raise ValueError("Image capability read failed")
+            observed = validate_upscale_capabilities(result, project=project, media=media)
+        except ValueError:
+            raise HTTPException(502, "Image capability observation unavailable") from None
+        return JSONResponse(
+            {
+                "projectId": project,
+                "mediaGenerationId": media,
+                "capabilities": observed["capabilities"],
+                "scope": observed["scope"],
+            },
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get(prefix + "/images/reference/models")
     async def image_reference_models(request: Request) -> dict[str, Any]:

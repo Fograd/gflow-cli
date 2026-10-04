@@ -3581,3 +3581,30 @@ async def gflow_list_account_resources(
             max_seconds=max_seconds,
         )
     return {"status": "ok", **result}
+
+
+@server.tool(
+    name="gflow_get_image_upscale_capabilities",
+    description="Read fresh 2K/4K detail-menu availability for an exact owned image. "
+    "Available/disabled/unknown are observations, not subscription entitlement "
+    "or successful output. "
+    "Direct read; no target selection, token mint or generation queue.",
+)
+@_guarded
+async def gflow_get_image_upscale_capabilities(
+    project: str, media_id: str, profile: str = "default"
+) -> dict[str, Any]:
+    if not is_uuid(project) or not is_uuid(media_id):
+        return _bad_param("Invalid native image", "Project and media identifiers must be UUIDs")
+    resolved = _resolve_and_validate_profile(profile)
+    if isinstance(resolved, dict):
+        return resolved
+    settings = get_settings()
+    async with _profile_lock(resolved):
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
+        ) as client:
+            result = await client.get_image_upscale_capabilities(
+                project_id=project, media_id=media_id
+            )
+    return {"status": "ok", **result}

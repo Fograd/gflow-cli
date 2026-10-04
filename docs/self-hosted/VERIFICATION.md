@@ -1760,3 +1760,27 @@ The next run with only engine normalized still inherited production default prof
 ### Composer/upload delivery gate — 4 October
 
 Clean-shell whole gate passed7724tests,5skipped,21warnings in234.65seconds with89.60%coverage. Repository hygiene, documentation links, published PII/mirror/navigation, council memory, Ruff, format and strict Pyright all passed. Independent review GO89focused tests; final character-double/environment-focused100tests passed. Separate actual Patchright ten-reference rendering and isolated pro3 upload/delete retry proof passed. Source baseline890a6591; publication/deployment is the next checkpoint and subsequent capability work remains separate.
+
+## Original-library lookup, image capabilities and idle access follow-up
+
+The older-owned-image discovery BDD failed before the scan correction and
+passed20.15seconds afterward. The complete older-image attachment BDD passed
+43.63seconds after the exact-token virtualized-picker fallback, zero generation.
+Real DOM fallback regressions passed; duplicate matches and missing confirmation
+refuse. Independent review passed26focused tests. Integrated focused source
+verification passed271tests with6existing pytest-bdd warnings.
+
+Read-only image capability mirrors passed115focused tests and an intercepted
+actual Patchright BDD covering six menu variants, zero target clicks/Google
+writes. Original pro3 SDK/CLI read envelopes preserved unknown observations.
+One original pro2 generated-image read observed2K enabled/4K disabled in12.66s,
+without minting or selecting either target. Idle access scheduling passed
+178focused tests and independent review; it does not claim auth renewal.
+
+Final isolated-environment gate for this source batch:7,813passed,5skipped,
+27warnings,89.64%coverage in222.88seconds. Hygiene, documentation links,
+published-doc PII/mirror checks, council-memory references, whole-tree Ruff,
+format and strict Pyright passed. Old test doubles were updated to model the
+nonvirtual picker, the virtual DOM fixture now waits for actual render position,
+and generic video provider validation covers all supported counts1–4 plus
+invalid5. No production generation followed a failing gate.
