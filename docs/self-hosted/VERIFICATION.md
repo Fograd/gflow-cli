@@ -1538,3 +1538,22 @@ GetPeopleHTTP401 at08:42UTC, zero generation. This supersedes its earlier positi
 principal/editor observations: all three profiles require renewed/rechecked Google
 access before final acceptance work. The original profiles and registrations were
 preserved. No repeated login attempt or additional CAPTCHA solve was made.
+
+
+### Actual local concatenation and durable-job proof
+The deployed API at documentation revisionb86a3bcb completed a real local-only
+FFmpeg request. Two invocation-owned64x64 synthetic managed clips were seeded
+through the private local registry (not Google upload), each trimmed0.25seconds
+at both ends. POST/videos/concatenate async returned201/Location; the same
+idempotency key with sync mode returned200 and the same jobId. GET/jobs confirmed
+completed, inputsCount2, a decoded/probed64x64 H.264 MP4 of3.0seconds/7,562bytes.
+Only one durable job exists for that key. The first harness used the async jobid
+alias on the sync reply; it was corrected to documented sync jobId while retaining
+and inspecting the already completed job. No operation replay created a new job.
+
+Local-only deletion removed the two owned inputs and output mapping, preserved
+Google library state and returned200; only the private validation copy remains.
+Active queue0. Backend local-ffmpeg made0Google generation requests and spent no
+Google credits. Original assets/profiles and Google attempt allowances unchanged.
+This proves the real HTTP/local worker/result/poll/idempotency path, not native
+video generation, Google-side scene composition or the final R12 campaign.

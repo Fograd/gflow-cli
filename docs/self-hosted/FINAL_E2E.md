@@ -116,3 +116,10 @@ two remaining single-video attempts total, one on pro2 and one on pro3. A real
 two-output batch on one account needs additional authorization. No new video was
 submitted during the overnight window. Audio previews: one pro1 and two pro3,
 all explicitly refused; successful audio cost remains unproved.
+
+
+Local API readiness additionally has an actual deployed proof: one two-clip
+FFmpeg job, async201/Location, same-key sync200 with the same jobId, completed
+polling, inputsCount2 and decoded64x64/3second MP4. Invocation-owned local fixtures
+were cleaned; Google generation0 and allowances unchanged. This local path can
+run while Google access needs renewal; it does not validate native generation.
