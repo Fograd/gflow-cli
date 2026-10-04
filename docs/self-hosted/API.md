@@ -964,3 +964,7 @@ Generic count2–4 videos use one native request and retain every actual output;
 ## Fresh per-image upscale capabilities
 
 GET /v1/google-flow/images/upscale/capabilities reads exact owned-image2K/4K detail-menu availability synchronously. Use email/projectId/mediaGenerationId; states are available/disabled/unknown with nullable availability and no inferred subscription entitlement. No generation job is created. See [capability reads](IMAGE_UPSCALE_CAPABILITIES.md).
+
+Generic image CLI and durable MCP provider controls are documented in
+[GENERIC_IMAGE_CAPTCHA.md](GENERIC_IMAGE_CAPTCHA.md). REST retains its existing
+image policy and private supplied-token path; queued MCP serializes no tokens.

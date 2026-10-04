@@ -914,3 +914,11 @@ fresh sequential attempts. Only confirmed typed rejection may retry; unknown,
 accepted and surfaced teardown failures do not. Explicit image providers require
 the loaded native host, then existing exact ownership/menu checks before mint.
 See [native adapter provider controls](self-hosted/NATIVE_CAPTCHA.md#reference-edit-extension-and-image-upscale-clidirect-mcp-provider-controls).
+
+Generic image `gflow_generate_image` additionally exposes optional `captcha_order`
+and strict-integer `captcha_retry` (1–10 total attempts). This tool uses the durable
+queue: only nonsecret camel controls survive codec/daemon dispatch; confidential
+`captcha_token` inputs refuse before queueing. An existing native project and UI
+host are required for explicit providers. Omitting controls uses the unchanged
+browser path. Generation alone reuses the separate ImageOverrides policy; accepted,
+unknown and cancelled work never replay. See [generic image controls](self-hosted/GENERIC_IMAGE_CAPTCHA.md).

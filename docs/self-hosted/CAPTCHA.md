@@ -138,3 +138,13 @@ for solver, confirmed Google acknowledgment and unknown terminal events separate
 Historical rows and unmatched/cross-worker phases have no invented duration.
 Solver latency includes failed solves; acknowledgment latency excludes unknowns.
 This measures local waits, not provider billing or Google's account reset time.
+
+## Generic image CLI and queued MCP mirrors
+
+Single-prompt `image t2i`/`i2i` and registered queued `gflow_generate_image`
+mirror configured image provider order and 1–10 total attempts through the existing
+ImageOverrides engine. None omission bypasses the wrapper and preserves browser
+behavior. Existing project/native UI prechecks and exact image refusal evidence
+are required; downloads and metadata writes stay outside retries. Queued token or
+secret-pointer inputs refuse. This adapter batch has offline verification only.
+See [generic image controls](GENERIC_IMAGE_CAPTCHA.md) for exact public/queue scope.

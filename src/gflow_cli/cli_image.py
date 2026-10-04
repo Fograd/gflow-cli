@@ -228,6 +228,43 @@ def _project_and_entity_options(*, single_prompt: bool) -> Callable[[_CmdFn], _C
     return decorator
 
 
+def _image_captcha_options(func: _CmdFn) -> _CmdFn:
+    func = click.option(
+        "--captcha-order",
+        default=None,
+        help="Explicit unique provider order: CapSolver,2Captcha. Single prompt only.",
+    )(func)
+    return click.option(
+        "--captcha-retry",
+        type=click.IntRange(1, 10),
+        default=None,
+        help="1–10 total WAF attempts. Explicit: providers; omitted: browser once.",
+    )(func)
+
+
+def _image_captcha_kwargs(captcha_order: str | None, captcha_retry: int | None) -> dict[str, Any]:
+    return {
+        **({"captcha_order": captcha_order} if captcha_order is not None else {}),
+        **({"captcha_retry": captcha_retry} if captcha_retry is not None else {}),
+    }
+
+
+def _validate_image_captcha_cli(
+    captcha_order: str | None, captcha_retry: int | None, project: str | None, count: int
+) -> None:
+    from gflow_cli.selfhost.image_captcha_policy import validate_image_captcha_controls
+
+    payload = {
+        "count": count,
+        **({"captchaOrder": captcha_order} if captcha_order is not None else {}),
+        **({"captchaRetry": captcha_retry} if captcha_retry is not None else {}),
+    }
+    try:
+        validate_image_captcha_controls(payload, project)
+    except ValueError as error:
+        raise click.UsageError(str(error)) from None
+
+
 console = Console()
 logger = structlog.get_logger(__name__)
 
@@ -1040,6 +1077,7 @@ _ui_mode_option = click.option(
     default=None,
     help="Native flow.google.com image seed; count outputs use seed+index. Single prompt only.",
 )
+@_image_captcha_options
 @_ui_mode_option
 def t2i(  # NOSONAR
     prompts: tuple[str, ...],
@@ -1064,12 +1102,17 @@ def t2i(  # NOSONAR
     instructions: tuple[str, ...],
     seed: int | None = None,
     reference_syntax: str = "names",
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Generate image(s) from one or more text prompts."""
+    _validate_image_captcha_cli(captcha_order, captcha_retry, project_id, count)
     if aspect == "auto":
         raise click.UsageError("Auto requires an actual reference image; use image i2i")
     is_multi_prompt = len(prompts) > 1 or prompts_file is not None or read_stdin
     _validate_t2i_input(prompts, prompts_file, read_stdin)
+    if is_multi_prompt and (captcha_order is not None or captcha_retry is not None):
+        raise click.UsageError("Image CAPTCHA provider controls require a single prompt")
     if reference_syntax == "slots" and is_multi_prompt:
         raise click.UsageError("--reference-syntax slots requires a single prompt")
     if seed is not None and (is_multi_prompt or seed > 2147483647 - count + 1):
@@ -1165,6 +1208,7 @@ def t2i(  # NOSONAR
                 project_name=project_name,
                 as_json=as_json,
                 tool_specs=tool_specs,
+                **_image_captcha_kwargs(captcha_order, captcha_retry),
             ),
             cli_command="image t2i",
             as_json=as_json,
@@ -1376,12 +1420,25 @@ async def _generate_verify_download(
     output_root: Path,
     output_file: Path | None,
     name_resolver: Callable[[str], str | None] | None = None,
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> tuple[list[GeneratedImage], list[Path]]:
     """Generate ``count`` images, verify attribution, and download them (t2i/i2i shared tail)."""
     # Kwarg passed only when a resolver exists (#546) — duck-typed client
     # fakes in tests keep their pre-#546 signatures.
     resolver_kw: dict[str, Any] = {} if name_resolver is None else {"name_resolver": name_resolver}
-    if count == 1:
+    if captcha_order is not None or captcha_retry is not None:
+        from gflow_cli.services.image_captcha import generate_images_with_captcha
+
+        images = await generate_images_with_captcha(
+            client,
+            req=req,
+            project_id=project_id,
+            captcha_order=captcha_order,
+            captcha_retry=captcha_retry,
+            **resolver_kw,
+        )
+    elif count == 1:
         images = [await client.generate_image(project_id=project_id, req=req, **resolver_kw)]
     else:
         images = await client.generate_images_batch(
@@ -1463,6 +1520,8 @@ async def _run_t2i(
     project_name: str | None = None,
     as_json: bool = False,
     tool_specs: tuple[str, ...] = (),
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     settings = get_settings()
     recorder = OperationRecorder.open(settings)
@@ -1505,6 +1564,7 @@ async def _run_t2i(
                 out=out,
                 output_root=output_root,
                 output_file=output_file,
+                **_image_captcha_kwargs(captcha_order, captcha_retry),
             )
 
             if as_json:
@@ -1860,6 +1920,7 @@ class _I2IParams:
     default=None,
     help="Native flow.google.com image seed; count outputs use seed+index. Single prompt only.",
 )
+@_image_captcha_options
 @_ui_mode_option
 def i2i(  # NOSONAR
     prompt: str,
@@ -1881,8 +1942,11 @@ def i2i(  # NOSONAR
     ui_mode: str | None,
     seed: int | None = None,
     reference_syntax: str = "names",
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     """Generate image(s) from PROMPT + reference image(s) (image-to-image)."""
+    _validate_image_captcha_cli(captcha_order, captcha_retry, project_id, count)
     if seed is not None and seed > 2147483647 - count + 1:
         raise click.UsageError("--seed plus count exceeds the signed 32-bit range")
     if ui_mode == UiMode.CLASSIC.value and instructions:
@@ -1966,6 +2030,7 @@ def i2i(  # NOSONAR
             project_name=project_name,
             as_json=as_json,
             tool_specs=tool_specs,
+            **_image_captcha_kwargs(captcha_order, captcha_retry),
         ),
         cli_command="image i2i",
         as_json=as_json,
@@ -1987,6 +2052,8 @@ async def _run_i2i(
     project_name: str | None = None,
     as_json: bool = False,
     tool_specs: tuple[str, ...] = (),
+    captcha_order: str | None = None,
+    captcha_retry: int | None = None,
 ) -> None:
     settings = get_settings()
     recorder = OperationRecorder.open(settings)
@@ -2084,6 +2151,7 @@ async def _run_i2i(
                 name_resolver=wire_refresh_resolver(
                     client, profile_name=profile_name, project_id=project.project_id
                 ),
+                **_image_captcha_kwargs(captcha_order, captcha_retry),
             )
 
             if as_json:

@@ -885,7 +885,10 @@ def _build_video_media_inputs(
         "aspect=auto derives the nearest supported ratio from the first local image or "
         "fresh owned native image UUID dimensions in an explicit project. "
         "Image4 is refused before submit on that composer; retrying will not clear it. "
-        "Returns local file paths to the generated images."
+        "Returns local file paths to the generated images. "
+        "Optional captcha_order/captcha_retry select configured image providers on an existing "
+        "native UI project; omission uses the browser once. Only confirmed refusal may retry. "
+        "This tool queues work; confidential captcha_token inputs refuse before queueing."
     ),
 )
 @_guarded
@@ -907,6 +910,9 @@ async def gflow_generate_image(
     ui_mode: str | None = None,
     output: str | None = None,
     wait: bool = True,
+    captcha_order: str | None = None,
+    captcha_retry: StrictInt | None = None,
+    captcha_token: str | None = None,
 ) -> dict[str, Any]:
     """Generate an image via Google Flow's Imagen.
 
@@ -923,6 +929,11 @@ async def gflow_generate_image(
             require an explicit project; absent image references refuse Auto.
             This is a local approximation, not Google Auto.
         count: Number of images to generate (1-4).
+        captcha_order: Explicit unique CapSolver/2Captcha order; requires existing native project.
+        captcha_retry: 1–10 total confirmed-refusal attempts; None preserves browser once.
+            Explicit 1 selects configured providers. Generation alone may retry.
+        captcha_token: Confidential input refused before durable queueing.
+            Supplied tokens remain the existing private REST input, not this queued tool.
         seed: Optional native flow.google.com seed (0 through 2147483647-count+1).
             Count outputs use seed+index; returned seeds are verified. Unsupported
             host/transport paths reject before submission; identical pixels are not guaranteed.
@@ -967,6 +978,17 @@ async def gflow_generate_image(
         Dict with 'status', 'files' (list of local file paths), and metadata.
         On failure, 'status' is 'failed' or 'error' with an RFC 9457 'error' dict.
     """
+    from gflow_cli.selfhost.image_captcha_policy import validate_image_captcha_controls
+
+    controls = {
+        **({"captchaOrder": captcha_order} if captcha_order is not None else {}),
+        **({"captchaRetry": captcha_retry} if captcha_retry is not None else {}),
+        **({"captcha_token": captcha_token} if captcha_token is not None else {}),
+    }
+    try:
+        validate_image_captcha_controls({"count": count, **controls}, project, queued=True)
+    except ValueError as error:
+        return _bad_param("Invalid Image CAPTCHA Controls", str(error))
     aspect_metadata: dict[str, str] = {}
     requested_aspect = aspect
     native_auto_id: str | None = None
@@ -1099,6 +1121,7 @@ async def gflow_generate_image(
         "model": model,
         "aspect": aspect,
         "count": count,
+        **controls,
     }
     if aspect_metadata:
         payload["aspect_decision"] = aspect_metadata

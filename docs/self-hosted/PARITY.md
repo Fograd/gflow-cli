@@ -151,7 +151,7 @@ chosen provider; configured keys and solved tokens do not prove Google acceptanc
   overrides and SDK/CLI/MCP/REST wiring. Read-only duration verification passed;
   edited-video rendering remains part of R12.
 - [x] CapSolver private configuration, masked key GUI, balance checks and outcome
-  statistics. Solver-backed accepted generation remains part of R06.
+  statistics. One CapSolver REST image has accepted output; additional adapter acceptance remains part of R06/R12.
 
 ### Overnight implementation status
 
@@ -166,7 +166,7 @@ rendering and R13 records the published revision.
 |R03|Resumable SDK/CLI/MCP/REST sync plus bounded account characters/saved voices with opaque continuation|Global authoritative completeness unknown|
 |R04|Canonical image/entity/audio reference transport and fresh capacities|Rendered grounding remains R12|
 |R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
-|R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|Accepted solver output remains R12|
+|R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|One CapSolver REST image accepted; further adapters remain R12|
 |R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
 |R08|Lite10, independent character/image pools and fresh weighted caps; live ten-chip/wire proof passed|Rendered proof remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
@@ -379,7 +379,7 @@ unsafe-caption canonical attachment proof.
   test authorizations and remaining allowances; do not start an unbounded stress
   test or repeatedly submit the same known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Current published/deployed baseline: 4a9e9d64c8235d1a909b6725828df70a4a8d26c9,
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Published/deployed entering the generic image batch: c2291e3b23738e831fa3c59e720eb9004fbbd68a,
   with REST/MCP/GUI active and both test accounts passing fresh queued health.
   Further roadmap batches remain in progress. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
@@ -818,3 +818,20 @@ CLI/MCP and REST now share the configured private stats root on CC LXC;
 historical split-root counters were preserved and four unique events imported
 once. This fixes observation visibility, not Google's quota/access decision.
 See [the final test notes](FINAL_E2E.md#registered-mcp-saved-voice-and-shared-stats-follow-up).
+
+
+### R06 generic image provider mirrors — 4 October
+
+Single-prompt image CLI and registered queued MCP now expose optional provider
+order and bounded attempt controls. The durable queue carries only nonsecret
+camelCase fields; codec and daemon validate them. Selected calls reuse the
+existing image policy, require an explicit owned project and observed native
+HTTPS/UI transport, and retry generation only after a correlated WAF refusal.
+Downloads, recording, accepted/unknown results and cancellation never replay.
+Omitted controls preserve the original browser path. Multi-prompt/file/stdin
+CLI batches refuse these controls explicitly. See
+[GENERIC_IMAGE_CAPTCHA.md](GENERIC_IMAGE_CAPTCHA.md).
+
+The incremental feature passed341 focused tests and both independent reviews.
+Full integration verification and registered live image acceptance are recorded
+separately; focused tests do not establish Google acceptance.

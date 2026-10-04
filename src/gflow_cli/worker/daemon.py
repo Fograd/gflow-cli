@@ -182,6 +182,14 @@ class FlowWorker:
 
         try:
             if task.task_type in ("t2i", "i2i"):
+                from gflow_cli.selfhost.image_captcha_policy import validate_image_captcha_controls
+
+                try:
+                    selected_image_captcha = validate_image_captcha_controls(
+                        task.payload, task.payload.get("project_id"), queued=True
+                    )
+                except ValueError as error:
+                    raise ConfigurationError(detail=str(error)) from None
                 req = (
                     cast("GenerateImageRequest", task.decoded.request)
                     if task.decoded is not None
@@ -248,7 +256,20 @@ class FlowWorker:
                             quiet=True,
                         )
 
-                        if count == 1:
+                        if selected_image_captcha:
+                            from gflow_cli.services.image_captcha import (
+                                generate_images_with_captcha,
+                            )
+
+                            images = await generate_images_with_captcha(
+                                client,
+                                req=req,
+                                project_id=project_flow_id,
+                                captcha_order=task.payload.get("captchaOrder"),
+                                captcha_retry=task.payload.get("captchaRetry"),
+                                on_checkpoint=observe_checkpoint,
+                            )
+                        elif count == 1:
                             img = await client.generate_image(
                                 project_id=project_flow_id,
                                 req=req,

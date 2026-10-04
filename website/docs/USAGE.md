@@ -2581,3 +2581,14 @@ keeps project inventory/catalogs and source=local keeps cached listing. assets/m
 default source=google keeps whole observed native project; source=local selects
 the managed cache. This changes the prior implicit local-list defaults. Existing clients requiring
 managed caches should now explicitly supply source=local.
+
+## Explicit single-prompt image CAPTCHA providers
+
+`image t2i` and `image i2i` accept `--captcha-order CapSolver,2Captcha` and
+`--captcha-retry 1..10` with an existing `--project` UUID and native UI session.
+Omitted controls keep the browser path once; explicit retry=1 selects existing
+configured providers. Only correlated submitted WAF rejection may advance the
+total-attempt budget. Accepted, unknown and cancelled work, and download/history
+failures, never regenerate. Multi-prompt/file/stdin and batch/manifest paths do
+not support these flags. See [generic image CAPTCHA scope](self-hosted/GENERIC_IMAGE_CAPTCHA.md)
+for queued MCP behavior, validation, provider charges and verification limits.

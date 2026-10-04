@@ -103,6 +103,10 @@ def decode_payload(task_type: str, payload: dict[str, Any]) -> DecodedPayload:
     fields = {k: v for k, v in payload.items() if k != "schema_version"}
 
     try:
+        if task_type in _IMAGE_TASK_TYPES:
+            from gflow_cli.selfhost.image_captcha_policy import validate_image_captcha_controls
+
+            validate_image_captcha_controls(fields, fields.get("project_id"), queued=True)
         request: GenerateImageRequest | GenerateVideoRequest = (
             build_image_request(fields)
             if task_type in _IMAGE_TASK_TYPES

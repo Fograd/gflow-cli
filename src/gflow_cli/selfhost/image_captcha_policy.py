@@ -11,11 +11,51 @@ from typing import Any, TypeVar
 from gflow_cli.api.native_captcha import read_native_token_file, validate_native_captcha_token
 from gflow_cli.api.recaptcha import discover_site_key
 from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
+from gflow_cli.api.video import is_media_uuid
 from gflow_cli.errors import ConfigurationError, WafRejectionError
 from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys, Solver, SolverError
 from gflow_cli.selfhost.native_captcha import native_secret_path
 
 _Result = TypeVar("_Result")
+
+
+def validate_image_captcha_controls(
+    payload: dict[str, Any], project: str | None, *, queued: bool = False
+) -> bool:
+    """Validate public/queue adapters without changing the private REST token path."""
+    secret_keys = ("captcha_token", "captchaToken", "captchaSecret", "captcha_token_file")
+    secret = any(payload.get(key) is not None for key in secret_keys)
+    selected = any(payload.get(key) is not None for key in ("captchaOrder", "captchaRetry"))
+    if secret:
+        if selected:
+            raise ValueError("Supplied image tokens cannot be combined with provider controls")
+        if queued:
+            raise ValueError("Confidential image tokens cannot enter the durable generation queue")
+        raise ValueError("Supplied image tokens require the existing private REST input")
+    if any(payload.get(key) is not None for key in ("captcha_order", "captcha_retry")):
+        raise ValueError("Durable image controls require captchaOrder and captchaRetry keys")
+    if not selected:
+        return False
+    count = payload.get("count", 1)
+    if type(count) is not int or not 1 <= count <= 4:
+        raise ValueError("Explicit image CAPTCHA requires one through four outputs")
+    if not isinstance(project, str) or not is_media_uuid(project):
+        raise ValueError("Explicit image CAPTCHA requires an existing project UUID")
+    retry = payload.get("captchaRetry")
+    if retry is not None and (type(retry) is not int or not 1 <= retry <= 10):
+        raise ValueError("Image CAPTCHA attempts require an integer from 1 through 10")
+    order = payload.get("captchaOrder")
+    if order is not None:
+        names = order.split(",") if isinstance(order, str) else []
+        if (
+            not names
+            or any(name not in PROVIDERS for name in names)
+            or len(set(names)) != len(names)
+        ):
+            raise ValueError(
+                "Image CAPTCHA provider order requires unique CapSolver or 2Captcha names"
+            )
+    return True
 
 
 async def run_with_image_captcha_policy(

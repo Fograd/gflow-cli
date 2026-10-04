@@ -216,3 +216,32 @@ accepted audio, unknown result or retry. This differed frompro2's quota/access
 refusal; neither establishes the cause of Google's decision. Retained counts:
 pro2 images5/videos1/audio3;pro3 images4/videos1/audio3. Reservedpro1 remains
 images2/videos2/audio1. Saved-voice playback/binding acceptance is still open.
+
+A fresh queued project-access check after the pro3 unusual-activity refusal completedOK at17:02:25UTC, with profilePreserved=true and refreshAttempted=false. That refusal did not invalidate project access in this measured case; it does not prove all future refusals will preserve the session. The read made no generation or solver call.
+
+
+### R06 generic image provider mirrors — 4 October
+
+Single-prompt image CLI and registered queued MCP now expose optional provider
+order and bounded attempt controls. The durable queue carries only nonsecret
+camelCase fields; codec and daemon validate them. Selected calls reuse the
+existing image policy, require an explicit owned project and observed native
+HTTPS/UI transport, and retry generation only after a correlated WAF refusal.
+Downloads, recording, accepted/unknown results and cancellation never replay.
+Omitted controls preserve the original browser path. Multi-prompt/file/stdin
+CLI batches refuse these controls explicitly. See
+[GENERIC_IMAGE_CAPTCHA.md](GENERIC_IMAGE_CAPTCHA.md).
+
+The incremental feature passed341 focused tests and both independent reviews.
+Full integration verification and registered live image acceptance are recorded
+separately; focused tests do not establish Google acceptance.
+
+
+Full integration verification:7,919passed,5skipped,27warnings,
+89.86%coverage in305.33seconds. Whole-tree types, lint/format, documentation,
+website mirrors and existing council references passed. The duplication proxy
+reported existing code outside this feature's changed blocks; it found no new
+provider adapter duplicate. The deployed predecessor also passed six registered
+native token/provider conflict boundaries with an unregistered fixture profile,
+zero browser operations, solver tasks or generation. Live generic image
+provider acceptance remains pending.
