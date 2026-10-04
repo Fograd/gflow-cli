@@ -35,7 +35,12 @@ from gflow_cli.api.transports.migrated_composer import (
     _submit_refusal,  # pyright: ignore[reportPrivateUsage]
 )
 from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
-from gflow_cli.errors import ConfigurationError, ContentPolicyError, WafRejectionError
+from gflow_cli.errors import (
+    ConfigurationError,
+    ContentPolicyError,
+    NativeQuotaError,
+    WafRejectionError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -420,7 +425,9 @@ async def edit_native_video(
                 {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
                 **page_owned_evaluate_kwargs(),
             )
-            refusal = _submit_refusal(result["text"], (RPC,))
+            refusal = _submit_refusal(
+                result["text"], (RPC,), model_key=model_key, operation="videos/edit"
+            )
             if refusal is not None:
                 raise refusal
             if result["status"] != 200 or rpc_errors(result["text"]):
@@ -449,7 +456,7 @@ async def edit_native_video(
             return started
         except asyncio.CancelledError:
             raise
-        except (WafRejectionError, ContentPolicyError):
+        except (WafRejectionError, ContentPolicyError, NativeQuotaError):
             native_captcha_outcome("rejected")
             raise
         except Exception:

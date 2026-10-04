@@ -183,7 +183,7 @@ async def test_promotion_acknowledgement_exact_identity(monkeypatch, valid):
         assigned["started"] = started
 
     client._checkout_page.return_value.evaluate.return_value = {"status": 200, "text": "response"}
-    monkeypatch.setattr(module, "_submit_refusal", lambda *args: None)
+    monkeypatch.setattr(module, "_submit_refusal", lambda *args, **kwargs: None)
     monkeypatch.setattr(module, "rpc_errors", lambda *args: [])
 
     def frames(*args):

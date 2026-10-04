@@ -61,6 +61,7 @@ def native_refusal_error(result: dict[str, Any], exit_code: int) -> dict[str, An
     expected = {
         10: ("WafRejectionError", "https://gflow-cli.dev/errors/waf-rejection"),
         5: ("ContentPolicyError", "https://gflow-cli.dev/errors/content-policy"),
+        4: ("NativeQuotaError", "https://gflow-cli.dev/errors/native-quota"),
     }.get(exit_code)
     if (
         expected is None
@@ -68,8 +69,29 @@ def native_refusal_error(result: dict[str, Any], exit_code: int) -> dict[str, An
         or error.get("type") != expected[1]
         or error.get("exit_code") != exit_code
         or error.get("outcome_unknown") is True
+        or error.get("outcomeUnknown") is True
+        or result.get("outcome_unknown") is True
+        or result.get("outcomeUnknown") is True
     ):
         return None
+    if exit_code == 4:
+        from gflow_cli.selfhost.model_quarantine import quota_metadata
+
+        metadata = quota_metadata(error)
+        if metadata is None:
+            return None
+        quota_code = (
+            "google_flow_model_access_denied"
+            if metadata["nativeReason"] == "PUBLIC_ERROR_MODEL_ACCESS_DENIED"
+            else "google_flow_native_quota"
+        )
+        return {
+            "code": quota_code,
+            "exit_code": 4,
+            "retryable": False,
+            "detail": "Google Flow returned a typed native quota or model access refusal.",
+            **metadata,
+        }
     if exit_code == 5:
         code = "google_flow_content_policy"
         detail = "Google Flow refused this request under its content policy."
@@ -225,24 +247,6 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             return {"projectId": project, "sessionHealth": health_observation()}
     out = Path(job.get("_output") or cfg.root / "output" / job["id"])
     out.mkdir(parents=True, exist_ok=True)
-    if job["kind"] == "videos" and payload.get("count", 1) > 1:
-        accumulated: dict[str, Any] = {
-            "email": cfg.accounts[profile]["email"],
-            "projectId": project,
-            "media": [],
-            "completedCount": 0,
-            "requestedCount": payload["count"],
-        }
-        for index in range(payload["count"]):
-            one = {**payload, "count": 1}
-            child = {**job, "payload": json.dumps(one), "_output": str(out / f"part-{index + 1}")}
-            single = await execute(cfg, store, child)
-            if "error" in single:
-                return {**accumulated, "error": single["error"]}
-            accumulated["media"].extend(single["media"])
-            accumulated["completedCount"] += 1
-            store.checkpoint(job["id"], accumulated)
-        return accumulated
     if job["kind"] in {"voices/create", "voices/delete"}:
         creating = job["kind"] == "voices/create"
         native_payload = {"project_id": project}
@@ -672,8 +676,12 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             project,
             str(request_path),
         ]
-    if kind == "videos" and any(
-        payload.get(key) is not None for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+    if kind == "videos" and (
+        payload.get("count", 1) > 1
+        or any(
+            payload.get(key) is not None
+            for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+        )
     ):
         request_path = out / "request.json"
         worker_payload = {
@@ -707,17 +715,55 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             code, raw = await subprocess_run(args, cfg.timeout, image_recovery_id=job["id"])
         else:
             code, raw = await subprocess_run(args, cfg.timeout)
+    except asyncio.CancelledError:
+        if kind == "videos" and payload.get("count", 1) > 1:
+            from gflow_cli.selfhost.video_batch_output import interruption_checkpoint
+
+            batch_interruption = interruption_checkpoint(out / "video-checkpoint.json", project)
+            if batch_interruption is not None:
+                store.checkpoint(job["id"], batch_interruption)
+        raise
     finally:
         if kind == "images":
             store.image_recovery(job)
         if request_path:
             request_path.unlink(missing_ok=True)
+    if code and kind == "videos" and payload.get("count", 1) > 1:
+        checkpoint_path = out / "video-checkpoint.json"
+        try:
+            if not checkpoint_path.is_file() or checkpoint_path.stat().st_size > 16384:
+                raise ValueError("No bounded batch checkpoint")
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+            if (
+                checkpoint.get("project_id") != project
+                or checkpoint.get("phase") not in ("video_submit", "video_poll")
+                or not isinstance(checkpoint.get("media_ids"), list)
+                or not isinstance(checkpoint.get("workflow_ids"), list)
+            ):
+                raise ValueError("Batch checkpoint scope is unavailable")
+            # An existing emitted typed error takes precedence over recovery.
+            if not raw or code in (-9, -15, 124, 137, 143):
+                raw = json.dumps(
+                    {
+                        "error": {
+                            **checkpoint,
+                            "class": "GeneralVideoOutcomeUnknown",
+                            "outcome_unknown": True,
+                        }
+                    }
+                ).encode()
+                code = 40
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
     if (
         code
         and kind == "videos"
-        and any(
-            payload.get(key) is not None
-            for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+        and (
+            payload.get("count", 1) > 1
+            or any(
+                payload.get(key) is not None
+                for key in ("captchaSecret", "captchaOrder", "captchaRetry")
+            )
         )
         and len(raw) <= 65536
     ):
@@ -742,6 +788,12 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             ):
                 media = [str(uuid.UUID(value)) for value in cast(list[Any], media_ids)]
                 workflows = [str(uuid.UUID(value)) for value in cast(list[Any], workflow_ids)]
+                if (
+                    len(media) != len(workflows)
+                    or len(set(media + workflows)) != len(media) * 2
+                    or project in media + workflows
+                ):
+                    raise ValueError("Video uncertainty requires distinct actual paired handles")
                 unknown = {
                     "projectId": project,
                     "knownMediaGenerationIds": media,
@@ -759,6 +811,13 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         except (ValueError, TypeError, KeyError, AttributeError):
             pass
     if code:
+        if code == 4 and kind in {"images", "images/upscale", "videos"} and len(raw) <= 65536:
+            try:
+                refusal = native_refusal_error(parse_json_output(raw), code)
+                if refusal is not None:
+                    return {"projectId": project, "error": refusal}
+            except (ValueError, TypeError, KeyError, AttributeError):
+                pass
         if kind == "assets" and payload["mime"] == "video/mp4" and len(raw) <= 65536:
             from gflow_cli.selfhost.unknown_native_media import unknown_native_media_result
 
@@ -803,6 +862,21 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                 "detail": "Google Flow command failed; inspect the local diagnostic log.",
             }
         }
+    if kind == "videos" and payload.get("count", 1) > 1:
+        from gflow_cli.selfhost.video_batch_output import publish_video_batch
+
+        result = parse_json_output(raw)
+        envelope = await publish_video_batch(
+            store,
+            result,
+            profile=profile,
+            project=project,
+            out=out,
+            count=payload["count"],
+        )
+        envelope["email"] = cfg.accounts[profile]["email"]
+        store.checkpoint(job["id"], envelope)
+        return envelope
     if kind in ("videos/upscale", "videos/gif"):
         files = [
             path

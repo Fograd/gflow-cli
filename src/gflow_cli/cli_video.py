@@ -335,13 +335,14 @@ async def _generate_and_report(
     ok/fail status as the exit code) instead of the Rich lines; a failed
     generation still emits its JSON payload and then exits 1.
     """
-    from gflow_cli.api.video import VideoStarted
+    from gflow_cli.api.video import VideoBatchResult, VideoStarted
 
     if not as_json:
         console.print("[dim]Generating video — this takes ~2 minutes…[/dim]")
     settings = get_settings()
     recorder = OperationRecorder.open(settings)
     started_media_ids: list[str] = []
+    batch_result: VideoBatchResult | None = None
     try:
         async with FlowApiClient(profile_dir=profile_dir, out_dir=out_dir) as client:
             if project_id is None and project_name is not None:
@@ -406,6 +407,20 @@ async def _generate_and_report(
                     on_started=on_started,
                     **resolver_kw,
                 )
+                if request.count > 1:
+                    if not isinstance(result, VideoBatchResult):
+                        raise GFlowError("Native video batch result is unavailable")
+                    batch_result = result
+                    result = batch_result.videos[0]
+            elif request.count > 1:
+                batch_result = await client.generate_videos_batch(
+                    req=request,
+                    project_id=project_id,
+                    out_dir=out_dir,
+                    download=True,
+                    on_started=on_started,
+                )
+                result = batch_result.videos[0]
             else:
                 result = await client.generate_video(
                     req=request,
@@ -416,7 +431,33 @@ async def _generate_and_report(
                     **resolver_kw,
                 )
 
-        result = _relocate_video_output(result, output_file)
+        if batch_result is not None:
+            batch_result = VideoBatchResult(
+                tuple(_relocate_video_output(batch_result.videos, output_file)),
+                batch_result.project_id,
+            )
+            for additional in batch_result.videos[1:]:
+                try:
+                    recorder.record_completed_video(
+                        profile_name=profile_name,
+                        _profile_dir=profile_dir,
+                        request=request,
+                        result=additional,
+                        cloud_storage_info=(
+                            cloud_info_from_path(additional.local_path)
+                            if additional.local_path is not None
+                            else None
+                        ),
+                    )
+                except DataStoreError as exc:
+                    _warn_persistence_failed_after_success(
+                        exc=exc,
+                        flow_media_id=additional.status.media_id,
+                        local_path=additional.local_path,
+                    )
+            result = batch_result.videos[0]
+        else:
+            result = _relocate_video_output(result, output_file)
 
         try:
             recorder.record_completed_video(
@@ -453,6 +494,26 @@ async def _generate_and_report(
         raise
     finally:
         recorder.close()
+
+    if batch_result is not None:
+        if as_json:
+            json_output.emit(
+                json_output.video_batch_result(
+                    command=command,
+                    request=request,
+                    result=batch_result,
+                )
+            )
+        else:
+            for video in batch_result.videos:
+                console.print(
+                    str(video.local_path)
+                    if video.local_path
+                    else f"Video {video.status.media_id}: {video.status.status}"
+                )
+        if not batch_result.succeeded:
+            raise SystemExit(1)
+        return
 
     if as_json:
         json_output.emit(json_output.video_result(command=command, request=request, result=result))

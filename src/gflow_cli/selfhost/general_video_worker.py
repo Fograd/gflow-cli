@@ -16,7 +16,13 @@ from gflow_cli.api.native_captcha import take_native_captcha_token
 from gflow_cli.api.transports.migrated_video_overrides import VideoOverrides, active_video_overrides
 from gflow_cli.api.video import VideoStarted
 from gflow_cli.config import get_settings
-from gflow_cli.errors import ConfigurationError, ContentPolicyError, WafRejectionError
+from gflow_cli.errors import (
+    ConfigurationError,
+    ContentPolicyError,
+    NativeQuotaError,
+    NativeUIVideoBatchUnknownError,
+    WafRejectionError,
+)
 from gflow_cli.selfhost.config import environment_root
 from gflow_cli.selfhost.video_captcha_policy import run_with_video_captcha_policy
 from gflow_cli.worker.codec import build_video_request
@@ -27,7 +33,15 @@ def _checkpoint(out: Path, project: str, media: list[str], workflows: list[str])
     temporary = out / "video-checkpoint.tmp"
     descriptor = os.open(temporary, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as file:
-        json.dump({"project_id": project, "media_ids": media, "workflow_ids": workflows}, file)
+        json.dump(
+            {
+                "project_id": project,
+                "media_ids": media,
+                "workflow_ids": workflows,
+                "phase": "video_poll" if media else "video_submit",
+            },
+            file,
+        )
     temporary.replace(path)
 
 
@@ -61,6 +75,58 @@ async def generate_payload(profile: str, project: str, out: Path, payload: dict[
             "reference_images": refs,
         }
     )
+    if request.count > 1:
+        media: list[str] = []
+        workflows: list[str] = []
+
+        async def batch_started(value: VideoStarted) -> None:
+            if value.media_id not in media:
+                media.append(value.media_id)
+                if value.workflow_id is not None:
+                    workflows.append(value.workflow_id)
+            _checkpoint(out, project, media, workflows)
+
+        def batch_checkpoint(value: Any) -> None:
+            if value.phase == "submit_attempted":
+                _checkpoint(out, project, [], [])
+
+        try:
+            settings = get_settings()
+            async with FlowApiClient(
+                profile_dir=_make_provider_dir(profile), headless=settings.headless, out_dir=out
+            ) as client:
+                result = await client.generate_videos_batch(
+                    req=request,
+                    project_id=project,
+                    out_dir=out,
+                    download=True,
+                    on_started=batch_started,
+                    on_checkpoint=batch_checkpoint,
+                )
+                output = json_output.video_batch_result(
+                    command="selfhost videos", request=request, result=result
+                )
+                override = active_video_overrides.get()
+                if override is not None:
+                    output["captchaProvider"] = override.provider_name or "supplied"
+                json_output.emit(output)
+        except NativeUIVideoBatchUnknownError as exc:
+            _checkpoint(out, project, list(exc.media_ids), list(exc.workflow_ids))
+            json_output.emit(
+                {
+                    "error": {
+                        "class": "GeneralVideoOutcomeUnknown",
+                        "project_id": project,
+                        "media_ids": list(exc.media_ids),
+                        "workflow_ids": list(exc.workflow_ids),
+                        "outcome_unknown": True,
+                        "phase": exc.phase,
+                    }
+                }
+            )
+            raise SystemExit(40) from None
+        return
+
     context = copy_context()
 
     async def token(page: Any) -> str:
@@ -99,7 +165,7 @@ async def generate_payload(profile: str, project: str, out: Path, payload: dict[
             output["captchaProvider"] = override.provider_name or "supplied"
             json_output.emit(output)
     except Exception as exc:
-        if isinstance(exc, (ContentPolicyError, WafRejectionError)) and (
+        if isinstance(exc, (ContentPolicyError, WafRejectionError, NativeQuotaError)) and (
             not override.dispatched
             or (override.terminal == "rejected" and not override.known_media_ids)
         ):

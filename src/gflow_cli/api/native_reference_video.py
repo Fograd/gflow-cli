@@ -41,6 +41,7 @@ from gflow_cli.api.transports.migrated_resources import read_project_payload
 from gflow_cli.errors import (
     ConfigurationError,
     ContentPolicyError,
+    NativeQuotaError,
     NativeVideoGenerationUnknownError,
     WafRejectionError,
 )
@@ -360,7 +361,9 @@ async def generate_native_reference_video(
                 {"rpc": "MZZa6b", "args": args, "source": f"/project/{started.project_id}"},
                 **page_owned_evaluate_kwargs(),
             )
-            refusal = _submit_refusal(result["text"], ("MZZa6b",))
+            refusal = _submit_refusal(
+                result["text"], ("MZZa6b",), model_key=key, operation="videos/reference"
+            )
             if refusal is not None:
                 raise refusal
             if result["status"] != 200 or rpc_errors(result["text"]):
@@ -380,7 +383,7 @@ async def generate_native_reference_video(
             return started
         except NativeVideoGenerationUnknownError:
             raise
-        except (WafRejectionError, ContentPolicyError):
+        except (WafRejectionError, ContentPolicyError, NativeQuotaError):
             native_captcha_outcome("rejected")
             raise
         except Exception:

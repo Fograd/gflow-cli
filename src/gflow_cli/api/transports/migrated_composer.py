@@ -63,6 +63,7 @@ from gflow_cli.api.transports.batchexecute import (
     generation_record,
     image_records,
     parse_frames,
+    public_quota_refusal,
     rpc_errors,
     rpc_reply_frame_count,
 )
@@ -96,6 +97,7 @@ from gflow_cli.errors import (
     InsufficientCreditsError,
     MediaUploadRejectedError,
     NativeMediaMutationUnknownError,
+    NativeQuotaError,
     ReferenceNotFoundError,
     TransportTimeoutError,
     UiSelectorDriftError,
@@ -765,8 +767,12 @@ UNUSUAL_ACTIVITY_REASON = "PUBLIC_ERROR_UNUSUAL_ACTIVITY"
 
 
 def _submit_refusal(
-    text: str, rpcids: tuple[str, ...]
-) -> WafRejectionError | ContentPolicyError | None:
+    text: str,
+    rpcids: tuple[str, ...],
+    *,
+    model_key: str | None = None,
+    operation: str | None = None,
+) -> WafRejectionError | ContentPolicyError | NativeQuotaError | None:
     """The typed refusal a submit reply states on the wire, or ``None``.
 
     flow.google.com refuses a submit with HTTP 200 and an error envelope whose payload
@@ -776,6 +782,12 @@ def _submit_refusal(
     2026-09-27-migrated-refusal-is-on-the-wire). Only REASONS decide: a bare status
     is not a refusal, since the #723 entity submit Flow queued and ran replies ``[5]``.
     """
+    quota = public_quota_refusal(text, rpcids)
+    if quota is not None:
+        rpcid, _, reason = quota
+        return NativeQuotaError(
+            reason, route=f"batchexecute:{rpcid}", model_key=model_key, operation=operation
+        )
     for err in rpc_errors(text):
         if err.rpcid not in rpcids:
             continue
@@ -3529,22 +3541,25 @@ class MigratedComposer:
                 matching_records = [r for r in records if r.project_id == submission_project]
                 known_media = tuple(r.media_id for r in matching_records)
                 known_workflows = tuple(r.workflow_id for r in matching_records)
-                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,))
+                refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,), operation="images")
                 if refusal is not None:
                     if records:
                         raise WireFormatError(detail="Ambiguous image acceptance and refusal")
-                    if (
-                        override is not None
-                        and controlled
-                        and isinstance(refusal, WafRejectionError)
-                    ):
-                        from gflow_cli.api.transports.migrated_image_overrides import (
-                            confirmed_image_refusal,
-                        )
+                    if override is not None and controlled:
+                        if isinstance(refusal, WafRejectionError):
+                            from gflow_cli.api.transports.migrated_image_overrides import (
+                                confirmed_image_refusal,
+                            )
 
-                        if not confirmed_image_refusal(text):
-                            raise WireFormatError(detail="Ambiguous image refusal acknowledgement")
-                        override.outcome("rejected")
+                            if not confirmed_image_refusal(text):
+                                raise WireFormatError(
+                                    detail="Ambiguous image refusal acknowledgement"
+                                )
+                            override.outcome("rejected")
+                        elif isinstance(refusal, NativeQuotaError):
+                            # The quota reader already requires a single exact typed frame.
+                            # No model key is present in this image acknowledgement.
+                            override.outcome("rejected")
                     raise refusal
                 if (
                     override is not None
@@ -3662,7 +3677,7 @@ class MigratedComposer:
                 exc.add_note("Native image submission may have started; do not retry automatically")
                 vars(exc)["gflow_image_generation_unknown"] = unknown("image_cancelled")
             raise
-        except (WafRejectionError, ContentPolicyError):
+        except (WafRejectionError, ContentPolicyError, NativeQuotaError):
             raise
         except Exception as exc:
             if submitted or (clicked and not guard_aborted):
@@ -3802,25 +3817,12 @@ class MigratedComposer:
         return path
 
 
-async def run_video(
+async def _prepare_native_video(
     page: Page,
     request: GenerateVideoRequest,
-    *,
     project_id: str | None,
-    out_dir: Path | None,
-    poll_timeout_s: float,
-    download: bool,
-    on_started: VideoStartedCallback | None,
-) -> VideoResult:
-    """The migrated-host twin of the labs ``_generate_video_locked`` tail: same
-    inputs, same ``VideoResult``, so recorder, CLI, MCP and worker are untouched.
-
-    t2v, i2v from local start (and end) frames (uploaded through the editor and
-    bound on the Start/End chips by file name), and r2v from local ``--ref``
-    files. A frame or reference given by UUID / ``@Name`` is not ported yet. The
-    project is created by ``FlowApiClient`` before this runs (#864), so reaching
-    here without one means a caller bypassed the client.
-    """
+) -> tuple[MigratedComposer, str, str | None, str | None, tuple[str, ...]]:
+    """One shared preparation path for singular and fully tracked batch videos."""
     unported = _unported_form(request)
     if unported is not None:
         raise FlowHostMigratedError(
@@ -3877,6 +3879,31 @@ async def run_video(
                     f"credits on a run that would ignore them"
                 ),
             )
+    return composer, pid, media_id, end_media_id, reference_ids
+
+
+async def run_video(
+    page: Page,
+    request: GenerateVideoRequest,
+    *,
+    project_id: str | None,
+    out_dir: Path | None,
+    poll_timeout_s: float,
+    download: bool,
+    on_started: VideoStartedCallback | None,
+) -> VideoResult:
+    """The migrated-host twin of the labs ``_generate_video_locked`` tail: same
+    inputs, same ``VideoResult``, so recorder, CLI, MCP and worker are untouched.
+
+    t2v, i2v from local start (and end) frames (uploaded through the editor and
+    bound on the Start/End chips by file name), and r2v from local ``--ref``
+    files. A frame or reference given by UUID / ``@Name`` is not ported yet. The
+    project is created by ``FlowApiClient`` before this runs (#864), so reaching
+    here without one means a caller bypassed the client.
+    """
+    composer, pid, media_id, end_media_id, reference_ids = await _prepare_native_video(
+        page, request, project_id
+    )
     record = await composer.submit_and_observe(
         page,
         poll_timeout_s=poll_timeout_s,

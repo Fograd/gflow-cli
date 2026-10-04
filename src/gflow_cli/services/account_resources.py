@@ -148,7 +148,7 @@ def account_resource_scope(client: FlowApiClient) -> tuple[Path, str, str]:
 
     try:
         home = client.settings.home.resolve()
-        profile = client.profile_dir.name
+        profile = client.profile_dir.name.removeprefix("profile_")
         location = client.profile_dir.resolve(strict=True)
         location.relative_to(home)
         if location != client.settings.profile_subdir(profile).resolve():

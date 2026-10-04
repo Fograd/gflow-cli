@@ -9,6 +9,7 @@ import math
 import os
 import re
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -211,8 +212,10 @@ class CaptchaStats:
         import sqlite3
 
         self.path = root / "captcha-stats.sqlite3"
+        self._starts: dict[tuple[str, str], float] = {}
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         with sqlite3.connect(self.path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS stats "
                 "(provider TEXT,phase TEXT,count INTEGER,PRIMARY KEY(provider,phase))"
@@ -222,6 +225,9 @@ class CaptchaStats:
                 "(id INTEGER PRIMARY KEY,timestamp TEXT NOT NULL,provider TEXT NOT NULL,"
                 "phase TEXT NOT NULL)"
             )
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
+            if "duration_ms" not in columns:
+                conn.execute("ALTER TABLE events ADD COLUMN duration_ms INTEGER")
             conn.execute("CREATE INDEX IF NOT EXISTS events_timestamp ON events(timestamp)")
         self.path.chmod(0o600)
 
@@ -238,6 +244,15 @@ class CaptchaStats:
             "unknown",
         ):
             raise ValueError("Unknown CAPTCHA observation")
+        now = time.monotonic()
+        duration: int | None = None
+        if phase in {"solveStarted", "submitted"}:
+            self._starts[(provider, phase)] = now
+        else:
+            starting_phase = "solveStarted" if phase in {"solved", "solveFailed"} else "submitted"
+            started = self._starts.pop((provider, starting_phase), None)
+            if started is not None and 0 <= now - started <= 3600:
+                duration = round((now - started) * 1000)
         with sqlite3.connect(self.path) as conn:
             conn.execute(
                 "INSERT INTO stats VALUES(?,?,1) ON CONFLICT(provider,phase) "
@@ -247,11 +262,12 @@ class CaptchaStats:
             from datetime import UTC, datetime
 
             conn.execute(
-                "INSERT INTO events(timestamp,provider,phase) VALUES(?,?,?)",
+                "INSERT INTO events(timestamp,provider,phase,duration_ms) VALUES(?,?,?,?)",
                 (
                     datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
                     provider,
                     phase,
+                    duration,
                 ),
             )
 

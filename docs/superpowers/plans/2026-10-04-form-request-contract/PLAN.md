@@ -1,0 +1,2 @@
+# Text form request compatibility
+Implement bounded multipart/form-data text fields on existing JSON mutation endpoints. Preserve route validation, exact account scope and offqueue CAPTCHA handling; raw asset uploads keep their existing binary contract. Reject files, duplicate fields, malformed multipart and non-finite numbers before durable queueing. JSON requests retain their typed values. Map only documented numeric/boolean/structured fields. Test transport equivalence and refusal boundaries; no Google calls required.

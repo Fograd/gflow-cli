@@ -280,3 +280,30 @@ async def test_worker_dispatch_binding_survives_client_open_and_resets(tmp_path,
     assert not (tmp_path / "native_inventory").exists()
     client = ChangedClient(profile_dir=profile)
     assert account_resource_scope(client)[2] == "different@example.test"
+
+
+@pytest.mark.asyncio
+async def test_sdk_real_settings_maps_physical_profile_to_logical_scope(tmp_path):
+    from gflow_cli.config import Settings
+
+    settings = Settings(home=tmp_path)
+    profile = settings.profile_subdir("pro2")
+    assert profile.name == "profile_pro2"
+    profile.mkdir(parents=True)
+    marker = profile / ".gflow_account"
+    marker.write_text("operator@example.test")
+    marker.chmod(0o600)
+    client = Client()
+    client.profile_dir = profile
+    client.settings = settings
+    result = await FlowApiClient.list_account_resources(
+        client, kind="character", max_projects=1, max_pages=1, max_seconds=7
+    )
+    assert result["resources"][0]["kind"] == "character"
+    from gflow_cli.services.account_resources import account_resource_scope
+
+    assert account_resource_scope(client) == (
+        tmp_path / "native_inventory",
+        "pro2",
+        "operator@example.test",
+    )

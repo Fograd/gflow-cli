@@ -32,3 +32,8 @@ For upstream CLI/MCP features, see [the upstream documentation index](../INDEX.m
 |---|---|
 | [Standalone video extension](NATIVE_VIDEO_EXTENSION.md) | Native continuation, model keys, frame trims and verification limits |
 | [Reference video](NATIVE_REFERENCE_VIDEO.md) | Existing image/audio UUID ingredients, native models and per-model budgets |
+
+- [Automatic account selection](ACCOUNT_SCHEDULER.md): exact native quota observations and explicit local cooldown policy.
+- [Text form requests](FORM_REQUESTS.md): JSON-equivalent multipart fields and prequeue limits.
+
+- [Generic video batches](VIDEO_BATCH.md): one native request, all output identities and partial recovery.

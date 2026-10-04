@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from gflow_cli.api.dto import GeneratedImage
-    from gflow_cli.api.video import GenerateVideoRequest, VideoResult
+    from gflow_cli.api.video import GenerateVideoRequest, VideoBatchResult, VideoResult
     from gflow_cli.services.doctor import DoctorReport
 
 
@@ -177,6 +177,26 @@ def image_result(
     if ref_count is not None:
         payload["ref_count"] = ref_count
     return payload
+
+
+def video_batch_result(
+    *, command: str, request: GenerateVideoRequest, result: VideoBatchResult
+) -> dict[str, Any]:
+    """Public all-output DTO; confidential remote URLs are never included."""
+    return {
+        "status": "ok" if result.succeeded else "fail",
+        "command": command,
+        "project_id": result.project_id,
+        "returned_count": len(result.videos),
+        "videos": [
+            {
+                **video_result(command=command, request=request, result=video),
+                "project_id": video.project_id,
+                "workflow_id": video.workflow_id,
+            }
+            for video in result.videos
+        ],
+    }
 
 
 def video_result(

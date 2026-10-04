@@ -22,7 +22,13 @@ from gflow_cli.data.recorder import (
 from gflow_cli.data.redaction import redact_error_detail
 from gflow_cli.data.repository import DataRepository
 from gflow_cli.data.store import DataStore
-from gflow_cli.errors import ConfigurationError, DataIntegrityError, DataStoreError, GFlowError
+from gflow_cli.errors import (
+    ConfigurationError,
+    DataIntegrityError,
+    DataStoreError,
+    GFlowError,
+    NativeUIVideoBatchUnknownError,
+)
 from gflow_cli.image_recovery import ImageJournal, download_images
 from gflow_cli.observability import exception_message_hash
 from gflow_cli.paths import image_output_path
@@ -365,6 +371,7 @@ class FlowWorker:
                     else self._build_video_request(task.payload)
                 )
                 project_id = task.payload.get("project_id")
+                batch_result = None
 
                 recorder = OperationRecorder(
                     DataRepository(self.db), prompt_mode=settings.history_prompts
@@ -428,6 +435,19 @@ class FlowWorker:
                                 on_started=on_started,
                                 on_checkpoint=observe_checkpoint,
                             )
+                            if req.count > 1:
+                                batch_result = result
+                                result = batch_result.videos[0]
+                        elif req.count > 1:
+                            batch_result = await client.generate_videos_batch(
+                                req=req,
+                                project_id=project_id,
+                                out_dir=out_dir,
+                                download=True,
+                                on_started=on_started,
+                                on_checkpoint=observe_checkpoint,
+                            )
+                            result = batch_result.videos[0]
                         else:
                             result = await client.generate_video(
                                 req=req,
@@ -439,7 +459,42 @@ class FlowWorker:
                             )
                         flow_media_id = result.status.media_id
 
-                        output_file_val = task.payload.get("output_file")
+                        if batch_result is not None:
+                            from dataclasses import replace
+
+                            from gflow_cli.cli_video import (
+                                _relocate_video_output,  # pyright: ignore[reportPrivateUsage]
+                            )
+
+                            output = task.payload.get("output_file")
+                            relocated = tuple(
+                                _relocate_video_output(
+                                    batch_result.videos, Path(output) if output else None
+                                )
+                            )
+                            batch_result = replace(batch_result, videos=relocated)
+                            result = batch_result.videos[0]
+                            for additional in batch_result.videos[1:]:
+                                try:
+                                    recorder.record_completed_video(
+                                        profile_name=self.profile_name,
+                                        _profile_dir=profile_dir,
+                                        request=req,
+                                        result=additional,
+                                        cloud_storage_info=(
+                                            cloud_info_from_path(additional.local_path)
+                                            if additional.local_path
+                                            else None
+                                        ),
+                                    )
+                                except Exception as exc:
+                                    logger.warning(
+                                        "Failed to record completed batch clip", exc_info=exc
+                                    )
+
+                        output_file_val = (
+                            None if batch_result is not None else task.payload.get("output_file")
+                        )
                         if output_file_val and result.local_path and result.local_path.exists():
                             output_file = Path(output_file_val)
                             output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -466,6 +521,21 @@ class FlowWorker:
                         # video to "failed" — warn and continue (cf. exit-code-16
                         # data-store contract, on_started recorder safety).
                         logger.warning("Failed to record completed video", exc_info=exc)
+
+                    if batch_result is not None:
+                        checkpoint_project_id[0] = batch_result.project_id
+                        save_checkpoint(
+                            "completed",
+                            may_have_spent=True,
+                            media_ids=tuple(v.status.media_id for v in batch_result.videos),
+                            workflow_ids=tuple(
+                                v.workflow_id
+                                for v in batch_result.videos
+                                if v.workflow_id is not None
+                            ),
+                        )
+                        if not batch_result.succeeded:
+                            raise GFlowError("One or more batch videos failed")
 
                     if not result.status.succeeded:
                         reasons = (
@@ -578,7 +648,12 @@ class FlowWorker:
 
             self.repo.update_task_status(
                 task.task_id,
-                status="failed",
+                status=(
+                    "indeterminate"
+                    if task.task_type in ("t2v", "i2v", "r2v")
+                    and isinstance(exc, NativeUIVideoBatchUnknownError)
+                    else "failed"
+                ),
                 error=error_payload,
                 # #895: a generation can finish, and bill, and then lose its download.
                 # The media id is the only handle an agent has on that clip, and the

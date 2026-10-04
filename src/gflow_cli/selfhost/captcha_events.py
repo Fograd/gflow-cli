@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def query_events(
@@ -39,7 +39,9 @@ def query_events(
     clause = " WHERE " + " AND ".join(where) if where else ""
     with sqlite3.connect(stats.path) as conn:
         rows = conn.execute(
-            "SELECT timestamp,provider,phase FROM events" + clause + " ORDER BY id DESC LIMIT ?",
+            "SELECT timestamp,provider,phase,duration_ms FROM events"
+            + clause
+            + " ORDER BY id DESC LIMIT ?",
             (*values, limit or 50000),
         ).fetchall()
     data = [
@@ -47,14 +49,29 @@ def query_events(
             "timestamp": ts,
             "provider": "UserProvided" if name == "supplied" else name,
             "phase": phase,
+            **({"durationMs": duration} if duration is not None else {}),
         }
-        for ts, name, phase in reversed(rows)
+        for ts, name, phase, duration in reversed(rows)
     ]
     outcomes = {
         phase: sum(row["phase"] == phase for row in data)
         for phase in ("accepted", "rejected", "unknown")
     }
     denominator = outcomes["accepted"] + outcomes["rejected"]
+
+    def latency(phases: set[str]) -> dict[str, Any]:
+        measured = [
+            cast(int, row["durationMs"])
+            for row in data
+            if row["phase"] in phases
+            and type(row.get("durationMs")) is int
+            and 0 <= cast(int, row["durationMs"]) <= 3600000
+        ]
+        return {
+            "averageMs": round(sum(measured) / len(measured), 2) if measured else None,
+            "sampleCount": len(measured),
+        }
+
     result: dict[str, Any] = {
         "scope": "this-self-hosted-instance-event-observations",
         "total": len(data),
@@ -65,6 +82,12 @@ def query_events(
             if denominator
             else None,
             "confirmedOutcomeCount": denominator,
+            "latency": {
+                "solver": latency({"solved", "solveFailed"}),
+                "googleAcknowledgment": latency({"accepted", "rejected"}),
+                "unknownTerminal": latency({"unknown"}),
+                "scope": "matched phases within one local observer lifetime",
+            },
             "from": data[0]["timestamp"] if data else None,
             "to": data[-1]["timestamp"] if data else None,
         },

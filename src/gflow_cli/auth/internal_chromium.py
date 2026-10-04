@@ -434,3 +434,4 @@ class InternalChromiumStrategy(AuthStrategy):
 
         if user_email:
             (profile_dir / ".gflow_account").write_text(user_email, encoding="utf-8")
+            (profile_dir / ".gflow_account").chmod(0o600)

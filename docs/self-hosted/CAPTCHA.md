@@ -127,3 +127,13 @@ Existing SDK native_captcha_token/native_captcha_provider scopes, CLI image
 upscale --captcha-token-file and direct MCP captcha_token share the same one-use
 2K/4K transport. Explicit retry budgets are private-worker/HTTP controls, not new
 SDK/CLI/MCP upscale flags. Exports/GIF/local concatenation need no generation token.
+
+
+
+Local event statistics now include durationMs only when the same observer instance
+measured a matched solveStarted→solved/solveFailed or submitted→terminal phase
+using a monotonic clock. Filtered summary.latency reports averageMs and sampleCount
+for solver, confirmed Google acknowledgment and unknown terminal events separately.
+Historical rows and unmatched/cross-worker phases have no invented duration.
+Solver latency includes failed solves; acknowledgment latency excludes unknowns.
+This measures local waits, not provider billing or Google's account reset time.

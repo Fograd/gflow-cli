@@ -22,7 +22,7 @@ class Store:
         self.path = self.root / "jobs.sqlite3"
         with self.connection() as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, 1, 2, 3):
+            if version not in (0, 1, 2, 3, 4):
                 raise ValueError("Unsupported self-host queue schema")
             conn.executescript("""
                 PRAGMA journal_mode=WAL;
@@ -44,6 +44,12 @@ class Store:
                 CREATE TABLE IF NOT EXISTS account_profile_lineage (
                     profile TEXT PRIMARY KEY, account TEXT NOT NULL COLLATE NOCASE,
                     current_profile TEXT NOT NULL, updated REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS model_quarantines (
+                    account TEXT NOT NULL COLLATE NOCASE, registration REAL NOT NULL,
+                    operation TEXT NOT NULL, model TEXT NOT NULL, reason TEXT NOT NULL,
+                    first_seen REAL NOT NULL, until REAL NOT NULL, last_job TEXT NOT NULL,
+                    policy TEXT NOT NULL,
+                    PRIMARY KEY(account,registration,operation,model,reason));
                 PRAGMA user_version=2;
             """)
             columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
@@ -55,7 +61,7 @@ class Store:
                     "DEFAULT 'operator-attested'"
                 )
             conn.execute("UPDATE accounts SET created=? WHERE created=0", (time.time(),))
-            conn.execute("PRAGMA user_version=3")
+            conn.execute("PRAGMA user_version=4")
         self.path.chmod(0o600)
         self._upgrade_pending_callbacks()
 
@@ -233,7 +239,9 @@ class Store:
     def finish(self, job: str, state: str, result: dict[str, Any]) -> None:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute("SELECT payload FROM jobs WHERE id=?", (job,)).fetchone()
+            row = conn.execute(
+                "SELECT payload,kind,profile,state FROM jobs WHERE id=?", (job,)
+            ).fetchone()
             if row is None:
                 raise KeyError(job)
             previous = conn.execute("SELECT result FROM jobs WHERE id=?", (job,)).fetchone()
@@ -248,6 +256,18 @@ class Store:
                 "UPDATE jobs SET state=?,updated=?,result=? WHERE id=?",
                 (state, time.time(), json.dumps(accumulated), job),
             )
+            if (
+                state == "failed"
+                and row["state"] in {"created", "running"}
+                and accumulated.get("outcomeUnknown") is not True
+                and accumulated.get("outcome_unknown") is not True
+            ):
+                # A duplicate terminal delivery is not a new quota observation.
+                from gflow_cli.selfhost.model_quarantine import record_quarantine
+
+                record_quarantine(
+                    conn, job, row["kind"], row["profile"], accumulated.get("error"), time.time()
+                )
             self._callback(conn, job, state, json.loads(row["payload"]), accumulated)
 
     def recover(self) -> None:
@@ -432,6 +452,13 @@ class Store:
         self, profile: str, email: str, project: str, enabled: bool, verified: bool
     ) -> None:
         with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute(
+                "SELECT 1 FROM account_profile_lineage WHERE profile=?", (profile,)
+            ).fetchone():
+                raise ValueError(
+                    "Historical account profile cannot be reused; register a fresh logical profile"
+                )
             conn.execute(
                 "INSERT INTO accounts(profile,email,project,enabled,verified,created) "
                 "VALUES(?,?,?,?,?,?) "
@@ -545,6 +572,11 @@ class Store:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             now = time.time()
+            conn.execute(
+                "UPDATE model_quarantines SET until=MIN(until,?) WHERE "
+                "(account,registration) IN (SELECT email,created FROM accounts WHERE profile=?)",
+                (now, profile),
+            )
             conn.execute(
                 "INSERT INTO account_profile_lineage "
                 "SELECT profile,email,'',? FROM accounts WHERE profile=? "

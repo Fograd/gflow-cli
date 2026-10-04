@@ -9,7 +9,13 @@ from gflow_cli.selfhost.job_statistics import statistics
 from gflow_cli.selfhost.store import Store
 
 
-def select_account(store: Store, configured: Mapping[str, Mapping[str, str]]) -> str:
+def select_account(
+    store: Store,
+    configured: Mapping[str, Mapping[str, str]],
+    *,
+    operation: str | None = None,
+    model_key: str | None = None,
+) -> str:
     """Choose an exact current registration by combined score, then queue load.
 
     Explicit account and owned-reference callers bypass this function. Statistics
@@ -34,6 +40,11 @@ def select_account(store: Store, configured: Mapping[str, Mapping[str, str]]) ->
             candidates.append(profile)
     if not candidates:
         raise ValueError("No current verified accounts configured")
+    from gflow_cli.selfhost.model_quarantine import filter_accounts
+
+    candidates = filter_accounts(
+        store, configured, candidates, operation=operation, model_key=model_key
+    )
     with store.connection() as conn:
         queued = dict(
             conn.execute(

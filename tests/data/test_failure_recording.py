@@ -361,7 +361,10 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
                 operation="delete",
                 character_ref="22222222-2222-4222-8222-222222222222",
             )
-        elif cls is errors_mod.NativeVideoGenerationUnknownError:
+        elif cls in (
+            errors_mod.NativeVideoGenerationUnknownError,
+            errors_mod.NativeUIVideoBatchUnknownError,
+        ):
             instance = cls(
                 project_id="00000000-0000-0000-0000-000000000001",
                 media_ids=("00000000-0000-0000-0000-000000000002",),
@@ -387,6 +390,8 @@ def test_all_gflow_error_slugs_unique_and_nonempty() -> None:
                 operation="upload",
                 phase="response",
             )
+        elif cls is errors_mod.NativeQuotaError:
+            instance = cls("PUBLIC_ERROR_USER_QUOTA_REACHED", route="taxonomy.test")
         elif cls is errors_mod.ImageGenerationUnknownError:
             # This safe typed outcome accepts handles, never arbitrary details.
             instance = cls()

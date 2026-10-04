@@ -23,6 +23,7 @@ from gflow_cli.errors import (
     ConfigurationError,
     ContentPolicyError,
     NativeExtensionUnknownError,
+    NativeQuotaError,
     WafRejectionError,
 )
 
@@ -244,7 +245,9 @@ async def extend_native_video(
                 {"rpc": RPC, "args": args, "source": f"/project/{project_id}"},
                 **page_owned_evaluate_kwargs(),
             )
-            refusal = _submit_refusal(result["text"], (RPC,))
+            refusal = _submit_refusal(
+                result["text"], (RPC,), model_key=model_key, operation="videos/extend"
+            )
             if refusal is not None:
                 raise refusal
             if result["status"] != 200 or rpc_errors(result["text"]):
@@ -276,7 +279,7 @@ async def extend_native_video(
             raise
         except NativeExtensionUnknownError:
             raise
-        except (WafRejectionError, ContentPolicyError):
+        except (WafRejectionError, ContentPolicyError, NativeQuotaError):
             native_captcha_outcome("rejected")
             raise
         except Exception:

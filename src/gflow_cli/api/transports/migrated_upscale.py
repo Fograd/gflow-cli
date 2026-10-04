@@ -20,7 +20,12 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.native_captcha import native_captcha_active, native_captcha_outcome
 from gflow_cli.api.recaptcha import TokenMinter
-from gflow_cli.api.transports.batchexecute import parse_frames, rpc_errors, rpc_reply_frame_count
+from gflow_cli.api.transports.batchexecute import (
+    parse_frames,
+    public_quota_refusal,
+    rpc_errors,
+    rpc_reply_frame_count,
+)
 
 # Shared typed-refusal decoder at the native transport boundary.
 from gflow_cli.api.transports.migrated_composer import (
@@ -33,6 +38,7 @@ from gflow_cli.api.transports.migrated_upscale_overrides import (
 )
 from gflow_cli.api.transports.native_asset_lookup import lookup_asset
 from gflow_cli.errors import (
+    NativeQuotaError,
     TransportTimeoutError,
     UiSelectorDriftError,
     UpscaleUnavailableError,
@@ -232,6 +238,19 @@ async def upscale_image_migrated(
                             WireFormatError(
                                 detail="Image upscale reply requires exactly one correlated frame",
                                 route="image_upscale",
+                            )
+                        )
+                    return
+                quota = public_quota_refusal(text, (UPSCALE_RPCID,))
+                if quota is not None:
+                    if not found_b64.done():
+                        if override is not None:
+                            context.run(native_captcha_outcome, "rejected")
+                        found_b64.set_exception(
+                            NativeQuotaError(
+                                quota[2],
+                                route=f"batchexecute:{UPSCALE_RPCID}",
+                                operation="images/upscale",
                             )
                         )
                     return

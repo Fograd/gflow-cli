@@ -440,18 +440,88 @@ async def _run_generation_task(
                     status=completed_task.status,
                     error=completed_task.error,
                 )
-                return {
+                failed: dict[str, Any] = {
                     "status": "failed",
                     "task_id": task_id,
                     "error": completed_task.error
                     or {"detail": f"Task ended in unexpected status {completed_task.status!r}"},
                 }
+                checkpoint = completed_task.checkpoint or {}
+                ids = checkpoint.get("media_ids")
+                workflows = checkpoint.get("workflow_ids")
+                if (
+                    task_type in ("t2v", "i2v", "r2v")
+                    and payload.get("count", 1) > 1
+                    and checkpoint.get("phase") == "completed"
+                    and isinstance(ids, list)
+                    and isinstance(workflows, list)
+                    and len(cast(list[Any], ids)) == payload["count"]
+                    and len(cast(list[Any], workflows)) == payload["count"]
+                ):
+                    from uuid import UUID
+
+                    native_ids = [str(UUID(value)) for value in cast(list[Any], ids)]
+                    native_workflows = [str(UUID(value)) for value in cast(list[Any], workflows)]
+                    native_project = str(UUID(checkpoint["project_id"]))
+                    if (
+                        len(set(native_ids + native_workflows)) != payload["count"] * 2
+                        or native_project in native_ids + native_workflows
+                    ):
+                        raise ValueError("Partial batch checkpoint identities are invalid")
+                    files: list[str] = []
+                    for identifier in native_ids:
+                        record = DataRepository(store).get_asset_by_flow_media_id(
+                            profile, identifier
+                        )
+                        if record is not None and record.flow_project_id == native_project:
+                            files.extend(
+                                str(file.path)
+                                for file in record.local_files
+                                if file.path is not None
+                            )
+                    failed.update(
+                        flow_project_id=native_project,
+                        flow_media_ids=native_ids,
+                        flow_workflow_ids=native_workflows,
+                        files=files,
+                    )
+                return failed
 
             # Resolve local file paths from the asset catalog.
             file_paths: list[str] = []
             flow_project_id: str | None = None
             flow_workflow_id: str | None = None
-            if completed_task.flow_media_id:
+            batch_ids: list[str] = []
+            batch_workflows: list[str] = []
+            checkpoint = completed_task.checkpoint or {}
+            candidates = checkpoint.get("media_ids")
+            if (
+                task_type in ("t2v", "i2v", "r2v")
+                and completed_task.payload.get("count", 1) > 1
+                and checkpoint.get("phase") == "completed"
+                and isinstance(candidates, list)
+                and len(cast(list[Any], candidates)) == completed_task.payload["count"]
+            ):
+                from uuid import UUID
+
+                batch_ids = [str(UUID(value)) for value in cast(list[Any], candidates)]
+                if len(set(batch_ids)) != len(batch_ids):
+                    raise ValueError("Batch task checkpoint has duplicate outputs")
+                for identifier in batch_ids:
+                    record = DataRepository(store).get_asset_by_flow_media_id(profile, identifier)
+                    if record is None:
+                        raise ValueError("Batch output asset is unavailable")
+                    if flow_project_id is None:
+                        flow_project_id = record.flow_project_id
+                    if record.flow_project_id != flow_project_id:
+                        raise ValueError("Batch outputs have different project scopes")
+                    if record.flow_workflow_id is not None:
+                        batch_workflows.append(record.flow_workflow_id)
+                    file_paths.extend(
+                        str(file.path) for file in record.local_files if file.path is not None
+                    )
+                flow_workflow_id = batch_workflows[0] if batch_workflows else None
+            elif completed_task.flow_media_id:
                 asset = DataRepository(store).get_asset_by_flow_media_id(
                     profile,
                     completed_task.flow_media_id,
@@ -497,6 +567,11 @@ async def _run_generation_task(
             "flow_media_id": completed_task.flow_media_id,
             "flow_workflow_id": flow_workflow_id,
             "files": file_paths,
+            **(
+                {"flow_media_ids": batch_ids, "flow_workflow_ids": batch_workflows}
+                if batch_ids
+                else {}
+            ),
         }
 
     except GFlowError as exc:

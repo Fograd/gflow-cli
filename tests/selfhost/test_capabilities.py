@@ -26,4 +26,10 @@ def test_capabilities_separates_local_implementation_from_live_native_proof(tmp_
         "nativeGoogleAuto": False,
         "requires": "first-owned-image-reference",
     }
-    assert body["verificationPending"] == ["accounts/cookie-import-live-acceptance"]
+    assert {
+        "accounts/cookie-import-live-acceptance",
+        "captcha-provider-google-acceptance",
+        "videos/generic-multi-output-rendering",
+        "images/ten-reference-rendering",
+        "images/4k-entitlement-and-rendering",
+    } <= set(body["verificationPending"])

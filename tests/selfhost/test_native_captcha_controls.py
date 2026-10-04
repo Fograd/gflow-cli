@@ -213,8 +213,8 @@ def test_explicit_provider_controls_enqueue_without_secrets(tmp_path, kind, cont
         assert "captchaSecret" not in queued and "captchaToken" not in queued
 
 
-@pytest.mark.parametrize("count,status", [(1, 201), (2, 501)])
-def test_general_video_supplied_token_has_one_output_scope(tmp_path, count, status):
+@pytest.mark.parametrize("count,status", [(1, 201), (2, 201), (4, 201)])
+def test_general_video_supplied_token_has_one_request_scope(tmp_path, count, status):
     cfg = settings(tmp_path)
     cfg.allow_video = True
     with TestClient(create_app(cfg, start_workers=False)) as client:
@@ -235,6 +235,7 @@ def test_general_video_supplied_token_has_one_output_scope(tmp_path, count, stat
             job = client.app.state.store.claim("pro1")
             assert job["kind"] == "videos" and TOKEN not in job["payload"]
             payload = json.loads(job["payload"])
+            assert payload["count"] == count
             path = native_secret_path(payload, cfg.root)
             assert path.read_text() == TOKEN and path.stat().st_mode & 0o777 == 0o600
         else:

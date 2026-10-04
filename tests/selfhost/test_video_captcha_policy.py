@@ -96,7 +96,7 @@ async def test_uncertain_or_accepted_attempt_never_retries(environment, failure)
 @pytest.mark.parametrize(
     "changes",
     [
-        {"count": 2},
+        {"count": 5},
         {"count": True},
         {"captchaRetry": 0},
         {"captchaRetry": 11},

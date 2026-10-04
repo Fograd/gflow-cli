@@ -1444,3 +1444,61 @@ The ten-reference probe after the270second budget fix still failed291.83seconds 
 
 ## R01 ten-reference live correction
 After the append-caret source correction and RED/GREEN actual DOM regression, the real logged-in native HARBOR_SEAL ten-reference abort-only BDD passed1test,2warnings in226.35seconds. It validated all ten exact media identities and canonical prompt order in the captured native body; generation requests forwarded0. Cleanup acknowledged only invocation-owned fixtures and verified all original active media. This establishes retention/transport, not generated output.
+
+
+
+### Second overnight release and live scope correction
+Source41363f94828ae2600a54b43d1888e18364df34f8 passed7391 tests,5 skips,
+21 warnings and90% coverage in248.84s; hygiene, links, PII, mirrors, council,
+Ruff, format and strict Pyright passed. It was atomically published to all three
+fork branches and clean fast-forward deployed on CC LXC. Queues were empty before
+and after restart; REST accounts/jobs/CAPTCHA statistics returned200, the configured
+GUI remained enabled and registered MCP listed42 tools.
+
+The first deployed account-resource read returned502. A real-settings regression
+reproduced a physical/logical profile-name mismatch (profile_pro2 was incorrectly
+looked up as profile_profile_pro2). Correcting the prefix and securing the older
+owned account markers600 preserved strict recorded-principal checks. Corrected
+SDK character and saved-voice reads plus each continuation passed on pro2 with
+zero generation. Actual registered HTTP/MCP confirmation awaits publication of
+this correction; the earlier deployed failure is retained as evidence.
+
+One real CapSolver-backed image2K request used the exact owned generated image
+on pro1, forwarded once and produced no output. Google returned gRPC8
+PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC. The prior decoder surfaced this
+unrecognized refusal as WireFormatError/unknown; typed terminal traffic handling
+is being added without a CAPTCHA retry or inferred account quarantine. This uses
+one additional conservative image attempt: pro1 images2/videos2; pro2 images0/
+videos1; pro3 images1/videos1. Audio preview attempts remain pro3 two refusals.
+
+A fresh staged cookie import after the Session-retention fix still rejected and
+preserved original profiles/registration. A bounded safe capture established
+28 candidate cookie rows, one persistent encrypted SAPISID, restore-on-startup
+enabled before the actual reader and a reader google_session=True/labs count2.
+The verifier progressed to GOOGLE_SESSION_ONLY, but its migrated fallback landed
+on the Google homepage without a proven principal. No account was activated.
+This establishes retention/reader progress, not accepted cookie login or renewal.
+
+A separate verification of the untouched original pro2 profile reached the same GOOGLE_SESSION_ONLY/Google-homepage identity failure. Its fresh direct GetPeople read returnedHTTP401 and a bounded fresh project UI probe landed on Flow public marketing, with no current account widget/GetPeople call. The import failure is not established as transfer-specific; no staged candidate is activated and the current-principal read helper remains outside authentication acceptance pending actual runtime proof.
+
+Actual pro1 generic count4 abort probe passed: fresh editor/Veo3.1Lite settings, exactly oneYhhmEf, four distinct assigned IDs, selected project match and driver-confirmed pre-forward abort; generation0. Actual pro1 official GetPeople direct read then returnedHTTP200, one correlated frame, one literalme lookup, integerstatus1 and one email exactly matching the private recorded principal. Pro1 was usable at this checkpoint; the later07:54-07:56 failures supersede that status. A bounded pro2 Flow-entry click reached Google accountchooser with0generation; no sleeping-user login request was issued.
+
+A real pro1 short browser audio preview forwarded once and was explicitly WAF-refused; credits866before/after, no saved voice. Pro1 audio-preview ledger is now1; other image/video allowances unchanged. A staged pro1 persistent-cookie candidate initially lost Google cookies during population. A separate bounded instrumentation attempt retainedall27 before/after Labs navigation and in the closed encrypted DB, then fresh identity still refused. Thus population loss is not a reproducible implementation diagnosis and successful import remains unverified. Original registration/profile preserved; noactivation/extra generation. All3 owned actual profiles now meet private marker/directory gates for normal SDK launch retention; source never extends credential expiry.
+
+At07:54–07:56UTC the configured headed standalone verifier and repeated SDK fresh GetPeople both failed onpro1, despite earlier positive7:30/7:40 reads. Successful import is not established. The final public matrix records that current boundary; original registrations remainpreserved. Frozen launch composition has independent106tests/type0/RuffGO; passing source tests do not replace live identity.
+
+
+### Third overnight frozen-source gate
+The final corrected source passed7684tests,5skips,21warnings and90%coverage in
+258.16seconds. Repository hygiene, documentation links/PII/mirrors, council
+memory, Ruff, format and whole-source strict Pyright passed. The initial full gate
+found five integration regressions; these were corrected and the full gate rerun.
+Release publication/deployment and actual service reads are recorded separately.
+
+This batch adds generic count2-4 one-request all-output tracking/provider controls,
+exact typed native quota/model outcomes and explicit local automatic-selection
+cooldowns,18JSON-equivalent multipart mutation contracts/OpenAPI metadata, matched
+local CAPTCHA durations, logical profile lookup and secure session/identity launch
+composition. The real count4 capture stopped before dispatch; it proves request
+construction without accepted output. Current Google authentication failures and
+WAF/traffic refusals remain acceptance blockers rather than passing code gates.

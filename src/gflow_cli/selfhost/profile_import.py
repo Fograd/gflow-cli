@@ -17,6 +17,7 @@ import structlog
 from gflow_cli.errors import AuthMissingError, ConfigurationError
 from gflow_cli.profile_lease import ProfileLease
 from gflow_cli.selfhost.session_import import CookieTable
+from gflow_cli.selfhost.session_restore import prepare_staged_session_restore
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,11 @@ async def _verify_candidate(
     from gflow_cli.api.client import FlowApiClient
     from gflow_cli.auth.verification import FlowSessionOutcome, verify_flow_profile
 
-    status = await verify_flow_profile(candidate, source="cookie-import")
+    status = (
+        await verify_flow_profile(candidate, source="cookie-import", project_id=project_id)
+        if project_id is not None
+        else await verify_flow_profile(candidate, source="cookie-import")
+    )
     email = status.user_email
     if (
         status.outcome is not FlowSessionOutcome.AUTHENTICATED
@@ -161,12 +166,15 @@ async def import_cookie_profile(
             raise ConfigurationError(detail="Cookie import requires a new profile")
         candidate = Path(tempfile.mkdtemp(prefix="candidate-", dir=staging))
         try:
+            owned_stat = candidate.stat()
+            owner_identity = (owned_stat.st_dev, owned_stat.st_ino)
             ensure_profile_hardened(candidate)
             marker = candidate / ".gflow_browser_strategy"
             marker.write_text("chrome", encoding="utf-8")
             marker.chmod(0o600)
             async with asyncio.timeout(180):
                 await _populate_candidate(candidate, table)
+                prepare_staged_session_restore(candidate, table, owner_identity=owner_identity)
                 email, selected_project = await _verify_candidate(
                     candidate, expected_email, project_id
                 )
@@ -217,6 +225,7 @@ _FINGERPRINT_FILES = (
     "Cookies",
     "Default/Cookies",
     "Default/Network/Cookies",
+    "Default/Preferences",
 )
 
 

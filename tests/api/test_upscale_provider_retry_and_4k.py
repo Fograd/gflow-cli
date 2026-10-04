@@ -20,6 +20,7 @@ from gflow_cli.api.native_captcha import native_captcha_provider
 from gflow_cli.api.transports import migrated_upscale as transport
 from gflow_cli.api.transports.migrated_upscale_overrides import rewrite_upscale
 from gflow_cli.errors import (
+    NativeQuotaError,
     TransportTimeoutError,
     UiSelectorDriftError,
     UpscaleUnavailableError,
@@ -92,7 +93,10 @@ class Page:
                 raise asyncio.CancelledError()
 
         route = SimpleNamespace(continue_=AsyncMock(side_effect=forward), abort=AsyncMock())
-        await asyncio.create_task(self.routes[0](route, request), context=Context())
+        if self.routes:
+            await asyncio.create_task(self.routes[0](route, request), context=Context())
+        else:
+            self.forwarded.append(request.post_data)
         if not self.forwarded or self.outcome == "timeout":
             return
         if self.before_response is not None:
@@ -113,6 +117,28 @@ class Page:
                 [["type.googleapis.com/google.rpc.ErrorInfo", ["PUBLIC_ERROR_UNUSUAL_ACTIVITY"]]],
             ],
         ]
+        traffic = [
+            "wrb.fr",
+            "SPrCad",
+            None,
+            None,
+            None,
+            [
+                8,
+                None,
+                [
+                    [
+                        "type.googleapis.com/google.rpc.ErrorInfo",
+                        ["PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC"],
+                    ]
+                ],
+            ],
+        ]
+        if "enum" in self.outcome:
+            traffic[5][2][0] = [
+                "type.googleapis.com/google.internal.labs.aisandbox.proto.common.v1.PublicAitkError",
+                [50],
+            ]
         rows = [positive]
         if self.outcome == "waf":
             rows = [refusal]
@@ -122,6 +148,12 @@ class Page:
             rows = [refusal, ["wrb.fr", "SPrCad", None, None, None, [5]]]
         elif self.outcome == "duplicate":
             rows = [positive, positive]
+        elif self.outcome.startswith("traffic"):
+            rows = [traffic]
+            if self.outcome.endswith("mixed"):
+                rows.append(positive)
+            elif self.outcome.endswith("masked"):
+                rows.append(["wrb.fr", "SPrCad", None, None, None, [5]])
         elif self.outcome == "timeout":
             rows = []
         response = SimpleNamespace(
@@ -405,3 +437,53 @@ async def test_unknown_selected_resolution_refuses_before_navigation_or_paid_min
     assert page.trace == []
     assert state.proofs == []
     assert state.tokens == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resolution", ["2k", "4k"])
+@pytest.mark.parametrize("outcome", ["traffic", "traffic-enum"])
+async def test_traffic_refusal_default_browser_is_terminal_without_decoding_bytes(
+    resolution, outcome
+):
+    page = Page(outcome, resolution=TargetResolution.from_cli(resolution))
+    with pytest.raises(NativeQuotaError) as caught:
+        await transport.upscale_image_migrated(
+            page,
+            project_id=P,
+            media_id=M,
+            target_resolution=TargetResolution.from_cli(resolution),
+            timeout_s=0.1,
+        )
+    assert caught.value.reason == "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC"
+    assert len(page.forwarded) == 1
+    assert not page.routes and not page.listeners
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resolution", ["2k", "4k"])
+@pytest.mark.parametrize("outcome", ["traffic", "traffic-enum"])
+async def test_traffic_refusal_provider_retry10_is_one_terminal_rejected_attempt(
+    tmp_path, monkeypatch, state, resolution, outcome
+):
+    with pytest.raises(NativeQuotaError) as caught:
+        await run_worker(
+            tmp_path, monkeypatch, state, outcomes=[outcome], retry=10, resolution=resolution
+        )
+    assert caught.value.reason == "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC"
+    assert len(state.pages) == len(state.tokens) == 1
+    assert state.events == ["submitted", "rejected"]
+    assert not (tmp_path / "upscaled.png").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outcome", ["traffic-mixed", "traffic-masked", "traffic-enum-mixed", "traffic-enum-masked"]
+)
+async def test_traffic_with_ack_or_masked_sibling_is_unknown_never_replayed(
+    tmp_path, monkeypatch, state, outcome
+):
+    with pytest.raises(WireFormatError):
+        await run_worker(tmp_path, monkeypatch, state, outcomes=[outcome], retry=10)
+    assert len(state.pages) == len(state.tokens) == 1
+    assert state.events == ["submitted", "unknown"]
+    assert not (tmp_path / "upscaled.png").exists()

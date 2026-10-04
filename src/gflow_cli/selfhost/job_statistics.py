@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sqlite3
 import time
-from typing import Any
+from typing import Any, cast
 
-from gflow_cli.selfhost.http_jobs import EXIT_HTTP_STATUS
+from gflow_cli.selfhost.http_jobs import EXIT_HTTP_STATUS, http_status
 from gflow_cli.selfhost.store import Store
 
 _OPTIONS = {"summary", "executing", "history"}
@@ -20,6 +21,30 @@ _FAMILIES = {
     "videos/extend": "videos",
     "videos/promote": "videos",
 }
+
+
+def _native_quota_metadata(serialized: str | None) -> dict[str, Any] | None:
+    from gflow_cli.selfhost.model_quarantine import job_quota_metadata
+
+    try:
+        raw: Any = json.loads(serialized) if serialized is not None else None
+        if not isinstance(raw, dict):
+            return None
+        raw = cast(dict[str, Any], raw)
+        if raw.get("outcomeUnknown") is True or raw.get("outcome_unknown") is True:
+            return None
+        error = raw.get("error")
+        return job_quota_metadata(cast(dict[str, Any], error)) if isinstance(error, dict) else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _native_quota_http_status(serialized: str | None) -> int:
+    try:
+        raw: Any = json.loads(serialized) if serialized is not None else None
+        return http_status(cast(dict[str, Any], raw), "failed") if isinstance(raw, dict) else 502
+    except (ValueError, TypeError):
+        return 502
 
 
 def statistics(store: Store, option: str) -> dict[str, Any]:
@@ -45,7 +70,7 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
     )
     base = f"""
       WITH selected AS (
-        SELECT j.id,a.profile,a.email,{family_case} family,j.state,j.created,j.updated,
+        SELECT j.id,a.profile,a.email,{family_case} family,j.state,j.created,j.updated,j.result,
           CASE WHEN json_valid(j.result) THEN
             CASE WHEN json_type(j.result,'$.error.exit_code')='integer'
                  THEN json_extract(j.result,'$.error.exit_code') END END code
@@ -58,6 +83,7 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
             (j.state IN ('completed','failed','interrupted') AND j.updated>=? AND j.updated<=?))
       ), observed AS (
         SELECT *,CASE WHEN state='completed' THEN 200 WHEN state='interrupted' THEN 502
+          WHEN code=4 THEN native_quota_http_status(result)
           ELSE {status_case} END http_status,
           CASE WHEN updated>=created THEN (updated-created)*1000 END duration
         FROM selected
@@ -65,6 +91,9 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
     """
     params = (*_FAMILIES, now - 900, now)
     with store.connection() as conn:
+        conn.create_function(
+            "native_quota_http_status", 1, _native_quota_http_status, deterministic=True
+        )
         conn.execute("BEGIN")
         accounts = conn.execute(
             "SELECT profile,email FROM accounts WHERE enabled=1 AND verified=1 ORDER BY email"
@@ -98,7 +127,7 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
             conn.execute(
                 base
                 + """
-          SELECT id,email,family,updated,http_status,duration FROM (
+          SELECT id,email,family,updated,http_status,duration,result FROM (
             SELECT *,ROW_NUMBER() OVER (PARTITION BY family ORDER BY updated DESC,id DESC) rank
             FROM observed WHERE state!='running'
           ) WHERE rank<=10 ORDER BY updated DESC,id DESC
@@ -173,4 +202,7 @@ def statistics(store: Store, option: str) -> dict[str, Any]:
             "httpStatus": row["http_status"],
             "responseTime": round(row["duration"], 2) if row["duration"] is not None else None,
         }
+        metadata = _native_quota_metadata(row["result"])
+        if metadata is not None and row["http_status"] in (403, 429):
+            result[row["family"]]["history"][row["id"]].update(metadata)
     return result

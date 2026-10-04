@@ -16,6 +16,14 @@ P = "11111111-1111-4111-8111-111111111111"
 E = "operator@example.test"
 
 
+def _fake_cookie_store(path):
+    """The fake population creates the preferences a real closed Chrome supplies."""
+    (path / "Cookies").write_text("private-test-value")
+    default = path / "Default"
+    default.mkdir()
+    (default / "Preferences").write_text("{}")
+
+
 @pytest.fixture
 def table():
     return parse_cookie_table("SID\tprivate-test-value\t.google.com\t/\tSession")
@@ -29,7 +37,7 @@ async def test_staged_success_activates_only_verified_private_candidate(monkeypa
         assert not auth.profile_dir("new").exists()
         assert path.parent.name == ".cookie-staging"
         assert path.stat().st_mode & 0o077 == 0
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
         calls.append("populate")
 
     async def verify(path, expected, project):
@@ -60,7 +68,7 @@ async def test_rejected_or_cancelled_candidate_is_removed_and_lease_released(
     monkeypatch, table, reason
 ):
     async def populate(path, data):
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
         if reason == "populate":
             raise RuntimeError("private-test-value")
         if reason == "cancel":
@@ -140,7 +148,7 @@ async def test_invalid_names_refused_before_browser(monkeypatch, table, profile)
 @pytest.mark.asyncio
 async def test_cleanup_proves_imported_directory_identity(monkeypatch, table):
     async def populate(path, data):
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
 
     async def verify(*args):
         return E, P
@@ -161,7 +169,7 @@ async def test_cleanup_proves_imported_directory_identity(monkeypatch, table):
 @pytest.mark.asyncio
 async def test_cleanup_refuses_used_import_and_busy_import(monkeypatch, table):
     async def populate(path, data):
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
 
     async def verify(*args):
         return E, P
@@ -180,7 +188,7 @@ async def test_cleanup_refuses_used_import_and_busy_import(monkeypatch, table):
 @pytest.mark.asyncio
 async def test_cleanup_removes_only_owned_unchanged_import(monkeypatch, table):
     async def populate(path, data):
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
 
     async def verify(*args):
         return E, P
@@ -196,7 +204,7 @@ async def test_cleanup_removes_only_owned_unchanged_import(monkeypatch, table):
 @pytest.mark.asyncio
 async def test_fingerprint_failure_leaves_no_activated_credentials(monkeypatch, table):
     async def populate(path, data):
-        (path / "Cookies").write_text("private-test-value")
+        _fake_cookie_store(path)
 
     async def verify(*args):
         return E, P
@@ -231,3 +239,21 @@ async def test_candidate_acl_failure_is_safe_and_removes_staging(monkeypatch, ta
     assert "private-test-value" not in str(error.value)
     assert not auth.profile_dir("new").exists()
     assert not list((auth.default_profile_root() / ".cookie-staging").iterdir())
+
+
+@pytest.mark.asyncio
+async def test_cleanup_refuses_import_with_changed_restore_preferences(monkeypatch, table):
+    async def populate(path, data):
+        _fake_cookie_store(path)
+
+    async def verify(*args):
+        return E, P
+
+    monkeypatch.setattr(module, "_populate_candidate", populate)
+    monkeypatch.setattr(module, "_verify_candidate", verify)
+    imported = await module.import_cookie_profile(table, "new", expected_email=E, project_id=P)
+    target = auth.profile_dir("new")
+    preferences = target / "Default" / "Preferences"
+    preferences.write_text('{"session":{"restore_on_startup":5}}')
+    assert await module.discard_imported_profile(imported) is False
+    assert target.exists()

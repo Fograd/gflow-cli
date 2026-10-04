@@ -504,6 +504,7 @@ class RealChromeStrategy(AuthStrategy):
             # selects the system Chrome channel. Load-bearing — must persist here.
             assert status.user_email, "AUTHENTICATED outcome must carry a non-empty user_email"
             (profile_dir / ".gflow_account").write_text(status.user_email, encoding="utf-8")
+            (profile_dir / ".gflow_account").chmod(0o600)
             _console.print(f"[green][OK] Flow session verified ({status.user_email}).[/green]")
         else:
             logger.warning(

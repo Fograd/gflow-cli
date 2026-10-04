@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from pathlib import Path
 
 import httpx
 import pytest
@@ -151,27 +152,40 @@ async def test_multi_video_crash_keeps_completed_checkpoint(tmp_path, monkeypatc
         },
         None,
     )
+    actual = [str(uuid.uuid4()) for _ in range(3)]
+    workflows = [str(uuid.uuid4()) for _ in range(3)]
     calls = 0
+    private_file = None
 
     async def run(args, timeout, **kwargs):
-        nonlocal calls
+        nonlocal calls, private_file
         calls += 1
-        assert args[args.index("--count") + 1] == "1"
-        if calls == 2:
-            raise asyncio.CancelledError
-        output = tmp_path / "output" / job["jobId"] / "part-1" / "video.mp4"
-        output.write_bytes(b"video")
-        return 0, json.dumps(
-            {"status": "ok", "media_id": str(uuid.uuid4()), "local_path": str(output)}
-        ).encode()
+        assert args[2] == "gflow_cli.selfhost.general_video_worker"
+        request = Path(args[-1])
+        assert json.loads(request.read_text())["count"] == 3
+        private_file = request.parent / (actual[0] + ".mp4")
+        private_file.write_bytes(b"already downloaded private clip")
+        (request.parent / "video-checkpoint.json").write_text(
+            json.dumps(
+                {
+                    "project_id": PROJECT,
+                    "media_ids": actual,
+                    "workflow_ids": workflows,
+                    "phase": "video_poll",
+                }
+            )
+        )
+        raise asyncio.CancelledError
 
     monkeypatch.setattr("gflow_cli.selfhost.runtime.subprocess_run", run)
     with pytest.raises(asyncio.CancelledError):
         await execute(cfg, store, store.claim("pro1"))
-    assert len(store.get(job["jobId"])["media"]) == 1
+    assert calls == 1
+    assert store.get(job["jobId"])["knownMediaGenerationIds"] == actual
+    assert private_file.exists()
     Store(tmp_path).recover()
     assert store.get(job["jobId"])["status"] == "interrupted"
-    assert len(store.get(job["jobId"])["media"]) == 1
+    assert store.get(job["jobId"])["knownMediaGenerationIds"] == actual
     assert store.claim("pro1") is None
 
 

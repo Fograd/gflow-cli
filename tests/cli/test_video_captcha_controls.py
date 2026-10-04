@@ -18,14 +18,21 @@ def test_cli_help_mirrors_provider_controls(leaf):
         assert name in result.output
 
 
-def test_cli_count_two_rejected_before_browser():
-    with patch("gflow_cli.cli_video._make_provider_dir") as browser:
+@pytest.mark.parametrize("count", [2, 3, 4])
+def test_cli_plural_controls_reach_shared_runner(count):
+    runner = AsyncMock()
+    with (
+        patch("gflow_cli.cli_video._run_t2v", runner),
+        patch("gflow_cli.cli_video._resolve_profile", return_value="pro1"),
+        patch("gflow_cli.cli_video._make_provider_dir"),
+    ):
         result = CliRunner().invoke(
-            main, ["video", "t2v", "test", "--project", P, "--count", "2", "--captcha-retry", "2"]
+            main,
+            ["video", "t2v", "test", "--project", P, "--count", str(count), "--captcha-retry", "2"],
         )
-    assert result.exit_code == 2
-    assert "count one" in result.output
-    browser.assert_not_called()
+    assert result.exit_code == 0, result.output
+    assert runner.await_args.kwargs["captcha_controls"] == {"captchaRetry": 2}
+    assert runner.await_args.kwargs["count"] == count
 
 
 def test_cli_provider_control_reaches_shared_runner_without_secret():

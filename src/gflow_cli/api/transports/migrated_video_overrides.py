@@ -160,23 +160,28 @@ class VideoOverrides:
         if self.closed or self.used:
             raise WireFormatError(detail="Video overrides cannot replay a submitted request")
         _, _, frames, args = _envelope(body, self.project, self.count)
-        if self.previous_request_ids is not None:
-            if self.count != 1:
-                raise WireFormatError(detail="Provider video CAPTCHA requires count one")
+        if self.previous_request_ids is not None or self.count > 1:
             rpcid = frames[0][0][0]
             index = {"YhhmEf": 4, "eb1hJf": 5, "nprQif": 6, "MZZa6b": 5}[rpcid]
+            requested: list[str] = []
             try:
-                requested_id: Any = args[0][0][index][4]
-            except (IndexError, TypeError):
+                for row in args[0]:
+                    value: Any = row[index][4]
+                    if not is_uuid(value):
+                        raise ValueError("Invalid native request identity")
+                    requested.append(str(UUID(value)))
+            except (IndexError, TypeError, ValueError):
                 raise WireFormatError(
-                    detail="Fresh native requested video identity is missing"
+                    detail="Fresh native requested video identities are missing or invalid"
                 ) from None
-            if not is_uuid(requested_id):
-                raise WireFormatError(detail="Native video requested identity is invalid")
-            requested_id = str(UUID(requested_id))
-            if requested_id in self.previous_request_ids:
-                raise WireFormatError(detail="Native video attempt cannot reuse requested identity")
-            self.previous_request_ids.add(requested_id)
+            if len(requested) != self.count or len(set(requested)) != len(requested):
+                raise WireFormatError(detail="Native video requested identities must be unique")
+            if self.previous_request_ids is not None:
+                if any(value in self.previous_request_ids for value in requested):
+                    raise WireFormatError(
+                        detail="Native video attempt cannot reuse requested identity"
+                    )
+                self.previous_request_ids.update(requested)
         if self.on_validated is not None:
             self.on_validated(body)
         # Mark before awaiting: concurrent callbacks must never spend one token twice.

@@ -11,7 +11,7 @@ P = "11111111-1111-4111-8111-111111111111"
 @pytest.mark.parametrize(
     "changes",
     [
-        {"count": 2},
+        {"count": 5},
         {"captchaRetry": True},
         {"captchaRetry": 11},
         {"project": None},

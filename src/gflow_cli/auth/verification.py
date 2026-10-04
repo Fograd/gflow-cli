@@ -421,7 +421,7 @@ def _origin_of(url: str) -> str:
 
 
 async def _verify_migrated_host_fallback(
-    profile_dir: Path, source: str
+    profile_dir: Path, source: str, *, project_id: str | None = None
 ) -> FlowSessionStatus | None:
     """ai4u delta (2026-09-12) — migrated-host session oracle.
 
@@ -437,22 +437,57 @@ async def _verify_migrated_host_fallback(
     Fail-closed: upgrades GOOGLE_SESSION_ONLY to AUTHENTICATED only when BOTH
     the .google.com SSO cookie (SAPISID) AND the flow.google.com app session
     cookie (__Secure-OSID/OSID) are present, AND the account email resolves
-    from myaccount.google.com. Anything else returns None (caller keeps the
+    from a singleton fresh native me lookup or the existing MyAccount oracle.
+    Anything else returns None (caller keeps the
     original outcome). Never touches other outcomes.
     """
+    from uuid import UUID
+
+    from .internal_chromium import login_launch_kwargs
+    from .native_identity import read_native_identity
+    from .session_retention import session_retention_args
     from .strategies import async_playwright
 
+    flow_url = "https://flow.google.com/u/0/"
+    if project_id is not None:
+        try:
+            UUID(project_id)
+        except (ValueError, TypeError, AttributeError):
+            return None
+        flow_url = f"https://flow.google.com/project/{project_id}"
     try:
+        # Native evaluation kwargs must match the actual page engine. Keep the
+        # default strategy seam for existing Playwright callers and test fixtures.
+        engine = get_settings().browser_engine
+        if engine == "patchright":
+            from gflow_cli.api._engine import resolve_async_playwright
+
+            async_playwright = resolve_async_playwright(engine)
+
         async with async_playwright() as pw:
-            ctx = await pw.chromium.launch_persistent_context(
-                user_data_dir=str(profile_dir),
-                channel="chrome",
-                headless=True,
-                args=["--password-store=basic"],
+            launch_kwargs = login_launch_kwargs(
+                profile_dir, get_settings().headless, channel="chrome"
             )
+            launch_kwargs["args"].extend(session_retention_args(profile_dir, "chrome"))
+            ctx = await pw.chromium.launch_persistent_context(**launch_kwargs)
             try:
                 if not has_migrated_app_session(await ctx.cookies()):
                     return None
+                try:
+                    page = await ctx.new_page()
+                    await page.goto(
+                        flow_url, wait_until="domcontentloaded", timeout=_MIGRATED_PROBE_TIMEOUT_MS
+                    )
+                    email = await read_native_identity(page)
+                    return FlowSessionStatus(
+                        outcome=FlowSessionOutcome.AUTHENTICATED,
+                        user_email=email,
+                        source=source,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "auth_native_principal_unavailable", source=source, error=type(exc).__name__
+                    )
                 resp = await ctx.request.get(_MYACCOUNT_URL, timeout=_MIGRATED_PROBE_TIMEOUT_MS)
                 page_body = await resp.text()
                 final_url = str(resp.url)
@@ -501,6 +536,7 @@ async def verify_flow_profile(
     profile_dir: Path,
     *,
     source: str = "chrome",
+    project_id: str | None = None,
 ) -> FlowSessionStatus:
     """Probe `profile_dir` for a usable Flow app session via the fast httpx path.
 
@@ -559,7 +595,11 @@ async def verify_flow_profile(
     if result.outcome is FlowSessionOutcome.GOOGLE_SESSION_ONLY:
         # ai4u delta (2026-09-12): migrated-host fallback — see
         # _verify_migrated_host_fallback docstring. Fail-closed.
-        fallback = await _verify_migrated_host_fallback(profile_dir, source)
+        fallback = (
+            await _verify_migrated_host_fallback(profile_dir, source, project_id=project_id)
+            if project_id is not None
+            else await _verify_migrated_host_fallback(profile_dir, source)
+        )
         if fallback is not None:
             logger.warning(
                 "auth_migrated_host_fallback_authenticated",

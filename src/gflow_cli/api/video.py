@@ -536,6 +536,18 @@ class VideoResult:
     workflow_id: str | None = None  # see VideoStarted.workflow_id (#898)
 
 
+@dataclass(frozen=True)
+class VideoBatchResult:
+    """Every requested clip, in request order; no first-output collapse."""
+
+    videos: tuple[VideoResult, ...]
+    project_id: str
+
+    @property
+    def succeeded(self) -> bool:
+        return bool(self.videos) and all(video.status.succeeded for video in self.videos)
+
+
 # Callback type: invoked by the transport the moment a media_id becomes known,
 # before polling completes. May be sync or async.
 VideoStartedCallback = Callable[[VideoStarted], Awaitable[None] | None]

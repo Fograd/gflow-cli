@@ -140,6 +140,7 @@ if TYPE_CHECKING:
     from gflow_cli.api.transports.native_asset_lookup import NativeAsset, NativeAudioAsset
     from gflow_cli.api.video import (
         GenerateVideoRequest,
+        VideoBatchResult,
         VideoResult,
         VideoStarted,
         VideoStartedCallback,
@@ -512,13 +513,16 @@ class FlowApiClient:
         core path. The returned dict is identical to the previous inline call,
         plus an optional ``record_har_path`` when ``GFLOW_CLI_HAR_PATH`` is set.
         """
+        from gflow_cli.auth.session_retention import session_retention_args
+
+        channel = channel_for_profile(self.profile_dir)
         kwargs: JsonObject = {
             "user_data_dir": str(self.profile_dir),
             "headless": self.headless,
             "viewport": {"width": 1280, "height": 720},
             "locale": "en-US",
             "extra_http_headers": {"Accept-Language": "en-US,en;q=0.9"},
-            "channel": channel_for_profile(self.profile_dir),
+            "channel": channel,
             "ignore_default_args": [
                 "--enable-automation",
                 "--no-sandbox",
@@ -540,6 +544,7 @@ class FlowApiClient:
                 "--password-store=basic",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-dev-shm-usage",
+                *session_retention_args(self.profile_dir, channel),
                 *window_position_args(self.settings.browser_window_position),
             ],
         }
@@ -3225,6 +3230,10 @@ class FlowApiClient:
                 doesn't implement :class:`VideoCapableTransport`.
             BrowserSessionClosedError: Playwright target was closed mid-call.
         """
+        if req.count > 1:
+            raise ConfigurationError(
+                detail="Use generate_videos_batch for two through four fully tracked outputs"
+            )
         if self.transport is None:
             msg = "FlowApiClient.transport is None - call generate_video inside 'async with client'"
             raise RuntimeError(
@@ -3280,6 +3289,31 @@ class FlowApiClient:
 
         except Exception as e:
             await self._raise_with_incident(e, phase="video_generation")
+
+    async def generate_videos_batch(
+        self,
+        *,
+        req: GenerateVideoRequest,
+        project_id: str | None = None,
+        out_dir: Path | None = None,
+        poll_timeout_s: float = 600.0,
+        download: bool = True,
+        on_started: VideoStartedCallback | None = None,
+        on_checkpoint: GenerationCheckpointObserver | None = None,
+    ) -> VideoBatchResult:
+        """Generate two through four native UI clips and track every actual output."""
+        from gflow_cli.api.native_video_batch import generate_video_batch
+
+        return await generate_video_batch(
+            self,
+            req=req,
+            project_id=project_id,
+            out_dir=out_dir,
+            poll_timeout_s=poll_timeout_s,
+            download=download,
+            on_started=on_started,
+            on_checkpoint=on_checkpoint,
+        )
 
     async def health_check(self) -> bool:
         """Return True if the browser context is alive and on a Google domain.

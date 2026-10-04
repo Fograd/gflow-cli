@@ -1,4 +1,4 @@
-"""Explicit count-one generic video providers and proven WAF-only retries."""
+"""Explicit one-RPC generic video providers and proven WAF-only retries."""
 
 from __future__ import annotations
 
@@ -42,8 +42,8 @@ def validate_video_captcha_controls(
         raise ValueError("Confidential video tokens cannot enter the durable generation queue")
     if any(payload.get(key) is not None for key in ("captcha_token_file", "captchaToken")):
         raise ValueError("Video tokens require the supported private token input")
-    if type(payload.get("count", 1)) is not int or payload.get("count", 1) != 1:
-        raise ValueError("Explicit generic video CAPTCHA supports count one only")
+    if type(payload.get("count", 1)) is not int or not 1 <= payload.get("count", 1) <= 4:
+        raise ValueError("Explicit generic video CAPTCHA requires one through four outputs")
     if project is None:
         raise ValueError("Explicit video CAPTCHA requires a selected project UUID")
     validate_identifier(project)
@@ -94,7 +94,7 @@ async def run_with_video_captcha_policy(
         token_state = {"consumed": False}
         override = VideoOverrides(
             project,
-            1,
+            payload.get("count", 1),
             token=lambda page: asyncio.sleep(0, result=""),
             metadata_required=supplied is None,
             previous_request_ids=previous,

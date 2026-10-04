@@ -1,4 +1,4 @@
-"""Explicit SDK bridge for count-one native UI video CAPTCHA controls.
+"""Explicit SDK bridge for native UI video CAPTCHA controls.
 
 Ordinary generate_video calls retain their browser behavior. Configured provider
 keys live in the operator's existing private settings; no keys belong in DTOs.
@@ -28,7 +28,7 @@ async def generate_video_with_captcha(
     root: Path | None = None,
     **kwargs: Any,
 ) -> Any:
-    """Generate count one; replay only an exact negative WAF acknowledgment."""
+    """Generate one current UI RPC; replay only an exact negative WAF acknowledgment."""
     payload = {
         "count": req.count,
         **({"captchaOrder": captcha_order} if captcha_order is not None else {}),
@@ -39,6 +39,11 @@ async def generate_video_with_captcha(
 
     async def attempt(override: Any) -> Any:
         require_native_video_captcha_host(client, active=override is not None)
+        if req.count > 1:
+            batch_kwargs = {key: value for key, value in kwargs.items() if key != "name_resolver"}
+            return await client.generate_videos_batch(
+                req=req, project_id=project_id, **batch_kwargs
+            )
         return await client.generate_video(req=req, project_id=project_id, **kwargs)
 
     value, _ = await run_with_video_captcha_policy(

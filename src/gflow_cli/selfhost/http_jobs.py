@@ -41,6 +41,8 @@ _ERROR_CODES = _NATIVE_UNKNOWN_CODES | {
     "google_flow_unusual_activity",
     "google_flow_waf_rejection",
     "google_flow_content_policy",
+    "google_flow_native_quota",
+    "google_flow_model_access_denied",
 }
 EXIT_HTTP_STATUS = {
     3: 596,
@@ -67,8 +69,24 @@ def http_status(result: dict[str, Any], state: str) -> int:
     error = result.get("error")
     if isinstance(error, dict):
         details = cast(dict[str, Any], error)
+        if details.get("exit_code") == 4 and any(
+            flags.get(key) is True
+            for flags in (details, result)
+            for key in ("outcomeUnknown", "outcome_unknown")
+        ):
+            return 502
         if details.get("code") == "upload_rights_required":
             return 400
+        from gflow_cli.selfhost.model_quarantine import job_quota_metadata
+
+        metadata = job_quota_metadata(details)
+        if (
+            details.get("code") == "google_flow_model_access_denied"
+            and metadata is not None
+            and metadata["nativeReason"] == "PUBLIC_ERROR_MODEL_ACCESS_DENIED"
+            and details.get("exit_code") == 4
+        ):
+            return 403
         code = details.get("exit_code")
         return EXIT_HTTP_STATUS.get(code, 502) if type(code) is int else 502
     return 502
@@ -401,6 +419,14 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     code = code if isinstance(code, str) and code in _ERROR_CODES else "operation_failed"
     unknown = (
         state == "interrupted"
+        or (
+            code in {"google_flow_native_quota", "google_flow_model_access_denied"}
+            and any(
+                flags.get(key) is True
+                for flags in (raw, result)
+                for key in ("outcomeUnknown", "outcome_unknown")
+            )
+        )
         or code == "submission_outcome_unknown"
         or raw.get("exit_code") == 9
         or (code in _NATIVE_UNKNOWN_CODES and raw.get("outcome_unknown") is True)
@@ -427,6 +453,17 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     exit_code = raw.get("exit_code")
     if type(exit_code) is int:
         safe["errorDetails"]["exit_code"] = exit_code
+    if not unknown and code in {"google_flow_native_quota", "google_flow_model_access_denied"}:
+        from gflow_cli.selfhost.model_quarantine import job_quota_metadata
+
+        metadata = job_quota_metadata(raw)
+        if metadata is not None and raw.get("exit_code") == 4:
+            safe["errorDetails"].update(metadata)
+            safe["error"] = (
+                "Google Flow denied access to this native model."
+                if metadata["nativeReason"] == "PUBLIC_ERROR_MODEL_ACCESS_DENIED"
+                else "Google Flow refused this request under a native quota or throttle."
+            )
     if unknown:
         safe["outcomeUnknown"] = True
         from gflow_cli.selfhost.unknown_image import PHASES

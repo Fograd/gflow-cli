@@ -79,7 +79,11 @@ def test_invalid_controls_do_not_queue(tmp_path, monkeypatch, route, body, contr
 
 
 @pytest.mark.parametrize("controls", [{"captchaOrder": "CapSolver"}, {"captchaRetry": 2}])
-def test_generic_video_plural_control_refuses_before_queue(tmp_path, controls):
+def test_generic_video_plural_control_admits_one_configured_job(tmp_path, monkeypatch, controls):
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.captcha_routes.provider_keys",
+        lambda: SimpleNamespace(public=lambda: {"CapSolver": {"configured": True}}),
+    )
     cfg = settings(tmp_path)
     cfg.allow_video = True
     with TestClient(create_app(cfg, start_workers=False)) as client:
@@ -88,5 +92,8 @@ def test_generic_video_plural_control_refuses_before_queue(tmp_path, controls):
             headers=AUTH,
             json={"prompt": "fixture", "count": 2, **controls, "async": True},
         )
-        assert response.status_code == 501
-        assert client.app.state.store.jobs() == []
+        assert response.status_code == 201
+        assert len(client.app.state.store.jobs()) == 1
+        with client.app.state.store.connection() as conn:
+            queued = json.loads(conn.execute("SELECT payload FROM jobs").fetchone()["payload"])
+        assert queued["count"] == 2

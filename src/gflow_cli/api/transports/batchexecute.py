@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from gflow_cli.data.redaction import redact_error_detail
-from gflow_cli.errors import WireFormatError
+from gflow_cli.errors import NATIVE_QUOTA_CODES, WireFormatError
 
 _XSSI_PREFIX = ")]}'"
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
@@ -187,6 +187,51 @@ def rpc_errors(text: str) -> list[RpcError]:
         reasons = tuple(s for s in _strings(details) if not s.startswith("type.googleapis.com/"))
         errors.append(RpcError(item[1], code, reasons))
     return errors
+
+
+def public_quota_refusal(text: str, rpcids: tuple[str, ...]) -> tuple[str, int, str] | None:
+    """Read only typed public reason fields; ambiguous same-RPC siblings stay unknown."""
+    enums = {
+        2: "PUBLIC_ERROR_USER_QUOTA_REACHED",
+        3: "PUBLIC_ERROR_USER_REQUESTS_THROTTLED",
+        50: "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC",
+        32: "PUBLIC_ERROR_PER_MODEL_DAILY_QUOTA_REACHED",
+        34: "PUBLIC_ERROR_PER_MODEL_DAILY_QUOTA_REACHED_UPGRADEABLE",
+        11: "PUBLIC_ERROR_MODEL_ACCESS_DENIED",
+    }
+    rows = _wrb_rows(text)
+    for row in rows:
+        if row[1] not in rpcids or row[2] is not None or len(row) <= 5:
+            continue
+        status = _as_list(row[5])
+        if status is None or len(status) < 3 or type(status[0]) is not int:
+            continue
+        details = _as_list(status[2])
+        if details is None or len(details) != 1:
+            continue
+        detail = _as_list(details[0])
+        if detail is None or len(detail) != 2:
+            continue
+        payload = _as_list(detail[1])
+        if not payload:
+            continue
+        reason: Any = None
+        if detail[0] == "type.googleapis.com/google.rpc.ErrorInfo":
+            reason = payload[0]
+        elif (
+            detail[0]
+            == "type.googleapis.com/google.internal.labs.aisandbox.proto.common.v1.PublicAitkError"
+            and type(payload[0]) is int
+        ):
+            reason = enums.get(payload[0])
+        if not isinstance(reason, str) or NATIVE_QUOTA_CODES.get(reason) != status[0]:
+            continue
+        if sum(candidate[1] == row[1] for candidate in rows) != 1:
+            raise WireFormatError(
+                detail="Ambiguous native quota refusal", route="batchexecute:" + row[1]
+            )
+        return row[1], status[0], reason
+    return None
 
 
 def _is_record(node: list[Any]) -> bool:

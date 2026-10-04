@@ -642,6 +642,8 @@ def test_all_domain_errors_provide_remediation_hint() -> None:
             CharacterMutationUnknownError,
             NativeExtensionUnknownError,
             NativeMediaMutationUnknownError,
+            NativeQuotaError,
+            NativeUIVideoBatchUnknownError,
             NativeVideoGenerationUnknownError,
             VoiceMutationUnknownError,
         )
@@ -655,13 +657,17 @@ def test_all_domain_errors_provide_remediation_hint() -> None:
             exc = exc_cls(NativeExtensionStarted(project, media, (media,), (workflow,)))
             assert exc.to_problem_details().get("remediation_hint")
             continue
-        if exc_cls is NativeVideoGenerationUnknownError:
+        if exc_cls in (NativeVideoGenerationUnknownError, NativeUIVideoBatchUnknownError):
             exc = exc_cls(
                 project_id=project,
                 media_ids=(media,),
                 workflow_ids=(workflow,),
                 phase="video_submit",
             )
+            assert exc.to_problem_details().get("remediation_hint")
+            continue
+        if exc_cls is NativeQuotaError:
+            exc = exc_cls("PUBLIC_ERROR_USER_QUOTA_REACHED", route="taxonomy.test")
             assert exc.to_problem_details().get("remediation_hint")
             continue
         if exc_cls is VoiceMutationUnknownError:

@@ -24,12 +24,14 @@ class NativeMetadataRpcError(ValueError):
 async def native_rpc(
     page: Any, rpc: str, args: list[Any], source_path: str, *, require_single: bool = False
 ) -> Any:
-    if rpc not in {"UpteDb", "C4BZMd", "rzMKMb", "cz8Z4b", "Sc7aEb", "as29s", "LWkPYd"}:
+    if rpc not in {"UpteDb", "C4BZMd", "rzMKMb", "cz8Z4b", "Sc7aEb", "as29s", "LWkPYd", "o30O0e"}:
         raise ValueError("Unsupported native metadata RPC")
     if source_path != "/u/0/" and not source_path.startswith("/project/"):
         raise ValueError("Unsupported native metadata source path")
     result = await page.evaluate(
         """async ({rpc, args, source_path}) => {
+      if (rpc === 'o30O0e' && location.origin !== 'https://flow.google.com')
+        throw Error('Native identity requires the trusted Flow origin');
       const w = window.WIZ_global_data;
       const q = new URLSearchParams({rpcids:rpc,'source-path':source_path,
         bl:w.cfb2h,'f.sid':w.FdrFJe,hl:'en',rt:'c'});
@@ -40,6 +42,13 @@ async def native_rpc(
       try {
       const r = await fetch('/_/AiSandboxAngularFrontend/data/batchexecute?'+q,
         {method:'POST',headers:{'content-type':'application/x-www-form-urlencoded;charset=UTF-8'},body,signal:controller.signal});
+      if (rpc === 'o30O0e') {
+        const reply = new URL(r.url);
+        if (location.origin !== 'https://flow.google.com' ||
+            reply.origin !== 'https://flow.google.com' ||
+            reply.pathname !== '/_/AiSandboxAngularFrontend/data/batchexecute')
+          throw Error('Native identity response left the trusted Flow scope');
+      }
       if (!r.ok) return {status:r.status,text:''};
       const reader = r.body.getReader(); const chunks = []; let size = 0;
       while (true) {

@@ -1,0 +1,1 @@
+A configured provider solve takes1.25seconds and its single Google submission is rejected0.5seconds later. The local event API reports measured1250/500millisecond durations and the rejection. Old rows or unrelated observer terminalevents omit duration. No solver success becomes Google acceptance.

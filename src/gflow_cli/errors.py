@@ -28,6 +28,7 @@ __all__ = [
     "NativeMediaMutationUnknownError",
     "NativeExtensionUnknownError",
     "NativeVideoGenerationUnknownError",
+    "NativeUIVideoBatchUnknownError",
     "VoiceMutationUnknownError",
     "CharacterBatchPartialError",
     "ConfigurationError",
@@ -57,6 +58,8 @@ __all__ = [
     "ProfileAccessError",
     "QueueSchemaError",
     "RateLimitError",
+    "NativeQuotaError",
+    "NATIVE_QUOTA_CODES",
     "RecaptchaError",
     "SceneConcatError",
     "SecurityError",
@@ -95,6 +98,11 @@ class ProblemDetails(TypedDict, total=False):
     pending_media_ids: list[str]
     failed_before_mutation: bool
     completed_character_refs: list[str]
+    nativeReason: str
+    nativeModelKey: str
+    nativeOperation: str
+    nativeGrpcCode: int
+    nativeProof: str
     incident: dict[str, str]  # gflow extension — remote-safe {id, capture_status} ONLY
 
 
@@ -302,6 +310,59 @@ class NativeVideoGenerationUnknownError(GFlowError):
         if len(set(media_ids + workflow_ids)) != len(media_ids) * 2:
             raise ValueError("Native video uncertainty requires distinct handles")
         super().__init__(route="video.references.native", retryable=False)
+        self.project_id, self.media_ids = project_id, media_ids
+        self.workflow_ids, self.phase = workflow_ids, phase
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out.update(
+            outcome_unknown=True,
+            project_id=self.project_id,
+            media_ids=list(self.media_ids),
+            workflow_ids=list(self.workflow_ids),
+            phase=self.phase,
+        )
+        return out
+
+
+class NativeUIVideoBatchUnknownError(GFlowError):
+    """A native video dispatch/poll has an uncertain outcome; never replay."""
+
+    problem_type = "https://gflow-cli.dev/errors/native-ui-video-batch-unknown"
+    title = "Native UI video batch outcome unknown"
+    _default_remediation = (
+        "Inspect the returned output IDs in Flow before resubmitting; "
+        "no automatic generation retry occurred."
+    )
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        media_ids: tuple[str, ...],
+        workflow_ids: tuple[str, ...],
+        phase: Literal["video_submit", "video_poll"],
+    ) -> None:
+        if phase not in {"video_submit", "video_poll"}:
+            raise ValueError("Native video uncertainty requires a known phase")
+        if (
+            not isinstance(media_ids, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or not isinstance(workflow_ids, tuple)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or not 0 <= len(media_ids) <= 4
+            or len(media_ids) != len(workflow_ids)
+        ):
+            raise ValueError(
+                "Native video uncertainty requires zero through four actual paired outputs"
+            )
+        try:
+            project_id = str(UUID(project_id))
+            media_ids = tuple(str(UUID(value)) for value in media_ids)
+            workflow_ids = tuple(str(UUID(value)) for value in workflow_ids)
+        except (TypeError, ValueError, AttributeError):
+            raise ValueError("Native video uncertainty requires UUID handles") from None
+        if len(set(media_ids + workflow_ids)) != len(media_ids) * 2:
+            raise ValueError("Native video uncertainty requires distinct handles")
+        super().__init__(route="video.batch.native", retryable=False)
         self.project_id, self.media_ids = project_id, media_ids
         self.workflow_ids, self.phase = workflow_ids, phase
 
@@ -622,6 +683,74 @@ class RateLimitError(FlowApiError):
             remediation_hint=remediation_hint,
         )
         self.retry_after = retry_after
+
+
+NATIVE_QUOTA_CODES = {
+    "PUBLIC_ERROR_USER_QUOTA_REACHED": 8,
+    "PUBLIC_ERROR_USER_REQUESTS_THROTTLED": 8,
+    "PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC": 8,
+    "PUBLIC_ERROR_PER_MODEL_DAILY_QUOTA_REACHED": 8,
+    "PUBLIC_ERROR_PER_MODEL_DAILY_QUOTA_REACHED_UPGRADEABLE": 8,
+    "PUBLIC_ERROR_MODEL_ACCESS_DENIED": 7,
+}
+
+
+class NativeQuotaError(RateLimitError):
+    """A positively typed, single-RPC native quota/access refusal; never auto replay."""
+
+    problem_type = "https://gflow-cli.dev/errors/native-quota"
+    title = "Google Flow quota or model access refusal"
+    _default_remediation = (
+        "Inspect the native reason before retrying; any account-routing cooldown is local policy."
+    )
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        route: str,
+        model_key: str | None = None,
+        operation: str | None = None,
+    ) -> None:
+        import re
+
+        if reason not in NATIVE_QUOTA_CODES:
+            raise ValueError("Unsupported native quota reason")
+        if (
+            model_key is not None
+            and re.fullmatch(r"[A-Za-z][A-Za-z0-9_.:-]{1,199}", model_key) is None
+        ):
+            raise ValueError("Invalid native quota model key")
+        if operation is not None and operation not in {
+            "images",
+            "images/upscale",
+            "videos",
+            "videos/reference",
+            "videos/edit",
+            "videos/extend",
+            "videos/promote",
+        }:
+            raise ValueError("Invalid native quota operation")
+        super().__init__(
+            detail="Google Flow returned a typed quota or model access refusal.",
+            status=403 if reason == "PUBLIC_ERROR_MODEL_ACCESS_DENIED" else 429,
+            route=route,
+        )
+        self.reason = reason
+        self.model_key = model_key
+        self.operation = operation
+        self.retryable = False
+
+    def to_problem_details(self) -> ProblemDetails:
+        out = super().to_problem_details()
+        out["nativeReason"] = self.reason
+        out["nativeGrpcCode"] = NATIVE_QUOTA_CODES[self.reason]
+        out["nativeProof"] = "single-typed-native-rpc-v1"
+        if self.model_key is not None:
+            out["nativeModelKey"] = self.model_key
+        if self.operation is not None:
+            out["nativeOperation"] = self.operation
+        return out
 
 
 class ContentPolicyError(FlowApiError):
@@ -1792,9 +1921,11 @@ EXIT_CODE_MAP: dict[type[GFlowError], int] = {
     NativeMediaMutationUnknownError: 40,
     NativeExtensionUnknownError: 40,
     NativeVideoGenerationUnknownError: 40,
+    NativeUIVideoBatchUnknownError: 40,
     VoiceMutationUnknownError: 40,
     ConfigurationError: 11,
     AuthExpiredError: 3,
+    NativeQuotaError: 4,
     RateLimitError: 4,
     ContentPolicyError: 5,
     NetworkError: 6,

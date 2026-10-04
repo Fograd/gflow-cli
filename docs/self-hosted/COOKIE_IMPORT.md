@@ -132,3 +132,8 @@ This narrows the observed failure to candidate authentication rather than parser
 validation; it does not establish why Google or persistence rejected the session.
 Vivaldi DevTools can provide the documented TSV format, but export acceptance must
 still be verified. Preserve the working hosted profiles while investigating.
+
+### Current-host identity and retention
+Selected-project imports may pass that explicit hint to a fresh official singleton GetPeople read. Only one literalme lookup with observed successstatus1 and one usable email may establish principal; expected-email and independent fresh project ownership still apply. Cookie presence, local markers, UI labels or project creators do not establish identity. NO_SESSION does not upgrade. The actual headed pro1 identity read passed; successful copied-cookie import remains unverified.
+
+Staged candidates containing Session cookies receive private restore-on-startup Preferences so cold reopens preserve exact expiry0. Separately, owned private verified system-Chrome profiles use --restore-last-session at normal SDK launches, without editing cookie expiry or original Preferences. This reduces Chrome-close loss and does not prevent Google revocation/expiry. Strict ownership/marker/regular-file checks gate retention; unknown/shared/symlink profiles are unchanged.

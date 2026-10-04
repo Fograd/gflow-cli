@@ -40,6 +40,7 @@ from gflow_cli.selfhost.config import (
     Settings,
     validate_callback,
 )
+from gflow_cli.selfhost.form_payload import FORM_REQUEST_BODY, parse_payload
 from gflow_cli.selfhost.native_aliases import NativeAlias, NativeAliasStore, alias_spec
 from gflow_cli.selfhost.native_observations import NativeObservationStore
 from gflow_cli.selfhost.native_resource_aliases import (
@@ -47,6 +48,7 @@ from gflow_cli.selfhost.native_resource_aliases import (
     NativeResourceAliasStore,
     resource_alias_spec,
 )
+from gflow_cli.selfhost.quota_http import NoEligibleAccountHTTPError
 from gflow_cli.selfhost.runtime import (
     contained_file,
     deliver_callbacks,
@@ -212,6 +214,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     app.state.store = store
     app.state.aliases = aliases
     app.add_middleware(BodyLimitMiddleware)
+
+    @app.exception_handler(NoEligibleAccountHTTPError)
+    async def automatic_account_refused(
+        request: Request, exc: NoEligibleAccountHTTPError
+    ) -> JSONResponse:
+        return JSONResponse(
+            exc.payload, status_code=429, headers={"Retry-After": str(exc.retry_after)}
+        )
+
     prefix = "/v1/google-flow"
     from gflow_cli.selfhost.captcha_routes import mount
 
@@ -223,7 +234,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             {"code": "feature_not_implemented", "feature": feature, "status": "not_implemented"},
         )
 
-    def pick_account(email: str | None, refs: list[str], *, allow_native: bool = False) -> str:
+    def pick_account(
+        email: str | None,
+        refs: list[str],
+        *,
+        allow_native: bool = False,
+        operation: str | None = None,
+        model_key: str | None = None,
+    ) -> str:
         if not cfg.accounts:
             raise HTTPException(503, "No verified accounts configured")
         selected = (
@@ -256,9 +274,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if selected:
             return selected
         from gflow_cli.selfhost.account_scheduler import select_account
+        from gflow_cli.selfhost.model_quarantine import NoEligibleAccount
 
         try:
-            return select_account(store, cfg.accounts)
+            if operation is None:
+                return select_account(store, cfg.accounts)
+            return select_account(store, cfg.accounts, operation=operation, model_key=model_key)
+        except NoEligibleAccount as exc:
+            raise NoEligibleAccountHTTPError(exc) from None
         except ValueError:
             raise HTTPException(503, "No current verified accounts configured") from None
 
@@ -652,9 +675,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "scope": "local-profile-registration",
         }
 
-    @app.post(prefix + "/accounts/{email}/health", response_model=None)
+    @app.post(
+        prefix + "/accounts/{email}/health", response_model=None, openapi_extra=FORM_REQUEST_BODY
+    )
     async def account_health(
-        request: Request, email: str, payload: dict[str, Any]
+        request: Request, email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         # This read-only operation shares the durable serial queue with generation.
         # Never open a competing browser from a request handler or change auth flags.
@@ -831,8 +856,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                             "candidateProfile": profile,
                         }
 
-    @app.post(prefix + "/accounts", response_model=None)
-    async def register_account(payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    @app.post(prefix + "/accounts", response_model=None, openapi_extra=FORM_REQUEST_BODY)
+    async def register_account(
+        payload: Annotated[dict[str, Any], Depends(parse_payload)],
+    ) -> dict[str, Any] | JSONResponse:
         if "cookies" in payload:
             return await register_cookie_account(payload)
         check_unknown(payload, {"profile", "email", "projectId", "enabled", "verified"})
@@ -861,6 +888,12 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         except sqlite3.IntegrityError:
             raise HTTPException(
                 409, "Account handle is already registered to another profile"
+            ) from None
+        except ValueError:
+            raise HTTPException(
+                409,
+                "A deleted account registration requires a fresh logical profile; "
+                "the existing browser profile is preserved",
             ) from None
         if enabled:
             cfg.accounts[profile] = {"email": email, "project": project}
@@ -909,6 +942,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "accounts/unregister-local",
                 "captcha-providers/configuration",
                 "captcha-stats",
+                "requests/multipart-text-fields",
+                "captcha-google-confirmed-waf-only-retries",
+                "images/provider-captcha-generation",
+                "images/upscale-provider-controls",
+                "videos/generic-count1-through4-provider-controls",
+                "assets/resources-observed-account-continuation",
+                "assets/upload-webp-conversion",
+                "accounts/score-and-local-quota-selection",
                 "images/seed",
                 "images/canonical-references",
                 "images/canonical-characters",
@@ -969,8 +1010,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "notImplemented": [
                 "videos/seed",
                 "images/aspectRatio-auto-native",
-                "images/provider-captcha-generation",
-                "captcha-google-refusal-retries",
             ],
             "localPolicies": {
                 "images/aspectRatio-auto": {
@@ -979,12 +1018,20 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     "requires": "first-owned-image-reference",
                 }
             },
-            "verificationPending": ["accounts/cookie-import-live-acceptance"],
+            "verificationPending": [
+                "accounts/cookie-import-live-acceptance",
+                "captcha-provider-google-acceptance",
+                "videos/generic-multi-output-rendering",
+                "images/ten-reference-rendering",
+                "images/4k-entitlement-and-rendering",
+            ],
             "verification": "Adapters require live verification per account and operation",
         }
 
-    @app.post(prefix + "/images", response_model=None)
-    async def images(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    @app.post(prefix + "/images", response_model=None, openapi_extra=FORM_REQUEST_BODY)
+    async def images(
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any] | JSONResponse:
         allowed = {
             "prompt",
             "email",
@@ -1062,7 +1109,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 422, "seed must be a nonnegative integer with room for count consecutive seeds"
             )
         refs = list(plan.image_ids)
-        profile = pick_account(payload.get("email"), refs, allow_native=True)
+        profile = pick_account(payload.get("email"), refs, allow_native=True, operation="images")
         managed_assets: dict[str, dict[str, Any]] = {}
         sources: list[dict[str, str]] = []
         for ref in refs:
@@ -1125,8 +1172,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             captcha_token=supplied_token if isinstance(supplied_token, str) else None,
         )
 
-    @app.post(prefix + "/images/upscale", response_model=None)
-    async def upscale(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    @app.post(prefix + "/images/upscale", response_model=None, openapi_extra=FORM_REQUEST_BODY)
+    async def upscale(
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
             {
@@ -1287,8 +1336,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         except KeyError:
             raise HTTPException(404, "Job not found") from None
 
-    @app.post(prefix + "/assets/sync/{email}")
-    async def synchronize_inventory(email: str, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/assets/sync/{email}", openapi_extra=FORM_REQUEST_BODY)
+    async def synchronize_inventory(
+        email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any]:
         """Fork extension: bounded read-only traversal with private resumable checkpoints."""
         from gflow_cli.services.inventory_sync import validate_sync_options
 
@@ -1701,9 +1752,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         ]
         return {**page_slice(request, items, "media"), "scope": "selfhost-managed assets"}
 
-    @app.delete(prefix + "/assets/{email}", response_model=None)
+    @app.delete(prefix + "/assets/{email}", response_model=None, openapi_extra=FORM_REQUEST_BODY)
     async def delete_assets(
-        request: Request, email: str, payload: dict[str, Any]
+        request: Request, email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
@@ -1831,8 +1882,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(502, "Native alias verification is unresolved")
         return result
 
-    @app.post(prefix + "/assets/{email}/aliases", status_code=201)
-    async def register_native_alias(email: str, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/assets/{email}/aliases", status_code=201, openapi_extra=FORM_REQUEST_BODY)
+    async def register_native_alias(
+        email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any]:
         from gflow_cli.api.transports.native_asset_lookup import media_url
 
         check_unknown(payload, {"alias", "mediaGenerationId", "projectId", "kind"})
@@ -2220,8 +2273,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "scope": "native Google project character",
         }
 
-    @app.post(prefix + "/characters")
-    async def create_character(payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/characters", openapi_extra=FORM_REQUEST_BODY)
+    async def create_character(
+        payload: Annotated[dict[str, Any], Depends(parse_payload)],
+    ) -> dict[str, Any]:
         check_unknown(
             payload,
             {
@@ -2298,8 +2353,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             },
         )
 
-    @app.patch(prefix + "/characters/{ref}")
-    async def patch_character(ref: str, payload: dict[str, Any]) -> dict[str, Any]:
+    @app.patch(prefix + "/characters/{ref}", openapi_extra=FORM_REQUEST_BODY)
+    async def patch_character(
+        ref: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any]:
         check_unknown(payload, {"email", "projectId", "displayName", "personalityNotes", "voice"})
         character_fields(payload)
         if not ({"displayName", "personalityNotes", "voice"} & payload.keys()):
@@ -2451,10 +2508,12 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(502, "Fresh resource alias detail is unavailable") from None
         return cast(dict[str, Any], row)
 
-    @app.post(prefix + "/characters/{email}/aliases", status_code=201)
-    @app.post(prefix + "/voices/{email}/aliases", status_code=201)
+    @app.post(
+        prefix + "/characters/{email}/aliases", status_code=201, openapi_extra=FORM_REQUEST_BODY
+    )
+    @app.post(prefix + "/voices/{email}/aliases", status_code=201, openapi_extra=FORM_REQUEST_BODY)
     async def register_resource_alias(
-        request: Request, email: str, payload: dict[str, Any]
+        request: Request, email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any]:
         character = request.url.path.split("/")[3] == "characters"
         check_unknown(
@@ -2651,9 +2710,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             **({"voicePerformance": row["performance"]} if row.get("performance") else {}),
         }
 
-    @app.post(prefix + "/voices", response_model=None)
+    @app.post(prefix + "/voices", response_model=None, openapi_extra=FORM_REQUEST_BODY)
     async def create_voice(
-        request: Request, payload: dict[str, Any]
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         check_unknown(
             payload,
@@ -2865,9 +2924,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
     async def edit_models(request: Request) -> dict[str, Any]:
         return await native_catalog(request, "edit-models", "models")
 
-    @app.post(prefix + "/videos/extend", response_model=None)
+    @app.post(prefix + "/videos/extend", response_model=None, openapi_extra=FORM_REQUEST_BODY)
     async def extend_video(
-        request: Request, payload: dict[str, Any]
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         if not cfg.allow_video:
             raise HTTPException(403, "Video generation requires GFLOW_SELFHOST_ALLOW_VIDEO=1")
@@ -3138,8 +3197,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             payload["referenceSlotIds"] = slot_ids
         return await submit(request, "videos/edit", payload, profile)
 
-    @app.post(prefix + "/videos", response_model=None)
-    async def videos(request: Request, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    @app.post(prefix + "/videos", response_model=None, openapi_extra=FORM_REQUEST_BODY)
+    async def videos(
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
+    ) -> dict[str, Any] | JSONResponse:
         if "referenceVideo_1" in payload:
             return await native_video_edit(request, payload)
         if (
@@ -3183,10 +3244,6 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "Invalid video aspect ratio")
         if type(payload.setdefault("count", 1)) is not int or not 1 <= payload["count"] <= 4:
             raise HTTPException(422, "Video count requires an integer from 1 to 4")
-        if payload["count"] != 1 and any(
-            field in payload for field in ("captchaToken", "captchaOrder", "captchaRetry")
-        ):
-            feature_missing("Generic video CAPTCHA controls currently require count=1")
         model = payload.setdefault("model", "veo-3.1-fast")
         if not isinstance(model, str) or model not in VIDEO_ALIASES:
             raise HTTPException(422, "Unsupported video model")
@@ -3226,7 +3283,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         if payload.get("startImage") and ingredient_ids:
             raise HTTPException(422, "Video frames and reference ingredients cannot be mixed")
         await cache_alias_images(payload, list(translated.values()))
-        profile = pick_account(payload.get("email"), refs)
+        profile = pick_account(payload.get("email"), refs, operation="videos")
         try:
             files = {ref: contained_file(store.asset_get(ref)["path"], cfg.root) for ref in refs}
         except ValueError:
@@ -3255,9 +3312,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             ) from None
         return await submit(request, "videos", payload, profile)
 
-    @app.post(prefix + "/videos/concatenate", response_model=None)
+    @app.post(prefix + "/videos/concatenate", response_model=None, openapi_extra=FORM_REQUEST_BODY)
     async def concatenate(
-        request: Request, payload: dict[str, Any]
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         from gflow_cli.api.transports.native_asset_lookup import media_url
         from gflow_cli.selfhost.native_video_cache import cache_native_video, verified_cache_account
@@ -3390,10 +3447,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         payload["projectId"] = project
         return await submit(request, "videos/concatenate", payload, profile)
 
-    @app.post(prefix + "/videos/upscale", response_model=None)
-    @app.post(prefix + "/videos/gif", response_model=None)
+    @app.post(prefix + "/videos/upscale", response_model=None, openapi_extra=FORM_REQUEST_BODY)
+    @app.post(prefix + "/videos/gif", response_model=None, openapi_extra=FORM_REQUEST_BODY)
     async def export_video(
-        request: Request, payload: dict[str, Any]
+        request: Request, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any] | JSONResponse:
         kind = "videos/gif" if request.url.path.endswith("/gif") else "videos/upscale"
         if kind == "videos/upscale":

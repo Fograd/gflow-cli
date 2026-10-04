@@ -82,3 +82,12 @@ timing differences still require resolution.
 
 ### Next overnight source scope
 Generic video count1 now supports configured provider order and explicit1–10 positive-WAF-only attempts across portable SDK/CLI/queued MCP and HTTP; confidential queued MCP tokens refuse. Image2K/4K overrides and explicit HTTP refusal retries are implemented with fresh4K availability-before-mint. Bounded observed account character/saved-voice listing is an additive extension with opaque continuations, unknown completeness and no deletion authority. Exact live ten-reference wire retention passed after the append-caret fix. Release/gate status remains in VERIFICATION.md; these source scopes do not prove accepted solver-backed output.
+
+
+Text-only multipart requests now share the JSON mutation handlers. See [form requests](FORM_REQUESTS.md) for exact field conversion, duplicate/file refusal and private token lifecycle. Native binary asset uploads retain their separate contract.
+
+
+Row7 now additionally has measured local solve/acknowledgment latency averages and sample counts. Only matched phases within one observer lifetime contribute; historical/unmatched events remain unmeasured. Billing, vendor-wide samples and unobserved tier/SKU dimensions remain unavailable.
+
+### Third overnight batch
+Generic count2–4 now uses one native RPC across SDK/CLI/MCP/private REST worker with all-output checkpointing and provider/supplied-token controls. Numeric seed and unobserved native output forms remain unsupported. Text multipart requests reuse existing JSON mutation validators; local CAPTCHA elapsed averages and exact typed native quota/model routing are implemented. Policy reset times are local compatibility rules, not Google observations. Retired physical profile names and public handles require fresh registration names. See [batches](VIDEO_BATCH.md), [forms](FORM_REQUESTS.md) and [scheduler](ACCOUNT_SCHEDULER.md).

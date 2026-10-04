@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 
 from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys
+from gflow_cli.selfhost.form_payload import FORM_REQUEST_BODY, parse_payload
 
 
 def provider_keys() -> ProviderKeys:
@@ -23,8 +24,10 @@ def mount(app: FastAPI, root: Path) -> None:
     async def get_providers() -> dict[str, Any]:
         return provider_keys().public()
 
-    @app.post(prefix + "/captcha-providers")
-    async def set_providers(payload: dict[str, Any]) -> dict[str, Any]:
+    @app.post(prefix + "/captcha-providers", openapi_extra=FORM_REQUEST_BODY)
+    async def set_providers(
+        payload: Annotated[dict[str, Any], Depends(parse_payload)],
+    ) -> dict[str, Any]:
         try:
             return provider_keys().update(payload)
         except ValueError:

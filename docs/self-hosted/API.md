@@ -949,3 +949,8 @@ See [CAPTCHA](CAPTCHA.md) for one-use, acknowledgement and unknown-outcome rules
 
 ## Account resource continuation and generic video providers
 See [observed account resources](ACCOUNT_RESOURCES.md) for SDK/CLI/direct MCP/HTTP query bounds, epoch-scoped opaque cursors, URL-free results and completeness limits. Existing /characters and /voices defaults remain project-scoped; this extension does not silently redefine them. See [generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md) for count1 SDK/CLI/queued MCP/REST provider controls. Queued confidential tokens refuse before enqueue; ordinary configured providers do not activate merely by saving a key.
+
+
+Text-only multipart requests now share the JSON mutation handlers. See [form requests](FORM_REQUESTS.md) for exact field conversion, duplicate/file refusal and private token lifecycle. Native binary asset uploads retain their separate contract.
+
+Generic count2–4 videos use one native request and retain every actual output; provider controls support the same range. See [batch results](VIDEO_BATCH.md), [text forms](FORM_REQUESTS.md) and [local quota routing](ACCOUNT_SCHEDULER.md).
