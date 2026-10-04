@@ -853,7 +853,8 @@ queued.raise_for_status()
 ```
 
 Actual workers-disabled forwarding/cache/queue BDD passed64.71seconds with zero
-generation. Final gates passed6746tests; paid accepted output and sourceea9cc2c5 is published/deployed with all3 production default-history
+generation. Final gates passed6746tests. Paid accepted output remains unproved.
+Sourceea9cc2c5 is published/deployed with all3 production default-history
 HTTP200 reads and zero generation. Queue acceptance does not establish rendered acceptance; an
 explicit Google WAF refusal or unknown outcome is recorded separately.
 
