@@ -245,3 +245,63 @@ provider adapter duplicate. The deployed predecessor also passed six registered
 native token/provider conflict boundaries with an unregistered fixture profile,
 zero browser operations, solver tasks or generation. Live generic image
 provider acceptance remains pending.
+
+
+### 4 October final registered image/video trials
+
+Tested/deployed implementation:5746bf617b18514b7bdce2a56961277d724a59ea.
+The generic image provider fields are present on the registered MCP queue path.
+
+* A count-one native-reference/Auto MCP image selected CapSolver, recorded one
+  solve/submission/rejection and ended in a typed WAF refusal. No accepted output,
+  unknown result or retry was reported.
+* A separate text-only registered MCP image selected CapSolver and completed
+  with one decoded1024x1024 image and shared solved/submitted/accepted events.
+  This proves the queued provider path for that request, not universal recovery.
+* A native-reference Auto MCP image using the default browser path completed
+  with one decoded1024x1024 image, matching native project identity and verified
+  derived-first-reference aspect metadata. This establishes native UUID Auto
+  acceptance through registered MCP separately from the CapSolver refusal.
+* The third profile's single-prompt CLI CapSolver image was refused for unusual
+  activity, with exit10, one solve/submission/rejection and no automatic replay.
+* One registered native reference-video request used an owned image plus the
+  freshly observed Charon system preset. Its cheapest compatible model reported
+ 4credits/360p. CapSolver solved/submitted once; Google returned a typed
+  quota/model-access refusal. No accepted video or unknown result was reported;
+  the cause within quota versus access remains unobserved.
+* The third profile had no existing active video in its selected project.
+  One owned synthetic8-second640x360 MP4 was uploaded. Its acknowledged identity
+  survived a subsequent read failure; a fresh cold read recovered that same
+  source without reuploading and preserved every original media identity.
+  One registered extension request selected the fresh cheapest compatible
+ 10-credit model and used the browser path once. Google returned a typed WAF
+  refusal. The acknowledged fixture was then deleted; fresh inventory confirmed
+  cleanup and preserved all originals.
+
+No paid operation was replayed. The reference-video helper initially stopped
+during read-only preset preflight because it expected an internal voice key
+instead of the public name field. Its summary and ledger proved zero invocation
+and zero reservation before correction; only the subsequent public generation
+was counted. Operator proof artifacts remain private.
+
+Cumulative conservative campaign counts are nowpro2 images8/videos2/audio3 and
+pro3 images5/videos2/audio3. Reservedpro1 remains images2/videos2/audio1 and is
+disabled in gflow. Both testing accounts have reached the authorized two-video
+attempt limit; further video attempts require additional permission. Image
+allowances remain, but these results do not justify repeatedly submitting an
+unchanged refusal. The private audio bound remains three per test profile.
+
+Video rendering/promotion/edit/extension and saved-user audio acceptance are
+still unfinished. Accepted image and read-only proofs do not close those gaps.
+No authentication renewal or cookie-copy/import test was performed.
+
+
+Fourth scheduled project-access checks completedOK after the final refusals:
+pro2 at17:53:13UTC andpro3 at17:53:42UTC. Both preserved original profiles,
+attempted no authentication refresh and remained enabled; reservedpro1 stayed
+excluded. Thus these measured refusal cases did not invalidate project access.
+
+A separate registered credit-balance read returned guarded Unexpected Error500
+for both profiles. It established no balance, quota exhaustion or logout.
+That concrete public-read defect is being corrected independently; it does not
+explain Google's generation refusals without additional evidence.

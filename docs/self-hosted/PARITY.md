@@ -145,8 +145,7 @@ chosen provider; configured keys and solved tokens do not prove Google acceptanc
 - [x] Native image2K upscaling through CLI, REST and MCP, with accepted live output.
 - [x] Auto sizing from local references and owned native image UUID dimensions on
   SDK/CLI/MCP. Native UUID sizing passed a read-only live test; accepted Auto
-  generation passed through the local-reference CLI; native UUID and registered
-  MCP/REST acceptance remain part of R01/R12.
+  generation passed through the local-reference CLI; native UUID registered MCP Auto generation now has accepted output; REST Auto acceptance remains part of R01/R12.
 - [x] Automatic video-edit end from measured source duration, with explicit
   overrides and SDK/CLI/MCP/REST wiring. Read-only duration verification passed;
   edited-video rendering remains part of R12.
@@ -166,7 +165,7 @@ rendering and R13 records the published revision.
 |R03|Resumable SDK/CLI/MCP/REST sync plus bounded account characters/saved voices with opaque continuation|Global authoritative completeness unknown|
 |R04|Canonical image/entity/audio reference transport and fresh capacities|Rendered grounding remains R12|
 |R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
-|R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|One CapSolver REST image accepted; further adapters remain R12|
+|R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|REST and queued MCP text images accepted; other provider paths remain R12|
 |R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
 |R08|Lite10, independent character/image pools and fresh weighted caps; live ten-chip/wire proof passed|Rendered proof remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
@@ -379,7 +378,7 @@ unsafe-caption canonical attachment proof.
   test authorizations and remaining allowances; do not start an unbounded stress
   test or repeatedly submit the same known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Published/deployed entering the generic image batch: c2291e3b23738e831fa3c59e720eb9004fbbd68a,
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Tested implementation published/deployed:5746bf617b18514b7bdce2a56961277d724a59ea,
   with REST/MCP/GUI active and both test accounts passing fresh queued health.
   Further roadmap batches remain in progress. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
@@ -835,3 +834,17 @@ CLI batches refuse these controls explicitly. See
 The incremental feature passed341 focused tests and both independent reviews.
 Full integration verification and registered live image acceptance are recorded
 separately; focused tests do not establish Google acceptance.
+
+
+### Registered image and bounded video acceptance checkpoint
+
+Generic queued MCP CapSolver text-image generation and browser native-reference
+Auto generation now have decoded1024x1024 accepted outputs. The selected-provider
+native-reference image and third-profile CLI trial had typed WAF refusals.
+Registered reference video with an owned image/system voice was quota/access
+refused; extension from one owned uploaded fixture was WAF refused and its
+fixture cleaned up. No refusal was replayed. Both isolated testing profiles
+have exhausted their two-video attempt allowance. Accepted video/audio remains
+R12; additional video attempts require permission. Current implementation is
+5746bf617b18514b7bdce2a56961277d724a59ea; see
+[the final trial notes](FINAL_E2E.md#4-october-final-registered-imagevideo-trials).

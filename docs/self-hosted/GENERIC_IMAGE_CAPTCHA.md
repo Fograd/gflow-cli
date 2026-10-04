@@ -55,9 +55,12 @@ return privacy-safe typed errors with existing key configuration guidance.
 Provider keys use the existing private configuration and shared
 `GFLOW_SELFHOST_ROOT` statistics directory. No new environment variables or
 provider-default changes are introduced. Solver tasks and Google generation
-may incur charges. This batch has offline synthetic CLI/MCP/queue/service
-verification only; no live solve, generation or Google adapter acceptance was
-performed. Parent REST acceptance evidence is surface-specific.
+may incur charges. The full integration gate passed7,919 tests. After deployment, one registered
+queued MCP text-only CapSolver image completed and decoded. A native-reference
+Auto CapSolver image and a third-profile CLI text image were WAF refused;
+none was replayed. Native-reference Auto generation through the browser path
+completed separately. These are request-specific observations, not a general
+acceptance guarantee. See [FINAL_E2E.md](FINAL_E2E.md#4-october-final-registered-imagevideo-trials).
 
 See [CAPTCHA policy and evidence](CAPTCHA.md) and
 [native dedicated adapter controls](NATIVE_CAPTCHA.md).
