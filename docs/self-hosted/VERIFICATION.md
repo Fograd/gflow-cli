@@ -1248,3 +1248,54 @@ mirrors, council checks, Ruff/formatting and Pyright0errors all passed. Characte
 live alias acceptance and fixture cleanup are recorded above. Saved-user voice
 fixture/playback acceptance and broader R02 parity remain open. Publication and
 deployment are separate coordinator steps, not claimed by this gate result.
+
+
+R02 a7f293240f436069fa6efa21fdf8f253b24a7a7e published to all3 fork branches and
+production fast-forwarded with environment synchronization; API/MCP services
+active, queues0. Character alias acceptance/full gates were recorded above;
+saved-user voice fixture acceptance remains open.
+
+## R03 catalog resume and resource observations — 2026-10-04
+
+Explicit ordered project resume and metadata-only REST merge_catalogs are
+implemented with separate ownership validation and no account-page synthesis.
+Empty projects, character entities and source:user saved-audio/workflow metadata
+accumulate under exact account/profile; transactional conflicts roll back and
+missing rows survive. No URL/prompt/caption/cursor/preset persistence or fresh
+GetMedia authority. Actual free affected-surface BDD and frozen-source gates
+remain pending; no complete-history/cohort or new deployment claim is made.
+
+Actual SDK catalog-resume BDD on pro1 passed1test,2warnings in14.52seconds,
+with zero generations. Actual REST resume/durable-observation BDD passed1test,
+2warnings in18.81seconds, with zero generation/Google mutation during the test.
+REST proved a positively observed character and idempotent accumulated counts.
+An owned character fixture was created beforehand from an existing image without
+image generation; owned fixture cleanup subsequently passed (phase:cleaned), preserving original
+character IDs and the fresh source image with zero generations.
+
+Explicit resume reads now require request-project/source-path correlation on
+https://flow.google.com through read_project_payload(require_request_project=True).
+The actual fixture creator observed4GetProjectContents responses, all with the
+selected source path. Five red guard cases preceded17passing combined cases.
+Focused core/adapters97passed and CLI-parity/native-SDK compatibility87passed;
+Pyright0errors. Full frozen-source gates remain pending. Saved-user voice live
+fixture/playback acceptance remains absent; no paid TTS acceptance is inferred.
+
+Full-gate pre-test checks initially found unsorted imports in a new test file;
+a mechanical import-order correction was applied. Final full suite is underway;
+no final result is claimed at this checkpoint.
+
+Final strict response correlation requires exact netloc flow.google.com and
+preserves blank query values when validating source paths. Three port/userinfo/
+duplicate-blank red regressions preceded20passing transport/resume cases. The
+final strict actual SDK BDD passed1test,2warnings in13.49seconds with zero
+generations. Final council GO recorded; corrected full frozen-source gates subsequently passed, recorded below.
+
+Final frozen-source R03 catalog-resume gates passed6649tests,5skips,15warnings,
+89%coverage in280.10seconds. Prechecks, hygiene, document links, published PII,
+mirrors, council, Ruff/formatting and Pyright0errors all passed; council verdictGO.
+Actual strict SDK BDD13.49seconds and REST observation BDD18.81seconds passed
+with zero generation, and owned fixture cleanup preserved originals/source image.
+Publication and deployment follow separately and are not yet claimed. Saved-user
+audio fixture acceptance, complete history/cohorts and authoritative reconciliation
+remain open; R03 is not declared complete.

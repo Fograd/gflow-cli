@@ -500,3 +500,23 @@ gates passed6602tests,5skips,89%coverage; R02 stays unchecked.
 Prior history batch41784983 is published across all3 registrations and deployed
 with services active. Its actual SDK18.39s and REST18.77s two-page/40joined-media
 proofs remain separate from this new resource-alias batch and full history claims.
+
+
+### R03 explicit catalog resume — 2026-10-04
+
+Implemented ordered catalog_project_ids resume through SDK, repeat CLI
+--catalog-project-id, direct MCP and REST catalogProjectIds.1–20unique UUIDs
+require native catalog inclusion and exclude account cursor/traversal controls.
+max_projects/maxProjects bounds reads and preserves pending order; no account
+pages/names are synthesized. REST observed metadata now includes empty projects,
+characters and saved source:user voices with transactional identity checks and
+no protected URLs or absence-based deletion. Actual pro1 SDK resume BDD passed14.52seconds and REST resume/resource-cache
+BDD passed18.81seconds, each1test with zero generation; REST made zero Google
+mutation and proved positive character/idempotent counts. Explicit resume responses
+require matching selected-project source paths. Owned fixture cleanup passed with original character IDs/source image preserved
+and zero generations; final gates passed6649tests,5skips,89%coverage; complete cohorts/history and authoritative reconciliation remain open.
+
+R02 resource-alias batch a7f293240f436069fa6efa21fdf8f253b24a7a7e is now published
+to all3 fork branches and production, with synchronized environment and API/MCP
+services active, queues0. This deployment record does not claim the new catalog
+resume batch is deployed or saved-user voice acceptance is complete.

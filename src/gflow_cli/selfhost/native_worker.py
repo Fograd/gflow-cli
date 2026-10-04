@@ -98,6 +98,7 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                     **{
                         key: payload[key]
                         for key in (
+                            "catalog_project_ids",
                             "include_history",
                             "history_cursor",
                             "history_max_pages",

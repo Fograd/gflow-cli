@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, cast
+from urllib.parse import parse_qs, urlsplit
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.transports.batchexecute import parse_frames
@@ -109,7 +110,9 @@ def trash_payload(media_ids: list[str], media: list[dict[str, Any]], project_id:
     return [rows, [["metadata.archived"]]]
 
 
-async def read_project_payload(page: Any, project_id: str) -> Any:
+async def read_project_payload(
+    page: Any, project_id: str, *, require_request_project: bool = False
+) -> Any:
     if not is_uuid(project_id):
         raise ValueError("Invalid project identifier")
     reply: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
@@ -121,6 +124,15 @@ async def read_project_payload(page: Any, project_id: str) -> Any:
             or reply.done()
         ):
             return
+        if require_request_project:
+            parsed_url = urlsplit(str(response.url))
+            if (
+                parsed_url.scheme != "https"
+                or parsed_url.netloc != "flow.google.com"
+                or parse_qs(parsed_url.query, keep_blank_values=True).get("source-path")
+                != ["/project/" + project_id]
+            ):
+                return
         try:
             length = response.headers.get("content-length")
             if length and int(length) > 2 * 1024 * 1024:

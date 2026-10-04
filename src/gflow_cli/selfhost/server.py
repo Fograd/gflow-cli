@@ -27,7 +27,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
+from gflow_cli.api.native_catalogs import (
+    validate_project_catalog_resume,
+    validate_project_catalogs,
+    validate_project_traversal,
+)
 from gflow_cli.selfhost.config import (
     MAX_ASSET,
     MODEL_ALIASES,
@@ -171,6 +175,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                         "allPages",
                         "maxPages",
                         "includeCatalogs",
+                        "catalogProjectIds",
                         "maxProjects",
                         "includeHistory",
                         "historyCursor",
@@ -1064,6 +1069,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "allPages",
                 "maxPages",
                 "includeCatalogs",
+                "catalogProjectIds",
                 "maxProjects",
                 "includeHistory",
                 "historyCursor",
@@ -1137,6 +1143,19 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             cursor = request.query_params.get("cursor")
             if cursor is not None and (not cursor or len(cursor) > 4096):
                 raise HTTPException(422, "Native project cursor requires 1 to 4096 characters")
+            raw_resume = request.query_params.get("catalogProjectIds")
+            try:
+                resume_ids = validate_project_catalog_resume(
+                    include_catalogs,
+                    raw_resume.split(",") if raw_resume is not None else None,
+                    cursor,
+                    all_pages,
+                    max_pages,
+                )
+            except ValueError:
+                raise HTTPException(422, "Invalid native catalog resume controls") from None
+            if resume_ids is not None:
+                controls["catalog_project_ids"] = resume_ids
             if "limit" in request.query_params:
                 raise HTTPException(422, "Native project pages have a fixed size of 21")
             code, raw = await subprocess_run(
@@ -1160,6 +1179,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if include_history and not isinstance(result.get("account_history"), dict):
                 raise HTTPException(502, "Google account history unavailable")
             observed: dict[str, Any] = {}
+            if include_catalogs:
+                try:
+                    observed = observations.merge_catalogs(
+                        profile, cfg.accounts[profile]["email"], result["project_catalogs"]
+                    )
+                except ValueError:
+                    raise HTTPException(502, "Observed catalog metadata is inconsistent") from None
             if include_history:
                 try:
                     observed = observations.merge_history(
@@ -1169,9 +1195,14 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     raise HTTPException(502, "Observed history metadata is inconsistent") from None
             return {
                 **(
+                    {"inventoryObservations": observed}
+                    if include_history or include_catalogs
+                    else {}
+                ),
+                **({"catalogResume": True} if result.get("catalog_resume") is True else {}),
+                **(
                     {
                         "accountHistory": result["account_history"],
-                        "inventoryObservations": observed,
                     }
                     if include_history
                     else {}

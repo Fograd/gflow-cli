@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add ordered explicit project-catalog resume across SDK/CLI/direct MCP/HTTP, retaining pending IDs without synthesizing account pages. REST observations now include empty projects, character entities and saved-user voice identities with scoped safe metadata upserts and no absence-based deletion.
+
 - Add explicit HTTP character and saved-user-voice alias registration, fresh owned detail and local-only mapping removal. Character count excludes thumbnails; optional saved voice and dual-ID audio mappings require fresh proof. SDK/CLI/MCP and generation/mutation inputs remain unchanged; live cohorts and broader R02 parity remain pending.
 
 - REST history enrichment records private account/profile-scoped metadata observations and returns inventoryObservations counts; no protected URLs, prompts or cursors are persisted, and absence never authorizes deletion or fresh ownership.

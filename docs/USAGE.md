@@ -2530,3 +2530,25 @@ history reads do not persist that cache. It never replaces fresh ownership or
 authorizes absence-based deletion.
 
 HTTP character/saved-voice aliases also support explicit scoped registration and fresh detail reads; only local mappings are removed. They do not translate generation/mutation inputs. SDK/CLI/MCP UUID inputs remain unchanged. See [resource aliases](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-character-and-saved-voice-aliases).
+
+
+### Explicit native project catalog resume
+
+SDK list_native_projects accepts catalog_project_ids:1–20distinct project UUIDs,
+in caller order, with include_catalogs=True. CLI repeats --catalog-project-id UUID;
+direct MCP gflow_list_projects accepts catalog_project_ids=[...]. These require
+source=google and are incompatible with account cursor/all_pages/max_pages.
+max_projects bounds enrichment and ordered pending_project_ids resume the rest.
+
+Resume reads the same fresh owned project payloads without scanning account pages:
+projects is empty, pages_read is0, pagination_exhausted is null and catalog_resume
+is true. Existing catalog counts/results remain; no project names or account
+page completeness are invented. Default discovery and catalog behavior are unchanged.
+
+HTTP mirrors use includeCatalogs=true, comma-separated catalogProjectIds and
+maxProjects. REST inventoryObservations also accumulates allowlisted project
+(including empty), character entity and source=user saved-audio/workflow metadata
+under the exact configured account/profile. No URLs/prompts/captions/cursors or
+system presets persist. Catalog attached origins are not selected-project ownership;
+missing rows remain observed, complete:null. Cache counts never authorize GetMedia,
+references, mutation or absence-based deletion. SDK/CLI/MCP do not persist this cache.

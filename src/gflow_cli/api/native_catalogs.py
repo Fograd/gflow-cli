@@ -215,6 +215,58 @@ def validate_project_catalogs(include_catalogs: object, max_projects: object) ->
     return max_projects if max_projects is not None else 20
 
 
+def validate_project_catalog_resume(
+    include_catalogs: object,
+    project_ids: object,
+    cursor: object,
+    all_pages: object,
+    max_pages: object,
+) -> list[str] | None:
+    """Validate explicit pending project hydration before checking out a browser."""
+    if project_ids is None:
+        return None
+    if not include_catalogs:
+        raise ValueError("catalog_project_ids requires include_catalogs")
+    if cursor is not None or all_pages or max_pages is not None:
+        raise ValueError("catalog_project_ids cannot combine with account pagination")
+    if not isinstance(project_ids, list) or not 1 <= len(cast(list[Any], project_ids)) <= 20:
+        raise ValueError("catalog_project_ids requires 1 to 20 distinct project UUIDs")
+    values = cast(list[Any], project_ids)
+    if not all(is_uuid(identifier) for identifier in values):
+        raise ValueError("catalog_project_ids requires project UUIDs")
+    identifiers = [validate_identifier(identifier) for identifier in values]
+    if len(set(identifiers)) != len(identifiers):
+        raise ValueError("catalog_project_ids must be distinct")
+    return identifiers
+
+
+async def _catalog_observations(
+    page: Any, projects: list[str], budget: int, *, resume: bool = False
+) -> dict[str, Any]:
+    catalogs: list[dict[str, Any]] = []
+    counts = {"media": 0, "workflows": 0, "characters": 0, "user_voices": 0}
+    for project in projects[:budget]:
+        payload = (
+            await read_project_payload(page, project, require_request_project=True)
+            if resume
+            else await read_project_payload(page, project)
+        )
+        catalog = project_catalog_snapshot(payload, project)
+        if catalog["project_id"] != project:
+            raise ValueError("Native catalog project identity is inconsistent")
+        catalogs.append(catalog)
+        for field in counts:
+            counts[field] += catalog["counts"][field]
+    pending = projects[budget:]
+    return {
+        "project_catalogs": catalogs,
+        "catalog_projects_read": len(catalogs),
+        "catalog_counts": counts,
+        "pending_project_ids": pending,
+        "catalogs_capped": bool(pending),
+    }
+
+
 def project_catalog_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
     """One fresh owned payload, URL-free typed observations with exact row counts."""
     project = validate_identifier(project_id)
@@ -232,7 +284,7 @@ def project_catalog_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
             raise ValueError("Native catalog workflow identity is duplicated")
         seen_workflows.add(identifier)
     characters = parse_native_characters(payload, project)
-    voices = parse_saved_voices(payload, project)
+    voices = [{**row, "source": "user"} for row in parse_saved_voices(payload, project)]
     for rows, field in ((media, "media_id"), (characters, "entity_id"), (voices, "ref")):
         identifiers = [validate_identifier(row[field]) for row in rows]
         if len(identifiers) != len(set(identifiers)):
@@ -262,6 +314,7 @@ async def projects_snapshot(
     max_pages: int | None = None,
     include_catalogs: bool = False,
     max_projects: int | None = None,
+    catalog_project_ids: list[str] | None = None,
     include_history: bool = False,
     history_cursor: str | None = None,
     history_max_pages: int | None = None,
@@ -286,6 +339,7 @@ async def projects_snapshot(
         max_pages=max_pages,
         include_catalogs=include_catalogs,
         max_projects=max_projects,
+        catalog_project_ids=catalog_project_ids,
     )
     # The project page is already checked in: concurrency=1 must not deadlock.
     if include_history:
@@ -308,11 +362,15 @@ async def _projects_snapshot(
     max_pages: int | None = None,
     include_catalogs: bool = False,
     max_projects: int | None = None,
+    catalog_project_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     _native_only(client)
     try:
         budget = validate_project_traversal(all_pages, max_pages)
         catalog_budget = validate_project_catalogs(include_catalogs, max_projects)
+        resume_ids = validate_project_catalog_resume(
+            include_catalogs, catalog_project_ids, cursor, all_pages, max_pages
+        )
     except ValueError as exc:
         raise ConfigurationError(detail=str(exc)) from None
     if cursor is not None and (
@@ -322,6 +380,18 @@ async def _projects_snapshot(
     async with asyncio.timeout(180 if all_pages or include_catalogs else 60):
         page = await client._checkout_page()  # pyright: ignore[reportPrivateUsage]
         try:
+            if resume_ids is not None:
+                return {
+                    "projects": [],
+                    "next_cursor": None,
+                    "returned_count": 0,
+                    "pages_read": 0,
+                    "pagination_exhausted": None,
+                    "complete": None,
+                    "scope": "explicit native project catalog resume; account pages not scanned",
+                    "catalog_resume": True,
+                    **await _catalog_observations(page, resume_ids, catalog_budget, resume=True),
+                }
             projects: list[dict[str, Any]] = []
             seen_ids: set[str] = set()
             seen_cursors: set[str] = {cursor} if cursor is not None else set()
@@ -361,23 +431,10 @@ async def _projects_snapshot(
                 "complete": None,
             }
             if include_catalogs:
-                catalogs: list[dict[str, Any]] = []
-                counts = {"media": 0, "workflows": 0, "characters": 0, "user_voices": 0}
-                for row in projects[:catalog_budget]:
-                    payload = await read_project_payload(page, row["project_id"])
-                    catalog = project_catalog_snapshot(payload, row["project_id"])
-                    catalogs.append(catalog)
-                    for field in counts:
-                        counts[field] += catalog["counts"][field]
-                pending = [row["project_id"] for row in projects[catalog_budget:]]
                 output.update(
-                    {
-                        "project_catalogs": catalogs,
-                        "catalog_projects_read": len(catalogs),
-                        "catalog_counts": counts,
-                        "pending_project_ids": pending,
-                        "catalogs_capped": bool(pending),
-                    }
+                    await _catalog_observations(
+                        page, [row["project_id"] for row in projects], catalog_budget
+                    )
                 )
             return output
         except ValueError as exc:

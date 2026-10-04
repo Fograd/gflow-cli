@@ -768,3 +768,34 @@ their existing contract. Saved-user audio acceptance and broader R02 equivalence
 remain pending. Actual character-alias REST lifecycle passed without generation
 or Google mutation, and final frozen-source gates passed. Saved-voice fixture
 coverage and broader R02 equivalence remain open.
+
+
+## Explicit native catalog resume
+
+GET /assets/projects/{email}?source=google&includeCatalogs=true&catalogProjectIds=UUID1,UUID2
+resumes catalog enrichment for1–20unique explicit project UUIDs in caller order.
+maxProjects caps the reads; pendingProjectIds retains ordered remaining IDs.
+Account cursor/allPages/maxPages are incompatible. Each selected project uses
+the same fresh owned payload; no account project discovery is performed.
+
+```python
+resumed = client.get("/assets/projects/account-one", params={
+    "source": "google", "includeCatalogs": "true",
+    "catalogProjectIds": ",".join(pending_project_ids), "maxProjects": 1,
+})
+resumed.raise_for_status()
+```
+
+Response projects:[], pagesRead:0, paginationExhausted:null and catalogResume:true
+express that no account pages were scanned. projectCatalogs, catalogCounts,
+catalogProjectsRead, pendingProjectIds and catalogsCapped retain existing meanings
+and caller order. No project names or complete account inventory are fabricated.
+
+REST inventoryObservations now also counts metadata-only observed projects
+(including empty projects), characters and user_voices accumulated across scans.
+Only source:user saved-voice/audio/workflow identities are recorded; system presets
+are excluded. Exact profile/configured-account scope and transactional conflict
+rollback apply. URLs/prompts/captions/cursors are never persisted; missing rows
+are retained and complete remains null. Attached origins do not become selected
+project ownership; cache contents never authorize GetMedia, generation or deletion.
+SDK/CLI/direct MCP retain read-only native DTOs and do not persist this REST cache.

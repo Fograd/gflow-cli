@@ -39,7 +39,11 @@ from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.native_captcha import native_captcha_or_none
-from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
+from gflow_cli.api.native_catalogs import (
+    validate_project_catalog_resume,
+    validate_project_catalogs,
+    validate_project_traversal,
+)
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.video import VIDEO_DURATION_CHOICES, is_media_uuid
 from gflow_cli.auth import verification
@@ -2025,6 +2029,7 @@ async def gflow_list_projects(
     max_pages: StrictInt | None = None,
     include_catalogs: StrictBool = False,
     max_projects: StrictInt | None = None,
+    catalog_project_ids: list[str] | None = None,
     include_history: StrictBool = False,
     history_cursor: str | None = None,
     history_max_pages: StrictInt | None = None,
@@ -2040,6 +2045,8 @@ async def gflow_list_projects(
         max_pages: Optional cap 1–100 with all_pages; default 100.
         include_catalogs: Include typed media/workflow/character/saved-voice observations.
         max_projects: Optional cap 1–20 with include_catalogs; default 20.
+        catalog_project_ids: Resume 1–20 explicit pending project UUIDs in supplied order;
+            requires include_catalogs and excludes account cursor/traversal controls.
         include_history: Include bounded account history; default false.
         history_cursor: Opaque account-history continuation with include_history.
         history_max_pages: Optional history cap 1–50; default 50.
@@ -2060,6 +2067,9 @@ async def gflow_list_projects(
     try:
         validate_project_traversal(all_pages, max_pages)
         validate_project_catalogs(include_catalogs, max_projects)
+        resume_ids = validate_project_catalog_resume(
+            include_catalogs, catalog_project_ids, cursor, all_pages, max_pages
+        )
         from gflow_cli.api.native_history import validate_project_history_options
 
         validate_project_history_options(
@@ -2072,6 +2082,7 @@ async def gflow_list_projects(
         or max_pages is not None
         or include_catalogs
         or max_projects is not None
+        or catalog_project_ids is not None
         or include_history
         or history_cursor is not None
         or history_max_pages is not None
@@ -2090,6 +2101,9 @@ async def gflow_list_projects(
             return _bad_param(
                 "Invalid native catalog controls", "Google cursor must contain 1–4096 characters"
             )
+        resume_options: dict[str, Any] = (
+            {"catalog_project_ids": resume_ids} if resume_ids is not None else {}
+        )
         resolved = _resolve_and_validate_profile(profile)
         if isinstance(resolved, dict):
             return resolved
@@ -2105,6 +2119,7 @@ async def gflow_list_projects(
                         max_pages=max_pages,
                         include_catalogs=include_catalogs,
                         max_projects=max_projects,
+                        **resume_options,
                         include_history=True,
                         history_cursor=history_cursor,
                         history_max_pages=history_max_pages,
@@ -2117,6 +2132,7 @@ async def gflow_list_projects(
                         max_pages=max_pages,
                         include_catalogs=True,
                         max_projects=max_projects,
+                        **resume_options,
                     )
                 else:
                     snapshot = (

@@ -3655,6 +3655,7 @@ class FlowApiClient:
         max_pages: int | None = None,
         include_catalogs: bool = False,
         max_projects: int | None = None,
+        catalog_project_ids: list[str] | None = None,
         include_history: bool = False,
         history_cursor: str | None = None,
         history_max_pages: int | None = None,
@@ -3664,6 +3665,8 @@ class FlowApiClient:
         from gflow_cli.api.native_catalogs import projects_snapshot
 
         history_options: dict[str, Any] = {}
+        if catalog_project_ids is not None:
+            history_options["catalog_project_ids"] = catalog_project_ids
         if include_history is not False or any(
             value is not None for value in (history_cursor, history_max_pages, history_max_media)
         ):

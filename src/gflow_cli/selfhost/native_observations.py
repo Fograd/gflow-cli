@@ -120,6 +120,49 @@ def _validated(history: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict
     return workflows, media
 
 
+def _validated_catalogs(
+    catalogs: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    if not isinstance(cast(object, catalogs), list) or len(catalogs) > 20:
+        raise ValueError("Native catalog observations require at most twenty projects")
+    projects: dict[str, dict[str, Any]] = {}
+    characters: dict[str, dict[str, Any]] = {}
+    voices: dict[str, dict[str, Any]] = {}
+    for catalog in catalogs:
+        if not isinstance(cast(object, catalog), dict):
+            raise ValueError("Native catalog observation is invalid")
+        project = _uuid(catalog.get("project_id"))
+        projects[project] = {"project_id": project}
+        for raw in _rows(catalog, "characters"):
+            if _uuid(raw.get("project_id")) != project:
+                raise ValueError("Native character observation has unrelated project ownership")
+            identifier = _uuid(raw.get("entity_id"))
+            references = raw.get("workflow_ids")
+            if not isinstance(references, list) or len(cast(list[Any], references)) > 1000:
+                raise ValueError("Native character reference observations are invalid")
+            workflows = [_uuid(value) for value in cast(list[Any], references)]
+            if len(workflows) != len(set(workflows)):
+                raise ValueError("Native character reference observations are duplicated")
+            row = {"entity_id": identifier, "project_id": project, "workflow_ids": workflows}
+            if identifier in characters and characters[identifier] != row:
+                raise ValueError("Native character observation identity is contradictory")
+            characters[identifier] = row
+        for raw in _rows(catalog, "user_voices"):
+            if raw.get("source") != "user" or _uuid(raw.get("project_id")) != project:
+                raise ValueError("Native saved voice observations require the owned user source")
+            identifier, workflow = _uuid(raw.get("ref")), _uuid(raw.get("workflow_id"))
+            row = {
+                "ref": identifier,
+                "project_id": project,
+                "workflow_id": workflow,
+                "source": "user",
+            }
+            if identifier in voices and voices[identifier] != row:
+                raise ValueError("Native saved voice observation identity is contradictory")
+            voices[identifier] = row
+    return list(projects.values()), list(characters.values()), list(voices.values())
+
+
 class NativeObservationStore:
     def __init__(self, root: Path) -> None:
         root.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -133,7 +176,13 @@ class NativeObservationStore:
             os.close(descriptor)
         _private(self.path, False)
         with closing(sqlite3.connect(self.path, timeout=10)) as conn, conn:
-            for table, identity in (("workflows", "workflow_id"), ("media", "media_id")):
+            for table, identity in (
+                ("workflows", "workflow_id"),
+                ("media", "media_id"),
+                ("projects", "project_id"),
+                ("characters", "entity_id"),
+                ("user_voices", "ref"),
+            ):
                 conn.execute(
                     f"CREATE TABLE IF NOT EXISTS {table} (profile TEXT NOT NULL, "
                     f"account TEXT NOT NULL, {identity} TEXT NOT NULL, metadata TEXT NOT NULL, "
@@ -147,15 +196,16 @@ class NativeObservationStore:
             table: conn.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE profile=? AND account=?", params
             ).fetchone()[0]
-            for table in ("media", "workflows")
+            for table in ("media", "workflows", "characters", "user_voices")
         }
         projects = conn.execute(
             "SELECT COUNT(DISTINCT project) FROM ("
             "SELECT json_extract(metadata,'$.project_id') project FROM media "
             "WHERE profile=? AND account=? UNION "
             "SELECT json_extract(metadata,'$.project_id') project FROM workflows "
-            "WHERE profile=? AND account=?)",
-            params + params,
+            "WHERE profile=? AND account=? UNION "
+            "SELECT project_id project FROM projects WHERE profile=? AND account=?)",
+            params + params + params,
         ).fetchone()[0]
         return {
             **counts,
@@ -204,6 +254,45 @@ class NativeObservationStore:
                         if table == "media" and row["kind"] not in {"image", "video"}:
                             row.pop("width", None)
                             row.pop("height", None)
+                    conn.execute(
+                        f"INSERT INTO {table} VALUES(?,?,?,?) "
+                        f"ON CONFLICT(profile,account,{identity}) "
+                        "DO UPDATE SET metadata=excluded.metadata",
+                        (*params, json.dumps(row, sort_keys=True)),
+                    )
+            return self._counts(conn, profile, account)
+
+    def merge_catalogs(
+        self, profile: str, account: str, catalogs: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Merge project/resource observations; omitted rows never infer removal.
+
+        Character reference lists are mutable observations. Entity/project and
+        saved-audio/project/workflow identities remain immutable within this scope.
+        Attached media is deliberately excluded; history owns its verified joins.
+        """
+        _scope(profile, account)
+        projects, characters, voices = _validated_catalogs(catalogs)
+        with closing(sqlite3.connect(self.path, timeout=10)) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            for table, identity, rows, immutable in (
+                ("projects", "project_id", projects, ("project_id",)),
+                ("characters", "entity_id", characters, ("project_id",)),
+                ("user_voices", "ref", voices, ("project_id", "workflow_id")),
+            ):
+                for row in rows:
+                    params = (profile, account, row[identity])
+                    old = conn.execute(
+                        f"SELECT metadata FROM {table} WHERE profile=? AND account=? "
+                        f"AND {identity}=?",
+                        params,
+                    ).fetchone()
+                    if old is not None:
+                        previous = json.loads(old[0])
+                        if any(previous[key] != row[key] for key in immutable):
+                            raise ValueError(
+                                "Native catalog observation immutable identity conflicts"
+                            )
                     conn.execute(
                         f"INSERT INTO {table} VALUES(?,?,?,?) "
                         f"ON CONFLICT(profile,account,{identity}) "

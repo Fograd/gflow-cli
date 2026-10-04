@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 import structlog
@@ -18,7 +18,11 @@ from gflow_cli._cli_helpers import (
 )
 from gflow_cli.api import routes
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.native_catalogs import validate_project_catalogs, validate_project_traversal
+from gflow_cli.api.native_catalogs import (
+    validate_project_catalog_resume,
+    validate_project_catalogs,
+    validate_project_traversal,
+)
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.cli_data import _db_path, _emit_projects_table
 from gflow_cli.config import get_settings
@@ -71,6 +75,12 @@ def project() -> None:
     help="Catalog project cap with --include-catalogs; default 20.",
 )
 @click.option(
+    "--catalog-project-id",
+    "catalog_project_ids",
+    multiple=True,
+    help="Resume a pending native project catalog; repeat for at most 20 UUIDs.",
+)
+@click.option(
     "--include-history",
     is_flag=True,
     help="Include bounded Google account history; default 50 pages and 1000 media.",
@@ -104,6 +114,7 @@ def list_subcommand(
     max_pages: int | None,
     include_catalogs: bool,
     max_projects: int | None,
+    catalog_project_ids: tuple[str, ...],
     include_history: bool,
     history_cursor: str | None,
     history_max_pages: int | None,
@@ -114,6 +125,13 @@ def list_subcommand(
     try:
         validate_project_traversal(all_pages, max_pages)
         validate_project_catalogs(include_catalogs, max_projects)
+        resume_ids = validate_project_catalog_resume(
+            include_catalogs,
+            list(catalog_project_ids) if catalog_project_ids else None,
+            cursor,
+            all_pages,
+            max_pages,
+        )
         from gflow_cli.api.native_history import validate_project_history_options
 
         validate_project_history_options(
@@ -126,6 +144,7 @@ def list_subcommand(
         or max_pages is not None
         or include_catalogs
         or max_projects is not None
+        or catalog_project_ids
         or include_history
         or history_cursor is not None
         or history_max_pages is not None
@@ -137,6 +156,9 @@ def list_subcommand(
             raise click.BadParameter("Google pages have a fixed size of 21; omit --limit")
         if cursor is not None and (not cursor or len(cursor) > 4096):
             raise click.BadParameter("Google cursor must contain 1–4096 characters")
+        resume_options: dict[str, Any] = (
+            {"catalog_project_ids": resume_ids} if resume_ids is not None else {}
+        )
         resolved = _resolve_profile(profile)
 
         async def act() -> None:
@@ -151,6 +173,7 @@ def list_subcommand(
                         max_pages=max_pages,
                         include_catalogs=include_catalogs,
                         max_projects=max_projects,
+                        **resume_options,
                         include_history=True,
                         history_cursor=history_cursor,
                         history_max_pages=history_max_pages,
@@ -163,6 +186,7 @@ def list_subcommand(
                         max_pages=max_pages,
                         include_catalogs=True,
                         max_projects=max_projects,
+                        **resume_options,
                     )
                 else:
                     snapshot = (
