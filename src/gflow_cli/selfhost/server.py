@@ -35,6 +35,7 @@ from gflow_cli.selfhost.config import (
     validate_callback,
 )
 from gflow_cli.selfhost.native_aliases import NativeAlias, NativeAliasStore, alias_spec
+from gflow_cli.selfhost.native_observations import NativeObservationStore
 from gflow_cli.selfhost.runtime import (
     contained_file,
     deliver_callbacks,
@@ -82,6 +83,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         raise ValueError("Bearer token must be configured")
     store = Store(cfg.root)
     aliases = NativeAliasStore(cfg.root)
+    observations = NativeObservationStore(cfg.root)
     store.account_seed(cfg.accounts)
     cfg.accounts = {
         row["profile"]: {"email": row["email"], "project": row["project"]}
@@ -163,6 +165,10 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                         "maxPages",
                         "includeCatalogs",
                         "maxProjects",
+                        "includeHistory",
+                        "historyCursor",
+                        "historyMaxPages",
+                        "historyMaxMedia",
                     }
                 elif path.startswith("/v1/google-flow/assets/") and not path.endswith("/download"):
                     allowed = {"raw", "source", "email", "projectId"}
@@ -716,6 +722,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "assets/download",
                 "assets/projects",
                 "assets/projects-native",
+                "assets/projects-native-account-history",
+                "assets/projects-observed-history-synchronization",
                 "assets/media",
                 "jobs",
                 "voices/read-system",
@@ -1043,7 +1051,16 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "source requires local or google")
         if source != "google" and any(
             key in request.query_params
-            for key in ("allPages", "maxPages", "includeCatalogs", "maxProjects")
+            for key in (
+                "allPages",
+                "maxPages",
+                "includeCatalogs",
+                "maxProjects",
+                "includeHistory",
+                "historyCursor",
+                "historyMaxPages",
+                "historyMaxMedia",
+            )
         ):
             raise HTTPException(422, "Traversal controls require source=google")
         if source == "google":
@@ -1071,9 +1088,41 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(
                     422, "maxProjects requires includeCatalogs=true and an integer 1 to 20"
                 ) from None
+            raw_history = request.query_params.get("includeHistory", "false")
+            if raw_history not in ("true", "false"):
+                raise HTTPException(422, "includeHistory requires true or false")
+            include_history = raw_history == "true"
+            history_cursor = request.query_params.get("historyCursor")
+            try:
+                from gflow_cli.api.native_history import validate_project_history_options
+
+                history_pages = (
+                    int(request.query_params["historyMaxPages"])
+                    if "historyMaxPages" in request.query_params
+                    else None
+                )
+                history_media = (
+                    int(request.query_params["historyMaxMedia"])
+                    if "historyMaxMedia" in request.query_params
+                    else None
+                )
+                validate_project_history_options(
+                    include_history, history_cursor, history_pages, history_media
+                )
+            except ValueError:
+                raise HTTPException(422, "Invalid native history controls") from None
             controls: dict[str, Any] = {}
+            if include_history:
+                controls.update(
+                    {
+                        "include_history": True,
+                        "history_cursor": history_cursor,
+                        "history_max_pages": history_pages,
+                        "history_max_media": history_media,
+                    }
+                )
             if all_pages:
-                controls = {"all_pages": True, "max_pages": max_pages}
+                controls.update({"all_pages": True, "max_pages": max_pages})
             if include_catalogs:
                 controls.update({"include_catalogs": True, "max_projects": max_projects})
             cursor = request.query_params.get("cursor")
@@ -1090,7 +1139,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     profile,
                     json.dumps({"cursor": cursor, **controls}),
                 ],
-                240 if all_pages or include_catalogs else 90,
+                240 if all_pages or include_catalogs or include_history else 90,
             )
             if code:
                 raise HTTPException(502, "Google project catalog unavailable")
@@ -1099,7 +1148,25 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 raise HTTPException(502, "Google project catalog unavailable")
             if include_catalogs and not isinstance(result.get("project_catalogs"), list):
                 raise HTTPException(502, "Google project catalogs unavailable")
+            if include_history and not isinstance(result.get("account_history"), dict):
+                raise HTTPException(502, "Google account history unavailable")
+            observed: dict[str, Any] = {}
+            if include_history:
+                try:
+                    observed = observations.merge_history(
+                        profile, cfg.accounts[profile]["email"], result["account_history"]
+                    )
+                except ValueError:
+                    raise HTTPException(502, "Observed history metadata is inconsistent") from None
             return {
+                **(
+                    {
+                        "accountHistory": result["account_history"],
+                        "inventoryObservations": observed,
+                    }
+                    if include_history
+                    else {}
+                ),
                 "projects": [
                     {
                         "projectId": row["project_id"],

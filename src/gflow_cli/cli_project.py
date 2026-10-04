@@ -70,6 +70,28 @@ def project() -> None:
     type=click.IntRange(1, 20),
     help="Catalog project cap with --include-catalogs; default 20.",
 )
+@click.option(
+    "--include-history",
+    is_flag=True,
+    help="Include bounded Google account history; default 50 pages and 1000 media.",
+)
+@click.option(
+    "--history-cursor",
+    default=None,
+    help="Opaque account-history continuation; requires --include-history.",
+)
+@click.option(
+    "--history-max-pages",
+    default=None,
+    type=click.IntRange(1, 50),
+    help="History page cap with --include-history; default 50.",
+)
+@click.option(
+    "--history-max-media",
+    default=None,
+    type=click.IntRange(1, 1000),
+    help="History media cap with --include-history; default 1000.",
+)
 @click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON output.")
 @click.pass_context
 def list_subcommand(
@@ -82,16 +104,32 @@ def list_subcommand(
     max_pages: int | None,
     include_catalogs: bool,
     max_projects: int | None,
+    include_history: bool,
+    history_cursor: str | None,
+    history_max_pages: int | None,
+    history_max_media: int | None,
     as_json: bool,
 ) -> None:
     """List local projects or bounded read-only Google account pages."""
     try:
         validate_project_traversal(all_pages, max_pages)
         validate_project_catalogs(include_catalogs, max_projects)
+        from gflow_cli.api.native_history import validate_project_history_options
+
+        validate_project_history_options(
+            include_history, history_cursor, history_max_pages, history_max_media
+        )
     except ValueError as exc:
         raise click.BadParameter(str(exc)) from None
     if source != "google" and (
-        all_pages or max_pages is not None or include_catalogs or max_projects is not None
+        all_pages
+        or max_pages is not None
+        or include_catalogs
+        or max_projects is not None
+        or include_history
+        or history_cursor is not None
+        or history_max_pages is not None
+        or history_max_media is not None
     ):
         raise click.BadParameter("Traversal controls require --source google")
     if source == "google":
@@ -106,7 +144,19 @@ def list_subcommand(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                if include_catalogs:
+                if include_history:
+                    snapshot = await client.list_native_projects(
+                        cursor=cursor,
+                        all_pages=all_pages,
+                        max_pages=max_pages,
+                        include_catalogs=include_catalogs,
+                        max_projects=max_projects,
+                        include_history=True,
+                        history_cursor=history_cursor,
+                        history_max_pages=history_max_pages,
+                        history_max_media=history_max_media,
+                    )
+                elif include_catalogs:
                     snapshot = await client.list_native_projects(
                         cursor=cursor,
                         all_pages=all_pages,
@@ -139,6 +189,20 @@ def list_subcommand(
                         f"unread listed projects: {len(snapshot.get('pending_project_ids', []))}"
                     )
                     console.print(f"Observed catalog counts: {snapshot.get('catalog_counts')}")
+                if include_history:
+                    history = snapshot.get("account_history", {})
+                    console.print(
+                        f"History workflows: {history.get('returned_count')}; "
+                        f"media: {history.get('media_returned_count')}; "
+                        f"pages: {history.get('pages_read')}"
+                    )
+                    console.print(
+                        f"History next cursor: {history.get('next_cursor') or '(none)'}",
+                        markup=False,
+                    )
+                    console.print(
+                        f"History traversal exhausted: {history.get('pagination_exhausted')}"
+                    )
                 console.print("Snapshot completeness: unknown")
 
         run_with_handlers(act, cli_command="project list", as_json=as_json)

@@ -2492,3 +2492,39 @@ Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video u
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
 HTTP native image/video aliases require explicit fresh-owned registration; reads revalidate and removal deletes only the local mapping. Opaque URL-safe prefixes never establish vendor/account ownership or translate character/voice/generation/reference arguments. SDK/CLI/MCP retain UUID inputs. See [alias API](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/API.md#explicit-native-imagevideo-aliases).
+
+
+### Bounded native account history
+
+SDK list_native_history(cursor=None, all_pages=False, max_pages=None, max_media=1000)
+reads one account-history page by default; all_pages=True enables bounded
+traversal. Each request asks for20 workflows with an opaque cursor. max_pages
+requires traversal and is1–50; max_media is1–1000. The45-second read deadline
+returns only fully verified pages, or refuses if no page completed. A page that
+would exceed the media cap is not partially consumed; its request cursor remains
+the continuation. Cursor cycles and repeated/cross-owner identities refuse.
+
+Existing project listing can add account_history with include_history=True,
+history_cursor, history_max_pages and history_max_media; inclusion traverses up
+to50 pages/1000 media by default within the same45-second history boundary. CLI:
+
+```bash
+gflow project list --source google --include-history --history-max-pages 2 --history-max-media 100 --profile pro1 --json
+```
+
+Direct MCP gflow_list_projects uses include_history/history_cursor/
+history_max_pages/history_max_media. History controls require inclusion and
+source=google; local/default project listing and project/catalog cursor controls
+retain their separate meanings. History uses no new direct MCP tool.
+
+Returned history contains URL-free workflows/media with native snake_case
+identities, kinds and available dimensions; workflow primary_media_id is optional.
+next_cursor, pages_read, returned_count (workflows), media_returned_count, capped
+and timed_out describe this call. pagination_exhausted reports cursor exhaustion
+separately from complete:null; consistency and complete history are not asserted.
+No captions, prompts or signed URLs are returned, and absence never proves deletion.
+
+The HTTP adapter separately maintains inventoryObservations, a private metadata-only
+observation cache scoped to the exact profile/configured account. SDK/CLI/MCP
+history reads do not persist that cache. It never replaces fresh ownership or
+authorizes absence-based deletion.

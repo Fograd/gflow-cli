@@ -3655,10 +3655,24 @@ class FlowApiClient:
         max_pages: int | None = None,
         include_catalogs: bool = False,
         max_projects: int | None = None,
+        include_history: bool = False,
+        history_cursor: str | None = None,
+        history_max_pages: int | None = None,
+        history_max_media: int | None = None,
     ) -> dict[str, Any]:
         """Read bounded account project pages; exhaustion is not snapshot completeness."""
         from gflow_cli.api.native_catalogs import projects_snapshot
 
+        history_options: dict[str, Any] = {}
+        if include_history is not False or any(
+            value is not None for value in (history_cursor, history_max_pages, history_max_media)
+        ):
+            history_options = {
+                "include_history": include_history,
+                "history_cursor": history_cursor,
+                "history_max_pages": history_max_pages,
+                "history_max_media": history_max_media,
+            }
         return await projects_snapshot(
             self,
             cursor,
@@ -3666,6 +3680,22 @@ class FlowApiClient:
             max_pages=max_pages,
             include_catalogs=include_catalogs,
             max_projects=max_projects,
+            **history_options,
+        )
+
+    async def list_native_history(
+        self,
+        cursor: str | None = None,
+        *,
+        all_pages: bool = False,
+        max_pages: int | None = None,
+        max_media: int = 1000,
+    ) -> dict[str, Any]:
+        """Read observed account workflow history; exhaustion is not completeness."""
+        from gflow_cli.api.native_history import history_snapshot
+
+        return await history_snapshot(
+            self, cursor, all_pages=all_pages, max_pages=max_pages, max_media=max_media
         )
 
     async def list_native_media(self, project_id: str) -> dict[str, Any]:

@@ -1176,3 +1176,43 @@ Frozen-source gate passed:6484tests,5skipped,89%coverage in207.28seconds;
 hygiene, links, public PII, mirrors, council references, Ruff, formatting and strict
 source Pyright passed. Council ownership/privacy review returned GO. Publication
 and deployment are recorded separately from these checks.
+
+
+## R03 measured history source and adapter batch — 2026-10-04
+
+Private read-only LWkPYd observation: default request returned20 workflows/20
+media; [20, returned cursor] returned20 disjoint workflows/20 media with a changed
+cursor and zero generation/mutation. New public SDK/CLI/direct MCP/HTTP history
+controls are implemented with URL-free owned joins and bounded traversal. The
+explicit initial [20,null] request and affected-surface free BDD were pending at
+the initial source checkpoint; subsequent SDK acceptance is recorded below. Full
+frozen-source gates remain pending; earlier observation alone was not adapter acceptance.
+
+Published/deployed4f2b4cc3 detail/alias/page-context batch has active services for
+all3 registrations. Owned pro2/pro3 fixtures were cleaned and originals preserved.
+These are prior-batch observations; the new history source is uncommitted.
+
+Subsequent actual SDK history BDD passed1test in18.39seconds, proving explicit
+[20,null] initial request and continuation:2pages/40joined workflows/media,
+zero guarded writes. Pro2/pro3 separate45-second bounded reads returned300/220
+workflows and media across15/11 pages, timed_out:true, complete:null,
+pagination_exhausted:false and retained continuation. Each observed one project
+and no audio; absence is not evidence that older history lacks audio.
+
+REST observation cache validation:17 unit tests and30combined module/server-hook
+tests passed. Exact configured-account/profile-scoped upserts retain only safe
+metadata and exclude protected URLs/prompts/captions/cursors. Existing absent
+observations survive later reads; cache contents are not fresh ownership authority.
+The actual REST history BDD and final full gates remain pending at this checkpoint.
+
+The new REST account-history/synchronization BDD passed1test in18.77seconds
+against the real private worker:2pages,40media/workflows, exactproject joins and
+durable observed counts. It made zero generations or Google mutations. Council
+review returned GO on the metadata cache's exactaccount/profile scope and absence
+retention; no cache is used to authorize fresh GetMedia or a mutation. Full
+frozen-source checks for this history batch are recorded separately.
+
+Frozen-source history gate:6556tests passed,5skipped,89%coverage in211.92seconds.
+Hygiene, documentation links, public PII, generated mirrors, council references,
+Ruff, formatting and strict source Pyright passed. Publication/deployment is
+recorded separately; source functionality does not prove paid R04 acceptance.

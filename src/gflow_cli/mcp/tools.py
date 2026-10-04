@@ -2010,7 +2010,8 @@ async def gflow_upscale_video(
     description=(
         "List local catalog projects by default, or source=google for a native account page. "
         "Google pages use an opaque cursor and fixed size 21; optional bounded all_pages "
-        "traversal. Completeness remains unknown."
+        "traversal and include_history with separate bounded history controls. "
+        "Completeness remains unknown."
     ),
 )
 @_guarded
@@ -2024,6 +2025,10 @@ async def gflow_list_projects(
     max_pages: StrictInt | None = None,
     include_catalogs: StrictBool = False,
     max_projects: StrictInt | None = None,
+    include_history: StrictBool = False,
+    history_cursor: str | None = None,
+    history_max_pages: StrictInt | None = None,
+    history_max_media: StrictInt | None = None,
 ) -> dict[str, Any]:
     """List local SQLite rows or an explicitly selected native Google page.
 
@@ -2035,6 +2040,10 @@ async def gflow_list_projects(
         max_pages: Optional cap 1–100 with all_pages; default 100.
         include_catalogs: Include typed media/workflow/character/saved-voice observations.
         max_projects: Optional cap 1–20 with include_catalogs; default 20.
+        include_history: Include bounded account history; default false.
+        history_cursor: Opaque account-history continuation with include_history.
+        history_max_pages: Optional history cap 1–50; default 50.
+        history_max_media: Optional history media cap 1–1000; default 1000.
         limit: Local page size, default 50; omit for Google pages.
         offset: Number of rows to skip — pass the previous page's
             ``next_offset`` to fetch the next page (#498).
@@ -2043,16 +2052,30 @@ async def gflow_list_projects(
         Local: projects/count/offset/has_more/next_offset. Google: projects,
         next_cursor, returned_count, pages_read, pagination_exhausted, scope
         and complete=None. Optional catalogs contain known returned counts and
-        pending discovered project IDs, separately from later-page continuation. Google snapshots
+        pending discovered project IDs, separately from later-page continuation. Optional
+        account_history has separate workflow/media counts, history continuation and
+        traversal exhaustion; completeness remains unknown. Google snapshots
         neither update local catalog entries nor infer missing-project deletion.
     """
     try:
         validate_project_traversal(all_pages, max_pages)
         validate_project_catalogs(include_catalogs, max_projects)
+        from gflow_cli.api.native_history import validate_project_history_options
+
+        validate_project_history_options(
+            include_history, history_cursor, history_max_pages, history_max_media
+        )
     except ValueError as exc:
         return _bad_param("Invalid native catalog controls", str(exc))
     if source != "google" and (
-        all_pages or max_pages is not None or include_catalogs or max_projects is not None
+        all_pages
+        or max_pages is not None
+        or include_catalogs
+        or max_projects is not None
+        or include_history
+        or history_cursor is not None
+        or history_max_pages is not None
+        or history_max_media is not None
     ):
         return _bad_param("Invalid native catalog controls", "Traversal requires source=google")
     if source not in {"local", "google"}:
@@ -2075,7 +2098,19 @@ async def gflow_list_projects(
             async with FlowApiClient(
                 profile_dir=settings.profile_subdir(resolved), headless=settings.headless
             ) as client:
-                if include_catalogs:
+                if include_history:
+                    snapshot = await client.list_native_projects(
+                        cursor=cursor,
+                        all_pages=all_pages,
+                        max_pages=max_pages,
+                        include_catalogs=include_catalogs,
+                        max_projects=max_projects,
+                        include_history=True,
+                        history_cursor=history_cursor,
+                        history_max_pages=history_max_pages,
+                        history_max_media=history_max_media,
+                    )
+                elif include_catalogs:
                     snapshot = await client.list_native_projects(
                         cursor=cursor,
                         all_pages=all_pages,

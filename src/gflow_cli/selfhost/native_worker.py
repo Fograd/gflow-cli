@@ -95,6 +95,16 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                     max_pages=payload.get("max_pages"),
                     include_catalogs=payload.get("include_catalogs", False),
                     max_projects=payload.get("max_projects"),
+                    **{
+                        key: payload[key]
+                        for key in (
+                            "include_history",
+                            "history_cursor",
+                            "history_max_pages",
+                            "history_max_media",
+                        )
+                        if key in payload
+                    },
                 ),
             }
         if verb in {"asset-get", "asset-download"}:

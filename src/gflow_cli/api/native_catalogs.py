@@ -262,6 +262,52 @@ async def projects_snapshot(
     max_pages: int | None = None,
     include_catalogs: bool = False,
     max_projects: int | None = None,
+    include_history: bool = False,
+    history_cursor: str | None = None,
+    history_max_pages: int | None = None,
+    history_max_media: int | None = None,
+) -> dict[str, Any]:
+    """Read project catalogs and optionally bounded account-wide generation history."""
+    from gflow_cli.api.native_history import (
+        history_snapshot,
+        validate_project_history_options,
+    )
+
+    try:
+        continuation, pages, media_limit = validate_project_history_options(
+            include_history, history_cursor, history_max_pages, history_max_media
+        )
+    except ValueError as exc:
+        raise ConfigurationError(detail=str(exc)) from None
+    output = await _projects_snapshot(
+        client,
+        cursor,
+        all_pages=all_pages,
+        max_pages=max_pages,
+        include_catalogs=include_catalogs,
+        max_projects=max_projects,
+    )
+    # The project page is already checked in: concurrency=1 must not deadlock.
+    if include_history:
+        assert pages is not None and media_limit is not None
+        output["account_history"] = await history_snapshot(
+            client,
+            cursor=continuation,
+            all_pages=True,
+            max_pages=pages,
+            max_media=media_limit,
+        )
+    return output
+
+
+async def _projects_snapshot(
+    client: FlowApiClient,
+    cursor: object = None,
+    *,
+    all_pages: bool = False,
+    max_pages: int | None = None,
+    include_catalogs: bool = False,
+    max_projects: int | None = None,
 ) -> dict[str, Any]:
     _native_only(client)
     try:

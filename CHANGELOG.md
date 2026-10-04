@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- REST history enrichment records private account/profile-scoped metadata observations and returns inventoryObservations counts; no protected URLs, prompts or cursors are persisted, and absence never authorizes deletion or fresh ownership.
+
+- Add bounded native account-history SDK reads and optional CLI/MCP/HTTP project-list enrichment with independent continuation/page/media controls, URL-free DTOs and separate cursor exhaustion/unknown completeness. Full history, generated-only summaries and reconciliation remain unclaimed.
+
 - Add explicit HTTP image/video alias registration, fresh scoped reads and local-only removal. URL-safe opaque prefixes are not decoded vendor identity; character/voice/reference translation remains unsupported.
 - Native page-owned RPC/model evaluation uses Patchright main-world kwargs through the shared engine policy; generic evaluation and Playwright arguments remain unchanged. The live pro3 model-read BDD passed without generation; rendered acceptance remains separate.
 

@@ -682,3 +682,39 @@ returning removed:true, googleMediaDeleted:false and scope:local-alias; unknown
 mappings return404 and foreign scope403. This does not delete Google media.
 SDK/CLI/MCP retain native UUID inputs. Full useapi composite/error equivalence
 remains unfinished R02 work.
+
+
+## Bounded native account history
+
+GET /assets/projects/{email}?source=google&includeHistory=true adds accountHistory
+to existing project discovery. Optional historyCursor, historyMaxPages (1–50)
+and historyMaxMedia (1–1000) require includeHistory=true/source=google. Defaults
+are50 pages/1000 media with a45-second history deadline and fixed20-workflow
+requests; the project inventory cursor and allPages controls remain independent.
+
+```python
+history = client.get("/assets/projects/account-one", params={
+    "source": "google", "includeHistory": "true", "historyMaxPages": 2,
+    "historyMaxMedia": 100,
+}).json()["accountHistory"]
+# Pass history["next_cursor"] back as historyCursor to continue.
+```
+
+The nested accountHistory DTO retains native snake_case fields: workflows with
+workflow_id/project_id and optional primary_media_id; media with stable native
+identities/kinds and available dimensions; next_cursor, pages_read, returned_count
+(workflows), media_returned_count, capped, timed_out, pagination_exhausted and
+complete:null. The scan preserves whole verified pages and continuation at a cap.
+It never returns captions, prompts or protected URLs. Cursor exhaustion does not
+prove snapshot consistency or complete account history. Counts are per-call
+observations, not useapi generated-only project total/byType/date aggregation.
+No absent row authorizes deletion or GetMedia ownership.
+
+REST includeHistory also returns inventoryObservations with durable observed
+workflows/media/project counts, complete:null and an explicit observation scope.
+The private metadata cache upserts only validated identities, types, dimensions
+and optional source times under the exact profile/configured-account pair. It
+stores no URLs, prompts, captions or cursors. Missing rows remain observed rather
+than deleted; counts accumulate observations, not complete or current inventory.
+This REST-only cache never authorizes GetMedia, generation references or deletion.
+SDK/CLI/MCP do not create it.

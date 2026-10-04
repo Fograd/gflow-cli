@@ -447,3 +447,32 @@ Deployed6a264 native inventory subsequently returned pro1=51 and pro2=557 observ
 rows, complete:null. These later fresh observations supplement the earlier cached
 53/556/565 observations; neither establishes complete account history.
 R02/R03/R04 remain unchecked until their broader evidence requirements are met.
+
+
+### R03 measured account-history continuation — 2026-10-04
+
+Bounded LWkPYd account-history reads now have SDK list_native_history and optional
+existing project-list enrichment through CLI/MCP/HTTP include-history controls.
+The prior private read-only observation returned20 workflows/20 media on the
+default request and20 disjoint workflows/20 media using the returned continuation,
+with a changed cursor and zero writes. The subsequent actual SDK BDD passed1test in18.39seconds: explicit [20,null]
+initial request plus continuation yielded2pages/40joined workflows and media with
+zero guarded writes. HTTP affected-surface BDD and full frozen-source gates remain
+pending.
+
+Traversal is capped at50 pages/1000 media/45seconds, returns URL-free native DTOs
+and separates pagination_exhausted from complete:null. Project discovery/catalog
+controls remain independent. Generated-only project summaries, complete account
+history, saved-voice cohorts and reconciliation remain gaps; R03 stays unchecked.
+Previous4f2b4cc3 detail/alias/page-context batch is published across all3 accounts
+and deployed with services active; owned pro2/pro3 fixtures were cleaned while
+original media remained preserved. This is not deployment evidence for the new
+uncommitted history batch.
+
+Pro2/pro3 separate live45-second bounded SDK reads returned300/220 workflows and
+media respectively across15/11 pages, timed_out:true, pagination_exhausted:false,
+complete:null and resumable cursors; each observed one project and no audio. These
+are bounded observations, not complete account inventories. REST-only durable
+inventoryObservations now upserts validated metadata under the exact configured
+account/profile, excludes URLs/prompts/captions/cursors and preserves absent
+observations without deleting or establishing fresh GetMedia authority. R03 stays open.
