@@ -1596,3 +1596,33 @@ R10 remains open: automatic renewal, first-login durability and survival across
 idle/restart/renewal boundaries require a valid hosted session and successful
 observations. The corrected cold reader is not an automatic login repair. Human
 login for pro2 is prepared; paid-test counters are unchanged.
+
+## 4 October: accepted isolated-account images and bounded browser tabs
+
+After human login, the dedicated second test account passed two fresh native
+principal/project checks, a check after an idle REST/MCP restart, and another
+after real API operations. One browser-token image job completed with one
+decoded1024x1024 image. Its native2K upscale completed with one decoded2048x2048
+image. No provider solver or video operation was requested. The private campaign
+records2image attempts on this profile including the upscale. An initial
+invalid captchaRetry0 request got422 before queue admission; a zero-row SQLite
+idempotency lookup proved no generation and released that reservation.
+Corrected accepted jobs were not replayed.
+
+RAM investigation reproduced restored-tab accumulation in the shared
+FlowApiClient allocator. Three new offline cases failed on missing restored-page
+reuse. The real-browser BDD failed with11 then13 context pages but matching
+fresh principal reads. The minimal allocator correction passed36concurrency
+and binding tests and the actual two-cold-open BDD (2pages each, same principal).
+Default-pool checks then measured1page and541–607MiB PSS; both closes left zero
+browser processes. The full offline gate passed7,691tests with5skips and21warnings,90%coverage
+(89.57%) in236.84seconds using8workers. Lint, formatting, strict types,
+repo hygiene, doc links, website PII/mirroring and council memory gates passed.
+No long-idle or renewal-boundary acceptance is implied.
+
+The third test account subsequently passed two fresh principal/project cold
+reads after human login, with1context page and575–738MiB PSS. Both closes left
+zero Chrome processes. A fresh supported-cookie staged import of the second
+account still returnedAuthMissingError/no_session; no imported candidate was
+activated and the original registration/profile remained intact. That failed
+import is an open acceptance gap, separate from the working saved-login reuse.

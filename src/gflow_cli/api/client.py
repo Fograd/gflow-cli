@@ -792,8 +792,8 @@ class FlowApiClient:
         # from the pre-launch snapshot.
         await self._ensure_context_session_cookie()
         # Open ``Settings.concurrency`` Pages inside the one persistent
-        # BrowserContext. ``launch_persistent_context`` opens one Page by
-        # default; reuse it as slot 0 to avoid an unused N+1 Page.
+        # BrowserContext. Reuse restored tabs and close surplus pages so
+        # cold opens cannot accumulate tabs beyond the configured pool.
         n = max(1, self.settings.concurrency)
         self._pages = await self._open_page_pool(n)
         # Console/page-error listeners on every pooled page; the context-level
@@ -1171,16 +1171,14 @@ class FlowApiClient:
             raise
 
     async def _open_page_pool(self, n: int) -> list[Page]:
-        """Open ``n`` Pages in the context, reusing the default Page as slot 0."""
+        """Reuse restored Pages up to the pool size and close surplus tabs."""
         assert self._context is not None
-        pages: list[Page] = []
-        if self._context.pages:
-            pages.append(self._context.pages[0])
-            for _ in range(n - 1):
-                pages.append(await self._context.new_page())
-        else:
-            for _ in range(n):
-                pages.append(await self._context.new_page())
+        restored = list(self._context.pages)
+        pages = restored[:n]
+        for page in restored[n:]:
+            await page.close()
+        for _ in range(n - len(pages)):
+            pages.append(await self._context.new_page())
         return pages
 
     async def _setup_transport(self) -> None:

@@ -152,3 +152,45 @@ during those tests. This is observed session reuse, not a guarantee that Google
 will never ask for verification again.
 
 The later portable-media deployment exposed 24 registered MCP tools. Its fresh production health job again verified native project access with the original profile preserved and no refresh. See the [current verification ledger](VERIFICATION.md) for the dated checkpoints.
+
+## Browser lifecycle and measured memory
+
+The request lifecycle opens a headed browser against the selected persistent
+account profile and closes it after the operation. An idle account keeps its
+profile on disk and has no dedicated Chrome processes. REST, MCP and the settings
+GUI remain running; this is not a per-account browser keepalive.
+
+After isolating accounts from UseAPI, a human login on the second test profile
+passed two cold opens with fresh native current-account and project-access reads.
+The same proof passed after restarting the idle REST/MCP services, then after a
+real single-image API job and its native2K upscale. Outputs decoded to1024x1024
+and2048x2048 respectively; no external CAPTCHA solver was used. This proves
+reuse through those operations, not long-idle or automatic-renewal acceptance.
+
+Memory checks exposed restored-tab accumulation: the old client reused only one
+restored tab and opened new pool pages while keeping the other restored tabs.
+A real-browser regression observed11 then13 context pages at concurrency2,
+while fresh identity still matched. The client now reuses restored tabs up to
+the pool size and closes the surplus. Its real-browser regression passed with
+exactly2 tabs on both cold opens and the same freshly read principal. Login
+restoration and the profile lease remain in place.
+
+With the default one-page pool on CC LXC, two subsequent actual account/project
+reads measured541 and607MiB of aggregate proportional set size (PSS) for that
+profile's browser process tree. Both closes left zero browser processes and
+zero browser RAM attributable to the profile. The earlier growing-tab case
+reached1534MiB. These are read-workload observations, not generation peaks:
+budget roughly0.6–1GiB per simultaneously active account with extra headroom for
+generation. REST, MCP and GUI main processes together measured179MiB PSS,
+excluding workers, Xvfb/noVNC and OS overhead.
+
+Run the read-only regression explicitly with a logged-in testing profile:
+
+    export GFLOW_CLI_E2E_HOME="$GFLOW_CLI_HOME"
+    export GFLOW_CLI_E2E_PROFILE=YOUR_TEST_PROFILE
+    export GFLOW_CLI_E2E_PAGE_POOL_REUSE=1
+    .venv/bin/python -m pytest -q -m e2e_auth tests/e2e/test_restored_page_pool_bdd.py
+
+It opens the selected profile twice and performs fresh identity reads without
+generation. Automatic renewal is still missing. Keeping Chrome open has not
+been established as necessary or sufficient for long-term renewal.

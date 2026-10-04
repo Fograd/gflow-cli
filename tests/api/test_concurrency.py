@@ -458,3 +458,27 @@ def test_profile_access_denied_requires_singleton_and_permission_markers(detail:
     from gflow_cli.api.client import _is_profile_access_denied
 
     assert not _is_profile_access_denied(RuntimeError(detail))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("restored_count", [2, 4, 7])
+async def test_page_pool_reuses_restored_tabs_and_closes_surplus(
+    tmp_path: Path, settings_n4: Settings, fake_context: MagicMock, restored_count: int
+) -> None:
+    """A cold browser restore must not add N-1 tabs on every request."""
+    restored = [MagicMock(name=f"Restored{i}") for i in range(restored_count)]
+    for page in restored:
+        page.close = AsyncMock()
+    fake_context.pages = restored
+    client = FlowApiClient(profile_dir=tmp_path, settings=settings_n4)
+    client._context = fake_context
+
+    pooled = await client._open_page_pool(4)
+
+    assert pooled[: min(restored_count, 4)] == restored[:4]
+    assert len(pooled) == 4
+    assert fake_context.new_page.await_count == max(0, 4 - restored_count)
+    for page in restored[:4]:
+        page.close.assert_not_awaited()
+    for page in restored[4:]:
+        page.close.assert_awaited_once()
