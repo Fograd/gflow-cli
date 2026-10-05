@@ -64,3 +64,19 @@ For image-to-image requests, explicit `aspectRatio: "auto"` resolves locally fro
 The resolver chooses the nearest of Google's five supported ratios using symmetric logarithmic distance. It decodes a verified managed PNG/JPEG, bounded to 20 MiB and 25 megapixels, after account/project/path checks. This is a documented local approximation, not a claim to reproduce Google's or useapi's unspecified internal sizing algorithm. The transport receives an explicit supported ratio; no native Auto enum is invented.
 
 Job metadata and terminal results report `requestedAspectRatio: "auto"`, `resolvedAspectRatio`, and `aspectPolicy: "derived-first-reference-nearest-supported-v1"`. The public request retains the caller's Auto intent. Multiple reference images always use the first numeric slot for the local resolution; this cannot reproduce upstream mixed-orientation behavior. Use an explicit ratio when exact output orientation matters.
+
+## Permanent deletion checkpoints (R09)
+
+Explicit `operation:"delete"` validates the entire distinct batch before mutation.
+A completed job reports `deleted`, `deletedCount`, `newlyDeleted`,
+`alreadyDeleted` and `receiptPersisted`. The count includes receipt-confirmed
+already-gone IDs. An all-gone batch reports `googleLibraryModified:false` and
+makes zero deletion writes; mixed batches write only their present IDs.
+
+After an uncertain response or interruption, inspect the exact job's
+`knownMediaGenerationIds` and `pendingMediaGenerationIds`, with
+`errorDetails.operation`, `phase`, `outcomeUnknown:true` and `retryable:false`.
+Earlier acknowledgements survive checkpoints. Polling a stale listing never
+authorises replay. Reuse the same idempotency key and body to retrieve the
+existing job, rather than submit a new deletion. A new receipt-backed request
+still requires fresh account/project and exact native NOT_FOUND evidence.

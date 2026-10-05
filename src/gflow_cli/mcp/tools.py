@@ -3239,6 +3239,7 @@ async def gflow_list_extension_models(project: str, profile: str = "default") ->
 @server.tool(
     name="gflow_delete_native_media",
     description="Permanently delete only selected owned image/video/audio media IDs. "
+    "1–100 distinct canonical UUIDs; duplicates normalize in first-occurrence order. "
     "Preserves sibling media; requires confirm_delete=true. "
     "Confirmed deletions can be repeated with fresh account/project proof; "
     "unknown missing IDs refuse.",
@@ -3249,18 +3250,14 @@ async def gflow_delete_native_media(
 ) -> dict[str, Any]:
     from gflow_cli.api.transports.native_media_delete import validate_delete
 
-    validate_delete(project, media_ids, confirm_delete)
+    project, identifiers = validate_delete(project, media_ids, confirm_delete)
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
         return resolved
-    settings = get_settings()
+    from gflow_cli.services.native_media import delete_media
+
     async with _profile_lock(resolved):
-        async with FlowApiClient(
-            profile_dir=settings.profile_subdir(resolved), headless=settings.headless
-        ) as client:
-            result = await client.delete_native_media(
-                project_id=project, media_ids=media_ids, confirm_delete=confirm_delete
-            )
+        result = await delete_media(resolved, project, identifiers)
     return {"status": "ok", **result}
 
 

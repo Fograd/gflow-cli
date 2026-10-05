@@ -472,10 +472,10 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
         operation = raw.get("operation")
         allowed_phases = PHASES | (
             {"dispatch", "response", "cancelled"}
-            if operation in ("upload", "archive")
+            if operation in ("upload", "archive", "delete")
             else set[str]()
         )
-        if operation in ("upload", "archive"):
+        if operation in ("upload", "archive", "delete"):
             safe["errorDetails"]["operation"] = operation
         if isinstance(phase, str) and phase in allowed_phases:
             safe["errorDetails"]["phase"] = phase

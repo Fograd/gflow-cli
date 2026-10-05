@@ -372,13 +372,19 @@ unsafe-caption canonical attachment proof.
   Native Google Auto remains separate from the implemented approximation.
   See [R08 limits and acceptance scope](IMAGE_REFERENCE_BUDGETS.md); strict existing
   model/aspect/count/seed boundaries and controlled queued execution are covered.
-- [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
-  semantics and complete supported batch behavior with fresh owned membership
-  proof. Preserve permanent deletion versus reversible archive versus local-cache
-  deletion as distinct operations; do not infer success from incomplete listings.
-  Delivered: scoped confirmed-delete receipts, exact fresh NOT_FOUND, zero-write
-  repeat requests and present-only mixed batches. Arbitrary already-gone raw
-  UUIDs remain unprovable; see NATIVE_MEDIA.md. Free synthetic proof43.96seconds.
+- [x] **R09 — Individual-delete compatibility.** Supported Python/CLI/REST/MCP/worker
+  individual deletion is complete:1–100 distinct IDs after ordered canonical
+  duplicate normalization, exact registered HTTP alias mappings, fresh entire-batch
+  ownership, scoped receipts plus exact NOT_FOUND, zero-write all-gone repeats
+  and present-only mixed writes. Mixed uncertainty, persistence interruption and
+  adapter teardown retain acknowledged/pending handles; REST polling preserves
+  operation/phase. Permanent deletion, reversible archive, local-cache and local
+  alias removal remain separate with existing defaults/confirmation. Reused free
+  synthetic43.96s evidence; fresh image/video SDK/CLI BDD1passed67.65s preserved
+  all604observed original media and603workflow identities. Controlled100-item
+  boundaries use no bulk uploads. Deployed localhost acceptance is recorded in
+  the operator R09 handoff. Arbitrary missing/vendor IDs or media removed outside
+  receipt support remain explicit unsupported cases, not inferred success.
 - [ ] **R10 — Account import, refresh and three-account coverage.** Prove a
   successful cookie-table import, supported session refresh/reuse and independent
   account selection/queues for all three Pro accounts. Preserve private profiles
@@ -1097,3 +1103,22 @@ upscale and entitled image/video4K outputs require new bounded R12 permissions;
 both active video allowances remain exhausted. See
 [NATIVE_VIDEO_PROMOTION.md](NATIVE_VIDEO_PROMOTION.md) and
 [IMAGE_UPSCALE_CAPABILITIES.md](IMAGE_UPSCALE_CAPABILITIES.md).
+
+### R09 supported deletion closure — 5 October 2026
+
+The shared native validator canonicalises every supplied UUID, retains first
+occurrence order and enforces1–100 distinct IDs. HTTP resolves only exact scoped
+registered mappings before the same validation; alias/UUID duplicates collapse.
+Fresh preflight completes for every target before the media-only deletion wire,
+which omits workflow IDs and unrequested siblings. Receipt-backed exact native
+NOT_FOUND accepts confirmed repeats only; all-gone batches make zero writes,
+mixed batches write only present targets. Receipt-persistence interruption and
+SDK/CLI/MCP/worker teardown preserve acknowledgements, while uncertain mixed
+responses retain known and pending IDs separately in durable REST polling.
+
+Existing archive defaults, per-interface confirmation, local-cache removal and
+local alias removal are retained. Native audio remains an existing fork extension;
+R09's new live acceptance covers image/video. Media deleted outside this fork,
+pre-receipt deletions, arbitrary missing UUIDs and vendor composite decoding
+remain unsupported ownership cases. No inventory absence grants deletion or
+repeat success. See [exact usage and recovery](NATIVE_MEDIA.md#confirmed-deletion-retries-r09).

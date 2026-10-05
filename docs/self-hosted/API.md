@@ -216,7 +216,7 @@ and an existing local profile; this is operator attestation, not a Google probe.
 Removing registration refuses active jobs and keeps the browser profile. Local
 asset deletion with `localOnly:true` requires `mediaGenerationIds` (up to 100) or
 `projectId`, refuses active references and never changes the Google library. Without localOnly, DELETE accepts an optional projectId (defaulting to the selected account's registered project) and requires 1–100 distinct media UUIDs, queues reversible native archive, and validates the entire selected-project batch before mutation. All siblings in a generation batch must be selected. After successful upload/archive acknowledgement, poll the timeline for visibility; do not retry the mutation merely because a listing is stale. Explicit `operation:"delete"` selects permanent individual deletion after fresh
-ownership checks and preserves unselected siblings. Receipt-backed retries accept IDs already deleted by this fork after fresh account/project and exact NOT_FOUND checks, without another mutation. Arbitrary absent UUIDs refuse. The free synthetic deletion/retry lifecycle is verified; see [confirmed retries](NATIVE_MEDIA.md#confirmed-deletion-retries-r09). Explicit invalid projectId values refuse rather than selecting a default.
+ownership checks and preserves unselected siblings. Permanent deletion supports1–100 distinct canonical IDs after ordered duplicate normalization, including an exact registered alias and its raw UUID naming the same media. All supplied IDs must validate, and all distinct targets pass preflight before the one media-only deletion request. Archive still rejects duplicates. Receipt-backed retries accept IDs already deleted by this fork after fresh account/project and exact NOT_FOUND checks, without another mutation. Arbitrary absent UUIDs refuse. The free synthetic deletion/retry lifecycle is verified; see [confirmed retries](NATIVE_MEDIA.md#confirmed-deletion-retries-r09). Explicit invalid projectId values refuse rather than selecting a default.
 
 ## Callbacks
 
@@ -862,8 +862,7 @@ protected URLs, signatures and tokens are not persisted. An image alias and raw
 UUID naming the same image retain intentional deduplication with slot order;
 existing video duplicate validation still refuses duplicate logical references.
 Existing workers repeat fresh scope/ownership checks. SDK/CLI/MCP generation
-UUID inputs and preset names are unchanged; Google media DELETE and character CRUD mutation
-alias inputs remain outside this batch.
+UUID inputs and preset names are unchanged. HTTP media DELETE explicitly resolves registered image/video aliases; character/voice mutation mapping support is documented in the delivery additions below. Unknown vendor encodings remain unsupported.
 
 ```python
 queued = client.post("/images", json={

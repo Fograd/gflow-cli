@@ -167,6 +167,12 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "deleted": result["archived_media_ids"],
             "operation": "archive",
         }
+    if verb == "media-delete-individual":
+        from gflow_cli.api.transports.native_media_delete import validate_delete
+        from gflow_cli.services.native_media import delete_media
+
+        project, identifiers = validate_delete(project_id, payload.get("media_ids"), True)
+        return {"status": "ok", **await delete_media(profile, project, identifiers)}
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
         if verb == "history-list":
             return {
@@ -261,13 +267,6 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             }
         if verb == "extension-models":
             return {"status": "ok", "models": await client.list_native_extension_models(project_id)}
-        if verb == "media-delete-individual":
-            return {
-                "status": "ok",
-                **await client.delete_native_media(
-                    project_id=project_id, media_ids=payload["media_ids"], confirm_delete=True
-                ),
-            }
         if verb == "voice-saved-list":
             return {"status": "ok", **await client.list_saved_voices(project_id)}
         if verb == "voice-saved-get":

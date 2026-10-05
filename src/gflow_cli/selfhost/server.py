@@ -1805,7 +1805,11 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             if operation not in {"archive", "delete"}:
                 raise HTTPException(422, "operation requires archive or delete")
             values = payload.get("mediaGenerationIds")
-            if not isinstance(values, list) or not 1 <= len(cast(list[Any], values)) <= 100:
+            if (
+                not isinstance(values, list)
+                or not values
+                or (operation == "archive" and len(cast(list[Any], values)) > 100)
+            ):
                 raise HTTPException(422, "Remote archive requires 1 to 100 mediaGenerationIds")
             controls: dict[str, Any] = {
                 "email": email,
@@ -1820,7 +1824,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 controls.get("projectId", cfg.accounts[profile]["project"]), "projectId"
             )
             ids = [uuid_value(controls[field], "mediaGenerationIds") for field in slots]
-            if len(set(ids)) != len(ids):
+            if operation == "delete":
+                from gflow_cli.api.transports.native_media_delete import validate_delete
+
+                try:
+                    project, normalized = validate_delete(project, ids, True)
+                except ValueError as error:
+                    raise HTTPException(422, str(error)) from None
+                ids = list(normalized)
+            elif len(set(ids)) != len(ids):
                 raise HTTPException(422, "mediaGenerationIds must be distinct")
             if any(store.asset_in_use(identifier) for identifier in ids):
                 raise HTTPException(409, "Asset is referenced by an active job")

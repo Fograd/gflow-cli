@@ -73,7 +73,7 @@ async def delete_media(profile: str, project: str, identifiers: tuple[str, ...])
     settings = get_settings()
     from gflow_cli.api.transports.native_media_delete import validate_delete
 
-    validate_delete(project, identifiers, True)
+    project, identifiers = validate_delete(project, identifiers, True)
     outcome: dict[str, Any] = {}
     primary: BaseException | None = None
     try:

@@ -16,6 +16,9 @@ def test_receipts_are_private_and_account_project_scoped(tmp_path):
     assert a.kind(N) is None
     assert DeleteReceipts(tmp_path, "b" * 64, P).kind(M) is None
     assert DeleteReceipts(tmp_path, "a" * 64, N).kind(M) is None
+    other = tmp_path / "other-profile"
+    other.mkdir()
+    assert DeleteReceipts(other, "a" * 64, P).kind(M) is None
     path = a.root / (M + ".json")
     assert path.stat().st_mode & 0o777 == 0o600
     path.write_text("{}")

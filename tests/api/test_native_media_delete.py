@@ -37,12 +37,11 @@ async def test_all_ownership_preflight_before_delete(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_confirmation_and_alias_duplicates_fail_before_page(monkeypatch):
+async def test_confirmation_fails_and_uuid_duplicates_normalize_before_page(monkeypatch):
     rpc = AsyncMock()
     monkeypatch.setattr(delete, "native_rpc", rpc)
     for confirmation in [False, 1, "true"]:
         with pytest.raises(ValueError):
             await delete.delete_individual_media(None, P, [M], confirmation)
-    with pytest.raises(ValueError):
-        await delete.delete_individual_media(None, P, [M, M.upper()], True)
+    assert delete.validate_delete(P, [M, M.upper()], True) == (P, (M,))
     rpc.assert_not_awaited()

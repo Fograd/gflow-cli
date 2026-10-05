@@ -1015,3 +1015,15 @@ remain unchanged. Strict model/aspect/count/seed choices refuse invalid values.
 Accepted ordered ten-reference Lite SDK output is established; individual visual
 influence and wrapper/model rendering coverage stay R12. Read the
 [complete forms, controls and evidence](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+
+### Individual deletion (R09)
+
+`gflow_delete_native_media(project, media_ids, confirm_delete=False, profile="default")`
+is direct and requires literal `confirm_delete:true`. It supports1–100 distinct
+canonical UUIDs, normalizes duplicates in first-occurrence order and freshly
+validates the entire batch before one media-only write. Receipt-backed repeats
+require fresh exact NOT_FOUND and make zero writes when every ID is already gone.
+Mixed batches write only present IDs. Known/pending handles survive uncertainty,
+cancellation and teardown; never automatically replay. HTTP registered aliases
+resolve only through REST's exact mappings; direct MCP mutation inputs are UUIDs.
+Reversible archive is a separate tool. See [native deletion](self-hosted/NATIVE_MEDIA.md).

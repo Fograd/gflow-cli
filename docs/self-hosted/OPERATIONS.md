@@ -261,3 +261,19 @@ masked keys, stats and MCP schemas through existing Mac localhost forwards8844,
 8843 and8845. R06 needs no balance check, solver or generation acceptance request.
 Operation-specific paid acceptance is the separate
 [R12 campaign](FINAL_E2E.md#r06-operation-specific-r12-campaign).
+
+## Individual deletion verification (R09)
+
+Use only an explicit invocation-owned manifest of acknowledged synthetic uploads
+for deletion acceptance. Capture original media/workflow/character/voice identities
+before the campaign and verify their preservation afterwards. SDK/CLI/MCP require
+explicit permanent confirmation; HTTP requires `operation:"delete"` and defaults
+to reversible archive. Exact HTTP alias removal and `localOnly:true` are separate
+local operations.
+
+Check both REST and MCP active queues before restarting API/MCP services, preserve
+private SQLite/configuration backups and deploy the exact published revision. Keep
+the original browser profiles and Mac SSH forwards. Validate first deletion, exact
+NOT_FOUND repeat and a mixed batch through Mac localhost. Use bounded read-only
+polling for delayed visibility. Never replay a deletion to force a listing update;
+retain job/recovery handles after uncertainty. No generation or solver is required.

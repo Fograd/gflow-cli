@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- R09 permanent individual deletion normalizes ordered duplicate UUIDs and exact
+  HTTP alias/UUID duplicates before the1–100 distinct-ID limit. Archive defaults
+  and explicit confirmation requirements are retained.
+- Mixed deletion uncertainty preserves confirmed IDs separately from pending write
+  targets; receipt-persistence interruption and MCP/worker teardown retain known
+  acknowledgements. REST polling preserves delete operation/phase recovery fields.
 - R08 image SDK and queued MCP reject boolean/fractional counts and unsupported
   model/aspect values; explicit empty queue choices no longer fall back to defaults.
   Existing weighted reference budgets and composer are retained.

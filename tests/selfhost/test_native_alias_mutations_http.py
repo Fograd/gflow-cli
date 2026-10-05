@@ -127,7 +127,6 @@ def test_absence_or_unrelated_receipt_does_not_adopt_deleted_alias(mutation_api,
 @pytest.mark.parametrize(
     "values,account,project,status",
     [
-        ([IMAGE, M], "one", None, 422),
         ([IMAGE, FOREIGN], "one", None, 409),
         ([IMAGE], "two", None, 403),
         ([IMAGE], "one", R, 403),
@@ -144,6 +143,51 @@ def test_asset_alias_scope_and_duplicate_guards(mutation_api, values, account, p
     no_jobs(client)
     if status != 422:
         assert calls == []
+
+
+def test_permanent_alias_and_uuid_duplicates_normalize_after_exact_mapping(mutation_api):
+    client, calls, _, _ = mutation_api
+    response = delete(
+        client,
+        "assets/one",
+        {
+            "mediaGenerationIds": [IMAGE, M.upper(), VIDEO, IMAGE, V],
+            "operation": "delete",
+            "async": True,
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert claim(client)["mediaGenerationIds"] == [M, V]
+    assert [argv[3] for argv in calls] == ["asset-get", "asset-get"]
+
+
+def test_archive_still_refuses_alias_and_uuid_duplicates(mutation_api):
+    client, _, _, _ = mutation_api
+    response = delete(client, "assets/one", {"mediaGenerationIds": [IMAGE, M], "async": True})
+    assert response.status_code == 422
+    no_jobs(client)
+
+
+@pytest.mark.parametrize("count,status", [(0, 422), (1, 201), (100, 201), (101, 422)])
+def test_delete_distinct_boundaries_and_repeated_ids(mutation_api, count, status):
+    from uuid import UUID
+
+    client, _, _, _ = mutation_api
+    identifiers = [str(UUID(int=i + 1)) for i in range(count)]
+    response = delete(
+        client,
+        "assets/one",
+        {
+            "mediaGenerationIds": identifiers + identifiers,
+            "operation": "delete",
+            "async": True,
+        },
+    )
+    assert response.status_code == status, response.text
+    if status == 201:
+        assert claim(client)["mediaGenerationIds"] == identifiers
+    else:
+        no_jobs(client)
 
 
 def test_delete_character_and_saved_voice_aliases(mutation_api):

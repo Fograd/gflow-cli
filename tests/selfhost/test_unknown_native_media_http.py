@@ -56,7 +56,7 @@ def test_forged_or_invalid_unknown_metadata_refused(field, value):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("operation", ["upload", "archive"])
+@pytest.mark.parametrize("operation", ["upload", "archive", "delete"])
 async def test_runtime_typed_unknown_preserves_handles_without_success_asset(
     tmp_path, monkeypatch, operation
 ):
@@ -81,7 +81,7 @@ async def test_runtime_typed_unknown_preserves_handles_without_success_asset(
         else {"project": P, "mediaGenerationIds": [M, N]}
     )
     submitted = store.submit(
-        "assets" if operation == "upload" else "assets/archive", "fixture", payload, None
+        "assets" if operation == "upload" else "assets/" + operation, "fixture", payload, None
     )
     job = store.claim("fixture")
     run = AsyncMock(return_value=(40, json.dumps(raw).encode()))

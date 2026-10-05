@@ -22,11 +22,9 @@ def validate_delete(
     if not isinstance(media_ids, (list, tuple)):
         raise ValueError("Media deletion requires 1 to 100 distinct UUIDs")
     identifiers = cast(list[Any] | tuple[Any, ...], media_ids)
-    if not 1 <= len(identifiers) <= 100:
+    normalized = tuple(dict.fromkeys(validate_identifier(value) for value in identifiers))
+    if not 1 <= len(normalized) <= 100:
         raise ValueError("Media deletion requires 1 to 100 distinct UUIDs")
-    normalized = tuple(validate_identifier(value) for value in identifiers)
-    if len(set(normalized)) != len(normalized):
-        raise ValueError("Media deletion requires distinct UUIDs")
     return project, normalized
 
 
@@ -107,7 +105,8 @@ async def delete_individual_media(
             operation="delete",
             phase="cancelled" if isinstance(error, asyncio.CancelledError) else "response",
             project_id=project,
-            pending_media_ids=identifiers,
+            known_media_ids=tuple(already),
+            pending_media_ids=tuple(present),
         )
         if isinstance(error, asyncio.CancelledError):
             vars(error)["gflow_native_media_unknown"] = typed
@@ -120,8 +119,12 @@ async def delete_individual_media(
         try:
             for identifier in present:
                 receipts.record(identifier, kinds[identifier])
-        except Exception:
+        except BaseException as error:
             # Google already acknowledged. Report known success, never invite mutation retry.
+            if not isinstance(error, Exception):
+                from gflow_cli.api.native_media import propagate_after_ack
+
+                propagate_after_ack(error, project=project, operation="delete", known=identifiers)
             persisted = False
     return {
         "project_id": project,

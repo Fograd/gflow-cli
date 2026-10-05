@@ -94,7 +94,7 @@ def delete_media_command(
     profile: str | None,
     as_json: bool,
 ) -> None:
-    """Permanently delete only these owned media identities; archive is separate."""
+    """Permanently delete 1–100 distinct owned UUIDs; duplicates normalize. Archive is separate."""
     from gflow_cli.api.transports.native_media_delete import validate_delete
     from gflow_cli.services.native_media import delete_media
 
