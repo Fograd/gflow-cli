@@ -2374,6 +2374,19 @@ def test_interpolation_body_problem_names_what_is_wrong() -> None:
     assert unreadable is not None and "could not be read" in unreadable
 
 
+def test_measured_fast_first_last_key_preserves_both_frame_checks() -> None:
+    """R12 live nprQif uses this key after both exact frames are bound."""
+    from gflow_cli.api.transports.migrated_composer import _interpolation_body_problem
+
+    body = _interp_body(key="veo_3_1_i2v_s_fast_fl")
+    assert _interpolation_body_problem(body, "nprQif", MEDIA_UP, END_UP) is None
+    assert _interpolation_body_problem(body, "nprQif", MEDIA_UP, None) is not None
+    missing = _interp_body(key="veo_3_1_i2v_s_fast_fl", end_id=MEDIA)
+    assert "end frame" in str(_interpolation_body_problem(missing, "nprQif", MEDIA_UP, END_UP))
+    for key in ("veo_3_1_t2v_fast_fl", "veo_3_1_i2v_s_fast", "omni_flash_t2v_8s_fl"):
+        assert _interpolation_body_problem(_interp_body(key=key), "nprQif", MEDIA_UP, END_UP)
+
+
 async def test_interpolation_reply_on_a_bare_batchexecute_url_resolves() -> None:
     """The captured interpolation reply shape: a `batchexecute` POST with NO
     `rpcids` query param, whose frame names `nprQif`. `parse_frames` recovers the

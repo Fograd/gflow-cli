@@ -243,6 +243,19 @@ async def read_promotion_source(page: Any, *, project_id: str, media_id: str) ->
     return promotion_source(snapshot, metadata, project=project_id, media=media_id)
 
 
+async def read_owned_video_dimensions(
+    page: Any, *, project_id: str, media_id: str
+) -> tuple[int, int]:
+    """Strict active-video lookup and bounded MP4 measurement for omitted dimensions."""
+    try:
+        source = await read_promotion_source(page, project_id=project_id, media_id=media_id)
+    except ValueError:
+        raise ConfigurationError(
+            detail="Owned native video source dimensions could not be verified"
+        ) from None
+    return source.width, source.height
+
+
 async def upscale_native_video(
     client: FlowApiClient,
     *,

@@ -201,6 +201,12 @@ async def extend_native_video(
         if source is None:
             raise ConfigurationError(detail="Native extension source is not an owned typed video")
         width, height = source.get("width"), source.get("height")
+        if width is None and height is None:
+            from gflow_cli.api.native_video_upscale import read_owned_video_dimensions
+
+            width, height = await read_owned_video_dimensions(
+                page, project_id=project_id, media_id=media_id
+            )
         ratios = {(16, 9): "16:9", (9, 16): "9:16", (1, 1): "1:1"}
         inherited = next(
             (

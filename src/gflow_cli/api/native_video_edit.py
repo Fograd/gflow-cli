@@ -300,6 +300,12 @@ async def edit_native_video(
         owned_audio = validate_audio_presets(payload, audio_ids)
         validate_edit_audio(payload, project_id, owned_audio)
         width, height = source.get("width"), source.get("height")
+        if width is None and height is None:
+            from gflow_cli.api.native_video_upscale import read_owned_video_dimensions
+
+            width, height = await read_owned_video_dimensions(
+                page, project_id=project_id, media_id=media_id
+            )
         aspect = next(
             (
                 ratio

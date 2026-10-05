@@ -12,7 +12,10 @@ Three rpcids matter for a generation (spike 2026-09-05-migrated-host-wire-protoc
 * ``as29s`` — the result; the bare record, now carrying signed CDN URLs
 
 The record itself is ``[workflow_id, project_id, media_id, "CAE", null, DETAILS, null,
-MEDIA_INFO]`` and is located **by that shape**, not by position, so a wrapper change
+MEDIA_INFO]``. R12 also measured ``[media_id, project_id, workflow_id, null,
+null, DETAILS, null, MEDIA_INFO]`` with a matching model and repeated media ID in
+``MEDIA_INFO[2]``; exactly one such video row is required. Records are located by
+those positive shapes, so a wrapper change
 does not break the parser. ``DETAILS[8]`` is ``[status]`` (6 submitted, 2 running,
 3 done), ``DETAILS[10]`` the signed **poster** (JPEG) URL once done, ``DETAILS[13]``
 the mp4 byte size; ``MEDIA_INFO[0][8]`` the signed **video** URL (``MEDIA_INFO[0][12]`` carries
@@ -289,11 +292,20 @@ def generation_record(rpcid: str, payload: Any) -> GenerationRecord:
     record-shaped list exists — the migrated backend changed its envelope.
     """
     rec = _find_record(payload)
+    current = False
+    if rec is None:
+        # R12: current single-video replies use media/project/workflow, omit CAE,
+        # and repeat the media ID in the video arm. Do not infer this order from
+        # three UUIDs alone: image/audio rows share that prefix.
+        candidates = [row for row in _walk_lists(payload) if _is_current_video_record(row)]
+        if len(candidates) == 1:
+            rec = candidates[0]
+            current = True
     if rec is None:
         raise WireFormatError(
             detail=(
                 f"batchexecute {rpcid}: no generation record "
-                f"([uuid, uuid, uuid, 'CAE', …]) in the reply"
+                f"(legacy CAE or measured current video layout) in the reply"
             ),
             route=f"batchexecute:{rpcid}",
             discovery={"rpcid": rpcid, "payload_head": _discovery_head(payload)},
@@ -302,13 +314,37 @@ def generation_record(rpcid: str, payload: Any) -> GenerationRecord:
     status: Any = status_cell[0] if status_cell else None
     size: Any = _at(rec, 5, 13)
     return GenerationRecord(
-        workflow_id=rec[0],
+        workflow_id=rec[2] if current else rec[0],
         project_id=rec[1],
-        media_id=rec[2],
+        media_id=rec[0] if current else rec[2],
         status=status if isinstance(status, int) else None,
         video_url=_url(_at(rec, 7, 0, 8)),
         poster_url=_url(_at(rec, 5, 10)),
         size_bytes=size if isinstance(size, int) else None,
+    )
+
+
+def _is_current_video_record(row: list[Any]) -> bool:
+    if (
+        len(row) != 8
+        or row[3] is not None
+        or row[4] is not None
+        or row[6] is not None
+        or not all(isinstance(row[i], str) and _UUID_RE.fullmatch(row[i]) for i in (0, 1, 2))
+        or len(set(row[:3])) != 3
+        or _at(row, 7, 2) != [row[0]]
+    ):
+        return False
+    model = _at(row, 7, 0, 12)
+    status = _as_list(_at(row, 5, 8))
+    return (
+        isinstance(model, str)
+        and model.startswith(("veo_", "abra_", "omni_"))
+        and any(mode in model for mode in ("_t2v_", "_i2v_", "_r2v_"))
+        and _at(row, 5, 6, 1, 0, 0) == model
+        and status is not None
+        and len(status) == 1
+        and type(status[0]) is int
     )
 
 

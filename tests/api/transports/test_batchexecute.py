@@ -229,3 +229,55 @@ def test_rpc_errors_ignores_payload_frames_and_non_envelopes() -> None:
     assert rpc_errors(ok) == []
     assert rpc_errors("<html>login</html>") == []
     assert rpc_errors("") == []
+
+
+def current_video_record(status: int, *, done: bool = False) -> list[Any]:
+    """R12 YhhmEf/jwpduf/as29s capture with synthetic identities and URLs."""
+    row = _record(status, done_urls=done, size=123456 if done else None)
+    row[:5] = [MEDIA, PROJ, WF, None, None]
+    row[5][6][1][0][0] = "veo_3_1_t2v_lite"
+    row[7][0][12] = "veo_3_1_t2v_lite"
+    row[7][2] = [MEDIA]
+    return row
+
+
+@pytest.mark.parametrize("rpcid", ["YhhmEf", "jwpduf", "as29s"])
+@pytest.mark.parametrize("status", [2, 3, 6])
+def test_current_video_record_keeps_measured_identity_order(rpcid, status):
+    from gflow_cli.api.transports.batchexecute import generation_record
+
+    row = current_video_record(status, done=status == 3)
+    payload = row if rpcid == "as29s" else [None, None, [row]]
+    record = generation_record(rpcid, payload)
+    assert (record.media_id, record.project_id, record.workflow_id) == (MEDIA, PROJ, WF)
+    assert record.status == status
+    assert record.video_url == (VIDEO_URL if status == 3 else None)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["image", "wrong-media", "wrong-model", "duplicate-id", "unknown-sentinel"]
+)
+def test_current_video_record_rejects_unmeasured_or_conflicting_shapes(mutation):
+    from gflow_cli.api.transports.batchexecute import generation_record
+
+    row = current_video_record(3, done=True)
+    if mutation == "image":
+        row[6] = ["image"]
+    elif mutation == "wrong-media":
+        row[7][2] = [WF]
+    elif mutation == "wrong-model":
+        row[7][0][12] = "unknown_model"
+    elif mutation == "duplicate-id":
+        row[2] = MEDIA
+    else:
+        row[3] = "unmeasured"
+    with pytest.raises(WireFormatError):
+        generation_record("YhhmEf", [None, None, [row]])
+
+
+def test_current_video_record_refuses_ambiguous_plural_reply():
+    from gflow_cli.api.transports.batchexecute import generation_record
+
+    row = current_video_record(6)
+    with pytest.raises(WireFormatError):
+        generation_record("YhhmEf", [None, None, [row, row]])

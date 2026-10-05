@@ -85,3 +85,10 @@ filter nor model_key keep the cheapest available compatible selection. The
 existing exact-key controls and source/project checks are retained. R11 verifies
 selection and dispatch with controlled outcomes and current pro2 read-only model
 metadata; accepted extension rendering still requires separate R12 permission.
+
+
+R12 measured source compatibility: when Google explicitly omits both video
+dimensions, edit/extension preflight reuses the strict active owned-video lookup
+and bounded MP4 measurement already used by native promotion. Unknown ownership,
+malformed dimensions and unsupported aspect still refuse before solving/dispatch.
+See [actual campaign evidence](FINAL_E2E.md#r12-measured-campaign--5-october-2026).

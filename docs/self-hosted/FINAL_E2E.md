@@ -4,6 +4,60 @@ R12 is a separate acceptance campaign after feature implementation. A source tes
 solver result, endpoint name or authentication check is not accepted Google output.
 Run individual opted-in scenarios, not the whole paid marker tier.
 
+## R12 measured campaign — 5 October 2026
+
+This is the additional, separately ledgered representative campaign authorized
+on5October, starting from9456ebc. Only originalpro2/pro3 profiles are used;
+pro1 remains disabled and reserved. Each account has20image,5video and2audio
+preview slots; both share10paid solver tasks, without top-ups. Upscale/promotion
+and plural outputs consume their applicable slots. Historical counters remain
+untouched. Reservations use an exclusive lock and atomic replacement before
+dispatch; known refusals/unknown submissions retain slots, and only evidenced
+zero-forwarded preflight failures release them. Default requests make one attempt.
+
+Current validated output evidence:
+
+|Case|Account/interface|Actual result|
+|---|---|---|
+|I1|pro2 REST async, Nano2,16:9,count1|1376×768 decoded rabbit/scarf/mug image|
+|I2|pro3 queued registered MCP, NanoPro,local reference,3:4|896×1200 decoded image; rabbit identity preserved|
+|I3|pro2 REST sync, NanoLite,native image+own character,Auto,count2|Two distinct1376×768 images; first native reference resolves16:9; carrot added|
+|I4|pro3 queued MCP,NanoLite,local first-reference Auto|896×1200;3:4 approximation reported; blue star added|
+|I5r|pro2 REST native2K|2752×1536, exact source identity; native upscale, no local enlargement|
+|I6|pro3 direct registered MCP native2K|1792×2400, exact source identity|
+|V1r|pro2 REST queued Lite T2V|Google accepted8s1280×720H264/AAC; local parser failed; exact original media downloaded via MCP without regeneration|
+|V2|pro3 queued MCP Fast start+end|Google accepted8s1280×720H264/AAC; local guard rejected measured Fast key; original clip recovered; carrot arrives between actual start/end frames|
+|B1|pro2 isolated SDK diagnostic Lite T2V|New reserved attempt captured current media/project/workflow layout; accepted original clip recovered without replay|
+|A2|pro3 direct MCP saved Puck preview,CapSolver1|Google explicitly refused no0P6 PUBLIC_ERROR_UNUSUAL_ACTIVITY; no saved voice|
+|V3|pro2 direct MCP native4s360p image+character,CapSolver1|Google explicitly refused MZZa6b PUBLIC_ERROR_UNUSUAL_ACTIVITY|
+|V6|pro3 direct MCP native1080p promotion|Google explicitly refused p0UkFb PUBLIC_ERROR_UNUSUAL_ACTIVITY; export is not promotion proof|
+
+Fresh balances were1050per account before dispatch, rather than assumed from
+historical notes. Subsequent balance observations and final usage will be added
+at campaign closure. Initial low-priority T2V was unavailable in the actual
+model picker, with zero Google forwarding. Video4K model discovery returned no
+available target on either account; no4K attempt was made. Initial image
+capability-menu timeouts remain unknown observations, not proof of disabled4K.
+An initial REST2K failure retains its image slot conservatively.
+
+Focused demonstrated fixes preserve existing ownership, models and browser
+startup: support exactly the measured Fast first/last key while retaining both
+frame checks; decode one positively identified current video record in measured
+media/project/workflow order alongside the legacy CAE layout; and measure a
+fresh owned MP4 when edit/extension source metadata explicitly omits dimensions.
+No dependencies or profile/startup defaults changed. Upstream PR907 was inspected
+only after matching failures; its whole browser-startup patch was not ported.
+
+The new opted-in `test_r12_measured_video_records_bdd.py` covers exact owned
+completed metadata and an actual bound-frame request fulfilled locally before
+Google forwarding. Metadata E2E passed; corrected frame E2E passed after its
+harness was changed from an unreliable engine abort to a controlled local409.
+Initial harness failures/skips remain recorded; no paid generation was replayed
+to make them green. Native edit/extension accepted rendering and final deployed
+regressions remain pending at this checkpoint. Audio-reference video and the
+saved-voice binding/lifecycle remain blocked by the absent accepted voice.
+Automatic authentication renewal remains separate and unproved.
+
 ## Entry checks
 - Record deployed source revision, API/MCP health and empty per-profile queues.
 - Read fresh models, tier, reference capacities and credits on each selected profile.

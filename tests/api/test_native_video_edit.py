@@ -102,12 +102,16 @@ async def test_inactive_input_refuses_before_mint(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dispatch_once_correlates_assigned_ids(monkeypatch):
+@pytest.mark.parametrize("missing_dimensions", [False, True])
+async def test_dispatch_once_correlates_assigned_ids(monkeypatch, missing_dimensions):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock
 
     from gflow_cli.api import native_video_edit as module
+    from gflow_cli.api.native_video_upscale import PromotionSource
 
+    measured = AsyncMock(return_value=PromotionSource("video", S.workflow_ids[0], 160, 90))
+    monkeypatch.setattr("gflow_cli.api.native_video_upscale.read_promotion_source", measured)
     page = SimpleNamespace(evaluate=AsyncMock(return_value={"status": 200, "text": "ack"}))
     client = SimpleNamespace(
         settings=SimpleNamespace(flow_host="auto"),
@@ -120,7 +124,14 @@ async def test_dispatch_once_correlates_assigned_ids(monkeypatch):
         module,
         "parse_media_snapshot",
         lambda *_: {
-            "media": [{"media_id": S.source_media_id, "kind": "video", "width": 160, "height": 90}]
+            "media": [
+                {
+                    "media_id": S.source_media_id,
+                    "kind": "video",
+                    "width": None if missing_dimensions else 160,
+                    "height": None if missing_dimensions else 90,
+                }
+            ]
         },
     )
     monkeypatch.setattr(
@@ -155,6 +166,10 @@ async def test_dispatch_once_correlates_assigned_ids(monkeypatch):
     checkpoint.assert_awaited_once_with(result)
     page.evaluate.assert_awaited_once()
     assert page.evaluate.call_args.args[1]["rpc"] == "jIps6"
+    if missing_dimensions:
+        measured.assert_awaited_once_with(page, project_id=S.project_id, media_id=S.source_media_id)
+    else:
+        measured.assert_not_awaited()
     client._checkin_page.assert_called_once_with(page)
 
 

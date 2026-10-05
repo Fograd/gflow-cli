@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- R12 single-video decoding accepts the measured current media/project/workflow
+  record alongside the legacy layout; ambiguous current plural records refuse.
+- Fast first/last-frame validation recognizes its measured native model key and
+  retains both uploaded frame identities. Native edit/extension preflight measures
+  a strict owned MP4 when Google explicitly omits source dimensions.
 - R10 health checks verify fresh original Google identity before and after native
   project access. Private registration-epoch status retains last access/identity
   and distinguishes stale, unknown and genuine login-required observations.

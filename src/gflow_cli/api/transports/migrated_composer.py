@@ -1013,8 +1013,13 @@ def _interpolation_body_problem(
     # docs/superpowers/spikes/2026-09-17-migrated-end-frame-submit-contract.md).
     # Matching on key SHAPE rather than a pinned literal is deliberate: the two
     # cohorts disagree on the key, so a literal would refuse a valid run on one of
-    # them. A plain i2v/t2v key means a frame dropped before the app submitted.
-    if "interpolation" not in key_text and "first_last" not in key_text:
+    # them. R12 also measured Fast's exact first/last key on nprQif, after
+    # both frames were bound. Keep the frame identity checks below for every form.
+    if (
+        "interpolation" not in key_text
+        and "first_last" not in key_text
+        and key_text != "veo_3_1_i2v_s_fast_fl"
+    ):
         return (
             f"migrated host: the submit went out on {rpcid} with {key_text} for a "
             "start+end (interpolation) request — expected an interpolation "

@@ -136,3 +136,10 @@ Prefer an eligible source in `GFLOW_CLI_E2E_REFERENCE_AUDIO_VIDEO`. When none ex
 explicit `GFLOW_CLI_E2E_REFERENCE_AUDIO_SOURCE_FIXTURE=1` permits one labelled free
 synthetic MP4 upload and archive. Do not replay an uncertain upload/archive. This
 BDD cannot establish upload-origin audio if the supplied asset is a saved voice.
+
+
+R12 measured source compatibility: when Google explicitly omits both video
+dimensions, edit/extension preflight reuses the strict active owned-video lookup
+and bounded MP4 measurement already used by native promotion. Unknown ownership,
+malformed dimensions and unsupported aspect still refuse before solving/dispatch.
+See [actual campaign evidence](FINAL_E2E.md#r12-measured-campaign--5-october-2026).

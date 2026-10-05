@@ -85,7 +85,10 @@ async def test_single_native_video_dispatch_hook_on_uncertain_response(monkeypat
     outcome = Mock()
     monkeypatch.setattr(module, "native_captcha_submission", submit)
     monkeypatch.setattr(module, "native_captcha_outcome", outcome)
-    await exercise(monkeypatch)
+    if case == "extension":
+        await exercise(monkeypatch, False)
+    else:
+        await exercise(monkeypatch)
     submit.assert_called_once_with()
     outcome.assert_not_called()
 
@@ -101,6 +104,6 @@ async def test_native_edit_exact_ack_marks_acceptance(monkeypatch):
     outcome = Mock()
     monkeypatch.setattr(module, "native_captcha_submission", submit)
     monkeypatch.setattr(module, "native_captcha_outcome", outcome)
-    await exercise(monkeypatch)
+    await exercise(monkeypatch, False)
     submit.assert_called_once_with()
     outcome.assert_called_once_with("accepted")

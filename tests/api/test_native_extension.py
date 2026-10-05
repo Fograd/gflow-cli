@@ -47,9 +47,15 @@ async def test_validation_precedes_browser():
 
 
 @pytest.mark.asyncio
-async def test_checkpoint_precedes_single_dispatch_and_failure_preserves_handles(monkeypatch):
+@pytest.mark.parametrize("missing_dimensions", [False, True])
+async def test_checkpoint_precedes_single_dispatch_and_failure_preserves_handles(
+    monkeypatch, missing_dimensions
+):
     import gflow_cli.api.native_extension as module
+    from gflow_cli.api.native_video_upscale import PromotionSource
 
+    measured = AsyncMock(return_value=PromotionSource("video", W, 1280, 720))
+    monkeypatch.setattr("gflow_cli.api.native_video_upscale.read_promotion_source", measured)
     sequence = []
     page = AsyncMock()
     client = AsyncMock()
@@ -60,7 +66,16 @@ async def test_checkpoint_precedes_single_dispatch_and_failure_preserves_handles
     monkeypatch.setattr(
         module,
         "parse_media_snapshot",
-        lambda *_: {"media": [{"media_id": M, "kind": "video", "width": 1280, "height": 720}]},
+        lambda *_: {
+            "media": [
+                {
+                    "media_id": M,
+                    "kind": "video",
+                    "width": None if missing_dimensions else 1280,
+                    "height": None if missing_dimensions else 720,
+                }
+            ]
+        },
     )
 
     async def metadata(_page, rpc, *_):
@@ -98,6 +113,10 @@ async def test_checkpoint_precedes_single_dispatch_and_failure_preserves_handles
     assert [row[0] for row in sequence] == ["checkpoint", "dispatch"]
     assert len(caught.value.to_problem_details()["media_ids"]) == 2
     assert page.evaluate.await_count == 1
+    if missing_dimensions:
+        measured.assert_awaited_once_with(page, project_id=P, media_id=M)
+    else:
+        measured.assert_not_awaited()
     client._checkin_page.assert_called_once_with(page)
 
 
