@@ -178,3 +178,20 @@ def test_invalid_body_identity_and_foreign_removal_are_rejected(api):
     )
     assert result.status_code == 403
     assert not calls
+
+
+def test_saved_voice_alias_accepts_actual_decoder_without_source_discriminator(api):
+    client, calls, character, voice, state, root = api
+    # get_saved_voice returns a typed owned audio detail, not a catalogue item.
+    voice.pop("source")
+    voice.pop("voice")
+    assert register(client, "voices", VOICE).status_code == 201
+    response = read(client, "voices", VOICE)
+    assert response.status_code == 200
+    assert response.json()["audioUrl"] == AUDIO_URL
+
+
+def test_saved_voice_alias_still_rejects_explicit_system_source(api):
+    client, calls, character, voice, state, root = api
+    voice["source"] = "system"
+    assert register(client, "voices", VOICE).status_code == 502

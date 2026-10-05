@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fix saved-voice alias registration for the actual typed detail contract; complete R02 existing-voice lookup/playback proof and document the Google-rejected backend creation limitation.
+
+
 ### Added
 
 - Native reference video, edit, extension and image-upscale CLI/direct MCP expose explicit CAPTCHA provider order and bounded confirmed-WAF controls through the shared policy, with fresh client attempts and existing ownership/availability guards. Image controls require the native served host; no entitlement is inferred.

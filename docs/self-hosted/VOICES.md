@@ -4,7 +4,7 @@ System presets are already available through bundled offline lookup and dynamic 
 
 Saved TTS is a different native flow. The exact deployed Angular project bundle exposes a preview operation named BatchGenerateAudio, with native RPC no0P6, action AUDIO_GENERATION and model gemini_v4s_tts_flow. Its UI accepts sample dialogue, a performance description and a voice name. Playback resolves the generated media through GetMedia. Saving the preview then performs two metadata mutations: UpdateMedia (lt8g5) changes media visibility, and UpdateWorkflow (mYWVGd) saves the display name.
 
-These source definitions establish that the flow is preset-based speech generation followed by saving metadata, not voice cloning. They do not establish accepted speech, a saved-voice inventory response, or current outgoing request bytes. The fork implements these source-derived native operations through SDK and a shared service; REST/MCP adapters are wired. Final live acceptance is intentionally deferred to the end of feature implementation. A normal-traffic picker read exposed the voice controls, but the final preview selector missed before dispatch, so no outgoing or accepted TTS proof is claimed.
+These source definitions establish that the flow is preset-based speech generation followed by saving metadata, not voice cloning. The5 October follow-up below supplies successful frontend request and existing saved-voice playback evidence. Earlier investigation statements describe their original checkpoints. The fork implements these source-derived native operations through SDK and a shared service; REST/MCP adapters are wired. Final live acceptance is intentionally deferred to the end of feature implementation. A normal-traffic picker read exposed the voice controls, but the final preview selector missed before dispatch, so no outgoing or accepted TTS proof is claimed.
 
 The first private menu reads used an overbroad request guard and are therefore confounded. They cannot establish that Google lacks saved voices. A corrected probe must allow normal metadata/preferences traffic while blocking known billable/resource mutations. Only the final intended creation gesture may arm a broader write abort to capture the request without generating speech.
 
@@ -46,9 +46,9 @@ selected project/media/workflow and exclusive audio arm. Playback URLs are
 confidential HTTPS values from the owned native response; no media fetch or
 unverified universal URL lifetime is implied. REST returns no-store.
 Missing playback remains optional; missing inventory is not proof of deletion.
-The selected project has no saved user voice fixture, so this enhancement has
-source/offline proof and no newly accepted live audio playback. R12 retains that
-acceptance requirement; no extra paid audio generation was attempted.
+The original selected-project checkpoint had no saved-user fixture. The5 October
+follow-up below closes existing-voice lookup/playback proof; backend creation and
+the full mutation/binding lifecycle remain separate R12 acceptance requirements.
 
 Saved-voice `voice create` and direct MCP `gflow_create_saved_voice` now accept optional
 provider order/total-attempt controls. The SDK `saved_voice_operation` bridge exposes the
@@ -77,3 +77,50 @@ read must match the registered media/project/workflow. Optional description,
 performance, dialogue and playback metadata are retained across adapters; REST
 uses description, voicePerformance, dialog and audioUrl. Creation, deletion and
 character mutation inputs keep their existing raw contracts.
+
+
+## Existing saved voices: verified lookup and creation limitation
+
+On 5 October 2026 an operator-created Charon saved voice passed SDK, CLI, REST and
+registered HTTP MCP detail reads. Its exact locally registered alias passed all
+four adapters, with fresh selected-account/project/media/workflow validation.
+REST through Mac localhost returned 200 with Cache-Control:no-store. The returned
+Google audio URL played a valid 7.8-second mono 24 kHz PCM WAV (374,444 bytes).
+Dialogue, preset and the performance description were preserved. Native
+performance and description are separate optional fields; no missing value is
+synthesised. The original voice remains saved; only the temporary alias was removed.
+
+Use an explicitly selected project/profile:
+
+~~~bash
+gflow voice show --project "$PROJECT_ID" --id "$VOICE_MEDIA_ID" --profile pro2 --json
+~~~
+
+The shared SDK service also selects the profile explicitly (inside an async function):
+
+~~~python
+from gflow_cli.services.native_voices import saved_voice_operation
+
+detail = await saved_voice_operation(
+    profile="pro2", operation="get", project_id=project_id, voice_id=voice_id
+)
+~~~
+
+For direct MCP call gflow_get_saved_voice with project, voice_id and profile.
+voice_id may instead be an exact registered alias. REST uses
+GET /v1/google-flow/voices/REF?source=user&email=REGISTERED_ACCOUNT&projectId=PROJECT_ID
+with the existing bearer credential. Google principals and REST registration
+handles are distinct; obtain the selected handle from GET /accounts.
+See [exact voice alias registration](API.md#explicit-character-and-saved-voice-aliases).
+
+**Backend creation limitation:** voice create, gflow_create_saved_voice and POST
+voices are implemented, but the tested backend previews were Google-rejected with
+PUBLIC_ERROR_UNUSUAL_ACTIVITY. Frontend creation succeeded in 21.19 seconds using
+matching preview/save payloads. A 90-second experimental request deadline still
+received rejection in 0.45 seconds. The rejection criterion is unknown; it is not
+proved to be a Pro-plan or credit restriction. Session/token trust and network
+reputation are hypotheses. No speculative wrapper change was shipped and no
+further preview retry is needed for lookup. Backend creation, deletion
+acknowledgement and character/audio binding acceptance remain R12 limitations.
+An uncertain deletion must be checked with fresh inventory, never automatically
+replayed. Existing-voice playback verification does not establish the full CRUD lifecycle.

@@ -583,7 +583,7 @@ See [native media operations](self-hosted/NATIVE_MEDIA.md) for bounds, consent a
 
 ## Saved TTS and permanent individual media tools
 
-The tools gflow_list_saved_voices, gflow_get_saved_voice, gflow_create_saved_voice and gflow_delete_saved_voice mirror selected-project SDK/CLI saved speech. Creation is preset-based TTS; unknown saves preserve acknowledged preview handles without replay. See [saved voices](self-hosted/VOICES.md). The first TTS preview outcome was ambiguous with no acknowledged handles; the corrected canonical Charon request was captured once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio. Saved-voice binding and lifecycle acceptance remain pending.
+The tools gflow_list_saved_voices, gflow_get_saved_voice, gflow_create_saved_voice and gflow_delete_saved_voice mirror selected-project SDK/CLI saved speech. Creation is preset-based TTS; unknown saves preserve acknowledged preview handles without replay. See [saved voices](self-hosted/VOICES.md). The first TTS preview outcome was ambiguous with no acknowledged handles; the corrected canonical Charon request was captured once and explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted backend-created audio. Existing saved-user playback is now verified. Saved-voice binding and lifecycle acceptance remain pending.
 
 The separate gflow_delete_native_media permanently deletes explicitly confirmed owned IDs. It does not replace reversible gflow_archive_media; its mutation omits workflow IDs and unrequested siblings. See [native media](self-hosted/NATIVE_MEDIA.md).
 
@@ -691,9 +691,12 @@ selected project/media/workflow and exclusive audio arm. Playback URLs are
 confidential HTTPS values from the owned native response; no media fetch or
 unverified universal URL lifetime is implied. REST returns no-store.
 Missing playback remains optional; missing inventory is not proof of deletion.
-The selected project has no saved user voice fixture, so this enhancement has
-source/offline proof and no newly accepted live audio playback. R12 retains that
-acceptance requirement; no extra paid audio generation was attempted.
+The original checkpoint had no saved-user fixture. On 5 October 2026, an
+operator-created existing voice passed native and exact registered-alias reads
+through registered HTTP MCP on Mac localhost, plus SDK, CLI and REST. Fresh audio
+playback returned a valid 7.8-second WAV. R02 lookup is complete; backend creation
+and the full mutation/binding lifecycle remain R12 acceptance requirements.
+See [current voice usage and limitations](self-hosted/VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
 
 ### Bounded native project traversal
 
@@ -932,5 +935,6 @@ same private GFLOW_SELFHOST_ROOT as REST. Fresh native ownership/type and resour
 declarations are verified after resolution. No account scanning or unknown
 UseAPI prefix decoding occurs; generation and mutation inputs remain raw.
 Generated-video URL metadata may have null dimensions; downloaded video results
-report positive ffprobe-measured dimensions. Saved-user voice playback remains
-implemented without live acceptance proof.
+report positive ffprobe-measured dimensions. Saved-user voice playback and exact registered voice-alias reads passed live
+SDK/CLI/REST/registered HTTP MCP checks on 5 October 2026. Backend voice creation
+remains Google-rejected; full mutation/binding acceptance remains R12.

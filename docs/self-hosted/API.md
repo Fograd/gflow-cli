@@ -530,9 +530,10 @@ selected project/media/workflow and exclusive audio arm. Playback URLs are
 confidential HTTPS values from the owned native response; no media fetch or
 unverified universal URL lifetime is implied. REST returns no-store.
 Missing playback remains optional; missing inventory is not proof of deletion.
-The selected project has no saved user voice fixture, so this enhancement has
-source/offline proof and no newly accepted live audio playback. R12 retains that
-acceptance requirement; no extra paid audio generation was attempted.
+The original selected project had no saved-user voice fixture, so that checkpoint had
+source/offline proof and no newly accepted live audio playback. Existing-voice
+lookup/playback is now verified; see [current voice evidence](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation). R12 retains the full lifecycle acceptance requirement. That original checkpoint
+attempted no extra paid audio generation.
 
 #### Native image picker captions
 
@@ -787,10 +788,10 @@ get_saved_voice, CLI character show/voice show and direct MCP detail twins accep
 exact locally registered aliases with explicit owning profile/project and the
 same GFLOW_SELFHOST_ROOT. Fresh detail must match registered image-count and
 optional saved-voice workflow declarations; saved-voice aliases require the exact
-fresh audio workflow. Unknown vendor prefixes are never decoded. Saved-user audio acceptance and broader R02 equivalence
-remain pending. Actual character-alias REST lifecycle passed without generation
-or Google mutation, and final frozen-source gates passed. Saved-voice fixture
-coverage and broader R02 equivalence remain open.
+fresh audio workflow. Unknown vendor prefixes are never decoded. At the 4 October checkpoint, saved-user audio and voice-alias fixture proof
+remained pending. Actual character-alias REST lifecycle passed without generation
+or Google mutation. The 5 October closure below supersedes the voice fixture
+limitation; exact vendor contract equivalence remains R11.
 
 
 ## Explicit native catalog resume
@@ -983,3 +984,17 @@ GET /v1/google-flow/images/upscale/capabilities reads exact owned-image2K/4K det
 Generic image CLI and durable MCP provider controls are documented in
 [GENERIC_IMAGE_CAPTCHA.md](GENERIC_IMAGE_CAPTCHA.md). REST retains its existing
 image policy and private supplied-token path; queued MCP serializes no tokens.
+
+
+### R02 saved-voice lookup closure — 5 October 2026
+
+The earlier missing saved-user fixture limitation is superseded: SDK, CLI, REST
+and registered HTTP MCP passed existing saved-voice detail/playback and exact
+registered voice-alias reads. REST returns no-store and the fresh Google audio URL
+returned 200 with a valid 7.8-second mono 24 kHz WAV. Alias registration accepts the
+actual typed decoder contract without a catalogue-only source discriminator;
+exact account/project/media/workflow, playback URL and explicit deleted/non-user
+checks remain. Unknown vendor references are not inferred. Backend voice creation
+remains Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY; its cause is unknown.
+R02 lookup is complete; full voice CRUD/binding acceptance remains R12. See
+[voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).

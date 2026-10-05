@@ -187,3 +187,22 @@ Rollback to the recorded code revision and its compatible environment; do not er
 ## Character metadata operations
 
 The verified native character flow copies one or two existing images from its owning project, applies initial notes and supports later name/notes/system preset updates, detail reads and removal. Use explicit account/project controls from [the API example](API.md); retain returned references. It copies existing images and assigns system presets as metadata; generation binding and rendered speech remain separate work. A partial HTTP 502 may include a created character reference: inspect it before retrying instead of creating another draft. Source images remain separate from copied character workflows. Remove test characters after verification through their exact owned references.
+
+
+### R02 closure — 5 October 2026
+
+Existing saved-user voice detail/playback now has live proof across SDK, CLI, REST
+and registered HTTP MCP, including exact registered voice aliases. The earlier
+missing saved-voice fixture limitation is superseded. REST through Mac localhost
+returned 200/no-store; playback decoded as 374,444-byte,7.8-second mono 24 kHz WAV.
+Explicit account/project and fresh ownership checks remain mandatory. Temporary
+local alias cleanup preserved the operator's original voice and sent zero previews.
+
+R02 lookup is complete for the supported owned image/video/character/voice types
+and verified local mappings. Unknown vendor encodings fail explicitly. Backend
+custom-voice creation remains implemented but Google-rejected with
+PUBLIC_ERROR_UNUSUAL_ACTIVITY; its exact cause is unknown. Frontend creation
+succeeded with matching payloads, while the 90-second backend experiment was
+rejected in 0.45 seconds. Full saved-voice CRUD/binding acceptance remains R12;
+account-wide inventory completeness remains R03 and exact contract equivalence
+remains R11. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).

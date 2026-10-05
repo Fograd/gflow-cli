@@ -2488,7 +2488,8 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             uuid_value(audio.get("ref"), "native saved voice identity")
             if audio.get("voice") != audio.get("ref"):
                 raise HTTPException(502, "Character saved voice identity is unresolved")
-        if audio.get("deleted") is True or audio.get("source") != "user":
+        # Typed saved-voice detail omits the catalogue-only source discriminator.
+        if audio.get("deleted") is True or audio.get("source", "user") != "user":
             raise HTTPException(502, "Saved voice playback is unavailable")
         value = audio.get("audio_url")
         if not isinstance(value, str) or len(value) > 8192:

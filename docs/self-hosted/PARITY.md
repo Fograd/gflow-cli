@@ -40,8 +40,8 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [POST videos/extend](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-extend) | `mediaGenerationId`, `prompt`, `model`, count 1–4, seed, async/callback/captcha | Standalone native extension is wired across SDK/CLI/MCP/REST with native model discovery, source ownership, independent output IDs and polling/download. Accepted paid extension output remains unverified; legacy scene-combining extension is separate. |
 | [POST videos/concatenate](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-concatenate) | `media`2–10 items: ID, trimStart/trimEnd0–10s; sum trims less than clip duration; encodedVideo | Implemented local ffmpeg composition of 2–10 managed or freshly owned native clips with duration/trim/aspect checks, local artifact IDs and offline real-ffmpeg tests. This is labeled local composition, not Google-side scene editing; no paid generation required. |
 | [POST voices](https://useapi.net/docs/api-google-flow-v1/post-google-flow-voices) | email, preset voice, dialog1–120 chars, voicePerformance1–120, displayName1–200, captcha | Native saved-TTS creation is wired across SDK/CLI/MCP/REST: one TTS preview then two metadata saves, with partial identities preserved. The first preview returned an ambiguous outcome without recovery handles; preset casing was corrected and the corrected captured request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), so rendered TTS acceptance is unverified. This is preset/dialog/performance generation, not voice cloning. |
-| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | REST email-selected default combines fresh system and selected-project user voices; explicit bundled discovery remains. Dynamic native system preset catalog exists in SDK/CLI/MCP; same30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; account-wide completeness and final live adapter proof remain pending. |
-| [GET voices/ref](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices-ref) | Preset name or custom ref; fresh audio URL for user voice | Implemented selected system preset lookup/sample metadata. Saved user-TTS detail uses strict typed ownership, fresh canonical base-preset/dialogue/performance metadata and optional playback URL across SDK/CLI/MCP/REST; REST no-store; published/deployed at3d35e1d5. Final live playback proof remains pending. |
+| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | REST email-selected default combines fresh system and selected-project user voices; explicit bundled discovery remains. Dynamic native system preset catalog exists in SDK/CLI/MCP; same30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; Selected-project reads are verified; account-wide completeness remains R03. |
+| [GET voices/ref](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices-ref) | Preset name or custom ref; fresh audio URL for user voice | Implemented selected system preset lookup/sample metadata. Saved user-TTS detail uses strict typed ownership, fresh canonical base-preset/dialogue/performance metadata and optional playback URL across SDK/CLI/MCP/REST; REST no-store; published/deployed at3d35e1d5. Existing saved-user playback and all four lookup surfaces verified; creation acceptance remains R12. |
 | [DELETE voices/ref](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-voices-ref) | Custom voice reference | Permanent selected saved-TTS deletion is wired across SDK/CLI/MCP/REST; final live lifecycle proof remains pending. System presets are not deletable. |
 | [POST characters](https://useapi.net/docs/api-google-flow-v1/post-google-flow-characters) | displayName1–200, imageReference_1 required, optional second, personalityNotes≤2000, optional voice | Implemented project-scoped one/two-existing-image copy creation with notes and system preset metadata; owned saved-TTS voice binding is also wired with fresh ownership validation, pending final E2E; SDK/CLI/registered MCP/deployed HTTP lifecycle verified. Originals preserved. Legacy CLI create separately generates portraits; account-wide exact useapi semantics remain gaps. |
 | [GET characters](https://useapi.net/docs/api-google-flow-v1/get-google-flow-characters) | email required | Implemented project-scoped native summaries in REST and shared SDK/CLI/MCP; live lifecycle/catalog reads verified. Not an account-wide inventory guarantee. |
@@ -64,7 +64,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Newly wired capability | Current boundary |
 |---|---|
 | Derived Auto image aspect | CLI I2I and direct/queued MCP resolve the first local reference or fresh owned native image UUID dimensions. Local run-config/REST managed references retain their decoded-byte policy. Requested/resolved/policy retained; text/character-only and unavailable native dimensions refuse. No Google AUTO enum; unregistered REST native UUID lookup remains separate. |
-| Saved TTS CRUD | SDK/CLI/MCP/REST create/list/detail/delete; project-scoped visible owned audio, unknown completeness. One preview followed by metadata saves; not voice cloning. Corrected captured TTS request Google-rejected (gRPC 7); no audio or binding lifecycle accepted. |
+| Saved TTS CRUD | SDK/CLI/MCP/REST create/list/detail/delete; project-scoped visible owned audio, unknown completeness. One preview followed by metadata saves; not voice cloning. Existing saved audio detail/playback verified; backend creation Google-rejected (gRPC 7), full binding/mutation lifecycle remains R12. |
 | Saved-voice character binding | Fresh owned saved audio can be assigned through character create/update; metadata semantics separate from rendered speech. Final binding E2E pending. |
 | Permanent individual media removal | Explicit operation=delete removes selected owned media rather than archiving siblings. Default whole-batch archive remains reversible. Complete owned synthetic upload/delete lifecycle passed with bounded metadata polling, preserving all original active media. Already-gone semantics remain different. |
 | Standalone extension | SDK/CLI/MCP/REST identify and download independent extension outputs; available native model keys/costs discovered. Legacy scene-concatenating command remains separate. Paid acceptance pending. |
@@ -161,7 +161,7 @@ rendering and R13 records the published revision.
 |Task|Implementation ready for final E2E|Open implementation or external boundary|
 |---|---|---|
 |R01|Current composer, cookie banner, positive-index controls and explicit append caret; live exact ordered ten-reference wire capture passed|Rendered ten-reference output remains R12|
-|R02|Fresh typed media/character/saved-voice URLs and exact alias inputs|Unobserved variants/arbitrary vendor encoding|
+|R02|Fresh typed media/character/saved-voice URLs and all four alias read adapters live verified|Unsupported/unmapped vendor encoding refuses explicitly; unobserved variants not claimed|
 |R03|Resumable SDK/CLI/MCP/REST sync plus bounded account characters/saved voices with opaque continuation|Global authoritative completeness unknown|
 |R04|Canonical image/entity/audio reference transport and fresh capacities|Rendered grounding remains R12|
 |R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
@@ -202,7 +202,10 @@ separately under R12; an existing command or passing mock is insufficient eviden
   requests. Empty captions preserve fresh owned UUIDs and use a bare picker,
   but actual empty-caption live coverage is pending. Accepted output still needs
   its own R12 proof.
-- [ ] **R02 — Native media lookup and fresh URLs.** Remaining work is owned
+- [x] **R02 — Native media lookup and fresh URLs.** Completed for the supported
+  owned resource types and explicitly registered mappings; see the5 October
+  closure below. The following paragraphs preserve earlier checkpoints. Remaining
+  work at those checkpoints was owned
   image/video/voice/character-reference/thumbnail lookup beyond the local registry,
   remaining typed detail/thumbnail variants and verified composite translation. Image/video UUID URL/download adapters are already published/deployed, with
   selected-account/project ownership and no Store synthesis. Later exact alias
@@ -984,3 +987,46 @@ reads through SDK, CLI, direct MCP and REST on pro2. Its single image reference
 and thumbnail matched. The local mapping and only that owned character fixture
 were removed; all original media remained present. No image/video/audio
 generation request was made by this character test.
+
+
+### R02 closure and saved-voice creation limitation — 5 October 2026
+
+R02 is complete for uploaded/generated image and video retrieval, character
+reference/thumbnail retrieval, and existing saved-user voice detail/playback,
+using explicit authorised profile/project selection. Exact locally registered
+image/video/character/voice aliases reuse fresh ownership and identity checks
+across SDK, CLI, REST and MCP. This closes the saved-user fixture blocker recorded
+on 4 October; it does not claim arbitrary vendor composite decoding or every
+unobserved native schema variant. Unsupported or unmapped references fail
+explicitly; their opaque prefixes are never interpreted as account identities.
+
+The operator created an existing Charon saved voice in the frontend. SDK and CLI
+native detail reads succeeded. REST through Mac localhost returned 200/no-store;
+the fresh playback URL returned 200 and decoded as 374,444-byte,7.8-second mono
+24kHz PCM WAV. Final read-only checks passed native detail and an exact registered
+voice alias through registered HTTP MCP on Mac localhost, plus alias reads through
+SDK, CLI and REST. Dialogue, canonical Charon preset and the saved performance
+description were retained. The temporary local alias was removed; the original
+voice was preserved. The live alias check also exposed a REST registration mismatch: typed saved-voice
+detail omits the catalogue-only source field. Registration now accepts that typed
+contract while retaining exact media/project/workflow, audio URL and explicit
+non-user/deleted-row refusal checks. A regression reproduced502 before the fix.
+These final checks submitted zero previews. Existing uploaded
+and generated video proofs and character/image proofs remain recorded above.
+
+Custom-voice creation through SDK/CLI/API/MCP remains implemented but live backend
+acceptance is blocked: tested audio previews returned PUBLIC_ERROR_UNUSUAL_ACTIVITY.
+A successful frontend preview took21.19 seconds. Its decoded preview and two save
+payloads matched the backend encoders. A single experimental wrapper added
+x-same-domain, a request identifier and a 90-second deadline, but Google rejected
+the preview in 0.45 seconds. This rules out that deadline as the cause of this
+refusal; it does not identify Google's rejection criterion. Session/token trust
+or network reputation remain hypotheses, not established causes or Pro-account
+restrictions. No experimental transport change was shipped.
+
+Creation and the full saved-voice CRUD/binding lifecycle remain open under R12;
+exact vendor response/error equivalence remains R11. Project/account-wide voice
+inventory completeness remains R03. A temporary frontend comparison voice was
+removed; its SDK delete acknowledgement was uncertain, and a subsequent fresh
+list confirmed absence while preserving the original. Do not replay an uncertain
+mutation. No additional generation is needed to use R02 lookup.
