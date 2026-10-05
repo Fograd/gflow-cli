@@ -41,10 +41,13 @@ async def _verified_file(path: Path, metadata: dict[str, Any]) -> None:
     if len(head) != 12 or head[4:8] != b"ftyp":
         raise ValueError("Native cached video is not an MP4")
     dimensions = (metadata.get("width"), metadata.get("height"))
-    if any(type(value) is not int or value <= 0 for value in dimensions):
+    omitted = dimensions == (None, None)
+    if not omitted and any(type(value) is not int or value <= 0 for value in dimensions):
         raise ValueError("Native video dimensions are unavailable")
     info = await probe(path, timeout_s=15)
-    if (info.width, info.height) != dimensions:
+    if info.width <= 0 or info.height <= 0:
+        raise ValueError("Native cached video has invalid measured dimensions")
+    if not omitted and (info.width, info.height) != dimensions:
         raise ValueError("Native video bytes do not match fresh metadata")
 
 

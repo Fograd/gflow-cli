@@ -16,3 +16,9 @@ The output is re-encoded to H.264, 30 frames per second, and AAC at 48 kHz stere
 The authenticated caller must resolve media IDs through its registry and enforce input/output path containment. HTTP clients must never supply filesystem paths directly. The module accepts local files only, disables network protocols, invokes subprocesses without a shell, refuses to overwrite a source, and cleans up its own process and temporary output on cancellation or failure. FFmpeg and ffprobe must be installed on the host.
 
 The integration regression generates two synthetic clips locally, removes different amounts from their ends, and verifies resulting duration, image dimensions, clip order, preserved tone audio and inserted silence. It does not use a Google profile or credits.
+
+## Native metadata without dimensions
+Native-cache inputs retain fresh account/project/media ownership and bounded MP4
+checks. When both width and height are absent, ffprobe measures the downloaded
+owned bytes. Partial, invalid or mismatched supplied dimensions still refuse;
+local protocol restrictions and matching-dimension join rules remain unchanged.

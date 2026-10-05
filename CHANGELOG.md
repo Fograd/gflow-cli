@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## R02 native media lookup follow-up
 
 ### Fixed
+- R12 video export also captures bounded browser downloads when Flow produces no
+  page-visible blob; both original MP4 and animated GIF passed live decoding.
+- Native concatenation measures fresh owned MP4 bytes when both dimensions are
+  omitted; partial, invalid and mismatched supplied dimensions still refuse.
 - Existing generated-video lookup accepts omitted dimensions without guessing;
   MP4 downloads measure and validate dimensions with ffprobe.
 - Exact registered native read aliases work across SDK/CLI/MCP/REST with explicit

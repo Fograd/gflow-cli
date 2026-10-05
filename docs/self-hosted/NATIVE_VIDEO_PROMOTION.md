@@ -71,3 +71,10 @@ Existing browser image2K acceptance stands. Implementation complete, paid
 acceptance pending: accepted video promotion, solver-backed upscale and entitled
 image/video4K outputs require separately authorized R12 credit/solver tests.
 The roadmap's full R07 acceptance checkbox remains open.
+
+## R12 export and promotion evidence
+Original 720p MP4 and 270p animated GIF exports passed on existing owned clips.
+Export captures bounded browser download events as well as page blobs, validates
+MP4/GIF signatures and removes listeners/tasks on timeout or cancellation. This
+is distinct from native promotion: the R12 1080p native request was explicitly
+refused by Google. No native higher-resolution acceptance is claimed.

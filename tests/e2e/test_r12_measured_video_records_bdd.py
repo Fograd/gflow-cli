@@ -196,3 +196,131 @@ def verify_frames(frames):
     assert frames["problem"] is None
     assert len(set(frames["bound"])) == 2
     assert frames["aborted"] is True
+
+
+@pytest.mark.e2e_auth
+@scenario(
+    "../features/r12_measured_video_records.feature",
+    "Original video and animated GIF exports support browser downloads",
+)
+def test_current_browser_exports():
+    pass
+
+
+@when("original video and animated GIF are exported with generation blocked")
+def export_owned(owned):
+    directory = os.environ.get("GFLOW_CLI_E2E_R12_EXPORT_DIR")
+    if not directory:
+        pytest.skip("Private export output directory is required")
+    owned["exports"] = []
+    owned["blocked"] = []
+
+    async def run():
+        async with FlowApiClient(
+            profile_dir=get_settings().profile_subdir(owned["profile"]), headless=False
+        ) as client:
+            asset = await client.get_native_asset(
+                project_id=owned["project"], media_id=owned["media"]
+            )
+            assert asset.workflow_id == owned["workflow"]
+
+            async def guard(route):
+                rpc = _body_rpcid(unquote_plus(route.request.post_data or ""))
+                if rpc in {
+                    "YhhmEf",
+                    "eb1hJf",
+                    "nprQif",
+                    "MZZa6b",
+                    "p0UkFb",
+                    "no0P6",
+                    "SPrCad",
+                    "fZytfe",
+                    "jIps6",
+                }:
+                    owned["blocked"].append(rpc)
+                    await route.fulfill(status=409, body="R12 no generation during export")
+                else:
+                    await route.continue_()
+
+            await client._context.route("**/batchexecute**", guard)
+            try:
+                for scale, suffix in [("720p", "mp4"), ("270p", "gif")]:
+                    path = Path(directory) / ("E2E-export-" + scale + "." + suffix)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    await client.upsample_video(
+                        project_id=owned["project"],
+                        media_id=owned["media"],
+                        scale=scale,
+                        out_path=path,
+                    )
+                    owned["exports"].append(path)
+            finally:
+                await client._context.unroute("**/batchexecute**", guard)
+
+    asyncio.run(run())
+
+
+@then("both exports decode and no billable request was forwarded")
+def verify_exports(owned):
+    import subprocess
+
+    assert owned["blocked"] == []
+    for path, dimensions in zip(owned["exports"], [(1280, 720), (480, 270)], strict=True):
+        measured = json.loads(
+            subprocess.check_output(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration:stream=codec_name,width,height",
+                    "-of",
+                    "json",
+                    str(path),
+                ],
+                text=True,
+            )
+        )
+        assert (measured["streams"][0]["width"], measured["streams"][0]["height"]) == dimensions
+        assert 7.5 <= float(measured["format"]["duration"]) <= 8.5
+
+
+@pytest.mark.e2e_auth
+@scenario(
+    "../features/r12_measured_video_records.feature",
+    "Fresh owned video cache supports metadata without dimensions",
+)
+def test_current_owned_cache():
+    pass
+
+
+@when("freshly owned video bytes are checked for native caching")
+def check_owned_cache(owned, tmp_path):
+    from gflow_cli.selfhost.native_video_cache import _verified_file
+    from gflow_cli.services.native_assets import asset_payload
+
+    async def run():
+        async with FlowApiClient(
+            profile_dir=get_settings().profile_subdir(owned["profile"]), headless=False
+        ) as client:
+            asset = await client.get_native_asset(
+                project_id=owned["project"], media_id=owned["media"]
+            )
+            assert asset.workflow_id == owned["workflow"]
+            owned["metadata"] = asset_payload(asset)
+            downloaded = await client.download_native_asset(
+                owned["project"], owned["media"], tmp_path
+            )
+            assert (
+                downloaded.media_id == owned["media"] and downloaded.project_id == owned["project"]
+            )
+            await _verified_file(downloaded.path, owned["metadata"])
+            owned["cache_validated"] = True
+
+    asyncio.run(run())
+
+
+@then("the owned cache accepts the actual decoded video dimensions")
+def verify_owned_cache(owned):
+    assert owned["metadata"]["width"] is None and owned["metadata"]["height"] is None
+    assert owned["cache_validated"]

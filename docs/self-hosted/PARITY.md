@@ -117,7 +117,7 @@ never expose tokens, cookies or solver keys.
 
 ## Roadmap
 
-**Next task: R12, subject to new bounded operation permissions.** R01–R09 supported implementation and R10
+**Next task: R13 reconciliation with R12 external acceptance blockers.** R01–R09 supported implementation and R10
 original-profile session management and the supported R11 contract audit/fixes are delivered. The feature checkboxes below
 record that implementation scope; paid output acceptance and automatic authentication
 renewal remain separately unchecked. Current access does not prove an unattended
@@ -428,7 +428,7 @@ unsafe-caption canonical attachment proof.
 
 ### Final verification and delivery
 
-- [ ] **R12 — Representative final E2E campaign.** Prepared matrix: [FINAL_E2E.md](FINAL_E2E.md). After the feature backlog,
+- [ ] **R12 — Representative final E2E campaign.** The separately authorized 5 October campaign ran; images/native 2K, generic text/start-end video and free exports passed. Google refused audio/native reference/edit/extension/promotion; complete paid acceptance remains unchecked. Actual matrix: [FINAL_E2E.md](FINAL_E2E.md). After the feature backlog,
   verify accepted text/local/native-reference images, canonical grounding, Auto,
   native2K, available higher-resolution paths, video generation/reference/edit/
   extension/export/GIF, saved TTS CRUD/binding and native media lifecycles.

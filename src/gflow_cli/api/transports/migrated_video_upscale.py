@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import structlog
@@ -25,13 +26,14 @@ from gflow_cli.errors import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from playwright.async_api import Page, Response
+    from playwright.async_api import Download, Page, Response
 
 log = structlog.get_logger(__name__)
 
 _DEFAULT_TIMEOUT_S = 120.0
 # Bound memory for browser blob conversion and Python decode.
 MAX_VIDEO_B64_LEN = 350 * 1024 * 1024
+MAX_VIDEO_DOWNLOAD_BYTES = 250 * 1024 * 1024
 VALID_VIDEO_SCALES = ("1080p", "720p", "270p")
 
 
@@ -140,6 +142,40 @@ async def upscale_video_migrated(
 
     loop = asyncio.get_running_loop()
     found_b64: asyncio.Future[str] = loop.create_future()
+    download_tasks: set[asyncio.Task[None]] = set()
+
+    def read_download(path: Path) -> bytes:
+        # Bound the read itself, rather than trusting a previous file stat.
+        with Path(path).open("rb") as stream:
+            content = stream.read(MAX_VIDEO_DOWNLOAD_BYTES + 1)
+        if len(content) > MAX_VIDEO_DOWNLOAD_BYTES:
+            raise ValueError("oversized download")
+        return content
+
+    async def capture_download(download: Download) -> None:
+        expected_suffix = ".gif" if scale_norm == "270p" else ".mp4"
+        if not download.suggested_filename.lower().endswith(expected_suffix):
+            return
+        try:
+            if await download.failure():
+                raise ValueError("failed download")
+            path = await download.path()
+            content = await asyncio.to_thread(read_download, path)
+            if not found_b64.done():
+                found_b64.set_result(base64.b64encode(content).decode("ascii"))
+        except Exception:  # noqa: BLE001
+            if not found_b64.done():
+                found_b64.set_exception(
+                    WireFormatError(
+                        detail="Video export download is unavailable or oversized",
+                        route="video_upscale",
+                    )
+                )
+
+    def on_download(download: Download) -> None:
+        task = asyncio.create_task(capture_download(download))
+        download_tasks.add(task)
+        task.add_done_callback(download_tasks.discard)
 
     async def on_response(response: Response) -> None:
         if "batchexecute" in response.url:
@@ -163,6 +199,7 @@ async def upscale_video_migrated(
 
     try:
         page.on("response", on_response)
+        page.on("download", on_download)
 
         # Hook URL.createObjectURL and HTMLAnchorElement.prototype.click
         expected_type = "gif" if scale_norm == "270p" else "video"
@@ -199,9 +236,12 @@ async def upscale_video_migrated(
 
         while asyncio.get_running_loop().time() < deadline:
             if found_b64.done():
-                # Caught an RPC error from on_response
-                await found_b64
+                b64_data = await found_b64
+                break
             await asyncio.sleep(poll_interval)
+            if found_b64.done():
+                b64_data = await found_b64
+                break
             b64_data = await page.evaluate("() => window._videoCapturedBase64")
             if b64_data:
                 break
@@ -249,6 +289,12 @@ async def upscale_video_migrated(
         return video_bytes
     finally:
         page.remove_listener("response", on_response)
+        page.remove_listener("download", on_download)
+        pending_downloads = tuple(download_tasks)
+        for task in pending_downloads:
+            task.cancel()
+        if pending_downloads:
+            await asyncio.gather(*pending_downloads, return_exceptions=True)
         try:
             await page.evaluate("""() => {
                 window._capturing = false;

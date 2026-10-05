@@ -6,57 +6,107 @@ Run individual opted-in scenarios, not the whole paid marker tier.
 
 ## R12 measured campaign — 5 October 2026
 
-This is the additional, separately ledgered representative campaign authorized
-on5October, starting from9456ebc. Only originalpro2/pro3 profiles are used;
-pro1 remains disabled and reserved. Each account has20image,5video and2audio
-preview slots; both share10paid solver tasks, without top-ups. Upscale/promotion
-and plural outputs consume their applicable slots. Historical counters remain
-untouched. Reservations use an exclusive lock and atomic replacement before
-dispatch; known refusals/unknown submissions retain slots, and only evidenced
-zero-forwarded preflight failures release them. Default requests make one attempt.
+The additional campaign started from `9456ebc00b2d8c829867703c1901b620f0a5102f`.
+Only the original pro2/pro3 profiles were used. Pro1 stayed disabled and reserved
+for UseAPI. The allowance was 20 image, 5 video and 2 audio-preview attempts per
+account, plus 10 paid solver tasks across both accounts, without purchases or
+top-ups. Historical counters were preserved separately. Atomic reservations
+preceded dispatch; plural outputs and native upscales/promotions counted in their
+applicable allowance. Every actual refusal retained its slot. Only demonstrated
+zero-Google/zero-solver preflight failures released reservations. Requests made
+one attempt; no hidden retry budget was enabled.
 
-Current validated output evidence:
+### Measured output and refusal matrix
 
-|Case|Account/interface|Actual result|
+|Case|Account / deployed interface|Result and proof|
 |---|---|---|
-|I1|pro2 REST async, Nano2,16:9,count1|1376×768 decoded rabbit/scarf/mug image|
-|I2|pro3 queued registered MCP, NanoPro,local reference,3:4|896×1200 decoded image; rabbit identity preserved|
-|I3|pro2 REST sync, NanoLite,native image+own character,Auto,count2|Two distinct1376×768 images; first native reference resolves16:9; carrot added|
-|I4|pro3 queued MCP,NanoLite,local first-reference Auto|896×1200;3:4 approximation reported; blue star added|
-|I5r|pro2 REST native2K|2752×1536, exact source identity; native upscale, no local enlargement|
-|I6|pro3 direct registered MCP native2K|1792×2400, exact source identity|
-|V1r|pro2 REST queued Lite T2V|Google accepted8s1280×720H264/AAC; local parser failed; exact original media downloaded via MCP without regeneration|
-|V2|pro3 queued MCP Fast start+end|Google accepted8s1280×720H264/AAC; local guard rejected measured Fast key; original clip recovered; carrot arrives between actual start/end frames|
-|B1|pro2 isolated SDK diagnostic Lite T2V|New reserved attempt captured current media/project/workflow layout; accepted original clip recovered without replay|
-|A2|pro3 direct MCP saved Puck preview,CapSolver1|Google explicitly refused no0P6 PUBLIC_ERROR_UNUSUAL_ACTIVITY; no saved voice|
-|V3|pro2 direct MCP native4s360p image+character,CapSolver1|Google explicitly refused MZZa6b PUBLIC_ERROR_UNUSUAL_ACTIVITY|
-|V6|pro3 direct MCP native1080p promotion|Google explicitly refused p0UkFb PUBLIC_ERROR_UNUSUAL_ACTIVITY; export is not promotion proof|
+|I1|pro2 REST async; Nano2; 16:9; count 1|Accepted JPEG, 1376×768; white clay rabbit, red scarf, yellow mug and teal table|
+|I2|pro3 queued registered MCP; NanoPro; local I1 reference; 3:4|Accepted JPEG, 896×1200; reference identity preserved|
+|I3|pro2 REST sync; NanoLite; native image + owned character; Auto; count 2|Two distinct JPEGs, 1376×768; first reference resolves 16:9; carrot added|
+|I4|pro3 queued MCP; NanoLite; local first-reference Auto|Accepted JPEG, 896×1200; 3:4 approximation reported; blue star added|
+|I8|pro2 REST async; NanoLite; distinct uploaded environment + owned character; Auto|Accepted JPEG, 1376×768; rabbit/ears/scarf from character and table/mug/background from separate reference visually present|
+|I5r|pro2 REST async native 2K, exact I1 identity|Accepted 2752×1536 JPEG; both source dimensions doubled natively|
+|I6|pro3 direct registered MCP native 2K, exact I2 identity|Accepted 1792×2400 JPEG; both source dimensions doubled natively|
+|V1r|pro2 REST queued Lite T2V|Google accepted 8s, 1280×720 H.264/AAC; original job failed at local decoding; exact original MP4 recovered via MCP without regeneration|
+|V2|pro3 queued MCP Fast start/end frames|Google accepted 8s, 1280×720 H.264/AAC; guard rejected measured Fast key; exact original recovered; carrot appears between start/end frames|
+|B1|pro2 isolated SDK diagnostic Lite T2V|Reserved new attempt captured current video-record layout; accepted 8s original recovered without replay|
+|B2|pro2 REST async Lite T2V after deployment|Completed job and one downloadable MP4, 8s, 1280×720 H.264/AAC; identity and requested scene visually checked|
+|V2r|pro3 queued registered MCP Fast start/end after deployment|Completed task and one MP4, 8s, 1280×720 H.264/AAC; rabbit/mug preserved and carrot enters foreground|
+|A2|pro3 direct MCP saved Puck preview; CapSolver 1|Explicit `no0P6` Google refusal: `PUBLIC_ERROR_UNUSUAL_ACTIVITY`; no accepted saved voice|
+|V3|pro2 direct MCP native image + character references; cheapest 4s/360p family; CapSolver 1|Explicit `MZZa6b` Google refusal: `PUBLIC_ERROR_UNUSUAL_ACTIVITY`; no output|
+|V6|pro3 direct MCP native 1080p promotion|Explicit `p0UkFb` Google refusal: `PUBLIC_ERROR_UNUSUAL_ACTIVITY`; no promoted output|
+|V5r|pro2 direct MCP native Lite extension; CapSolver 1|Repaired owned-source measurement passed; `fZytfe` explicitly refused with gRPC 8, `PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC`|
+|V4u|pro3 REST async Omni native edit; cheapest 360p model; CapSolver 1|Repaired source measurement passed; `jIps6` explicitly refused with gRPC 8, `PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC`; typed failed job retained|
+|L1|SDK free export of existing owned clip; billable RPCs blocked|Original MP4 1280×720 and animated GIF 480×270 both decoded, 8s; actual browser downloads; zero billable forwarding|
+|L2|REST local concatenation of two existing owned clips|Initial alias lookup failed under old decoder; next attempt exposed omitted dimensions in native cache. Focused fix and final deployed retest recorded below.|
+|CB1|Isolated runtime callback worker and controlled loopback receiver|One HTTP 204 delivery; exact stored job snapshot received; production configuration unchanged. Public delivery was not tested.|
 
-Fresh balances were1050per account before dispatch, rather than assumed from
-historical notes. Subsequent balance observations and final usage will be added
-at campaign closure. Initial low-priority T2V was unavailable in the actual
-model picker, with zero Google forwarding. Video4K model discovery returned no
-available target on either account; no4K attempt was made. Initial image
-capability-menu timeouts remain unknown observations, not proof of disabled4K.
-An initial REST2K failure retains its image slot conservatively.
+Eight image outputs and five generated clips were preserved locally under the
+Mac project's `R12_OUTPUTS/`, with derived export/GIF files, measurements and an
+HTML review gallery. Root `R12_HANDOFF.md` provides clickable local files, exact
+identities, final revision, services and follow-up instructions. Protected raw
+responses, signed URLs, journals and the atomic ledger remain outside Git.
 
-Focused demonstrated fixes preserve existing ownership, models and browser
-startup: support exactly the measured Fast first/last key while retaining both
-frame checks; decode one positively identified current video record in measured
-media/project/workflow order alongside the legacy CAE layout; and measure a
-fresh owned MP4 when edit/extension source metadata explicitly omits dimensions.
-No dependencies or profile/startup defaults changed. Upstream PR907 was inspected
-only after matching failures; its whole browser-startup patch was not ported.
+### Allowance, credits and skipped capabilities
 
-The new opted-in `test_r12_measured_video_records_bdd.py` covers exact owned
-completed metadata and an actual bound-frame request fulfilled locally before
-Google forwarding. Metadata E2E passed; corrected frame E2E passed after its
-harness was changed from an unreliable engine abort to a controlled local409.
-Initial harness failures/skips remain recorded; no paid generation was replayed
-to make them green. Native edit/extension accepted rendering and final deployed
-regressions remain pending at this checkpoint. Audio-reference video and the
-saved-voice binding/lifecycle remain blocked by the absent accepted voice.
-Automatic authentication renewal remains separate and unproved.
+|Account|Images used / remaining|Videos used / remaining|Audio used / remaining|Fresh Google credits before → after|
+|---|---|---|---|---|
+|pro2|6 / 14|5 / 0|0 / 2|1050 → 1020|
+|pro3|3 / 17|4 / 1|1 / 1|1050 → 1010|
+
+Solver observations reconcile exactly: 4 started, 4 solved, 4 submitted and
+4 explicitly rejected; 0 accepted, failed or unknown new tasks. Six tasks remain.
+A solved token did not establish Google acceptance. The original REST 2K failure
+I5 conservatively retains one image slot because zero forwarding was not proved.
+Unsupported low-priority T2V, invalid harness URLs/controls and guarded frame
+probes have explicit zero-forwarding evidence; their released entries remain.
+
+Fresh video discovery advertised no 4K model on either account. Fresh pro3 image
+capability inspection showed disabled 4K. Initial pro2 capability-menu timeouts
+remain unknown observations, so they are not presented as disabled entitlement.
+No 4K generation was attempted. Historical ten-reference acceptance was reused.
+A second audio-preview refusal on an unchanged path was not purchased. Saved
+voice playback/CRUD/binding and audio-reference video remain blocked because no
+voice was created. Successful audio being free is unproved. Authentication was
+observed working; automatic renewal across expiry was not observed.
+
+### Focused fixes, recovery and validation
+
+The fixes retain original profiles, account/project/workflow ownership checks,
+leases and startup defaults. No dependencies changed and no upstream PR was
+merged. PR907 was inspected after matching refusals; its startup alternative was
+not ported without evidence that it solves this host's failures.
+
+1. Accept exactly the measured Fast first/last model key while requiring both
+   invocation-bound frame UUIDs.
+2. Decode a single positively identified current media/project/workflow video
+   record alongside legacy CAE records; reject ambiguous or malformed records.
+3. Measure a fresh owned MP4 when edit/extension metadata omits both dimensions;
+   partial or unsupported aspect evidence still refuses.
+4. Capture bounded browser downloads alongside page blobs for video/GIF export;
+   validate output magic and clean up listeners/tasks on timeout/cancellation.
+5. Measure bounded, freshly owned native-cache MP4 bytes when both metadata
+   dimensions are absent; keep partial/invalid/mismatched metadata, scope and
+   private-path checks strict.
+
+The original failed V1r/V2 jobs were not rewritten as successes. Their exact
+accepted output identities were downloaded and validated without another Google
+submission. B2/V2r are separate reserved retests of the deployed fixes.
+
+Live tagged BDD checks passed for current owned metadata/MP4 measurement,
+actual bound Fast frame requests fulfilled locally before forwarding, original
+MP4/GIF export with billable RPCs blocked, and fresh owned native-cache bytes.
+Harness failures were recorded and corrected without generation replay.
+Offline regressions and required whole-gate results are reconciled at delivery.
+
+Invocation-owned uploads and the character were cleaned up after positive image
+results. All other observed active media remained present. Pro3's initial
+post-archive read was stale; a fresh browser context confirmed the acknowledged
+archive without replay. No original or historical fixture was removed.
+
+R12 is a representative executed campaign with external refusals, not full paid
+acceptance. Native reference rendering, audio, edit, extension, promotion and
+public callback delivery remain unchecked until their real requirements pass.
 
 ## Entry checks
 - Record deployed source revision, API/MCP health and empty per-profile queues.
@@ -600,24 +650,25 @@ See [R08 forms, limits and scope](IMAGE_REFERENCE_BUDGETS.md).
 
 ## R11-based R12 permission checklist
 
-R11 authorizes no production generation, upscale, audio preview, solver task or
-native deletion. This is preparation, not permission to run those operations.
+R11 authorized no production generation. The user subsequently authorized the
+separate R12 allowance and invocation-owned fixtures on 5 October; the measured
+results above supersede this preparation checklist without resetting history.
 
-- [ ] Obtain new per-operation attempt/credit/solver caps on original pro2/pro3;
-  existing video allowances are exhausted. Keep pro1 disabled/reserved.
-- [ ] Choose a small representative output campaign: REST Auto/mixed grounding;
+- [x] Obtain new per-operation attempt/credit/solver caps on original pro2/pro3;
+  historical usage stays separate. Keep pro1 disabled/reserved.
+- [x] Choose a small representative output campaign: REST Auto/mixed grounding;
   queued MCP/REST generic plural video; native reference/edit/extension with
   requested Fast/Lite/Quality family where currently available. Each has separate
   accepted/refused/unknown evidence and no blind replay.
-- [ ] Obtain explicit paid promotion/image upscale permissions; prove720p/1080p
+- [x] Obtain explicit paid promotion/image upscale permissions; prove720p/1080p
   target pixels and entitled4K only when fresh catalogs actually offer it.
-- [ ] Obtain bounded voice preview/create/binding permissions if that backend
+- [x] Obtain bounded voice preview/create/binding permissions if that backend
   acceptance gap is to be tested; reuse existing saved playback evidence.
-- [ ] Authorize creation and cleanup of invocation-owned temporary assets only
+- [x] Authorize creation and cleanup of invocation-owned temporary assets only
   for any missing mutation lifecycle proof. Preserve every original asset.
 - [ ] Specify a public allowlisted callback receiver for actual delivery proof;
   controlled callback/recovery outcomes already cover R11 semantics.
-- [ ] Record fresh account/model/credit reads and reserve the private ledger
+- [x] Record fresh account/model/credit reads and reserve the private ledger
   before each allowed attempt. Stop at accepted/unknown/refused budget limits.
 
 Automatic renewal remains the separate R10 acceptance boundary. Cookie import,

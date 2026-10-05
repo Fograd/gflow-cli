@@ -361,3 +361,110 @@ async def test_migrated_video_upscale_caps_encoded_payload_before_decode(
     monkeypatch.setattr(migrated_video_upscale, "MAX_VIDEO_B64_LEN", 1, raising=False)
     with pytest.raises(WireFormatError, match="size cap"):
         await test_migrated_video_upscale_1080p_happy_path()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scale,data", [("720p", _DUMMY_MP4), ("270p", _DUMMY_GIF)])
+async def test_browser_download_without_page_blob(tmp_path, scale, data):
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
+    page.evaluate = AsyncMock(return_value=None)
+    button = MagicMock()
+    button.is_disabled = AsyncMock(return_value=False)
+    button.get_attribute = AsyncMock(return_value=None)
+    listeners = {}
+    page.on.side_effect = lambda event, handler: listeners.update({event: handler})
+    path = tmp_path / "browser-download"
+    path.write_bytes(data)
+    download = MagicMock()
+    download.suggested_filename = "original.gif" if scale == "270p" else "original.mp4"
+    download.failure = AsyncMock(return_value=None)
+    download.path = AsyncMock(return_value=str(path))
+
+    async def click():
+        if "download" in listeners:
+            listeners["download"](download)
+
+    button.click = AsyncMock(side_effect=click)
+    page.wait_for_selector = AsyncMock(return_value=button)
+    result = await upscale_video_migrated(
+        page, project_id="project", media_id="media", scale=scale, timeout_s=0.01
+    )
+    assert result == data
+    page.remove_listener.assert_any_call("download", listeners["download"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["oversize", "wrong-magic", "failed"])
+async def test_browser_download_rejects_unsafe_bytes(tmp_path, monkeypatch, mode):
+    import gflow_cli.api.transports.migrated_video_upscale as module
+
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
+    page.evaluate = AsyncMock(return_value=None)
+    button = MagicMock()
+    button.is_disabled = AsyncMock(return_value=False)
+    button.get_attribute = AsyncMock(return_value=None)
+    listeners = {}
+    page.on.side_effect = lambda event, handler: listeners.update({event: handler})
+    path = tmp_path / "browser-download"
+    path.write_bytes(_DUMMY_MP4 if mode != "wrong-magic" else b"not a video")
+    if mode == "oversize":
+        monkeypatch.setattr(module, "MAX_VIDEO_DOWNLOAD_BYTES", 16, raising=False)
+    download = MagicMock()
+    download.suggested_filename = "original.mp4"
+    download.failure = AsyncMock(return_value="secret signed URL" if mode == "failed" else None)
+    download.path = AsyncMock(return_value=str(path))
+
+    async def click():
+        if "download" in listeners:
+            listeners["download"](download)
+
+    button.click = AsyncMock(side_effect=click)
+    page.wait_for_selector = AsyncMock(return_value=button)
+    with pytest.raises(WireFormatError) as caught:
+        await upscale_video_migrated(
+            page, project_id="project", media_id="media", scale="720p", timeout_s=0.01
+        )
+    assert "secret signed URL" not in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_stalled_browser_download_is_cancelled_on_timeout():
+    import asyncio
+
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
+    page.evaluate = AsyncMock(return_value=None)
+    button = MagicMock()
+    button.is_disabled = AsyncMock(return_value=False)
+    button.get_attribute = AsyncMock(return_value=None)
+    listeners = {}
+    page.on.side_effect = lambda event, handler: listeners.update({event: handler})
+    cancelled = asyncio.Event()
+
+    async def stalled():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    download = MagicMock()
+    download.suggested_filename = "original.mp4"
+    download.failure = AsyncMock(side_effect=stalled)
+
+    async def click():
+        if "download" in listeners:
+            listeners["download"](download)
+
+    button.click = AsyncMock(side_effect=click)
+    page.wait_for_selector = AsyncMock(return_value=button)
+    with pytest.raises(TransportTimeoutError):
+        await upscale_video_migrated(
+            page, project_id="project", media_id="media", scale="720p", timeout_s=0.01
+        )
+    assert cancelled.is_set()
+    page.remove_listener.assert_any_call("download", listeners["download"])
