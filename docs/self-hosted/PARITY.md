@@ -117,11 +117,11 @@ never expose tokens, cookies or solver keys.
 
 ## Roadmap
 
-**R10 remains a priority; independent roadmap work continues.** The corrected
-owned-login completion gate and fresh API health checks passed for both isolated
-test profiles on 4 October. Automatic renewal is still missing; current health
-does not prove an unattended login lifetime. Continue feature acceptance on those
-two profiles while preserving the first account exclusively for UseAPI.
+**Next implementation task: R11.** R01–R09 supported implementation and R10
+original-profile session management are delivered. The feature checkboxes below
+record that implementation scope; paid output acceptance and automatic authentication
+renewal remain separately unchecked. Current access does not prove an unattended
+login lifetime. Preserve the first account exclusively for UseAPI.
 See [session health](SESSION_HEALTH.md#login-persistence-priority--4-october-2026).
 
 
@@ -359,12 +359,16 @@ unsafe-caption canonical attachment proof.
   were accepted; native video/voice/upscale and remaining adapter acceptance
   are R12. See [coverage and restrictions](CAPTCHA.md#r06-coverage-and-evidence)
   and [bounded R12 plan](FINAL_E2E.md#r06-operation-specific-r12-campaign).
-- [ ] **R07 — Real resolution promotion and entitlement handling.** Establish
+- [x] **R07 — Real resolution promotion and entitlement handling (implementation).** Establish
   native 360p-to-720p promotion, video4K and accepted image4K where account
   entitlement permits. Downloads/exports/local resizing do not establish native
   promotion. Discover actual account capability and return clear limits; three
   Pro subscriptions do not establish Ultra access. Preserve the working image2K
-  path while investigating higher resolutions.
+  path while investigating higher resolutions. Supported implementation is
+  published/deployed at f92f437e: native image2K/guarded4K and video720p/1080p/4K,
+  bounded source measurement, exact output correlation and resolution checks.
+  Both zero-generation preflights passed, including360p-to720p. Paid acceptance
+  is still open below; no accepted video promotion or entitled4K is claimed.
 - [x] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
   ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; actual ordered ten-chip/wire retention and one decoded owned image passed. Per-reference visual influence remains R12.
@@ -385,14 +389,16 @@ unsafe-caption canonical attachment proof.
   boundaries use no bulk uploads. Deployed localhost acceptance is recorded in
   the operator R09 handoff. Arbitrary missing/vendor IDs or media removed outside
   receipt support remain explicit unsupported cases, not inferred success.
-- [ ] **R10 — Account/session persistence and refresh.** Implemented original-profile
+- [x] **R10 — Original-profile session management (implementation).** Implemented original-profile
   session management: cold storage reuse, leases, bounded expected-principal/project
   health checks, durable registration-epoch status, last verified access/identity,
   stale/interrupted/unknown distinctions and manual-aware maintenance backoff.
   Both original pro2/pro3 profiles pass current fresh identity/project cold checks;
   periodic access survived approximately21hours50minutes on 4–5 October. API/MCP
   restart/deployed proof is recorded in the operator R10 handoff. Automatic renewal
-  across a supported authentication boundary remains unproved, so R10 stays unchecked.
+  across a supported authentication boundary remains separately unchecked below.
+  Session management is published/deployed at f4e651c3; cold opens, service restart,
+  durable status, real contention and recovery passed for both original profiles.
   Pro1 is disabled/UseAPI-only and must not be opened. Successful cookie import and
   three-account live coverage cannot be claimed under the current no-copy/import
   restrictions; no account-import rebuilding is included. See [session health](SESSION_HEALTH.md).
@@ -402,6 +408,17 @@ unsafe-caption canonical attachment proof.
   callbacks and timeout/unknown semantics. Unknown controls must fail explicitly
   before generation. Update the endpoint matrix and API documentation with exact
   scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image model aliases normalize to current Nano2/Lite models; landscape/portrait image aspects and explicit native promotion4K normalize to canonical controls. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default summary and score-based automatic selection are implemented; reason/model quarantine is now implemented under the explicit local compatibility policy; Google reset times remain unobserved. The 29 primary contracts were retrieved for comparison; the full29endpoint audit is in CONTRACT_AUDIT.md with delivery changes and remaining differences.
+
+### Outstanding acceptance boundaries
+
+- [ ] **R07 paid acceptance:** accepted native video promotion and higher-resolution
+  image/video outputs where fresh account availability permits; requires new
+  operation-specific permission under R12.
+- [ ] **R10 authentication renewal acceptance:** demonstrate survival across an
+  actual authentication expiry/renewal boundary without human login. Natural
+  cookie rotation and periodic successful reads do not establish this. Genuine
+  long unchecked idle remains unproved. Cookie import and three-account live
+  coverage remain excluded by current operator restrictions.
 
 ### Final verification and delivery
 
@@ -414,9 +431,10 @@ unsafe-caption canonical attachment proof.
   test authorizations and remaining allowances; do not start an unbounded stress
   test or repeatedly submit the same known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Tested implementation published/deployed:5746bf617b18514b7bdce2a56961277d724a59ea,
-  with REST/MCP/GUI active and both test accounts passing fresh queued health.
-  Further roadmap batches remain in progress. Publish completed
+- [ ] **R13 — Publish, deploy and reconcile documentation.** Latest runtime implementation
+  published/deployed: f4e651c36d2cc3ece65d41829dfea708e7e993ef, with
+  REST/MCP/GUI active and both test accounts passing fresh queued health.
+  R11, final acceptance and final delivery reconciliation remain open. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
   verify actual API/MCP capabilities, and update this roadmap, endpoint matrix,
   [API guide](API.md) and [verification ledger](VERIFICATION.md). Record code
