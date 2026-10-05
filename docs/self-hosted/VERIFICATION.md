@@ -2128,3 +2128,64 @@ proves ordered attachment/request preparation and an accepted Lite output, not
 visual influence of each reference or all wrapper/model rendered coverage.
 Native Google Auto remains distinct from the first-reference approximation.
 See [R08 forms, limits and scope](IMAGE_REFERENCE_BUDGETS.md).
+
+
+## R10 original-profile persistence and status — 5 October 2026
+
+Baseline fafa853a was clean in development/production/Mac and all three publication
+branches. No pro1 browser/profile or UseAPI registration was touched. The original
+pro2/pro3 profiles were used without cookie copy/import, cloning, sign-out or security
+changes. No generation, upscale, audio preview or paid solver request occurred.
+
+Dated durable health records from 4 October16:20UTC were read without opening profiles:
+pro2 has44 scheduled project-access successes from16:22:10.965UTC through
+5 October14:14:27.078UTC; pro3 has42 scheduled and1manual observations,41successes
+and2UNKNOWN/profile_busy results, with successes16:22:40.029UTC through
+14:12:26.703UTC. Max gaps between health observations are1844.779/3621.391seconds.
+No LOGIN_REQUIRED result was recorded in this interval. Earlier4October pro2 did
+lose authenticated access after an earlier login (fresh401 and public landings),
+then corrected human login restored it. No loss is observed after the final corrected
+recovery during the measured periodic-access interval. This is not continuous
+monitoring or a guarantee that no unobserved interruption occurred.
+
+Fresh expected-native-principal/project reads at14:08–14:09UTC passed two cold
+opens each, original directory/marker preserved, one page. Browser-tree PSS was
+pro2 634.1/674.3MiB, pro3 688.0/654.8MiB; all closes left0processes/0PSS. Ordinary
+reload changed4cookie values and extended5expiry fields. A later bounded pro3 trace
+observed accounts.google.com RotateCookiesPage, Set-Cookie for SIDCC and its secure
+1P/3P variants; changed/extended fields included that family and analytics cookies.
+It used707.4MiB PSS and again closed to0processes/0PSS. No values/headers were exported,
+no refresh endpoint was driven and no authentication expiry boundary was observed.
+This is natural browser cookie rotation, not established auth-renewal acceptance.
+
+Initial controlled R10 regressions:14RED failures before implementation. Original
+pro2 cold-health live BDD was RED before the fresh identity projection. New original
+pro2/pro3 BDDs subsequently passed1each in24.20/18.54seconds with matching current
+principal on both sides of project access, no generation. Focused session/maintenance
+checks passed81, then expanded selfhost/auth/lease/concurrency/MCP/parity/binding
+checks passed1669 with2skips in128.09seconds. Strict source typing passed.
+
+Independent review found retained maintenance status across disable/re-enable and
+suppressed actual browser teardown failures. Six additional regressions were RED
+before correction (completed/pending enable reversion, malformed status/reason pairs,
+actual client context/driver close failures). The correction retains existing teardown
+ownership/cleanup but exposes its outcome to health, and resets scheduler state with
+the session epoch. Required final gates and production/localhost evidence are recorded
+in the operator R10 handoff when delivered; no all-green final/deployed claim is made
+by this pre-publication ledger entry.
+
+Implemented session management remains distinct from renewal acceptance. The existing
+1800-second production maintenance is retained. Genuine long idle without periodic or
+other account reads, supported automatic auth renewal, successful cookie import and
+three-account live coverage remain unproved/excluded as detailed in
+[session health](SESSION_HEALTH.md#r10-current-behavior-and-measured-survival--5-october-2026).
+
+Pre-publication release checks: final original-profile cold-helper BDD passed1each
+in31.03/39.58seconds. The offline release sweep passed8177 with22skips and90.11%
+coverage in296.48seconds. After adding the durable expected-principal anchor
+regression, the focused session/maintenance group passed85 in9.86seconds. The
+earlier client+session review group passed160. Repo hygiene, doc links, website PII,
+website/plugin mirrors, council-memory links, whole-tree Ruff and strict Pyright
+passed. No CLI option/exit surface changed; the internal typed identity HTTP error
+stays inside health classification. The duplication proxy found only existing
+untouched blocks; production and localhost acceptance follows in R10_HANDOFF.md.

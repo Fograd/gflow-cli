@@ -83,7 +83,11 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
 
         return {
             "status": "ok",
-            "sessionHealth": await probe_project_access(profile, str(payload["project_id"])),
+            "sessionHealth": await probe_project_access(
+                profile,
+                str(payload["project_id"]),
+                expected_identity_sha256=payload.get("expected_identity_sha256"),
+            ),
         }
     if verb == "account-resources":
         from gflow_cli.services.account_resources import (

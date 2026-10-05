@@ -684,6 +684,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             "idleSessionMaintenance": store.idle_session_status(
                 row["profile"], cfg.idle_session_interval
             ),
+            "sessionStatus": store.session_status(row["profile"], cfg.idle_session_interval),
         }
 
     @app.post(

@@ -277,3 +277,52 @@ the original browser profiles and Mac SSH forwards. Validate first deletion, exa
 NOT_FOUND repeat and a mixed batch through Mac localhost. Use bounded read-only
 polling for delayed visibility. Never replay a deletion to force a listing update;
 retain job/recovery handles after uncertainty. No generation or solver is required.
+
+
+## R10 original-profile recovery — 5 October 2026
+
+Current operator policy overrides the generic multi-account initial setup above:
+pro1 remains disabled and UseAPI-only. Recover only the existing original pro2/pro3
+profile; no cookies are copied/imported and no profile is cloned/replaced. A disabled
+registration's top-level health is not a login diagnosis. Inspect private sessionStatus
+and the exact queued health result first. Generic403/about/black-viewer/timeout/busy
+signals alone do not prove logout. Both active profiles currently pass fresh checks,
+so no human login is presently required.
+
+For a genuine fresh LOGIN_REQUIRED observation, stop submitting new work for the
+selected profile and wait for its REST/MCP queue and browser owner to finish. On CC LXC,
+load the existing protected common environment and run the checkout's auth command:
+
+```bash
+set -a
+. /home/fograd/workspace/gflow-host/environment
+set +a
+cd /home/fograd/workspace/gflow-host/source
+.venv/bin/gflow auth login --browser chrome --profile pro2 --account EXPECTED_GOOGLE_EMAIL
+```
+
+Use pro3 instead only when recovering pro3; EXPECTED_GOOGLE_EMAIL is that original
+profile's private Google principal, not its public API alias. Open the existing hosted
+login viewer at http://127.0.0.1:6093/vnc.html?autoconnect=true&resize=scale in Mac
+Vivaldi through the existing SSH forward. If its temporary viewer is stopped, use
+the display/VNC setup above, preserving the existing forwards. Select the expected
+Google account and complete any human identity challenge. Do not use passwords as
+CLI arguments. The corrected login detector requires fresh identity and independent
+saved-profile verification, rather than cookies or a successful process exit alone.
+If the lease refuses, wait for the owner; never kill it or open Chrome manually to
+bypass ownership. Do not deliberately sign out, clear storage or alter security settings.
+
+After the login window closes, submit one async accounts/{handle}/health request,
+then poll its returned job/Location through Mac localhost8844. Require completed
+OK, identityVerified=true, profilePreserved=true and refreshAttempted=false; the
+private sessionStatus should become verified with fresh access/identity timestamps.
+An expired HTTP wait requires polling the same job, not a duplicate login/check.
+No generation/upscale/audio preview or solver test is part of recovery.
+
+The existing1800-second maintenance setting is unchanged. To disable periodic access,
+set GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS=0 and restart after queues drain.
+Schema6 is incompatible with prior schema5 binaries: disable maintenance on the
+current binary for immediate rollback. Never edit user_version or overwrite the
+live queue with a pre-deployment copy after new jobs have been accepted.
+Automatic renewal and genuine long-idle acceptance remain pending; read-only health
+can report a human requirement but cannot clear Google's challenge unattended.

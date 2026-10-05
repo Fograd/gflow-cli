@@ -3,6 +3,7 @@
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,6 +21,16 @@ INTERVAL = 1800
 def case(tmp_path, monkeypatch):
     clock = [1_800_000_000.0]
     monkeypatch.setattr("gflow_cli.selfhost.store.time.time", lambda: clock[0])
+
+    class ClockDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls.fromtimestamp(clock[0], tz)
+
+    monkeypatch.setattr("gflow_cli.selfhost.session_health.datetime", ClockDateTime)
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.session_status.profile_identity_sha256", lambda _: "a" * 64
+    )
     cfg = Settings(
         token="fixture",
         root=tmp_path,
@@ -410,7 +421,7 @@ def test_upgrade_existing_queue_and_recover_maintenance_without_replay(case):
         conn.execute("PRAGMA user_version=4")
     store = Store(cfg.root)
     with store.connection() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
     store.enqueue_idle_health("pro2", INTERVAL)
     job = store.claim("pro2")
     Store(cfg.root).recover()

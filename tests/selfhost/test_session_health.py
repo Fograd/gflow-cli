@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -22,7 +23,13 @@ def probe(tmp_path, monkeypatch):
     monkeypatch.setattr("gflow_cli.selfhost.session_health.default_profile_root", lambda: tmp_path)
     context = AsyncMock()
     access = AsyncMock(return_value=[{"private": "not-public"}])
-    context.__aenter__.return_value = SimpleNamespace(list_native_media=access)
+    context.__aenter__.return_value = SimpleNamespace(
+        _page=object(), list_native_media=access, browser_teardown_succeeded=True
+    )
+    monkeypatch.setattr(
+        "gflow_cli.auth.native_identity.read_native_identity",
+        AsyncMock(return_value="fixture@example.test"),
+    )
     factory = Mock(return_value=context)
     monkeypatch.setattr("gflow_cli.api.client.FlowApiClient", factory)
     return target, access, context, factory
@@ -112,6 +119,10 @@ async def test_runtime_health_runs_one_subprocess_and_keeps_only_safe_observatio
         token="fixture", root=tmp_path, accounts={"fixture": {"email": "alias", "project": P}}
     )
     store = Store(tmp_path)
+    store.account_seed(cfg.accounts)
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.session_status.profile_identity_sha256", lambda _: "a" * 64
+    )
     submitted = store.submit("accounts/health", "fixture", {"project": P}, None)
     job = store.claim("fixture")
     run = AsyncMock(
@@ -124,7 +135,9 @@ async def test_runtime_health_runs_one_subprocess_and_keeps_only_safe_observatio
                         "health": "OK",
                         "reason": "project_access_verified",
                         "source": "native-project-access",
-                        "checkedAt": "2026-10-03T12:00:00.000Z",
+                        "checkedAt": datetime.now(UTC)
+                        .isoformat(timespec="milliseconds")
+                        .replace("+00:00", "Z"),
                         "profilePreserved": True,
                         "refreshAttempted": False,
                         "token": "private",
@@ -148,6 +161,7 @@ def test_interrupted_read_only_health_recovers_unknown_without_submission_error(
     from gflow_cli.selfhost.store import Store
 
     store = Store(tmp_path)
+    store.account_seed({"fixture": {"email": "alias", "project": P}})
     job = store.submit("accounts/health", "fixture", {"project": P}, None)
     store.claim("fixture")
     store.recover()
@@ -177,6 +191,10 @@ async def test_runtime_health_fault_is_unknown_without_resubmitting(tmp_path, mo
 
     cfg = Settings(token="fixture", root=tmp_path, accounts={})
     store = Store(tmp_path)
+    store.account_seed({"fixture": {"email": "alias", "project": P}})
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.session_status.profile_identity_sha256", lambda _: "a" * 64
+    )
     store.submit("accounts/health", "fixture", {"project": P}, None)
     job = store.claim("fixture")
     run = AsyncMock(

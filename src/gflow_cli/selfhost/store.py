@@ -22,7 +22,7 @@ class Store:
         self.path = self.root / "jobs.sqlite3"
         with self.connection() as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
-            if version not in (0, 1, 2, 3, 4, 5):
+            if version not in (0, 1, 2, 3, 4, 5, 6):
                 raise ValueError("Unsupported self-host queue schema")
             conn.executescript("""
                 PRAGMA journal_mode=WAL;
@@ -52,6 +52,10 @@ class Store:
                     PRIMARY KEY(account,registration,operation,model,reason));
                 CREATE TABLE IF NOT EXISTS idle_session_maintenance (
                     profile TEXT PRIMARY KEY, scope TEXT NOT NULL, last_job TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS account_session_status (
+                    profile TEXT PRIMARY KEY, epoch TEXT NOT NULL, mapping TEXT NOT NULL,
+                    identity_sha256 TEXT, observation TEXT, completed REAL, last_job TEXT,
+                    last_access TEXT, last_identity TEXT);
                 PRAGMA user_version=2;
             """)
             columns = {row[1] for row in conn.execute("PRAGMA table_info(accounts)")}
@@ -63,7 +67,7 @@ class Store:
                     "DEFAULT 'operator-attested'"
                 )
             conn.execute("UPDATE accounts SET created=? WHERE created=0", (time.time(),))
-            conn.execute("PRAGMA user_version=5")
+            conn.execute("PRAGMA user_version=6")
         self.path.chmod(0o600)
         self._upgrade_pending_callbacks()
 
@@ -168,6 +172,11 @@ class Store:
                 >= 100
             ):
                 raise OverflowError("Queue is full")
+            if kind == "accounts/health":
+                from gflow_cli.selfhost.session_status import bind_health_scope
+
+                payload = bind_health_scope(conn, profile, payload)
+                encoded = json.dumps(payload, sort_keys=True)
             conn.execute(
                 "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (job, kind, profile, encoded, "created", now, now, None, idem, fingerprint),
@@ -191,6 +200,17 @@ class Store:
                 (profile, maintenance_scope(account)),
             ).fetchone()
             last_job = dict(row) if row else None
+            if last_job is None or last_job["state"] not in {"created", "running"}:
+                # A newer manual check must influence the existing scheduler's backoff.
+                from gflow_cli.selfhost.session_status import session_status
+
+                status = session_status(conn, profile, interval, now)
+                if status["lastJobId"]:
+                    latest = conn.execute(
+                        "SELECT * FROM jobs WHERE id=?", (status["lastJobId"],)
+                    ).fetchone()
+                    if latest and (last_job is None or latest["updated"] >= last_job["updated"]):
+                        last_job = dict(latest)
         busy = (
             conn.execute(
                 "SELECT 1 FROM jobs WHERE profile=? AND state IN ('created','running') LIMIT 1",
@@ -245,6 +265,9 @@ class Store:
                 "_idle_session_maintenance": True,
                 "_idle_session_scope": scope,
             }
+            from gflow_cli.selfhost.session_status import bind_health_scope
+
+            payload = bind_health_scope(conn, profile, payload)
             encoded = json.dumps(payload, sort_keys=True)
             fingerprint = hashlib.sha256(
                 f"accounts/health:{profile}:{encoded}".encode()
@@ -400,11 +423,15 @@ class Store:
     def finish(self, job: str, state: str, result: dict[str, Any]) -> None:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            row = conn.execute(
-                "SELECT payload,kind,profile,state FROM jobs WHERE id=?", (job,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM jobs WHERE id=?", (job,)).fetchone()
             if row is None:
                 raise KeyError(job)
+            if row["kind"] == "accounts/health":
+                if row["state"] not in {"created", "running"}:
+                    return
+                from gflow_cli.selfhost.session_status import record_health_observation
+
+                result = record_health_observation(conn, dict(row), result, time.time())
             previous = conn.execute("SELECT result FROM jobs WHERE id=?", (job,)).fetchone()
             accumulated: dict[str, Any] = (
                 json.loads(previous["result"]) if previous["result"] else {}
@@ -621,9 +648,9 @@ class Store:
                     "Historical account profile cannot be reused; register a fresh logical profile"
                 )
             previous = conn.execute(
-                "SELECT email,project FROM accounts WHERE profile=?", (profile,)
+                "SELECT email,project,enabled,verified FROM accounts WHERE profile=?", (profile,)
             ).fetchone()
-            if previous and (previous["email"] != email or previous["project"] != project):
+            if previous and tuple(previous) != (email, project, int(enabled), int(verified)):
                 conn.execute("DELETE FROM idle_session_maintenance WHERE profile=?", (profile,))
             conn.execute(
                 "INSERT INTO accounts(profile,email,project,enabled,verified,created) "
@@ -633,6 +660,10 @@ class Store:
                 "verification_source='operator-attested'",
                 (profile, email, project, int(enabled), int(verified), time.time()),
             )
+            if previous and tuple(previous) != (email, project, int(enabled), int(verified)):
+                from gflow_cli.selfhost.session_status import reset_health_scope
+
+                reset_health_scope(conn, profile)
 
     def account_lookup(self, email: str) -> dict[str, Any] | None:
         with self.connection() as conn:
@@ -693,6 +724,10 @@ class Store:
                     (profile, old_profile),
                 )
                 conn.execute("UPDATE assets SET profile=? WHERE profile=?", (profile, old_profile))
+                # An accepted replacement never inherits old physical-session evidence.
+                from gflow_cli.selfhost.session_status import reset_health_scope
+
+                reset_health_scope(conn, str(old_profile))
             else:
                 conn.execute(
                     "INSERT INTO accounts"
@@ -755,6 +790,23 @@ class Store:
                 (now, profile),
             )
             conn.execute("UPDATE accounts SET enabled=-1,verified=0 WHERE profile=?", (profile,))
+            from gflow_cli.selfhost.session_status import reset_health_scope
+
+            reset_health_scope(conn, profile)
+
+    def health_job_current(self, job: dict[str, Any]) -> bool:
+        from gflow_cli.selfhost.session_status import health_scope_current
+
+        with self.connection() as conn:
+            return health_scope_current(conn, job)
+
+    def session_status(self, profile: str, interval: float) -> dict[str, Any]:
+        from gflow_cli.selfhost.config import validate_idle_interval
+        from gflow_cli.selfhost.session_status import session_status
+
+        validate_idle_interval(interval)
+        with self.connection() as conn:
+            return session_status(conn, profile, interval, time.time())
 
     def profile_busy(self, profile: str) -> bool:
         with self.connection() as conn:

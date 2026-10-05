@@ -169,7 +169,7 @@ rendering and R13 records the published revision.
 |R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
 |R08|Complete supported SDK/CLI/REST/MCP/worker references, fresh weighted limits, ordered inputs and strict existing controls|Accepted Lite ten-reference output reused; per-reference visual influence remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
-|R10|Atomic accepted-refresh lineage, historical three-account health, fresh-principal checks and staged Session-cookie retention|Successful import/automatic renewal proof; both isolated test profiles currently pass fresh health|
+|R10|Original pro2/pro3 persistence, leases, fresh expected identity/project checks, scoped private status and maintenance backoff|Automatic renewal and genuine long idle unproved; successful import/three-account acceptance excluded by current restrictions|
 |R11|All29contract audit, defaults, WebP, local event timing, native concat/inputsCount, exact quota mapper/cooldowns and generic all-output batches|Vendor opaque IDs/envelopes and inferred reset semantics remain explicit differences|
 
 ### Ordered feature backlog
@@ -385,12 +385,17 @@ unsafe-caption canonical attachment proof.
   boundaries use no bulk uploads. Deployed localhost acceptance is recorded in
   the operator R09 handoff. Arbitrary missing/vendor IDs or media removed outside
   receipt support remain explicit unsupported cases, not inferred success.
-- [ ] **R10 — Account import, refresh and three-account coverage.** Prove a
-  successful cookie-table import, supported session refresh/reuse and independent
-  account selection/queues for all three Pro accounts. Preserve private profiles
-  and identity verification; Google may still require human login. Prepare
-  everything possible before requesting a required login, then continue other
-  items while it is pending. Three distinct Pro profiles are registered and passed concurrent read-only health jobs (three started concurrently, zero generation requests). A cookie-table transfer was rejected; human-assisted sign-in restored the original second profile. Successful import/atomic refresh and rendered three-account coverage remain unverified. The operator now forbids cookie-copy/import tests and reserves pro1 for UseAPI. Both isolated test profiles passed their first scheduled idle access checks; automatic renewal and a long idle boundary remain unproved.
+- [ ] **R10 — Account/session persistence and refresh.** Implemented original-profile
+  session management: cold storage reuse, leases, bounded expected-principal/project
+  health checks, durable registration-epoch status, last verified access/identity,
+  stale/interrupted/unknown distinctions and manual-aware maintenance backoff.
+  Both original pro2/pro3 profiles pass current fresh identity/project cold checks;
+  periodic access survived approximately21hours50minutes on 4–5 October. API/MCP
+  restart/deployed proof is recorded in the operator R10 handoff. Automatic renewal
+  across a supported authentication boundary remains unproved, so R10 stays unchecked.
+  Pro1 is disabled/UseAPI-only and must not be opened. Successful cookie import and
+  three-account live coverage cannot be claimed under the current no-copy/import
+  restrictions; no account-import rebuilding is included. See [session health](SESSION_HEALTH.md).
 - [ ] **R11 — Remaining useapi contract equivalence.** Audit all 29 endpoint
   contracts and parameter matrices against the finished adapters: defaults,
   supported controls, response/error fields, sync/async status, polling,
@@ -1122,3 +1127,29 @@ R09's new live acceptance covers image/video. Media deleted outside this fork,
 pre-receipt deletions, arbitrary missing UUIDs and vendor composite decoding
 remain unsupported ownership cases. No inventory absence grants deletion or
 repeat success. See [exact usage and recovery](NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
+
+
+## R10 session management delivered; renewal acceptance pending — 5 October 2026
+
+The original pro2/pro3 cold identity/project reads pass. The dated ledger observes
+roughly21hours50minutes of session survival with1800-second maintenance and other
+work, not uninterrupted inactivity. New health jobs verify expected fresh Google
+identity on both sides of the project read and pin the original private principal;
+wrong/missing identity refuses. Exact identity401/UNAUTHENTICATED can report login
+required; generic403, profile busy, selector/network/timeout/cleanup remain unknown.
+
+Both manual and scheduled jobs bind a durable registration epoch, checked at execution
+and completion. Mapping reversions/duplicate completion cannot restamp old success.
+Private sessionStatus distinguishes latest result, last actual access, last fresh
+identity proof and local freshness. New manual results drive existing scheduler
+backoff. Leases, restored-tab handling, enabled selection and independent queues
+are reused. New queue schema6 requires the current binary; interval0 disables only
+maintenance. No resident browser or renewal-default setting was introduced.
+
+Natural navigation changed cookie values/expiries, but the authentication-renewal
+boundary and supported renewal mechanism remain unknown. No refresh endpoint,
+forced expiry, cookie copy/import, generation/upscale/audio preview or paid solver
+was attempted. R10 is therefore partially accepted: implemented session management,
+pending automatic renewal acceptance. Successful import and three-account live
+coverage remain explicitly excluded; pro1 is disabled and reserved for UseAPI.
+See [current session evidence and recovery](SESSION_HEALTH.md#r10-current-behavior-and-measured-survival--5-october-2026).

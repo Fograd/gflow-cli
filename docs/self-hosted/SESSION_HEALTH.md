@@ -96,17 +96,20 @@ The terminal job contains `response.sessionHealth` and its tested `projectId`:
   "health": "OK",
   "reason": "project_access_verified",
   "source": "native-project-access",
-  "checkedAt": "2026-10-03T12:00:00.000Z",
+  "checkedAt": "2026-10-05T14:00:00.000Z",
   "profilePreserved": true,
-  "refreshAttempted": false
+  "refreshAttempted": false,
+  "identityVerified": true
 }
 ```
 
 | Observation | Meaning |
 |---|---|
-| `OK` / `project_access_verified` | A native project read succeeded at `checkedAt`; this is not a future-login guarantee or a fresh Google-principal proof. |
-| `LOGIN_REQUIRED` / `login_required` | The existing client raised an explicit authentication-missing or expired error; complete human login in the original hosted profile. |
+| `OK` / `project_access_verified` | A native project read succeeded at `checkedAt`. New R10 checks also require fresh matching Google identity before and after that read (`identityVerified: true`); legacy jobs have no such recorded proof. This is not renewal or a future-login guarantee. |
+| `LOGIN_REQUIRED` / `login_required` | The existing client raised a typed auth error, or the exact current-principal read returned HTTP401/correlated UNAUTHENTICATED. Complete human login in the original hosted profile. Generic403 is unknown. |
 | `UNKNOWN` / `identity_unavailable` or `identity_changed` | The private marker was absent or inconsistent; this alone does not prove that the Google session expired. |
+| `UNKNOWN` / `cleanup_incomplete` | Fresh reads ran, but graceful browser flush/driver stop did not complete; current successful persistence cannot be asserted. |
+| `UNKNOWN` / `registration_changed` | The registration epoch changed while this check was queued/running; it cannot update current session status. |
 | `UNKNOWN` / `profile_busy` | Another owner holds the browser profile; no process is interrupted or killed by the health probe. |
 | `UNKNOWN` / `probe_timeout`, `probe_error` or `interrupted` | The read could not establish access, or the daemon stopped; no auth refresh or billable operation is replayed. |
 
@@ -120,7 +123,7 @@ therefore cannot silently disable an account.
 The on-demand check performs no cookie copying, automatic reauthentication,
 challenge bypass, generation, CAPTCHA solve, or paid operation. Optional periodic
 project-access scheduling is described below; it is separate from renewal.
-Public output contains fixed statuses and metadata rather than timeline data,
+Public output contains fixed statuses and metadata rather than principal values, timeline data,
 cookie values, raw exception messages, or signed URLs.
 
 ## Optional idle project-access maintenance
@@ -164,13 +167,15 @@ access. Failure never changes account enabled/verified attestation.
 `nextDueAt`, `lastJobId` and `lastObservation`. `nextDueAt` is a Unix timestamp
 in seconds, or null while disabled/pending. State is disabled, due, waiting,
 queue_busy or pending. A global outstanding read can defer a due idle profile;
-that profile remains due until admitted. `lastObservation` is the existing fixed
-public health projection, or null before a completed check; raw principal,
+that profile remains due until admitted. `lastObservation` is the newest scoped completed health projection, including a newer
+manual check, or null before a completed check; raw principal,
 cookies, URLs and errors are omitted. Registration `health` keeps its existing
 attestation meaning. Poll `lastJobId` through the normal job route for its result.
 
-The queue now uses schema5. An older schema4 binary rejects this database; the
-immediate rollback is interval `0` on the current binary, preserving the queue.
+The queue now uses schema6 for the compact registration-epoch session summary.
+Older schema5 binaries reject this database. The immediate maintenance rollback is
+interval `0` on the current binary, preserving the queue. Do not downgrade the
+version number manually or restore an old queue over newer accepted work.
 
 To stop scheduling, set the interval to `0` and restart. Before workers start,
 only scheduler-origin checks still in the created state are canceled. Manual
@@ -185,8 +190,9 @@ No browser profile is deleted or signed out.
 Offline tests cover admission races, one global outstanding job, restart,
 configuration/account disable, manual-work preservation, registration reversion,
 backoff, pre-subprocess guards, private status projection and daemon cancellation.
-An actual scheduled native read is pending parent-coordinated testing; these
-checks do not establish idle-time or renewal-boundary survival.
+Actual scheduled reads on both original test profiles were recorded on 4–5 October
+(see the dated R10 evidence below). They establish periodic access survival, not
+genuine long idle time or authentication-renewal-boundary survival.
 
 ## Verification
 
@@ -289,3 +295,108 @@ normal auto-close and independent saved-profile verification, without generation
 or solver requests. The second account's corrected human recovery succeeded, including independent
 saved-profile verification and two fresh project-access cold opens.
 Automatic renewal and long-idle survival remain open acceptance requirements.
+
+
+## R10 current behavior and measured survival — 5 October 2026
+
+Implemented session management and pending renewal acceptance are separate. Only
+the original pro2/pro3 hosted profiles are enabled for this deployment. Pro1 stays
+disabled and reserved for UseAPI; no profile, cookie import/copy or UseAPI change
+was made. Successful cookie import and three-account live coverage remain outside
+the operator-authorized acceptance boundary.
+
+The health worker now reads the existing official singleton native current-principal
+helper before and after the selected native project read. Both principals must match
+the private original expected-account anchor. Public registration handles may be
+aliases, so they are not compared to Google email addresses. A bounded marker digest
+is pinned privately on first health admission, then retained across service restart
+and registration changes. A different current marker/principal cannot silently
+redefine it. If no marker ever existed, the first correct hosted human login can
+establish the anchor. Missing/ambiguous identity is unknown, not a guessed logout.
+An OK result follows successful bounded browser teardown, with identityVerified=true.
+
+Both manual and scheduled jobs capture a durable registration epoch. Registration
+mapping/enabled/verified changes invalidate current observations, including a change
+and later reversion. Execution and atomic completion recheck the scope. Old results
+remain dated job evidence but cannot reappear as current status. Duplicate terminal
+completion does not restamp status or extend maintenance backoff. Existing generation
+selection and independent per-profile queues are retained; health failure never
+silently changes account registration/selection flags.
+
+### Private session status
+
+Bearer-protected GET accounts/account detail adds sessionStatus. It is an indexed
+local read and opens no browser. The existing top-level health remains registration
+attestation (including its old LOGIN_REQUIRED value for disabled registrations).
+Use sessionStatus for measured session evidence:
+
+| Field | Meaning |
+|---|---|
+| latestObservation, lastJobId | Most recent completed check in the current registration epoch; pending jobs do not manufacture a new observation. |
+| lastVerifiedAccessAt | Last successful actual project read; retained as historical evidence after later unknown/login-required checks. |
+| lastVerifiedIdentityAt | Last successful health check that recorded matching fresh Google principal proof. Legacy jobs do not invent it. |
+| state | disabled, unobserved, verified, access_verified (legacy proof only), unknown, login_required or stale. |
+| fresh, ageSeconds, staleAfterSeconds | Local reporting policy: stale after max(3600 seconds, twice maintenance interval). This is not a Google expiry estimate. |
+| loginRequired | True only for a fresh explicit LOGIN_REQUIRED observation; the dated latest observation remains visible after it becomes stale. |
+| renewal | state=unproved, automaticRenewalSupported=false, lastAttemptAt/lastResult=null. No supported auth-renewal attempt has been established. |
+
+Historical malformed, future or execution-unbound worker timestamps cannot establish
+verified access. Network, selector, cleanup, timeout, interruption and profile-busy
+results remain unknown. Normal HTTP wait expiry is delivery state: keep polling the
+same accepted job. Original-profile human login recovery can change the latest result
+from login_required to verified after a fresh queued identity/project check; controlled
+tests cover that transition without signing out an actual account.
+
+### What survived and what was not measured
+
+The durable production ledger from 4 October16:22UTC through 5 October14:14UTC
+contains44 scheduled pro2 checks, all successful. Pro3 has42 scheduled checks plus
+one manual check:41 actual-access successes and2 profile_busy observations. There
+was no LOGIN_REQUIRED observation in this interval. Fresh original-profile checks
+at14:08–14:09UTC on 5 October passed two cold opens each, with matching current
+Google identities and successful project reads. Subsequent actual health BDDs passed
+for both profiles with the new fresh-identity projection.
+
+This is approximately21hours50minutes of observed survival with periodic reads and
+other operations. It is not21hours of genuine inactivity. The longest gaps between
+recorded health observations were1844.779seconds for pro2 and3621.391seconds for
+pro3; intervening CLI/MCP/API work can make even these shorter as actual idle spans.
+The two pro3 busy results are ownership contention, not lost Google access. These
+dated observations supersede the earlier 4 October failed-session state; they do
+not rewrite it or establish why Google previously required human verification.
+
+Ordinary reloads returned Set-Cookie responses, changed4 retained cookie values and
+extended5 retained expiry fields on each observed cold lifecycle. Values and headers
+were never exported. A subsequent bounded pro3 trace observed ordinary browser
+traffic to Google accounts RotateCookiesPage and Set-Cookie for SIDCC,
+__Secure-1PSIDCC and __Secure-3PSIDCC. The changed/extended cookie family was
+those three plus analytics fields; no endpoint was called directly or replayed. These measurements establish natural browser cookie housekeeping
+only: no authentication expiry boundary or provider-supported renewal protocol was
+observed. We cannot determine from them whether the changed fields renew authentication
+or ancillary session bookkeeping. Cookie presence/expiry edits and OK checks are not
+renewal proof. No private refresh endpoint or authentication retry loop was added.
+
+One-page active browser trees measured634.1/674.3MiB PSS for pro2 and688.0/654.8MiB
+for pro3. The later named-cookie trace measured707.4MiB PSS. Before and after each lifecycle there were zero attributable browser
+processes/zero PSS. Keeping a browser resident is neither shown necessary nor sufficient
+for renewal and is not enabled. Budget roughly0.6–1GiB per active account for these
+read workloads; generation peaks remain separately unmeasured here.
+
+### Original-profile recovery and remaining acceptance
+
+Neither active account currently needs human authentication. If a future fresh check
+reports LOGIN_REQUIRED, stop new submissions for that profile, allow its queue/browser
+owner to finish, and run the existing hosted auth login with its explicit original
+pro2/pro3 profile and expected Google account. Use the Mac Vivaldi noVNC viewer to
+complete Google's sign-in/identity challenge yourself. See the dated recovery recipe
+in [operations](OPERATIONS.md#r10-original-profile-recovery--5-october-2026).
+Do not replace the profile, import/copy cookies, change passwords, clear storage,
+or kill a competing browser. Check one queued health job afterwards.
+
+The existing1800-second production maintenance setting is preserved. Future scoped
+identity/access evidence is retained through the service without waiting inside chat.
+Automatic renewal remains an unchecked R10 acceptance step: observe a concrete
+supported authentication-renewal boundary and continued fresh expected-account/project
+access without another human login. Genuine long-idle survival with maintenance and
+all other profile use absent is also unproved. No permanent Google-session lifetime
+or immunity from revocation/challenges is promised.

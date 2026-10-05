@@ -21,6 +21,14 @@ class NativeMetadataRpcError(ValueError):
         super().__init__("Native metadata RPC rejected the request")
 
 
+class NativeIdentityHttpError(ValueError):
+    """Exact current-principal HTTP status; no body, URL or exception-text parsing."""
+
+    def __init__(self, status: int) -> None:
+        self.status = status
+        super().__init__("Native current principal HTTP request failed")
+
+
 async def native_rpc(
     page: Any, rpc: str, args: list[Any], source_path: str, *, require_single: bool = False
 ) -> Any:
@@ -68,6 +76,8 @@ async def native_rpc(
         **page_owned_evaluate_kwargs(),
     )
     if result["status"] != 200:
+        if rpc == "o30O0e":
+            raise NativeIdentityHttpError(result["status"])
         raise ValueError(f"Native Flow operation failed with HTTP {result['status']}")
     rows = [row for row in _wrb_rows(result["text"]) if row[1] == rpc]
     if require_single and len(rows) != 1:

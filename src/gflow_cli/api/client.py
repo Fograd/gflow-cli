@@ -421,6 +421,7 @@ class FlowApiClient:
         self._access_token_exp: float = 0.0  # epoch seconds; 0 = unknown/expired
         self._pw: Playwright | None = None
         self._context: BrowserContext | None = None
+        self._browser_teardown_succeeded = False
         # Account locale segment, resolved once from the bootstrap navigation (#580),
         # then cached per profile (#587).
         self._account_locale: str | None = None
@@ -458,7 +459,13 @@ class FlowApiClient:
 
     # --- lifecycle --------------------------------------------------------
 
+    @property
+    def browser_teardown_succeeded(self) -> bool:
+        """Last owned context flush and driver stop completed without forced cleanup."""
+        return self._browser_teardown_succeeded
+
     async def __aenter__(self) -> Self:
+        self._browser_teardown_succeeded = False
         # --- Step 1: Launch Playwright FIRST so self._page is ready before
         # transport.setup() is called.  This order is load-bearing for S1
         # (EvaluateFetchTransport): it needs a live Page passed via the
@@ -1264,6 +1271,7 @@ class FlowApiClient:
             try:
                 await self.transport.teardown()
             except Exception:
+                self._browser_teardown_succeeded = False
                 logger.warning("transport_teardown_error", exc_info=True)
 
     async def _close_browser_resources(self) -> None:
@@ -1292,6 +1300,7 @@ class FlowApiClient:
         # the recorder as close_ok=False or a truncated HAR could be stamped
         # "complete" (har-honesty contract, design §5.6).
         close_result = [False]
+        driver_result = [self._pw is None]
         try:
             if self._context is not None:
                 # Bounded close + force-close fallback (issue #293) — shared
@@ -1345,9 +1354,15 @@ class FlowApiClient:
                 # its own — a wedged driver would hang teardown forever, so it
                 # is bounded here. It runs even when the context close above was
                 # abandoned by cancellation (driver stop force-kills chrome).
+                driver = self._pw
+
+                async def _stop_driver_recording() -> None:
+                    await driver.stop()
+                    driver_result[0] = True
+
                 cancelled = (
                     await run_teardown_step(
-                        self._pw.stop(),
+                        _stop_driver_recording(),
                         timeout=DRIVER_STOP_TIMEOUT_S,
                         owner="client",
                         step="driver_stop",
@@ -1369,6 +1384,9 @@ class FlowApiClient:
             if self._lease is not None:
                 self._lease.release()
                 self._lease = None
+            self._browser_teardown_succeeded = (
+                close_result[0] and driver_result[0] and cancelled is None
+            )
         # Re-raise the original cancellation only after teardown completed, so a
         # cancelled close still stopped Playwright and released the lease.
         if cancelled is not None:

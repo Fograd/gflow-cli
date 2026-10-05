@@ -216,6 +216,17 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
             public_health_observation,
         )
 
+        if not store.health_job_current(job):
+            return {
+                "projectId": project,
+                "sessionHealth": health_observation(reason="registration_changed"),
+            }
+        if payload.get("_expected_identity_sha256") is None:
+            return {
+                "projectId": project,
+                "sessionHealth": health_observation(reason="identity_unavailable"),
+            }
+
         try:
             code, raw = await subprocess_run(
                 [
@@ -224,7 +235,12 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                     "gflow_cli.selfhost.native_worker",
                     "session-health",
                     profile,
-                    json.dumps({"project_id": project}),
+                    json.dumps(
+                        {
+                            "project_id": project,
+                            "expected_identity_sha256": payload["_expected_identity_sha256"],
+                        }
+                    ),
                 ],
                 min(
                     cfg.timeout,

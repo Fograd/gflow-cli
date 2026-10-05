@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- R10 health checks verify fresh original Google identity before and after native
+  project access. Private registration-epoch status retains last access/identity
+  and distinguishes stale, unknown and genuine login-required observations.
+- Newer manual health results participate in idle maintenance backoff; mapping
+  reversions and duplicate completion cannot revive stale session evidence.
+  Original profiles/leases remain intact; automatic renewal remains unproved.
 - R09 permanent individual deletion normalizes ordered duplicate UUIDs and exact
   HTTP alias/UUID duplicates before the1–100 distinct-ID limit. Archive defaults
   and explicit confirmation requirements are retained.
