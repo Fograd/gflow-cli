@@ -26,7 +26,10 @@ from tests.api.transports.test_migrated_images import PROJECT, image_payload
     ],
 )
 @pytest.mark.parametrize("mixed", [None, "masked", "accepted"])
-async def test_image_quota_dispatch_once_without_waf_replay(tmp_path, reason, mixed):
+async def test_image_quota_dispatch_once_without_waf_replay(tmp_path, monkeypatch, reason, mixed):
+    from gflow_cli.selfhost.image_captcha_policy import ProviderKeys
+
+    monkeypatch.setattr(ProviderKeys, "get", lambda *_: "synthetic-private-key")
     page = RoutedPage(url="https://flow.google.com/project/" + PROJECT)
     page.dom.prompt = "a blue cup"
     page.foreign = False

@@ -34,7 +34,8 @@ For count2–4 the wrapper dispatches generate_videos_batch and returns VideoBat
 
 The wrapper also accepts confidential `captcha_token` and the ordinary
 `generate_video` output, download, poll and callback keyword arguments. Supplied
-tokens force one attempt. Provider order/retry can be combined on the portable
+tokens force one attempt and cannot be combined with provider order or retry
+controls, including captcha_retry=1 and an inherited native supplied scope. Provider order/retry can be combined on the portable
 wrapper/CLI/MCP surfaces; HTTP preserves the vendor's mutually exclusive controls.
 
 Registered MCP `gflow_generate_video` accepts `captcha_order` and
@@ -55,6 +56,9 @@ responses, content/auth/entitlement errors, timeouts, cancellation, accepted
 poll/download/save failures and late callbacks never replay. Queued jobs and
 callbacks retain unknown outcomes for inspection. Supplied tokens are never
 retried. Solver latency does not renew scope or permit a different project.
+
+Missing selected provider keys or solver failures return a privacy-safe typed
+ConfigurationError with private key configuration guidance.
 
 Provider-backed accepted rendering still requires a live R12 proof. The actual
 pre-dispatch generic video body/reload capture passed with zero requests forwarded;

@@ -2006,3 +2006,44 @@ The operator helper initially expected a project field that the REST URL-only
 contract does not return; that helper was corrected without generation replay.
 Native HTTP raw remains video-only; image downloads use the existing verified
 SDK/CLI/MCP path.
+
+## R06 implementation closure — 5 October
+
+R06 reused the existing image/video/native policies. Demonstrated gaps fixed:
+supplied-token/provider conflicts at generic/private/inherited scope boundaries,
+native/generic supplied-token submission statistics, and typed missing-key errors
+at execution before generic callbacks (with mint-time configuration rechecks).
+No new context/action/forwarding defect explains Google's refused native requests.
+Existing CapSolver REST and queued MCP text-image acceptances remain valid;
+operation-specific video/voice/upscale and other adapter acceptance remain R12.
+
+New regressions went red before correction. Final affected exact-code group:
+131 passed in 4.46 seconds; composed upscale/private-token group 37 passed
+in 1.02 seconds; isolated packaging 2 passed in 92.35 seconds. A whole-repository
+run first found an older conflicting-token upscale expectation plus missing
+subprocess uv PATH (8,059 passed, 2 failed, 24 skipped, 27 warnings; 89.92%
+coverage). The old test now separately asserts conflict refusal and a one-use
+supplied request with private statistics. An overlapping targeted recovery removed
+the packaging temporary directory; subsequent runs use an isolated directory.
+This harness interruption is recorded rather than claimed as a production defect.
+
+Final parallel required-suite run: 8,063 passed, 1 failed, 22 skipped, 27 warnings;
+89.92% coverage in 405.11 seconds, 4 workers. The sole failure was the unchanged
+virtualized-picker test_older_exact_token_scrolls_selects_and_confirms, previously
+observed to fail in a parallel campaign above. The exact unchanged test then
+passed isolated in 2.42 seconds. No all-green whole-suite result is claimed and no
+third whole-suite run was used. All hygiene, documentation links/privacy/mirrors,
+council references, whole-source Ruff lint/format and strict Pyright checks passed;
+the offline duplication proxy reported no duplicated-code finding. Independent
+implementation and documentation review findings were resolved.
+
+Read-only actual Mac localhost checks at the 4d84f1b6 baseline confirmed masked
+CapSolver configuration, unchanged local counters (2 historical accepted events),
+shared REST/MCP private stats root and 43 registered tools with all 8 applicable
+provider/retry schemas. These are control/interface proofs, not new acceptance.
+Production-statistics comparison before publication confirmed development tests
+did not affect the production observations. R06 permits no new solve, generation
+or audio preview. Both original pro2/pro3 video allowances remain exhausted;
+pro1 disabled/UseAPI-only. Keys, registrations and original assets are preserved.
+See [coverage](CAPTCHA.md#r06-coverage-and-evidence) and
+[the separate permission-backed R12 plan](FINAL_E2E.md#r06-operation-specific-r12-campaign).

@@ -9,6 +9,13 @@ from gflow_cli.selfhost.image_captcha_policy import run_with_image_captcha_polic
 PROJECT = "11111111-1111-4111-8111-111111111111"
 
 
+@pytest.fixture(autouse=True)
+def configured_keys(monkeypatch):
+    from gflow_cli.selfhost.image_captcha_policy import ProviderKeys
+
+    monkeypatch.setattr(ProviderKeys, "get", lambda *_: "synthetic-private-key")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("budget", [1, 2, 10])
 async def test_only_positive_dispatched_refusal_retries(monkeypatch, tmp_path, budget):
@@ -132,7 +139,7 @@ async def test_current_metadata_and_page_required_before_solve(monkeypatch, tmp_
 
 
 @pytest.mark.asyncio
-async def test_supplied_token_wins_and_forces_one_sequence(monkeypatch, tmp_path):
+async def test_supplied_token_uses_one_sequence_without_provider_controls(monkeypatch, tmp_path):
     import gflow_cli.selfhost.image_captcha_policy as policy
 
     solve = AsyncMock()
@@ -157,8 +164,6 @@ async def test_supplied_token_wins_and_forces_one_sequence(monkeypatch, tmp_path
         await run_with_image_captcha_policy(
             {
                 "count": 1,
-                "captchaOrder": "CapSolver",
-                "captchaRetry": 10,
                 "captchaSecret": str(path),
             },
             PROJECT,

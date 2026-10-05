@@ -11,7 +11,14 @@ from typing import Any
 from gflow_cli.api.native_captcha import native_captcha_provider, validate_native_captcha_token
 from gflow_cli.api.recaptcha import discover_site_key
 from gflow_cli.errors import ConfigurationError
-from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys, Solver, SolverError
+from gflow_cli.selfhost.captcha import (
+    PROVIDERS,
+    CaptchaStats,
+    ProviderKeys,
+    Solver,
+    SolverError,
+    configured_provider_keys,
+)
 
 
 @contextmanager
@@ -44,10 +51,7 @@ def native_provider_context(
     async def mint(page: Any, mint_action: str) -> str:
         nonlocal chosen
         keys = ProviderKeys(Path.home() / ".config/homelab")
-        configured = [(name, keys.get(name)) for name in names]
-        configured = [(name, key) for name, key in configured if key]
-        if not configured:
-            raise SolverError("Requested native CAPTCHA providers are not configured")
+        configured = configured_provider_keys(keys, names, require_all=order is not None)
         url = str(page.url)
         try:
             key = await asyncio.wait_for(discover_site_key(page), timeout=10)

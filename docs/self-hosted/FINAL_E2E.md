@@ -30,7 +30,7 @@ Run individual opted-in scenarios, not the whole paid marker tier.
 ## Surface coverage
 CLI and direct registered MCP share SDK operations. Queued MCP and REST can
 execute different workers, so verify those paths explicitly. Native direct MCP
-adapters have no queued twin; do not imply one. Registered source now has42tools,
+adapters have no queued twin; do not imply one. Registered source now has43tools,
 including gflow_sync_native_inventory. API route scopes are in [API.md](API.md).
 
 ## Current boundaries
@@ -47,9 +47,9 @@ requested only after the current authorized work and preparation are complete.
 See [roadmap](PARITY.md#roadmap) and [verification](VERIFICATION.md).
 
 
-Before final R12: the ten-reference picker failure is fixed and its live abort-only proof passed; run bounded observed account-resource continuation over character/voice kinds; verify generic count1–4 provider controls and2K refusal retry with remaining operator budget. Entitled4K requires an actually enabled account option; unavailable Pro tiers are refusal tests. Successful cookie import/renewal and accepted saved voice/audio binding remain prerequisites for their complete lifecycle tests. Whole-source tests and actual read proofs do not replace these acceptance checks.
+Historical preparation snapshot, superseded by the [R06 R12 campaign](#r06-operation-specific-r12-campaign): the ten-reference picker failure is fixed and its live abort-only proof passed; run bounded observed account-resource continuation over character/voice kinds; verify generic count1–4 provider controls and2K refusal retry with remaining operator budget. Entitled4K requires an actually enabled account option; unavailable Pro tiers are refusal tests. Successful cookie import/renewal and accepted saved voice/audio binding remain prerequisites for their complete lifecycle tests. Whole-source tests and actual read proofs do not replace these acceptance checks.
 
-Latest zero-credit proof: real pro1 count4 generic request carries four distinct IDs and was aborted before forwarding. Current retained budget: pro1 images2/videos2; pro2 images0/videos1; pro3 images1/videos1, plus one pro1 and two pro3 audio-preview refusals. Pro2 now reaches Google sign-in on fresh entry and needs human renewal. Pro1 had positive editor/principal proofs earlier, but its latest07:54-07:56 fresh identity checks failed; renew/recheck before its acceptance campaign. A count2–4 accepted batch needs additional per-account video allowance; no remaining account has two unconsumed video attempts.
+Historical zero-credit/budget snapshot (no current allowance): real pro1 count4 generic request carries four distinct IDs and was aborted before forwarding. Current retained budget: pro1 images2/videos2; pro2 images0/videos1; pro3 images1/videos1, plus one pro1 and two pro3 audio-preview refusals. Pro2 now reaches Google sign-in on fresh entry and needs human renewal. Pro1 had positive editor/principal proofs earlier, but its latest07:54-07:56 fresh identity checks failed; renew/recheck before its acceptance campaign. A count2–4 accepted batch needs additional per-account video allowance; no remaining account has two unconsumed video attempts.
 
 
 ## Executable scenario list
@@ -440,3 +440,37 @@ succeeded with matching payloads, while the 90-second backend experiment was
 rejected in 0.45 seconds. Full saved-voice CRUD/binding acceptance remains R12;
 account-wide inventory completeness remains R03 and exact contract equivalence
 remains R11. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
+
+## R06 operation-specific R12 campaign
+
+5 October: R06 implementation is complete; its
+[coverage table](CAPTCHA.md#r06-coverage-and-evidence) distinguishes accepted REST
+and queued MCP CapSolver images from unaccepted native operations. R06 used only
+existing trials, controlled provider responses and read-only deployed checks;
+no new solver task, image/video generation or audio preview was authorized.
+
+Only original pro2/pro3 are candidates. Both two-attempt video allowances are
+exhausted; pro1 remains disabled and reserved for UseAPI. Preserve cumulative
+private reservations, configured keys and original assets. No cookie transfer,
+profile replacement or registration change is allowed. Earlier readiness/budget
+snapshots above are historical, not fresh permission or unused allowance.
+
+| Remaining case | Smallest next proof | Additional permission required |
+|---|---|---|
+| Image CLI / native-reference provider | One existing fresh owned project/reference, one count-one CapSolver request, inspect exact acknowledgement and decoded output | One image submission and one paid solver task for the selected original profile. REST/MCP text acceptance already exists; do not repeat it just for a green matrix. |
+| Generic / native reference video | Select one representative cheapest compatible count-one case at a time; retain exact request/output handles and decode output | Fresh explicit video allowance plus one paid solver task per selected operation. Any count2–4 batch needs its own output/credit allowance. |
+| Native edit / extension | Reuse one fresh eligible owned source and cheapest compatible model; one submitted operation at a time | One video operation/credit allowance and one solver task per case. |
+| Image2K / video promotion | Fresh ownership/model/target proof, one2K or cheapest enabled promotion, measure actual decoded dimensions | One target operation allowance and solver task.4K additionally needs verified enabled entitlement; no Pro entitlement assumption. |
+| Saved-voice preview / creation | One short preview, exact audio acknowledgement, then inspect/save that same handle; playback/binding proof separate | One explicit audio preview/creation allowance and solver task; permission for any subsequent paid binding/render and invocation-owned cleanup. |
+
+Before each permission-backed test, read revision/queues, fresh access, model and
+project/action/site-key evidence. Reserve exactly the allowed attempt before
+submission. Use no retry by default; any confirmed-WAF retry requires a separate
+explicit total-attempt budget and matching negative acknowledgement. Solve,
+submission, acceptance, rejection and uncertainty must remain separate. Partial,
+unknown, cancellation and post-acceptance download/save failures stop; recover
+existing handles without generation replay. Stop after one refused operation;
+record the exact terminal class and context evidence, then continue independent
+read-only cases. No repeated refusal experiment is justified without a concrete
+new defect or new authorized distinguishing hypothesis. Google refusal cause and
+successful voice cost remain unknown; solver issuance cannot establish either.

@@ -10,6 +10,7 @@ import os
 import re
 import tempfile
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -24,6 +25,24 @@ _ENDPOINTS = {"CapSolver": "https://api.capsolver.com", "2Captcha": "https://api
 
 class SolverError(Exception):
     """A deliberately redacted provider failure."""
+
+
+def configured_provider_keys(
+    keys: ProviderKeys, names: Sequence[str], *, require_all: bool
+) -> list[tuple[str, str]]:
+    """Validate selected configuration at execution, including post-admission removal."""
+    configured = [(name, key) for name in names if (key := keys.get(name))]
+    if not configured or (require_all and len(configured) != len(names)):
+        from gflow_cli.errors import ConfigurationError
+
+        raise ConfigurationError(
+            detail="Requested CAPTCHA providers are not configured",
+            remediation_hint=(
+                "Configure GFLOW_CAPSOLVER_KEY or GFLOW_2CAPTCHA_KEY in the existing private "
+                "provider settings. Inspect request state before trying again."
+            ),
+        )
+    return configured
 
 
 @dataclass(frozen=True)

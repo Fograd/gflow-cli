@@ -8,12 +8,23 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, TypeVar
 
-from gflow_cli.api.native_captcha import read_native_token_file, validate_native_captcha_token
+from gflow_cli.api.native_captcha import (
+    native_captcha_supplied_active,
+    read_native_token_file,
+    validate_native_captcha_token,
+)
 from gflow_cli.api.recaptcha import discover_site_key
 from gflow_cli.api.transports.migrated_image_overrides import ImageOverrides, active_overrides
 from gflow_cli.api.video import is_media_uuid
 from gflow_cli.errors import ConfigurationError, WafRejectionError
-from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys, Solver, SolverError
+from gflow_cli.selfhost.captcha import (
+    PROVIDERS,
+    CaptchaStats,
+    ProviderKeys,
+    Solver,
+    SolverError,
+    configured_provider_keys,
+)
 from gflow_cli.selfhost.native_captcha import native_secret_path
 
 _Result = TypeVar("_Result")
@@ -26,6 +37,8 @@ def validate_image_captcha_controls(
     secret_keys = ("captcha_token", "captchaToken", "captchaSecret", "captcha_token_file")
     secret = any(payload.get(key) is not None for key in secret_keys)
     selected = any(payload.get(key) is not None for key in ("captchaOrder", "captchaRetry"))
+    if selected and native_captcha_supplied_active():
+        raise ValueError("Supplied image tokens cannot be combined with provider controls")
     if secret:
         if selected:
             raise ValueError("Supplied image tokens cannot be combined with provider controls")
@@ -64,6 +77,10 @@ async def run_with_image_captcha_policy(
     root: Path,
     attempt: Callable[[ImageOverrides], Awaitable[_Result]],
 ) -> tuple[_Result, str | None]:
+    if (native_captcha_supplied_active() or payload.get("captchaSecret") is not None) and any(
+        payload.get(key) is not None for key in ("captchaOrder", "captchaRetry")
+    ):
+        raise ValueError("Supplied image tokens cannot be combined with provider controls")
     budget = payload.get("captchaRetry", 1)
     if type(budget) is not int or not 1 <= budget <= 10:
         raise ValueError("Image CAPTCHA attempts require an integer from 1 through 10")
@@ -82,6 +99,10 @@ async def run_with_image_captcha_policy(
         budget = 1
     if not selected:
         budget = 1
+    else:
+        configured_provider_keys(
+            ProviderKeys(Path.home() / ".config/homelab"), names, require_all=order is not None
+        )
     stats = CaptchaStats(root)
     for index in range(budget):
         selection: dict[str, str | None] = {"chosen": None}
@@ -104,6 +125,8 @@ async def run_with_image_captcha_policy(
                 value, supplied = supplied, None
                 selection["chosen"] = "supplied"
                 return value
+            keys = ProviderKeys(Path.home() / ".config/homelab")
+            configured = configured_provider_keys(keys, names, require_all=order is not None)
             metadata = override.metadata
             url = str(page.url)
             if (
@@ -117,11 +140,7 @@ async def run_with_image_captcha_policy(
             key = await asyncio.wait_for(discover_site_key(page), timeout=10)
             if key != metadata.get("sitekey") or str(page.url) != url:
                 raise SolverError("Current image CAPTCHA metadata does not match trusted page")
-            keys = ProviderKeys(Path.home() / ".config/homelab")
-            for name in names:
-                secret = keys.get(name)
-                if not secret:
-                    continue
+            for name, secret in configured:
                 if str(page.url) != url or not override.page_matches(page) or override.closed:
                     raise SolverError("Image CAPTCHA page changed before solving")
                 stats.record(name, "solveStarted")

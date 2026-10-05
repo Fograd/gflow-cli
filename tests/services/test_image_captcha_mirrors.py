@@ -21,6 +21,13 @@ P = "11111111-1111-4111-8111-111111111111"
 TOKEN = "synthetic-confidential-image-token-" * 3
 
 
+@pytest.fixture(autouse=True)
+def configured_keys(monkeypatch):
+    from gflow_cli.selfhost.image_captcha_policy import ProviderKeys
+
+    monkeypatch.setattr(ProviderKeys, "get", lambda *_: "synthetic-private-key")
+
+
 @pytest.mark.parametrize("kind", ["t2i", "i2i"])
 def test_cli_help_controls(kind):
     from gflow_cli import cli_image

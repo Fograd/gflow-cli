@@ -24,7 +24,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [GET accounts](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts) | Object keyed by account email with health/configuration | Implemented registered-account listing with redacted operator-attested or native-cookie-verified metadata. On-demand native health is a separate queued extension, not automatic login refresh. |
 | [GET accounts/email](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-email) | Account details for path email | Implemented selected registered-account metadata through explicit public handle/account mapping; no cookies or credentials returned. |
 | [DELETE accounts/email](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-accounts-email) | Remove registered account | Implemented registration removal only; refuses active jobs and preserves browser profile files. |
-| [POST accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/post-google-flow-accounts-captcha-providers) | Provider keys; empty key removes provider; masked response | Implemented private mode 600 key storage/removal and masked response for CapSolver/2Captcha. Actual CapSolver solve succeeded but its one Google submission was rejected; explicit image/native provider controls are implemented; accepted solver-backed output remains unverified. |
+| [POST accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/post-google-flow-accounts-captcha-providers) | Provider keys; empty key removes provider; masked response | Implemented private mode 600 key storage/removal and masked response for CapSolver/2Captcha. Provider task contracts tested offline; native metadata discovery measured. CapSolver REST and queued MCP text images accepted; other operation-specific acceptance remains R12. |
 | [GET accounts/captcha-providers](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-providers) | Masked configured provider metadata | Implemented masked configuration metadata; configuration is not proof of accepted solver-backed generation. Loopback CapSolver key/balance GUI is a separate extension. |
 | [GET accounts/captcha-stats](https://useapi.net/docs/api-google-flow-v1/get-google-flow-accounts-captcha-stats) | Solver usage / acceptance statistics | Implemented private counters separating solved/submitted/accepted/rejected/unknown outcomes. Actual trials recorded solved/submitted tokens with explicit Google refusals; matched local solve/acknowledgment timing is available without inferring orphan durations. |
 | [POST assets/email](https://useapi.net/docs/api-google-flow-v1/post-google-flow-assets-email) | Raw content with MIME header; image or MP4 upload; account pinned | Implemented raw PNG/JPEG managed references and native MP4 ingestion; REST cap 20 MiB, portable SDK/CLI/MCP snapshot cap 250 MiB. MP4 exact true rights assertion is mandatory. Synthetic upload/archive lifecycle verified across SDK/CLI/registered MCP/HTTP; local-only image IDs are labeled. |
@@ -72,7 +72,7 @@ and live acceptance are recorded separately in the verification ledger.
 | Native R2V image/audio | SDK/CLI/MCP/REST use source-derived reference DTO, fresh model/tier/reference limits, native images and owned saved-audio UUIDs. Native model discovery passed live reads. One browser-token generation attempt returned PUBLIC_ERROR_UNUSUAL_ACTIVITY; no rendered output accepted. |
 | Native credit inspection | Shared SDK/CLI/MCP returns source-defined total balance/paygate/service tier, unknown subscription/SKU null. Shared service adapters require explicit native host mode; native read-only E2E passed. |
 
-Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes42 tools.
+Native model discovery is available for extension, edit and reference-video modes; all three passed actual read-only E2E. The registered MCP surface exposes43 tools.
 The same checked-out project page mints generation tokens. Preassigned identities
 are derived from invocation-owned seeds, checkpointed before dispatch and
 correlated with acknowledgements; ambiguous writes are not automatically replayed.
@@ -84,7 +84,7 @@ Focused source/codec tests establish implementation, not Google acceptance.
   builders do not expose the seed and collapse those aspect enums. See the bounded
   [seed inspection](../superpowers/spikes/2026-10-04-generic-video-numeric-seed.md)
   and earlier aspect codec inspection.
-- Accepted solver-backed output remains unverified. Generic count1-4 provider
+- Accepted solver-backed native video, voice and upscale output remains unverified. REST and queued MCP text-image CapSolver acceptance is confirmed. Generic count1-4 provider
   controls, all-output tracking, native2K/4K token overrides and explicit bounded
   WAF-only retries are implemented; traffic/unknown outcomes do not retry.
 - Accepted rendered video/character/audio grounding, saved-TTS lifecycle and
@@ -345,15 +345,20 @@ unsafe-caption canonical attachment proof.
   Unsupported native generation controls remain explicit refusals. This closes
   bounded R05 discovery, not useapi seed/five-ratio output equivalence; see the
   linked primary codec inspection above.
-- [ ] **R06 — CapSolver and CAPTCHA control coverage.** Complete supplied-token
-  and CapSolver selection/control wiring for image/video/upscale/extension/TTS
-  paths where applicable. Investigate the rejected replacement-token integration
-  with matched action, browser/session context and controlled attempts. Separate
-  solve, submission, explicit rejection and unknown outcomes; never replay an
-  uncertain write. Keep unverified provider paths explicitly guarded until an
-  accepted live result proves them. One explicit CapSolver REST image has now
-  been accepted; earlier image/audio trials were rejected or uncertain. Native
-  voice/video/upscale provider acceptance remains unfinished.
+- [x] **R06 — CapSolver and CAPTCHA control coverage (implementation).**
+  Existing policies cover image, generic/reference video, edit/extension, native
+  image/video upscale and saved-voice preview/creation across applicable SDK,
+  CLI, REST, MCP and workers. Supplied tokens are private, one use and exclusive
+  with providers/retry, including SDK/inherited scopes. Shared statistics record
+  solving, submission and exact accepted/rejected/unknown outcomes; supplied
+  tokens record submission/outcomes without inventing solve events. Generic
+  video missing-key failures now return typed configuration guidance. Only a
+  positively confirmed unusual-activity refusal may advance explicit1–10 total
+  attempts. No new context/action/forwarding defect was established; repeated
+  refusals do not establish the cause. REST and queued MCP CapSolver text images
+  were accepted; native video/voice/upscale and remaining adapter acceptance
+  are R12. See [coverage and restrictions](CAPTCHA.md#r06-coverage-and-evidence)
+  and [bounded R12 plan](FINAL_E2E.md#r06-operation-specific-r12-campaign).
 - [ ] **R07 — Real resolution promotion and entitlement handling.** Establish
   native 360p-to-720p promotion, video4K and accepted image4K where account
   entitlement permits. Downloads/exports/local resizing do not establish native
@@ -500,7 +505,7 @@ record final live proof separately.
 
 ## Completed controlled provider-video trial
 
-The native VIDEO_GENERATION CapSolver Enterprise v3 proxyless trial solved one token and submitted one count-one R2V request. Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY, gRPC 7: accepted outputs zero, rejected requests one, no retry. The earlier provider-image trial is separate. Across the two private trial ledgers there were two solved tokens, two submitted requests, zero accepted outputs and two rejections. API counters remain scoped to each self-hosted instance. Provider acceptance is not proven. The feature batch is published and deployed; successful provider acceptance and full parity remain unproven.
+The native VIDEO_GENERATION CapSolver Enterprise v3 proxyless trial solved one token and submitted one count-one R2V request. Google rejected it with PUBLIC_ERROR_UNUSUAL_ACTIVITY, gRPC 7: accepted outputs zero, rejected requests one, no retry. The earlier provider-image trial is separate. Across the two private trial ledgers there were two solved tokens, two submitted requests, zero accepted outputs and two rejections. API counters remain scoped to each self-hosted instance. At this earlier trial, provider acceptance was not proven. The feature batch is published and deployed; later REST and queued MCP text-image CapSolver acceptance is recorded below. Native video acceptance and full parity remain unproven.
 
 ## Final measured lifecycle update
 
@@ -681,7 +686,7 @@ final R12 tests must be recorded separately.
 |---|---|---|
 |R02/R04| Real saved-TTS preview tests and playback/binding paths | Browser and CapSolver preview WAF-refused; accepted lifecycle pending |
 |R03| Supported project/catalog/history traversal finished on pro2/pro3; scoped SDK/CLI/MCP/REST, atomic checkpoints and retained identities | See current R03 completion above; global visibility unknown |
-|R06| Image/native/generic count1-4 providers and explicit1–10 WAF-only retry;2K/4K overrides with fresh availability | Actual solver-backed rendering pending |
+|R06| Image/native/generic count1-4 providers and explicit1–10 WAF-only retry;2K/4K overrides with fresh availability | REST and queued MCP text-image CapSolver acceptance confirmed; native video/voice/upscale acceptance remains R12 |
 |R08| Lite10, separate character cap, weighted image cap; corrected caret retains all ten exact ordered references | One decoded owned ten-reference output accepted; per-reference visual influence remains R12 |
 |R09| Exact registered alias mutation inputs, strict confirmed-delete receipts | Arbitrary vendor decoding and unknown missing IDs unsupported |
 |R10| Atomic accepted-refresh lineage, aliases/stats/idempotency/receipt continuity | Successful live import and automatic renewal unverified |
@@ -1045,3 +1050,22 @@ traversal is complete; global visibility remains unknown. A temporary frontend c
 removed; its SDK delete acknowledgement was uncertain, and a subsequent fresh
 list confirmed absence while preserving the original. Do not replay an uncertain
 mutation. No additional generation is needed to use R02 lookup.
+
+### R06 implementation closure — 5 October
+
+The R06 control/safeguard audit is complete. Shared validators now reject
+supplied/provider conflicts before file consumption or callbacks, including
+ambient SDK scopes. Native and generic supplied-token outcomes join the existing
+private stats store without fabricated solving events. Selected keys are checked
+at execution before generic callbacks and again at mint; missing keys get typed
+private configuration guidance. No provider-forwarding or project/action defect
+was demonstrated, and no Google refusal cause is inferred.
+
+Focused exact-code 131 tests and composed upscale 37 tests passed. Required final
+parallel run: 8,063 passed / 1 unchanged picker failure / 22 skipped / 27 warnings,
+89.92% coverage; the exact unchanged picker then passed isolated in 2.42 seconds.
+All static/documentation/type checks and duplication proxy passed. This does not
+claim an all-green whole-suite run. See [the precise test record](VERIFICATION.md#r06-implementation-closure--5-october).
+Accepted CapSolver REST and queued MCP text images remain confirmed; unperformed
+native video/voice/upscale acceptance stays R12. No new paid request or generation
+occurred. See [coverage](CAPTCHA.md#r06-coverage-and-evidence).

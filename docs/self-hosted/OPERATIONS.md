@@ -240,3 +240,24 @@ Preserve originals and remove only acknowledged invocation fixtures, once. No
 preview or solver is required. Publication/deployment uses the same revision on
 all three fork branches and CC LXC production, after checking both queues. Keep
 existing Mac localhost forwards; no Mac service deployment is needed.
+
+## R06 deployment and statistics checks
+
+Load the same protected operator environment for Python/CLI, REST and MCP so
+`GFLOW_SELFHOST_ROOT` resolves to the same private statistics store. Read masked
+GET accounts/captcha-providers and local GET accounts/captcha-stats; neither
+endpoint solves a CAPTCHA. GUI GET /api/status reports configured capability.
+MCP initialization/tools-list can verify optional provider/retry schemas without
+calling generation tools. Preserve queued-MCP secret refusal; never put keys or
+tokens into job payloads. Supplied-token missing historical observations cannot
+be recovered by guessing or replaying requests.
+
+Before updating, read active REST/MCP queues and SQLite quick_check, take private
+SQLite backup-API snapshots and protected environment backups, then drain jobs.
+Fast-forward production to the tested/published revision and use the locked
+Patchright environment. Restart affected REST/MCP services only after queues are
+idle; leave the unchanged key GUI running. Recheck exact revision, services,
+masked keys, stats and MCP schemas through existing Mac localhost forwards8844,
+8843 and8845. R06 needs no balance check, solver or generation acceptance request.
+Operation-specific paid acceptance is the separate
+[R12 campaign](FINAL_E2E.md#r06-operation-specific-r12-campaign).

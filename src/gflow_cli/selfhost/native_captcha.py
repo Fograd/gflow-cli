@@ -8,7 +8,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from gflow_cli.api.native_captcha import native_captcha_token, read_native_token_file
+from gflow_cli.api.native_captcha import (
+    native_captcha_supplied_active,
+    native_captcha_token,
+    read_native_token_file,
+)
 from gflow_cli.errors import ConfigurationError
 from gflow_cli.selfhost.config import environment_root
 
@@ -32,6 +36,10 @@ def native_secret_path(payload: dict[str, Any], root: Path) -> Path | None:
 
 @contextmanager
 def private_native_captcha(payload: dict[str, Any], project: str, action: str) -> Generator[None]:
+    if (native_captcha_supplied_active() or payload.get("captchaSecret") is not None) and any(
+        payload.get(key) is not None for key in ("captchaOrder", "captchaRetry")
+    ):
+        raise ValueError("Supplied native tokens cannot be combined with provider controls")
     if (
         payload.get("captchaSecret") is None
         and payload.get("captchaOrder") is None

@@ -141,7 +141,7 @@ async def test_waf_without_negative_ack_or_after_acceptance_never_retries(scopes
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "payload", [{}, {"captchaOrder": "CapSolver"}, {"captchaRetry": 10, "captchaSecret": "private"}]
+    "payload", [{}, {"captchaOrder": "CapSolver"}, {"captchaSecret": "private"}]
 )
 async def test_defaults_and_supplied_tokens_are_one_attempt(scopes, payload):
     calls = []

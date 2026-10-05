@@ -163,7 +163,7 @@ async def test_supplied_precedence_single_attempt_without_solver(
 
     with pytest.raises(WafRejectionError):
         await policy.run_with_video_captcha_policy(
-            payload(captchaRetry=10, captchaSecret=str(file)), P, root, attempt
+            {"count": 1, "captchaSecret": str(file)}, P, root, attempt
         )
     assert len(calls) == 1 and not file.exists()
     solve.assert_not_awaited()

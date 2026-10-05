@@ -24,6 +24,10 @@ class _NativeToken:
     project: str
     action: str
     consumed: bool = False
+    submitted: bool = False
+    terminal: str | None = None
+    closed: bool = False
+    observe: Callable[[str], None] | None = field(default=None, repr=False)
 
 
 _SCOPE: ContextVar[_NativeToken | None] = ContextVar("gflow_native_supplied_token", default=None)
@@ -45,6 +49,8 @@ def validate_native_captcha_token(value: object) -> str:
 @contextmanager
 def native_captcha_token(value: object, *, project_id: str, action: str) -> Generator[None]:
     """Install one project/action-bound native token; never install a provider retry loop."""
+    if (provider := _PROVIDER.get()) is not None and not provider.closed:
+        raise ConfigurationError(detail="Supplied CAPTCHA tokens cannot be combined with providers")
     try:
         project = validate_identifier(project_id)
     except ValueError:
@@ -58,9 +64,14 @@ def native_captcha_token(value: object, *, project_id: str, action: str) -> Gene
     try:
         yield None
     finally:
-        state.value = ""
-        state.consumed = True
-        _SCOPE.reset(handle)
+        try:
+            if state.submitted and state.terminal is None:
+                native_captcha_outcome("unknown")
+        finally:
+            state.value = ""
+            state.consumed = True
+            state.closed = True
+            _SCOPE.reset(handle)
 
 
 def take_native_captcha_token(page_url: object, action: str) -> str | None:
@@ -177,6 +188,8 @@ def native_captcha_provider(
     observe: Callable[[str], None] | None = None,
 ) -> Generator[None]:
     """Install one explicit provider mint, never an after-Google retry."""
+    if _SCOPE.get() is not None:
+        raise ConfigurationError(detail="Supplied CAPTCHA tokens cannot be combined with providers")
     try:
         project = validate_identifier(project_id)
     except ValueError:
@@ -218,7 +231,19 @@ async def take_native_captcha_token_async(page: Any, action: str) -> str | None:
 
 
 def native_captcha_submission() -> None:
-    """Record provider token dispatch immediately before the actual Google fetch."""
+    """Record token dispatch immediately before the actual Google fetch."""
+    supplied = _SCOPE.get()
+    if supplied is not None:
+        if supplied.closed or not supplied.consumed or supplied.submitted:
+            return
+        from gflow_cli.selfhost.captcha import CaptchaStats
+        from gflow_cli.selfhost.config import environment_root
+
+        stats = CaptchaStats(environment_root())
+        supplied.observe = lambda phase: stats.record("supplied", phase)
+        supplied.submitted = True
+        supplied.observe("submitted")
+        return
     state = _PROVIDER.get()
     if state is None or state.closed or not state.ready or state.submitted:
         return
@@ -231,7 +256,7 @@ def native_captcha_outcome(outcome: Literal["accepted", "rejected", "unknown"]) 
     """Record one positively known acceptance/refusal, otherwise dispatch uncertainty."""
     if outcome not in ("accepted", "rejected", "unknown"):
         raise ValueError("Invalid native CAPTCHA outcome")
-    state = _PROVIDER.get()
+    state = _SCOPE.get() or _PROVIDER.get()
     if state is None or state.closed or not state.submitted or state.terminal is not None:
         return
     state.terminal = outcome
@@ -243,7 +268,8 @@ def native_captcha_refused() -> bool:
     """Positive refusal evidence for the current dispatched provider attempt only."""
     state = _PROVIDER.get()
     return bool(
-        state is not None
+        _SCOPE.get() is None
+        and state is not None
         and not state.closed
         and state.ready
         and state.submitted

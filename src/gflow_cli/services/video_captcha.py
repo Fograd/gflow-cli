@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from gflow_cli.errors import ConfigurationError
+from gflow_cli.selfhost.captcha import SolverError
 from gflow_cli.selfhost.config import environment_root
 from gflow_cli.selfhost.video_captcha_policy import (
     run_with_video_captcha_policy,
@@ -35,7 +36,10 @@ async def generate_video_with_captcha(
         **({"captchaRetry": captcha_retry} if captcha_retry is not None else {}),
         **({"captcha_token": captcha_token} if captcha_token is not None else {}),
     }
-    validate_video_captcha_controls(payload, project_id)
+    try:
+        validate_video_captcha_controls(payload, project_id)
+    except ValueError as error:
+        raise ConfigurationError(detail=str(error)) from None
 
     async def attempt(override: Any) -> Any:
         require_native_video_captcha_host(client, active=override is not None)
@@ -46,9 +50,18 @@ async def generate_video_with_captcha(
             )
         return await client.generate_video(req=req, project_id=project_id, **kwargs)
 
-    value, _ = await run_with_video_captcha_policy(
-        payload, project_id, root or environment_root(), attempt
-    )
+    try:
+        value, _ = await run_with_video_captcha_policy(
+            payload, project_id, root or environment_root(), attempt
+        )
+    except SolverError:
+        raise ConfigurationError(
+            detail="Video CAPTCHA providers are not configured or could not supply a token",
+            remediation_hint=(
+                "Configure GFLOW_CAPSOLVER_KEY or GFLOW_2CAPTCHA_KEY in the existing private "
+                "provider settings. Inspect request state before trying again."
+            ),
+        ) from None
     return value
 
 

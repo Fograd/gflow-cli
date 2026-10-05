@@ -8,12 +8,23 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, TypeVar
 
-from gflow_cli.api.native_captcha import read_native_token_file, validate_native_captcha_token
+from gflow_cli.api.native_captcha import (
+    native_captcha_supplied_active,
+    read_native_token_file,
+    validate_native_captcha_token,
+)
 from gflow_cli.api.recaptcha import discover_site_key
 from gflow_cli.api.transports.migrated_video_overrides import VideoOverrides, active_video_overrides
 from gflow_cli.api.transports.native_voices import validate_identifier
 from gflow_cli.errors import ConfigurationError, WafRejectionError
-from gflow_cli.selfhost.captcha import PROVIDERS, CaptchaStats, ProviderKeys, Solver, SolverError
+from gflow_cli.selfhost.captcha import (
+    PROVIDERS,
+    CaptchaStats,
+    ProviderKeys,
+    Solver,
+    SolverError,
+    configured_provider_keys,
+)
 from gflow_cli.selfhost.native_captcha import native_secret_path
 
 _Result = TypeVar("_Result")
@@ -35,6 +46,13 @@ def validate_video_captcha_controls(
     )
     if not selected:
         return False
+    provider = any(payload.get(key) is not None for key in ("captchaOrder", "captchaRetry"))
+    supplied = native_captcha_supplied_active() or any(
+        payload.get(key) is not None
+        for key in ("captcha_token", "captchaSecret", "captcha_token_file", "captchaToken")
+    )
+    if provider and supplied:
+        raise ValueError("Supplied video tokens cannot be combined with provider controls")
     if queued and any(
         payload.get(key) is not None
         for key in ("captcha_token", "captchaSecret", "captcha_token_file", "captchaToken")
@@ -87,6 +105,12 @@ async def run_with_video_captcha_policy(
             path.unlink(missing_ok=True)
     if supplied is not None:
         budget = 1
+    else:
+        configured_provider_keys(
+            ProviderKeys(Path.home() / ".config/homelab"),
+            names,
+            require_all=payload.get("captchaOrder") is not None,
+        )
     stats = CaptchaStats(root)
     previous: set[str] = set()
     for index in range(budget):
@@ -115,6 +139,10 @@ async def run_with_video_captcha_policy(
                 selection["chosen"] = "supplied"
                 override.provider_name = "supplied"
                 return token
+            keys = ProviderKeys(Path.home() / ".config/homelab")
+            configured = configured_provider_keys(
+                keys, names, require_all=payload.get("captchaOrder") is not None
+            )
             metadata = override.metadata
             url = str(page.url)
             if (
@@ -127,11 +155,7 @@ async def run_with_video_captcha_policy(
             key = await asyncio.wait_for(discover_site_key(page), timeout=10)
             if key != metadata.get("sitekey") or str(page.url) != url:
                 raise SolverError("Current video CAPTCHA metadata differs from trusted page")
-            keys = ProviderKeys(Path.home() / ".config/homelab")
-            for name in names:
-                secret = keys.get(name)
-                if not secret:
-                    continue
+            for name, secret in configured:
                 if str(page.url) != url or override.closed or not override.page_matches(page):
                     raise SolverError("Video CAPTCHA scope changed before solving")
                 stats.record(name, "solveStarted")
@@ -155,7 +179,7 @@ async def run_with_video_captcha_policy(
 
         def observe(phase: str, selection: dict[str, str | None] = selection) -> None:
             chosen = selection["chosen"]
-            if chosen is not None and chosen != "supplied":
+            if chosen is not None:
                 stats.record(chosen, phase)
 
         override.token = mint

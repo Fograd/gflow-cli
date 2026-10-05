@@ -172,11 +172,15 @@ def state(tmp_path, monkeypatch):
 
     seen = SimpleNamespace(events=[], tokens=[], pages=[], scopes=[], proofs=[], mint_pages=[])
     monkeypatch.setattr(native_captcha, "environment_root", lambda: tmp_path)
+    monkeypatch.setenv("GFLOW_SELFHOST_ROOT", str(tmp_path))
 
     @contextmanager
     def scope(payload, project, action, *, root):
         assert project == P and action == "IMAGE_GENERATION"
         assert payload.get("captchaRetry", 1) == 1
+        if payload.get("captchaOrder") is None and payload.get("captchaRetry") is None:
+            yield
+            return
         seen.scopes.append(dict(payload))
 
         async def mint(page, mint_action):
@@ -253,9 +257,9 @@ async def run_worker(
     payload = {
         "resolution": resolution,
         "mediaGenerationId": M,
-        "captchaRetry": retry,
-        "captchaOrder": "CapSolver,2Captcha",
     }
+    if retry is not None:
+        payload.update(captchaRetry=retry, captchaOrder="CapSolver,2Captcha")
     if supplied:
         directory = tmp_path / "captcha-input"
         directory.mkdir()
@@ -379,14 +383,28 @@ async def test_uncertain_or_accepted_late_failure_never_replays(
 
 
 @pytest.mark.asyncio
-async def test_real_supplied_secret_retry10_consumed_once_no_provider_mint(
+async def test_real_supplied_secret_control_conflict_refuses_before_browser(
     tmp_path, monkeypatch, state
 ):
-    with pytest.raises(WafRejectionError):
+    with pytest.raises(ValueError, match="combined"):
         await run_worker(tmp_path, monkeypatch, state, outcomes=["waf"], retry=10, supplied=True)
+    assert state.pages == [] and state.tokens == []
+    assert len(list((tmp_path / "captcha-input").iterdir())) == 1
+
+
+@pytest.mark.asyncio
+async def test_real_supplied_secret_consumed_once_no_provider_mint(tmp_path, monkeypatch, state):
+    from gflow_cli.selfhost.captcha import CaptchaStats
+
+    with pytest.raises(WafRejectionError):
+        await run_worker(tmp_path, monkeypatch, state, outcomes=["waf"], retry=None, supplied=True)
     assert len(state.pages) == 1
     assert state.tokens == []
     assert list((tmp_path / "captcha-input").iterdir()) == []
+    assert CaptchaStats(tmp_path).public()["providers"]["supplied"] == {
+        "submitted": 1,
+        "rejected": 1,
+    }
 
 
 @pytest.mark.parametrize("enum", [1, True, 3, "2"])

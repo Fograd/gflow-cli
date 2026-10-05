@@ -39,7 +39,7 @@ async def test_provider_context_mints_once_and_records_exact_outcome():
 
 
 @pytest.mark.asyncio
-async def test_scope_mismatch_does_not_solve_and_supplied_token_has_precedence():
+async def test_scope_mismatch_does_not_solve_and_supplied_token_conflict_refuses():
     calls = []
 
     async def mint(page, action):
@@ -50,8 +50,9 @@ async def test_scope_mismatch_does_not_solve_and_supplied_token_has_precedence()
         with pytest.raises(ConfigurationError):
             await take_native_captcha_token_async(PAGE, "AUDIO_GENERATION")
         assert calls == []
-        with native_captcha_token("b" * 40, project_id=PROJECT, action="VIDEO_GENERATION"):
-            assert await take_native_captcha_token_async(PAGE, "VIDEO_GENERATION") == "b" * 40
+        with pytest.raises(ConfigurationError, match="combined"):
+            with native_captcha_token("b" * 40, project_id=PROJECT, action="VIDEO_GENERATION"):
+                pytest.fail("supplied token replaced active provider")
         assert calls == []
 
 

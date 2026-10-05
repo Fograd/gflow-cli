@@ -17,7 +17,8 @@ with native_captcha_token(token, project_id=project, action="VIDEO_GENERATION"):
 Use AUDIO_GENERATION for saved-TTS creation. TokenMinter and the native audio
 minter require the matching current https://flow.google.com/project/UUID page
 and exact action before consuming. Tokens require20–20000 characters without
-whitespace/NUL. Mismatch/reuse refuses without browser fallback. The scope resets
+whitespace/NUL. Mismatch/reuse refuses without browser fallback. Supplied tokens cannot be combined with provider scopes or retry controls,
+including inherited scopes. The scope resets
 after success, failure or cancellation; children share one consumption state and
 cannot use it after the parent exits. Independent scopes remain isolated.
 One native batch submission may have multiple outputs; several independent
@@ -80,7 +81,7 @@ captchaOrder or captchaRetry1–10. Only confirmed single-RPC typed WAF refusals
 without any accepted/unknown result may advance an explicit retry budget.
 
 Generic video provider controls and portable/queued mirrors are documented in
-[generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md). Count1 is required. These
+[generic video CAPTCHA](GENERIC_VIDEO_CAPTCHA.md). Generic count1–4 is supported. These
 controls do not prove accepted external-token output or Ultra entitlement.
 
 ## Saved-voice and promotion CLI/direct MCP provider controls

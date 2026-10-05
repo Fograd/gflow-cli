@@ -33,7 +33,6 @@ async def test_sdk_supplied_token_scope_installed_and_closed(tmp_path):
             req=SimpleNamespace(count=1),
             project_id=P,
             captcha_token=TOKEN,
-            captcha_retry=10,
             root=tmp_path,
         )
         == "result"

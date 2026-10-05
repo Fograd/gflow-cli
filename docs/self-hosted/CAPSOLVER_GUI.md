@@ -39,4 +39,4 @@ A rejected or expired key must be corrected with your CapSolver account. A timeo
 
 Exact loopback Host/Origin checks, a process-scoped CSRF header, nonce CSP, no-store and frame-denial headers protect the local page. They do not provide multi-user authentication: keep the host and SSH credentials private. Provider bodies, API keys and raw exception details are never displayed in error responses.
 
-A configured key was independently exercised once: CapSolver returned a solution, but Google rejected the replaced image request for unusual activity. No accepted image or automatic retry resulted. The page continues to report generation disabled; its balance check itself never creates a task.
+The earlier configured-key image trial solved and was unusual-activity refused. Later REST and queued MCP CapSolver text-image requests were accepted, as recorded in [the final trials](FINAL_E2E.md#4-october-final-registered-imagevideo-trials). The page reports generationEnabled=true when CapSolver is configured; this describes capability, not a guarantee of acceptance. Its balance check never creates a task.

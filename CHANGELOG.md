@@ -22,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### R06 CAPTCHA safeguards
+
+- Reject supplied-token/provider conflicts in generic video, private workers and
+  inherited SDK scopes before token consumption or dispatch.
+- Record supplied native/video submission and terminal outcomes in the existing
+  private instance statistics, preserving acceptance across later failures.
+- Return typed private-key configuration guidance for generic video solver failures.
+- Correct image acceptance and GUI capability documentation; native acceptance
+  remains operation-specific R12 work.
+
 ### R04 video reference coverage
 
 - Share strict active native-audio ownership across reference video and editing,
