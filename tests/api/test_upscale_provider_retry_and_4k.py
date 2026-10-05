@@ -302,14 +302,20 @@ def test_selected_4k_enum2_preserves_every_non_token_field():
         (["enabled", "disabled"], UpscaleUnavailableError),
     ],
 )
-async def test_active_4k_fresh_menu_gate_and_recheck_before_dispatch(state, states, expected):
-    page = Page(resolution=TargetResolution.RES_4K, menu_states=states)
+@pytest.mark.parametrize("resolution", ["2k", "4k"])
+async def test_active_fresh_menu_gate_and_recheck_before_dispatch(
+    state, states, expected, resolution
+):
+    page = Page(resolution=TargetResolution.from_cli(resolution), menu_states=states)
     from gflow_cli.selfhost.native_captcha import private_native_captcha
 
     with private_native_captcha({"captchaRetry": 1}, P, "IMAGE_GENERATION"):
         with pytest.raises(expected):
             await transport.upscale_image_migrated(
-                page, project_id=P, media_id=M, target_resolution=TargetResolution.RES_4K
+                page,
+                project_id=P,
+                media_id=M,
+                target_resolution=TargetResolution.from_cli(resolution),
             )
     assert len(state.tokens) == (1 if len(states) == 2 else 0)
     assert page.forwarded == []
@@ -461,7 +467,7 @@ async def test_unknown_selected_resolution_refuses_before_navigation_or_paid_min
 @pytest.mark.parametrize("resolution", ["2k", "4k"])
 @pytest.mark.parametrize("outcome", ["traffic", "traffic-enum"])
 async def test_traffic_refusal_default_browser_is_terminal_without_decoding_bytes(
-    resolution, outcome
+    resolution, outcome, state
 ):
     page = Page(outcome, resolution=TargetResolution.from_cli(resolution))
     with pytest.raises(NativeQuotaError) as caught:

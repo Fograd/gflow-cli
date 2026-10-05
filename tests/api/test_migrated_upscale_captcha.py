@@ -91,7 +91,7 @@ async def test_active_4k_disabled_refuses_before_provider_mint(monkeypatch):
     page.goto = AsyncMock(side_effect=goto)
     download = SimpleNamespace(click=AsyncMock())
     target = SimpleNamespace(is_disabled=AsyncMock(return_value=True))
-    page.wait_for_selector = AsyncMock(side_effect=[download, target])
+    page.wait_for_selector = AsyncMock(side_effect=[download, target, download, target])
     monkeypatch.setattr(
         transport,
         "lookup_asset",
@@ -206,7 +206,7 @@ async def test_active_upscale_consumes_on_homepage_correlates_exact_request_and_
         is_disabled=AsyncMock(return_value=False),
         get_attribute=AsyncMock(return_value=None),
     )
-    page.wait_for_selector = AsyncMock(side_effect=[download, target])
+    page.wait_for_selector = AsyncMock(side_effect=[download, target, download, target])
 
     async def install(pattern, handler):
         if outcome == "queryless":
@@ -293,3 +293,42 @@ async def test_active_wrong_media_refuses_before_paid_mint(monkeypatch, proof):
             )
     mint.assert_not_awaited()
     assert page.goto.await_count == 1
+
+
+def test_response_match_requires_exact_project_context_slot():
+    from gflow_cli.api.image_upscale import TargetResolution
+    from gflow_cli.api.transports.migrated_upscale import matches_upscale_request
+
+    original = body(project=M)
+    fields = parse_qs(original)
+    frames = json.loads(fields["f.req"][0])
+    args = json.loads(frames[0][0][1])
+    args[2][0] = P  # unrelated cell must not establish ownership
+    frames[0][0][1] = json.dumps(args)
+    assert not matches_upscale_request(
+        urlencode({"f.req": json.dumps(frames)}),
+        media_id=M,
+        project_id=P,
+        target_resolution=TargetResolution.RES_2K,
+    )
+
+
+@pytest.mark.asyncio
+async def test_browser_once_requires_fresh_owned_image(monkeypatch):
+    from gflow_cli.api.image_upscale import TargetResolution
+    from gflow_cli.api.transports import migrated_upscale as module
+
+    monkeypatch.setattr(module, "native_captcha_active", lambda: False)
+    monkeypatch.setattr(
+        module,
+        "lookup_asset",
+        AsyncMock(return_value=SimpleNamespace(media_id=M, project_id=M, kind="image")),
+    )
+    menu = AsyncMock(side_effect=WireFormatError(detail="menu reached"))
+    monkeypatch.setattr(module, "_upscale_menu", menu)
+    page = SimpleNamespace(goto=AsyncMock())
+    with pytest.raises(WireFormatError, match="owned image"):
+        await module.upscale_image_migrated(
+            page, project_id=P, media_id=M, target_resolution=TargetResolution.RES_2K
+        )
+    menu.assert_not_awaited()

@@ -10,11 +10,13 @@ the 2K-403 -> WafRejectionError passthrough, and the base64-never-logged mandate
 from __future__ import annotations
 
 import base64
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from PIL import Image
 from structlog.testing import capture_logs
 
 from gflow_cli.api.client import MAX_UPSAMPLE_B64_LEN, FlowApiClient
@@ -26,7 +28,9 @@ if TYPE_CHECKING:
 
 _MEDIA_ID = "3a56bb5e-92a2-44f4-9992-3c6a9bf0cd14"
 _PROJECT_ID = "ffb768fb-cf2d-48b7-a135-92978667c37d"
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+_fixture = BytesIO()
+Image.new("RGB", (2752, 1536)).save(_fixture, format="PNG")
+_PNG = _fixture.getvalue()
 _PNG_B64 = base64.b64encode(_PNG).decode()
 
 
@@ -335,3 +339,63 @@ async def test_video_export_rejects_invalid_ids_before_browser(tmp_path: Path) -
             out_path=tmp_path / "original.mp4",
         )
     client._checkout_page.assert_not_awaited()  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("migrated", [False, True])
+async def test_magic_only_image_refuses_before_save(tmp_path, monkeypatch, migrated):
+    invalid = b"\x89PNG\r\n\x1a\n" + b"bad"
+    c = _client(tmp_path, post_return={"encodedImage": base64.b64encode(invalid).decode()})
+    if migrated:
+        c.settings.flow_host = "flow.google.com"
+        c._checkout_page = AsyncMock(return_value=MagicMock())
+        c._checkin_page = MagicMock()
+        monkeypatch.setattr(
+            "gflow_cli.api.transports.migrated_upscale.upscale_image_migrated",
+            AsyncMock(return_value=invalid),
+        )
+    out = tmp_path / "invalid.png"
+    with pytest.raises(WireFormatError, match="decod"):
+        await c.upsample_image(
+            media_id=_MEDIA_ID,
+            project_id=_PROJECT_ID,
+            target_resolution=TargetResolution.RES_2K,
+            out_path=out,
+        )
+    assert not out.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("resolution", "dimensions"), [("2k", (2752, 1536)), ("2k", (2048, 2048)), ("4k", (4096, 4096))]
+)
+@pytest.mark.parametrize("migrated", [False, True])
+async def test_decoded_dimensions_and_resolution_reach_all_image_paths(
+    tmp_path, monkeypatch, resolution, dimensions, migrated
+):
+    data = BytesIO()
+    Image.new("RGB", dimensions).save(data, format="PNG")
+    c = _client(tmp_path, post_return={"encodedImage": base64.b64encode(data.getvalue()).decode()})
+    target_resolution = TargetResolution.from_cli(resolution)
+    if migrated:
+        c.settings.flow_host = "flow.google.com"
+        c._checkout_page = AsyncMock(return_value=MagicMock())
+        c._checkin_page = MagicMock()
+        dispatch = AsyncMock(return_value=data.getvalue())
+        monkeypatch.setattr(
+            "gflow_cli.api.transports.migrated_upscale.upscale_image_migrated", dispatch
+        )
+    with capture_logs() as logs:
+        out = await c.upsample_image(
+            media_id=_MEDIA_ID,
+            project_id=_PROJECT_ID,
+            target_resolution=target_resolution,
+            out_path=tmp_path / "accepted.png",
+        )
+    assert out.read_bytes() == data.getvalue()
+    event = next(row for row in logs if row.get("event") == "image.upscale_completed")
+    assert (event["width"], event["height"]) == dimensions
+    if migrated:
+        assert dispatch.call_args.kwargs["target_resolution"] is target_resolution
+    else:
+        assert c._post_json.call_args.args[1]["targetResolution"] == target_resolution.value

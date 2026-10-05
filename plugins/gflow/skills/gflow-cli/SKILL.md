@@ -457,3 +457,12 @@ Generic video count1–4 provider controls: SDK services.video_captcha wrapper, 
 Image upscale2K/4K explicit REST provider controls support1–10 positively confirmed WAF-only attempts. Fresh4K availability is checked before paid mint and dispatch; unavailable Pro options refuse. Existing SDK scopes/CLI token-file/direct MCP token remain single sequence. See [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).
 
 Generic count2–4 now retains all native results through SDK generate_videos_batch, CLI, queued MCP and one REST job; partial/unknown checkpoints never replay. Multipart text fields reuse the existing HTTP JSON validators. Automatic selection applies explicitly labeled local cooldowns only to typed native quota observations; CAPTCHA latency is measured only across matched local observer phases. See [batches](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/VIDEO_BATCH.md), [forms](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/FORM_REQUESTS.md) and [scheduler](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/ACCOUNT_SCHEDULER.md).
+
+
+R07 implementation: native image2K/4K uses existing fresh menu guards and now
+verifies decoded dimensions before saving, preserving accepted2752x1536 geometry.
+Native promotion720p/1080p(default)/4k verifies exact source/output identities and
+inherited aspect; explicitly dimensionless owned videos reuse bounded R02 MP4
+measurement. Available/disabled/unknown observations never infer plan entitlement.
+Read models/capabilities first. Implementation complete, paid acceptance pending:
+accepted promotion, solver upscale and entitled4K outputs require new R12 permissions.

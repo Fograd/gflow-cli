@@ -1027,3 +1027,38 @@ CLI --reference-slot and direct MCP reference_slot_ids now expose the same mappi
 Live existing-audio final request construction passed before token mint/submission;
 current fixtures lack unsaved uploaded-audio coverage. Rendered acceptance is R12.
 See [supported inputs](NATIVE_REFERENCE_VIDEO.md#r04-supported-reference-inputs-and-implementation-closure).
+
+
+## R07 native resolution usage and limits
+
+Image `upscale` selects2k(default) or4k; video `upscale-native` selects720p,
+1080p(default) or4k. Read `image upscale-capabilities` and `video upscale-models`
+first using the exact original profile/project/source. Direct MCP mirrors these
+reads and operations; REST provides `images/upscale/capabilities` and
+`videos/upscale/models`, plus existing private operation workers. Supplied tokens
+remain confidential, exclusive and one use; provider retries are explicit and
+only positively confirmed WAF refusal can permit another attempt. Fresh ownership,
+model/target/aspect limits precede minting. Accepted/unknown work never replays.
+
+Read-only CLI example (no upscale):
+```sh
+gflow video upscale-models --profile pro2 --project PROJECT_UUID --resolution 720p --json
+```
+Read-only REST example through the workstation's existing SSH forward:
+```sh
+curl -H "Authorization: Bearer $GFLOW_DAEMON_TOKEN" \
+  'http://127.0.0.1:8844/v1/google-flow/videos/upscale/models?email=ACCOUNT_HANDLE&projectId=PROJECT_UUID&resolution=720p'
+```
+Authenticated bearer values stay private. MCP reads use
+`gflow_list_video_upscale_models(project=PROJECT_UUID,resolution="720p",profile="pro2")`
+and `gflow_get_image_upscale_capabilities(project=PROJECT_UUID,media_id=IMAGE_UUID,profile="pro2")`.
+Enabled/disabled/unknown image menu observations and available/empty/error video
+catalogs describe current scoped observations, not subscription or generation proof.
+Native promotion is distinct from export, download, GIF and local resizing.
+
+Implementation complete, paid acceptance pending. Both active video allowances
+remain exhausted. Existing accepted browser2K output is valid; new solver-backed
+upscale, accepted promotion and entitled4K outputs need separately authorized R12
+operations and solver/credit allowances. See
+[native promotion](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_VIDEO_PROMOTION.md)
+and [image capabilities](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_UPSCALE_CAPABILITIES.md).

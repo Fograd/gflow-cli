@@ -2684,7 +2684,7 @@ class FlowApiClient:
                 route="upsampleImage",
             )
         try:
-            image_bytes = base64.b64decode(encoded)
+            image_bytes = base64.b64decode(encoded, validate=True)
         except ValueError as exc:  # binascii.Error subclasses ValueError
             raise WireFormatError(
                 detail="upsampleImage returned undecodable image data",
@@ -2696,11 +2696,16 @@ class FlowApiClient:
                 detail="upscaled output is not a valid PNG/JPEG",
                 route="upsampleImage",
             )
+        from gflow_cli.api.image_upscale import decoded_upscale_dimensions
+
+        width, height = decoded_upscale_dimensions(image_bytes)
         logger.info(
             "image.upscale_completed",
             media_id=media_id,
             resolution=target_resolution.name,
             bytes=len(image_bytes),
+            width=width,
+            height=height,
         )
 
         storage_uri = self.settings.storage_uri
@@ -2732,6 +2737,9 @@ class FlowApiClient:
                 media_id=media_id,
                 target_resolution=target_resolution,
             )
+            from gflow_cli.api.image_upscale import decoded_upscale_dimensions
+
+            width, height = decoded_upscale_dimensions(image_bytes)
             storage_uri = self.settings.storage_uri
             if storage_uri:
                 key = _storage_key_from_path(out_path, self.settings.output_dir)
@@ -2746,6 +2754,8 @@ class FlowApiClient:
                 media_id=media_id,
                 resolution=target_resolution.name,
                 bytes=len(image_bytes),
+                width=width,
+                height=height,
             )
             return target
         finally:

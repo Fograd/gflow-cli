@@ -15,6 +15,7 @@ from gflow_cli.api.native_video_upscale import (
     NativePromotionStarted,
     NativeVideoUpscaleUnknownError,
     upscale_native_video,
+    validate_promotion_output,
     wait_native_promotion,
 )
 from gflow_cli.api.transports.native_asset_download import download_asset
@@ -46,7 +47,15 @@ async def _run_promotion(
         out.mkdir(parents=True, exist_ok=True)
 
         async def checkpoint(started: NativePromotionStarted) -> None:
-            write_started_checkpoint(out / "promotion-started.json", started)
+            path = out / "promotion-started.json"
+            write_started_checkpoint(path, started)
+            value = json.loads(path.read_text(encoding="utf-8"))
+            value.update(
+                target_resolution=started.target_resolution,
+                source_workflow_id=started.source_workflow_id,
+                source_aspect=started.source_aspect,
+            )
+            path.write_text(json.dumps(value), encoding="utf-8")
 
         started = await upscale_native_video(
             client,
@@ -60,16 +69,17 @@ async def _run_promotion(
         media = started.media_ids[0]
         try:
             asset = await client.get_native_asset(project, media)
-            pixels = {"720p": 720, "1080p": 1080, "4k": 2160}[started.target_resolution]
             if (
                 asset.kind != "video"
+                or asset.media_id != media
+                or asset.project_id != project
                 or asset.workflow_id != started.source_workflow_id
-                or asset.width is None
-                or asset.height is None
-                or min(asset.width, asset.height) != pixels
             ):
                 raise NativeVideoUpscaleUnknownError(started)
+            if asset.width is not None or asset.height is not None:
+                validate_promotion_output(started, asset)
             downloaded = await download_asset(asset, out)
+            validate_promotion_output(started, downloaded)
         except NativeVideoUpscaleUnknownError:
             raise
         except Exception:
@@ -84,8 +94,8 @@ async def _run_promotion(
                     "media_id": media,
                     "workflow_id": asset.workflow_id,
                     "local_path": str(downloaded.path),
-                    "width": asset.width,
-                    "height": asset.height,
+                    "width": downloaded.width,
+                    "height": downloaded.height,
                 }
             ],
         }

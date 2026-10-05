@@ -1,5 +1,6 @@
 """Native promotion completion verifies dimensions before exposing downloaded output."""
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -28,7 +29,13 @@ async def test_completion_checks_target_and_no_protected_url(monkeypatch, tmp_pa
         async def get_native_asset(self, project, media):
             assert (project, media) == (P, started.media_ids[0])
             return SimpleNamespace(
-                kind="video", workflow_id=W, width=1280, height=height, url="secret-signed-url"
+                kind="video",
+                media_id=media,
+                project_id=project,
+                workflow_id=W,
+                width=1280,
+                height=height,
+                url="secret-signed-url",
             )
 
     monkeypatch.setattr(module, "FlowApiClient", lambda **kwargs: Client())
@@ -43,7 +50,17 @@ async def test_completion_checks_target_and_no_protected_url(monkeypatch, tmp_pa
 
     monkeypatch.setattr(module, "upscale_native_video", submit)
     monkeypatch.setattr(module, "wait_native_promotion", AsyncMock(return_value=()))
-    download = AsyncMock(return_value=SimpleNamespace(path=tmp_path / "result.mp4"))
+    download = AsyncMock(
+        return_value=SimpleNamespace(
+            path=tmp_path / "result.mp4",
+            kind="video",
+            media_id=started.media_ids[0],
+            project_id=P,
+            workflow_id=W,
+            width=1280,
+            height=height,
+        )
+    )
     monkeypatch.setattr(module, "download_asset", download)
     if height == 360:
         with pytest.raises(NativeVideoUpscaleUnknownError):
@@ -63,3 +80,7 @@ async def test_completion_checks_target_and_no_protected_url(monkeypatch, tmp_pa
         )
         assert result["results"][0]["height"] == 720 and "secret" not in str(result)
         assert (tmp_path / "promotion-started.json").is_file()
+        assert (
+            json.loads((tmp_path / "promotion-started.json").read_text())["target_resolution"]
+            == "720p"
+        )

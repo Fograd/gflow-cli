@@ -154,3 +154,32 @@ def build_upsample_image_body(
             "userPaygateTier": user_paygate_tier,
         },
     }
+
+
+def decoded_upscale_dimensions(content: bytes) -> tuple[int, int]:
+    """Verify synchronous image bytes, without inventing a target geometry rule."""
+    import warnings
+    from io import BytesIO
+
+    from PIL import Image
+
+    from gflow_cli.errors import WireFormatError
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(content)) as image:
+                if image.format not in {"PNG", "JPEG"}:
+                    raise ValueError
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > 64_000_000:
+                    raise ValueError
+                image.verify()
+            with Image.open(BytesIO(content)) as image:
+                image.load()
+        return width, height
+    except Exception:
+        raise WireFormatError(
+            detail="Upscaled image could not be decoded with valid bounded dimensions",
+            route="upsampleImage",
+        ) from None

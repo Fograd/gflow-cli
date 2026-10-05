@@ -89,16 +89,12 @@ def matches_upscale_request(
             return False
         if type(args[1]) is not int or args[1] != native_upscale_enum(target_resolution):
             return False
-        pending: list[Any] = [args[2]]
-        while pending:
-            value = pending.pop()
-            if value == project_id:
-                return True
-            if isinstance(value, list):
-                pending.extend(cast("list[Any]", value))
-            elif isinstance(value, dict):
-                pending.extend(cast("dict[str, Any]", value).values())
-        return False
+        context = args[2]
+        return (
+            isinstance(context, list)
+            and len(cast("list[Any]", context)) > 5
+            and cast("list[Any]", context)[5] == project_id
+        )
     except (KeyError, IndexError, TypeError, ValueError):
         return False
 
@@ -389,20 +385,18 @@ async def upscale_image_migrated(
     detail_url = f"{project_url}/edit/{media_id}"
     override = None
     context = copy_context()
+    await page.goto(project_url, wait_until="domcontentloaded")
+    owned = await lookup_asset(page, project_id=project_id, media_id=media_id)
+    if owned.media_id != media_id or owned.project_id != project_id or owned.kind != "image":
+        raise WireFormatError(
+            detail="Image upscale requires fresh selected-project owned image proof",
+            route="image_upscale",
+        )
     if native_captcha_active():
+        # Both targets must be currently enabled before a paid mint; recheck after mint.
+        await page.goto(detail_url, wait_until="domcontentloaded")
+        await _upscale_menu(page, target_resolution)
         await page.goto(project_url, wait_until="domcontentloaded")
-        owned = await lookup_asset(page, project_id=project_id, media_id=media_id)
-        if owned.media_id != media_id or owned.project_id != project_id or owned.kind != "image":
-            raise WireFormatError(
-                detail="Explicit image upscale requires fresh selected-project owned image proof",
-                route="image_upscale",
-            )
-        if target_resolution is TargetResolution.RES_4K:
-            # A source-proven enum does not establish this account's entitlement.
-            # Probe fresh UI availability before paid mint, then recheck after mint.
-            await page.goto(detail_url, wait_until="domcontentloaded")
-            await _upscale_menu(page, target_resolution)
-            await page.goto(project_url, wait_until="domcontentloaded")
         token = await TokenMinter(page).mint("IMAGE_GENERATION")
         override = UpscaleOverride(
             project=project_id, media=media_id, token=token, target_resolution=target_resolution

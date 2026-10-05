@@ -474,3 +474,26 @@ record the exact terminal class and context evidence, then continue independent
 read-only cases. No repeated refusal experiment is justified without a concrete
 new defect or new authorized distinguishing hypothesis. Google refusal cause and
 successful voice cost remain unknown; solver issuance cannot establish either.
+
+
+## R07 paid acceptance pending — minimal R12 plan
+
+R07 implementation/preparation evidence is complete; its full paid acceptance is
+not passed. Reuse browser2K output evidence. Preserve original pro2/pro3 profiles,
+keep pro1disabled/UseAPI-only and do not change registrations or copy cookies.
+
+| Additional explicit permission | One bounded test and acceptance |
+|---|---|
+| One native720p promotion on a measured360p source, video credit allowance and solver task only if provider selected | Fresh account/model/source/target reads; one submission; exact output/workflow handle and decoded1280x720 or720x1280 with inherited aspect |
+| One native1080p promotion and its credit/provider allowance | Same single-submission proof, decoded1920x1080 or1080x1920 |
+| One provider-backed native image2K upscale plus one solver task | Existing source, exact request binding, acknowledgement and actual decoded dimensions; browser2K need not be repeated |
+| One native image4K upscale, separately enabled entitlement, credit and optional solver task | Fresh enabled menu before mint; image enum2; decode/report actual dimensions and quality without guessed fixed edges |
+| One native video4K promotion, fresh enabled model/tier entitlement, credits and optional solver task | Source/target proof; video enum3; exact handles and decoded3840x2160 or2160x3840 |
+
+These permissions are absent now; both active video allowances are exhausted and
+no entitled4K account/output has been demonstrated. Never consume a solver task
+for an unavailable/unknown capability. Retry is off; a confirmed-WAF retry needs
+its own explicit total-attempt allowance. Accepted/partial/unknown work and later
+validation/download failures retain handles and stop, without replay. Fixture
+upload/cleanup uses only a clearly identified invocation-owned source if needed;
+original assets remain untouched.

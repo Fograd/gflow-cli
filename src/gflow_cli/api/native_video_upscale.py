@@ -8,7 +8,7 @@ from __future__ import annotations
 # Internal helpers shared across the native RPC adapter boundary.
 # pyright: reportPrivateUsage=false, reportUnnecessaryIsInstance=false
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
@@ -57,17 +57,14 @@ class NativeVideoUpscaleUnknownError(NativeExtensionUnknownError):
 class NativePromotionStarted(NativeExtensionStarted):
     source_workflow_id: str = ""
     target_resolution: str = "1080p"
+    source_aspect: str | None = None
 
 
 def new_promotion_started(
     project: str, media: str, workflow: str, resolution: str = "1080p"
 ) -> NativePromotionStarted:
     project, media, workflow = _uuid(project), _uuid(media), _uuid(workflow)
-    if (
-        len({project, media, workflow}) != 3
-        or not isinstance(resolution, str)
-        or resolution not in TARGETS
-    ):
+    if len({project, media, workflow}) != 3 or resolution not in TARGETS:
         raise ConfigurationError(
             detail="Native promotion requires distinct source identities and a supported target"
         )
@@ -83,6 +80,8 @@ def promotion_args(
     if (
         not isinstance(resolution, str)
         or resolution not in TARGETS
+        or resolution != started.target_resolution
+        or (started.source_aspect is not None and aspect != started.source_aspect)
         or aspect not in {"16:9", "9:16"}
     ):
         raise ConfigurationError(
@@ -129,11 +128,7 @@ def promotion_args(
 
 
 def parse_promotion_models(payload: Any, *, tier: int, resolution: str) -> list[dict[str, Any]]:
-    if (
-        not isinstance(resolution, str)
-        or not isinstance(resolution, str)
-        or resolution not in TARGETS
-    ):
+    if not isinstance(resolution, str) or resolution not in TARGETS:
         raise ConfigurationError(detail="Native promotion target must be 720p,1080p or4k")
     enum, task = TARGETS[resolution]
     rows = parse_extension_models(payload, tier=tier, required_requirements=(task,))
@@ -160,11 +155,7 @@ async def list_native_promotion_models(
     client: FlowApiClient, project_id: str, *, resolution: str = "1080p"
 ) -> list[dict[str, Any]]:
     project = _uuid(project_id)
-    if (
-        not isinstance(resolution, str)
-        or not isinstance(resolution, str)
-        or resolution not in TARGETS
-    ):
+    if not isinstance(resolution, str) or resolution not in TARGETS:
         raise ConfigurationError(detail="Native promotion target must be 720p,1080p or4k")
     page = await client._checkout_page()
     try:
@@ -187,7 +178,7 @@ class PromotionSource:
     height: int
 
 
-def promotion_source(snapshot: Any, metadata: Any, *, project: str, media: str) -> PromotionSource:
+def _promotion_workflow(snapshot: Any, metadata: Any, *, project: str, media: str) -> str:
     rows = parse_media_snapshot(snapshot, project)["media"]
     matches = [row for row in rows if row["media_id"] == media and row["kind"] == "video"]
     if len(matches) != 1:
@@ -211,8 +202,13 @@ def promotion_source(snapshot: Any, metadata: Any, *, project: str, media: str) 
         or (len(row) > 10 and row[10] is not None)
     ):
         raise ValueError("Native promotion source identity/type is ambiguous")
+    return workflow
+
+
+def promotion_source(snapshot: Any, metadata: Any, *, project: str, media: str) -> PromotionSource:
+    workflow = _promotion_workflow(snapshot, metadata, project=project, media=media)
     try:
-        dimensions = row[7][1]
+        dimensions = metadata[7][1]
         width, height = dimensions[:2]
     except (TypeError, IndexError, KeyError, ValueError):
         raise ValueError("Native promotion source dimensions are unavailable") from None
@@ -226,6 +222,24 @@ async def read_promotion_source(page: Any, *, project_id: str, media_id: str) ->
     metadata = await native_rpc(
         page, "as29s", [media_id], "/project/" + project_id, require_single=True
     )
+    workflow = _promotion_workflow(snapshot, metadata, project=project_id, media=media_id)
+    if (
+        isinstance(metadata[7], list)
+        and len(metadata[7]) > 1
+        and isinstance(metadata[7][1], list)
+        and metadata[7][1][:2] == [None, None]
+    ):
+        from gflow_cli.api.transports.native_asset_lookup import existing_asset
+
+        asset = existing_asset(
+            metadata,
+            project_id=project_id,
+            media_id=media_id,
+            workflow_id=workflow,
+            kind="video",
+        )
+        width, height = await _measured_dimensions(asset)
+        return PromotionSource("video", workflow, width, height)
     return promotion_source(snapshot, metadata, project=project_id, media=media_id)
 
 
@@ -254,7 +268,7 @@ async def upscale_native_video(
             source = await read_promotion_source(page, project_id=project, media_id=media)
         except ValueError:
             raise ConfigurationError(
-                detail="Native promotion source ownership could not be verified"
+                detail="Native promotion source ownership or dimensions could not be verified"
             ) from None
         if source.kind != "video":
             raise ConfigurationError(detail="Native promotion requires a freshly owned typed video")
@@ -287,7 +301,10 @@ async def upscale_native_video(
                 detail="No available promotion model matches this source and target"
             )
         selected = min(candidates, key=lambda x: (x["credits"], x["model_key"]))
-        started = new_promotion_started(project, media, source.workflow_id, resolution)
+        started = replace(
+            new_promotion_started(project, media, source.workflow_id, resolution),
+            source_aspect=aspect,
+        )
         from gflow_cli.api._engine import mint_evaluate_kwargs
         from gflow_cli.api.recaptcha import TokenMinter
 
@@ -354,10 +371,63 @@ async def upscale_native_video(
         client._checkin_page(page)
 
 
+async def _measured_dimensions(asset: Any) -> tuple[int, int]:
+    """R02 measurement of a strict owned MP4; temporary copies never become outputs."""
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    from gflow_cli.api.transports.native_asset_download import download_asset
+
+    with TemporaryDirectory(prefix="gflow-promotion-measure-") as directory:
+        measured = await download_asset(asset, Path(directory))
+        return measured.width, measured.height
+
+
+def validate_promotion_output(started: NativePromotionStarted, asset: Any) -> None:
+    """Exact identities and target geometry; no crop or aspect coercion."""
+    width, height = asset.width, asset.height
+    pixels = {"720p": 720, "1080p": 1080, "4k": 2160}.get(started.target_resolution)
+    aspect = (
+        "16:9"
+        if type(width) is int and type(height) is int and width * 9 == height * 16
+        else "9:16"
+        if type(width) is int and type(height) is int and width * 16 == height * 9
+        else None
+    )
+    if (
+        asset.kind != "video"
+        or asset.media_id != started.media_ids[0]
+        or asset.project_id != started.project_id
+        or asset.workflow_id != started.source_workflow_id
+        or type(width) is not int
+        or type(height) is not int
+        or min(width, height) != pixels
+        or aspect is None
+        or (started.source_aspect is not None and aspect != started.source_aspect)
+    ):
+        raise NativeVideoUpscaleUnknownError(started)
+
+
 async def wait_native_promotion(
     client: FlowApiClient, started: NativePromotionStarted, *, timeout_s: float = 600
 ) -> tuple[Any, ...]:
     try:
-        return await wait_native_extension(client, started, timeout_s=timeout_s)
-    except NativeExtensionUnknownError:
+        records = await wait_native_extension(client, started, timeout_s=timeout_s)
+        asset = await client.get_native_asset(started.project_id, started.media_ids[0])
+        # Refuse foreign/type contradictions before any download; lookup is fresh owned.
+        if (
+            asset.kind != "video"
+            or asset.media_id != started.media_ids[0]
+            or asset.project_id != started.project_id
+            or asset.workflow_id != started.source_workflow_id
+        ):
+            raise NativeVideoUpscaleUnknownError(started)
+        if asset.width is None and asset.height is None:
+            width, height = await _measured_dimensions(asset)
+            asset = replace(asset, width=width, height=height)
+        validate_promotion_output(started, asset)
+        return records
+    except NativeVideoUpscaleUnknownError:
+        raise
+    except Exception:
         raise NativeVideoUpscaleUnknownError(started) from None

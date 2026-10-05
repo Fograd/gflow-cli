@@ -18,7 +18,7 @@ WORKFLOW = "33333333-3333-4333-8333-333333333333"
 
 @pytest.mark.parametrize(("target", "enum"), [("720p", 1), ("1080p", 2), ("4k", 3)])
 def test_promotion_dto_and_source_workflow(target, enum):
-    started = new_promotion_started(PROJECT, MEDIA, WORKFLOW)
+    started = new_promotion_started(PROJECT, MEDIA, WORKFLOW, target)
     args = promotion_args(
         started, model_key="native-upsample", aspect="16:9", resolution=target, token="test-token"
     )

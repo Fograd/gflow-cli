@@ -505,3 +505,12 @@ generic audio is not automatically a saved voice. Public native model catalogs
 expose max_characters alongside image/audio pools; duplicate capacities refuse.
 Existing-audio final-request preflight passed without token mint/submission.
 Live unsaved uploaded-audio cohort coverage remains unavailable; rendering is R12.
+
+
+R07 implementation: native image2K/4K uses existing fresh menu guards and now
+verifies decoded dimensions before saving, preserving accepted2752x1536 geometry.
+Native promotion720p/1080p(default)/4k verifies exact source/output identities and
+inherited aspect; explicitly dimensionless owned videos reuse bounded R02 MP4
+measurement. Available/disabled/unknown observations never infer plan entitlement.
+Read models/capabilities first. Implementation complete, paid acceptance pending:
+accepted promotion, solver upscale and entitled4K outputs require new R12 permissions.

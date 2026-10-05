@@ -1069,3 +1069,29 @@ claim an all-green whole-suite run. See [the precise test record](VERIFICATION.m
 Accepted CapSolver REST and queued MCP text images remain confirmed; unperformed
 native video/voice/upscale acceptance stays R12. No new paid request or generation
 occurred. See [coverage](CAPTCHA.md#r06-coverage-and-evidence).
+
+
+### R07 implementation closure — 5 October 2026
+
+Implementation complete, paid acceptance pending. Native image2K/4K keeps the
+existing dispatch/menu guards and now verifies decoded dimensions before saving;
+ordinary browser requests share fresh source ownership and exact project-field
+correlation. Promotion720p/1080p(default)/4k retains fresh tier/model/source proof,
+source/account/project binding and supplied-token/provider policy. Strictly owned
+videos with explicitly absent dimensions reuse bounded R02 measurement; partial
+or malformed data and unsupported aspects refuse before mint. SDK completion now
+checks exact owned output target/aspect as well as the private worker's decoded
+MP4 checks. Checkpoint target and dispatch target cannot disagree.
+
+Real pro2 synthetic640x360-to720p request preparation passed with zero real token
+mints or generation RPCs; its fixture alone was archived and originals retained.
+Fresh models exposed 720p:1, 1080p:1, 4k:0. The original pro3 video with
+absent metadata dimensions measured 720x1280 and passed exact portrait1080p
+request preparation with zero real mints/submissions; the original was preserved.
+Browser2K acceptance is reused.
+Exports/downloads/GIF/local resizing do not establish native resolution promotion.
+Full R07 acceptance remains unchecked: accepted video promotion, solver-backed
+upscale and entitled image/video4K outputs require new bounded R12 permissions;
+both active video allowances remain exhausted. See
+[NATIVE_VIDEO_PROMOTION.md](NATIVE_VIDEO_PROMOTION.md) and
+[IMAGE_UPSCALE_CAPABILITIES.md](IMAGE_UPSCALE_CAPABILITIES.md).

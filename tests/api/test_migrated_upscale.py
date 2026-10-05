@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import urlencode
 
@@ -21,6 +22,14 @@ from gflow_cli.errors import (
 
 _PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 _PNG_B64 = base64.b64encode(_PNG_BYTES).decode("ascii")
+
+
+@pytest.fixture(autouse=True)
+def fresh_owned_source(monkeypatch):
+    async def lookup(page, *, project_id, media_id):
+        return SimpleNamespace(media_id=media_id, project_id=project_id, kind="image")
+
+    monkeypatch.setattr("gflow_cli.api.transports.migrated_upscale.lookup_asset", lookup)
 
 
 def _make_sprcad_body(b64_data: str) -> str:
@@ -98,7 +107,14 @@ async def test_migrated_upscale_2k_happy_path() -> None:
                                     [
                                         "31d7f80f-8cf0-47db-b730-e5e46bb0c316",
                                         1,
-                                        {"project": "263ce917-9e5a-4a07-8206-7e56a63bcdd4"},
+                                        [
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            "263ce917-9e5a-4a07-8206-7e56a63bcdd4",
+                                        ],
                                     ]
                                 ),
                                 None,
@@ -308,7 +324,14 @@ async def test_migrated_upscale_rpc_error_raises_wireformat() -> None:
                                     [
                                         "31d7f80f-8cf0-47db-b730-e5e46bb0c316",
                                         1,
-                                        {"project": "263ce917-9e5a-4a07-8206-7e56a63bcdd4"},
+                                        [
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            "263ce917-9e5a-4a07-8206-7e56a63bcdd4",
+                                        ],
                                     ]
                                 ),
                                 None,
@@ -365,7 +388,9 @@ def test_upscale_response_correlates_request(media, project, resolution, expecte
                     [
                         [
                             "SPrCad",
-                            json.dumps([media, resolution, {"project": project}]),
+                            json.dumps(
+                                [media, resolution, [None, None, None, None, None, project]]
+                            ),
                             None,
                             "generic",
                         ]

@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### R07 resolution promotion safeguards
+
+- Reuse bounded owned MP4 measurement when promotion metadata explicitly omits dimensions.
+- Verify native promotion output identity, target and inherited aspect in SDK and workers;
+  bind checkpoint targets to dispatch and retain handles on uncertain completion.
+- Require fresh browser-upscale source ownership and exact native project context;
+  fully decode image output and record actual dimensions before saving.
+- Preserve browser2K evidence and distinguish implemented controls from pending paid R12 acceptance.
+
 ### R06 CAPTCHA safeguards
 
 - Reject supplied-token/provider conflicts in generic video, private workers and

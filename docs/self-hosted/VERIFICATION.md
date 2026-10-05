@@ -2047,3 +2047,39 @@ or audio preview. Both original pro2/pro3 video allowances remain exhausted;
 pro1 disabled/UseAPI-only. Keys, registrations and original assets are preserved.
 See [coverage](CAPTCHA.md#r06-coverage-and-evidence) and
 [the separate permission-backed R12 plan](FINAL_E2E.md#r06-operation-specific-r12-campaign).
+
+
+### R07 implementation verification — 5 October 2026
+
+Implementation complete, paid acceptance pending. Final focused regression group:
+123 passed in 4.45 seconds after the image2K/4K pre-mint menu guard correction.
+Earlier composed R07 coverage: 234 passed in 6.96 seconds. The required whole
+repository run reported 8,093 passed, 3 failed, 7 skipped, 27 warnings in270.34
+seconds and89.93% coverage. Failures were subprocess uv missing from PATH, the
+stale generated plugin skill mirror, and the unchanged virtualized picker test
+previously recorded under R06. The mirror was regenerated and the affected
+packaging/plugin/picker tests passed with the correct PATH in isolation:
+20 passed in78.93 seconds.
+No all-green whole-suite result is claimed.
+
+The real original pro2 synthetic640x360 source passed native720p request
+preparation (1 passed,2 warnings in27.66s), stopping before real mint/submission.
+Only the synthetic fixture was archived. The original pro3 video with absent
+metadata dimensions measured720x1280 and passed exact portrait1080p preparation
+(1 passed,1 deselected,2 warnings in16.93s); the original was preserved. Both
+checks used a local fake mint and raised at the durable submission checkpoint
+before sending the operation RPC. Neither created a solver task or generation.
+
+Fresh Mac localhost REST and MCP reads for original pro2/pro3 showed one720p
+and one1080p promotion model, no4K promotion model, available image2K and disabled
+image4K. All four applicable MCP schemas were checked among43 registered tools,
+including default1080p and existing supplied/provider controls. Provider
+statistics were unchanged. This proves deployed interfaces and current
+capabilities; it does not prove accepted promoted outputs.
+
+Whole-source Ruff lint/format, strict Pyright, repository hygiene, documentation
+links, published-doc privacy, website/plugin mirrors and council-reference
+checks passed before publication. The duplication proxy found only
+pre-existing duplicates in untouched files. Independent implementation reviews
+approved the corrected diff. Accepted native video, solver-backed image upscale
+and entitled4K output tests remain separately permissioned R12.
