@@ -11,7 +11,7 @@ from gflow_cli.api.client import FlowApiClient
 from gflow_cli.config import get_settings
 from gflow_cli.errors import ConfigurationError
 from gflow_cli.profile_store import read_account_file
-from gflow_cli.services.inventory_sync import sync_native_inventory
+from gflow_cli.services.inventory_sync import sync_inventory_session
 
 
 @click.command("sync")
@@ -49,21 +49,12 @@ def sync_subcommand(
             raise ConfigurationError(
                 detail="Native inventory sync requires a recorded account identity"
             )
-        async with FlowApiClient(
+        client = FlowApiClient(
             profile_dir=settings.profile_subdir(resolved), headless=settings.headless
-        ) as client:
-            try:
-                result = await sync_native_inventory(
-                    client,
-                    settings.home / "native_inventory",
-                    profile=resolved,
-                    account=account,
-                    max_steps=max_steps,
-                    max_seconds=max_seconds,
-                    restart=restart,
-                )
-            except ValueError as exc:
-                raise ConfigurationError(detail=str(exc)) from None
+        )
+        result = await sync_inventory_session(
+            client, max_steps=max_steps, max_seconds=max_seconds, restart=restart
+        )
         if as_json:
             json_output.emit({"status": "ok", **result})
         else:

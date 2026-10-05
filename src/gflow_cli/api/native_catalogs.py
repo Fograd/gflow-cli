@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 from gflow_cli.api.transports.migrated_catalog import parse_native_characters, parse_native_voices
 from gflow_cli.api.transports.migrated_projects import MAX_CURSOR_LENGTH, list_projects
-from gflow_cli.api.transports.migrated_resources import project_media, read_project_payload
+from gflow_cli.api.transports.migrated_resources import (
+    normalize_empty_catalog,
+    project_media,
+    read_project_payload,
+)
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.api.transports.native_voices import parse_saved_voices, validate_identifier
 from gflow_cli.errors import ConfigurationError, WireFormatError
@@ -246,10 +250,8 @@ async def _catalog_observations(
     catalogs: list[dict[str, Any]] = []
     counts = {"media": 0, "workflows": 0, "characters": 0, "user_voices": 0}
     for project in projects[:budget]:
-        payload = (
-            await read_project_payload(page, project, require_request_project=True)
-            if resume
-            else await read_project_payload(page, project)
+        payload = await read_project_payload(
+            page, project, require_request_project=True, allow_empty_catalog=True
         )
         catalog = project_catalog_snapshot(payload, project)
         if catalog["project_id"] != project:
@@ -270,6 +272,7 @@ async def _catalog_observations(
 def project_catalog_snapshot(payload: Any, project_id: str) -> dict[str, Any]:
     """One fresh owned payload, URL-free typed observations with exact row counts."""
     project = validate_identifier(project_id)
+    payload = normalize_empty_catalog(payload)
     media = parse_media_snapshot(payload, project, include_attached=True)["media"]
     workflows = project_media(payload, project)
     seen_workflows: set[str] = set()

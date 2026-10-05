@@ -1,5 +1,6 @@
 """REST bounded resumable sync controls; no generation dispatch."""
 
+import hashlib
 import json
 
 import pytest
@@ -36,6 +37,9 @@ def api(tmp_path, monkeypatch):
         ).encode()
 
     monkeypatch.setattr("gflow_cli.selfhost.server.subprocess_run", run)
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.account_marker.read_verified_account", lambda _: "actual@example.test"
+    )
     cfg = Settings(
         token="test-token",
         root=tmp_path,
@@ -56,7 +60,12 @@ def test_sync_resumes_explicit_profile_with_bounded_controls(api):
     assert response.json()["complete"] is None
     argv, timeout = calls[0]
     assert argv[3:5] == ["inventory-sync", "one"]
-    assert json.loads(argv[5]) == {"max_steps": 2, "max_seconds": 30, "restart": False}
+    assert json.loads(argv[5]) == {
+        "max_steps": 2,
+        "max_seconds": 30,
+        "restart": False,
+        "expected_account_sha256": hashlib.sha256(b"actual@example.test").hexdigest(),
+    }
     assert timeout == 75
 
 
@@ -102,18 +111,42 @@ async def test_account_wide_sync_worker_does_not_require_project_id(monkeypatch)
         async def __aexit__(self, *args):
             pass
 
-    async def sync(client, root, **kwargs):
-        assert kwargs["profile"] == "one"
-        assert kwargs["account"] == "actual@example.test"
-        assert kwargs["max_steps"] == 1
-        return {"steps_read": 1, "complete": None}
+        async def sync_native_inventory(self, **kwargs):
+            assert kwargs["max_steps"] == 1
+            return {"steps_read": 1, "complete": None}
 
     monkeypatch.setattr(native_worker, "FlowApiClient", FakeClient)
     monkeypatch.setattr(
         "gflow_cli.profile_store.read_account_file", lambda _: "actual@example.test"
     )
-    monkeypatch.setattr("gflow_cli.services.inventory_sync.sync_native_inventory", sync)
+    monkeypatch.setattr(
+        "gflow_cli.services.account_resources.account_resource_scope",
+        lambda _: (None, "one", "actual@example.test"),
+    )
     result = await native_worker.execute(
-        "inventory-sync", "one", {"max_steps": 1, "max_seconds": 30}
+        "inventory-sync",
+        "one",
+        {
+            "max_steps": 1,
+            "max_seconds": 30,
+            "expected_account_sha256": hashlib.sha256(b"actual@example.test").hexdigest(),
+        },
     )
     assert result["status"] == "ok" and result["steps_read"] == 1
+
+
+def test_sync_changed_principal_does_not_publish(api, monkeypatch):
+    client, calls = api
+    identities = iter(["actual@example.test", "different@example.test"])
+    monkeypatch.setattr(
+        "gflow_cli.selfhost.account_marker.read_verified_account", lambda _: next(identities)
+    )
+    response = client.post("/v1/google-flow/assets/sync/account-one", headers=AUTH, json={})
+    assert response.status_code == 409 and len(calls) == 1
+
+
+def test_sync_missing_principal_refuses_before_worker(api, monkeypatch):
+    client, calls = api
+    monkeypatch.setattr("gflow_cli.selfhost.account_marker.read_verified_account", lambda _: None)
+    response = client.post("/v1/google-flow/assets/sync/account-one", headers=AUTH, json={})
+    assert response.status_code == 409 and calls == []

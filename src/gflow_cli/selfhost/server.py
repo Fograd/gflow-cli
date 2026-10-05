@@ -1358,6 +1358,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         email: str, payload: Annotated[dict[str, Any], Depends(parse_payload)]
     ) -> dict[str, Any]:
         """Fork extension: bounded read-only traversal with private resumable checkpoints."""
+        from gflow_cli.selfhost.account_resource_routes import capture_bound_scope
         from gflow_cli.services.inventory_sync import validate_sync_options
 
         if set(payload) - {"maxSteps", "maxSeconds", "restart"}:
@@ -1370,6 +1371,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         profile = pick_account(email, [])
+        expected_scope = capture_bound_scope(cfg, store, profile, email)
         code, raw = await subprocess_run(
             [
                 sys.executable,
@@ -1378,11 +1380,21 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "inventory-sync",
                 profile,
                 json.dumps(
-                    {"max_steps": max_steps, "max_seconds": max_seconds, "restart": restart}
+                    {
+                        "max_steps": max_steps,
+                        "max_seconds": max_seconds,
+                        "restart": restart,
+                        "expected_account_sha256": expected_scope,
+                    }
                 ),
             ],
             max_seconds + 45,
         )
+        if (
+            pick_account(email, []) != profile
+            or capture_bound_scope(cfg, store, profile, email) != expected_scope
+        ):
+            raise HTTPException(409, "Account scope changed during inventory synchronization")
         try:
             result = parse_json_output(raw)
             if code or result.get("status") != "ok" or result.get("complete") is not None:

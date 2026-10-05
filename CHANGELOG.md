@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### R03 inventory synchronization
+
+- Preserve all observed media attachment and character workflow relationships across catalogs and fresh scans.
+- Add scoped SDK synchronization reused by CLI/MCP/REST with recorded-principal checks before browser reads, commits and publication.
+- Report scan/checkpoint progress, current traversal pages and retained distinct identity counts separately from unknown global completeness.
+- Accept the measured correlated null empty-project catalog for observations while keeping strict ownership/mutation reads unchanged.
+
+
 - Fix saved-voice alias registration for the actual typed detail contract; complete R02 existing-voice lookup/playback proof and document the Google-rejected backend creation limitation.
 
 

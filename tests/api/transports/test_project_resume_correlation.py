@@ -54,3 +54,39 @@ async def test_unrelated_empty_reply_is_ignored_before_accepting_correlated_repl
     unrelated.text.assert_not_awaited()
     selected.text.assert_awaited_once()
     page.remove_listener.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("allow_empty", [False, True])
+async def test_measured_null_catalog_requires_opt_in_and_correlated_reply(monkeypatch, allow_empty):
+    wanted = [None, None, None, [], None, None, None, []]
+    selected = SimpleNamespace(
+        status=200,
+        url=BASE + "&source-path=/project/" + P,
+        headers={},
+        text=AsyncMock(return_value=json.dumps(wanted)),
+    )
+    listeners = {}
+    page = SimpleNamespace(
+        on=Mock(side_effect=lambda event, cb: listeners.update({event: cb})), remove_listener=Mock()
+    )
+
+    async def goto(url):
+        await listeners["response"](selected)
+
+    page.goto = AsyncMock(side_effect=goto)
+    monkeypatch.setattr(module, "parse_frames", lambda raw: [("Zzl0ze", json.loads(raw))])
+    if allow_empty:
+        result = await module.read_project_payload(
+            page, P, require_request_project=True, allow_empty_catalog=True
+        )
+        assert result == [None, [], [], [], None, None, None, []]
+    else:
+        with pytest.raises(ValueError, match="unsupported shape"):
+            await module.read_project_payload(page, P, require_request_project=True)
+
+
+@pytest.mark.asyncio
+async def test_empty_catalog_opt_in_refuses_without_exact_request_scope():
+    with pytest.raises(ValueError, match="exact project"):
+        await module.read_project_payload(None, P, allow_empty_catalog=True)

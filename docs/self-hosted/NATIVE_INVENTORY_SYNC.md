@@ -43,3 +43,55 @@ A real authenticated SDK BDD on 4 October performed two one-step calls sharing
 a checkpoint: the second advanced the version and committed a project catalog.
 Metadata remained URL-free, completeness null, and zero generation RPCs were sent.
 This establishes resume, not complete account visibility.
+
+## R03 supported traversal and progress
+
+Prefer the scoped SDK entry point, which derives the profile and recorded principal
+from the client's private configuration and rechecks it before reads, commits and
+publication:
+
+```python
+async with FlowApiClient(profile_dir=settings.profile_subdir("authorised-profile")) as client:
+    progress = await client.sync_native_inventory(max_steps=10, max_seconds=180)
+    # Repeat until progress["traversal_finished"], or explicitly restart a fresh scan.
+```
+
+CLI, direct MCP and REST use that same method and private checkpoint. CLI/MCP check
+the recorded principal before and after browser opening. REST captures the exact
+registered profile/principal before dispatch and checks it again before returning.
+A changed or missing principal refuses; this consistency check is not a new Google
+identity attestation. Use an explicitly authorised profile or registered REST handle.
+
+`steps_read` counts successful reads in this call. `checkpoint_version` advances
+only on committed work, including an explicit restart. `scan_id` changes on restart.
+`project_pages_read`, `history_pages_read`, and `catalog_projects_read` describe the
+current traversal. Legacy checkpoints start the new page counters at zero on upgrade and increment
+them during resumed reads; earlier reads are not backfilled. They retain their
+previous progress and observations.
+
+`observations` retains the existing per-scope counts across scans.
+`retained_unique_counts` counts distinct native identities per resource kind across
+all scopes and retained scans; do not add scope counts to infer unique resources.
+These are observations, not a claim that old rows were visible in this scan.
+`pending_project_count` and the two pagination flags distinguish pending catalogs
+from additional discovery/history pages. `traversal_finished` requires both observed
+pagination streams and all pending catalogs to finish. `complete` remains null and
+`deletion_authority` false, including after traversal finishes.
+
+Media keeps its original `project_id`, `workflow_id`, and the union of observed
+`attached_to_project_ids`. The legacy singular `attached_to_project_id` records the
+most recently observed attachment; use the plural list for retained relationships.
+Character `workflow_ids` also retain the union of previously observed references.
+No absent row or absent relationship automatically deletes anything.
+
+Catalog reads accept the measured eight-slot empty-project response with null
+project/timeline/media collections only when the native request is successful and
+correlated to the exact selected project. Normalisation applies only to catalog
+observations; strict ownership and mutation readers retain their existing rules.
+Unknown or mixed response shapes refuse and leave the catalog pending.
+
+A failed read preserves earlier commits. A Google-invalidated cursor or unsupported
+catalog remains an explicit error, not traversal completion. If a fresh scan is
+needed, use `--restart` / `restart=true`; previously retained observations survive.
+Google's catalog/history visibility does not establish every historical, hidden,
+shared, deleted or otherwise inaccessible resource, or a point-in-time snapshot.

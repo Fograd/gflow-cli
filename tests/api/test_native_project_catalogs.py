@@ -13,6 +13,26 @@ from tests.api.transports.test_character_details import E, P, fixture
 P2 = "99999999-9999-4999-8999-999999999999"
 
 
+def test_measured_null_empty_catalog_is_observation_not_mutation_authority():
+    from gflow_cli.api.transports.migrated_resources import project_media
+
+    payload = [None, None, None, [], None, None, None, []]
+    result = module.project_catalog_snapshot(payload, P)
+    assert result["counts"] == {"media": 0, "workflows": 0, "characters": 0, "user_voices": 0}
+    assert result["complete"] is None
+    assert payload[1] is payload[2] is None
+    with pytest.raises(ValueError, match="unsupported shape"):
+        project_media(payload, P)
+
+
+@pytest.mark.parametrize("index,value", [(1, "bad"), (2, "bad"), (3, None), (5, "bad"), (7, None)])
+def test_unknown_null_catalog_variants_still_refuse(index, value):
+    payload = [None, None, None, [], None, None, None, []]
+    payload[index] = value
+    with pytest.raises(ValueError):
+        module.project_catalog_snapshot(payload, P)
+
+
 def test_one_payload_projects_typed_catalogs_without_urls():
     payload = fixture()
     payload[2][0][3] = "SIGNED_URL"
@@ -71,7 +91,7 @@ async def test_catalog_cap_preserves_unread_project_ids_and_next_cursor(monkeypa
         "user_voices": 0,
     }
     assert len(result["project_catalogs"]) == 1 and result["complete"] is None
-    read.assert_awaited_once_with("page", P)
+    read.assert_awaited_once_with("page", P, require_request_project=True, allow_empty_catalog=True)
     client._checkout_page.assert_awaited_once()
     client._checkin_page.assert_called_once_with("page")
 

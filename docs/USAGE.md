@@ -2603,3 +2603,10 @@ UseAPI prefix decoding occurs; generation and mutation inputs remain raw.
 Generated-video URL metadata may have null dimensions; downloaded video results
 report positive ffprobe-measured dimensions. Saved-user voice playback remains
 implemented without live acceptance proof.
+
+R03 sync uses the scoped SDK `client.sync_native_inventory(max_steps=10,
+max_seconds=180, restart=False)` alongside `gflow project sync --profile NAME`.
+Repeat bounded calls until `traversal_finished`; use `--restart` for a fresh scan
+retaining observations. Counts distinguish current traversal from retained distinct
+identities; account principal checks apply before browser reads and commits. See
+[self-hosted synchronization](self-hosted/NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).

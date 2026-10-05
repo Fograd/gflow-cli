@@ -113,6 +113,30 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
                         max_seconds=payload.get("max_seconds", 180),
                     ),
                 }
+    if verb == "inventory-sync":
+        from gflow_cli.services.account_resources import (
+            account_resource_scope,
+            bind_account_resource_identity,
+        )
+        from gflow_cli.services.inventory_sync import validate_sync_options
+
+        validate_sync_options(
+            payload.get("max_steps", 10),
+            payload.get("max_seconds", 180),
+            payload.get("restart", False),
+        )
+        with bind_account_resource_identity(payload.get("expected_account_sha256")):
+            client = FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False)
+            account_resource_scope(client)
+            async with client:
+                return {
+                    "status": "ok",
+                    **await client.sync_native_inventory(
+                        max_steps=payload.get("max_steps", 10),
+                        max_seconds=payload.get("max_seconds", 180),
+                        restart=payload.get("restart", False),
+                    ),
+                }
     project_id = (
         ""
         if verb in {"projects-list", "history-list", "inventory-sync", "account-resources"}
@@ -144,26 +168,6 @@ async def _execute(verb: str, profile: str, payload: dict[str, Any]) -> dict[str
             "operation": "archive",
         }
     async with FlowApiClient(profile_dir=auth.profile_dir(profile), headless=False) as client:
-        if verb == "inventory-sync":
-            from gflow_cli.profile_store import read_account_file
-            from gflow_cli.services.inventory_sync import sync_native_inventory
-
-            settings = get_settings()
-            account = read_account_file(settings.profile_subdir(profile))
-            if account is None:
-                raise ValueError("Native inventory sync requires a recorded account identity")
-            return {
-                "status": "ok",
-                **await sync_native_inventory(
-                    client,
-                    settings.home / "native_inventory",
-                    profile=profile,
-                    account=account,
-                    max_steps=payload.get("max_steps", 10),
-                    max_seconds=payload.get("max_seconds", 180),
-                    restart=payload.get("restart", False),
-                ),
-            }
         if verb == "history-list":
             return {
                 "status": "ok",

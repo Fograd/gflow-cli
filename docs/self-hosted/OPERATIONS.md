@@ -204,5 +204,26 @@ custom-voice creation remains implemented but Google-rejected with
 PUBLIC_ERROR_UNUSUAL_ACTIVITY; its exact cause is unknown. Frontend creation
 succeeded with matching payloads, while the 90-second backend experiment was
 rejected in 0.45 seconds. Full saved-voice CRUD/binding acceptance remains R12;
-account-wide inventory completeness remains R03 and exact contract equivalence
-remains R11. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
+R03 supported account inventory traversal is complete; Google-wide visibility
+remains unknown. Exact contract equivalence remains R11. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
+
+### R03 read-only inventory operation
+
+Load the existing common environment, then run:
+
+```bash
+.venv/bin/gflow project sync --profile authorised-profile --max-steps 10 --max-seconds 180 --json
+```
+
+Repeat to resume committed traversal. `--restart` begins a fresh scan and retains
+all observations. Successful traversal is reported separately from Google's
+unknown global visibility. Distinct retained resource counts and current scan/page
+progress are documented in [inventory synchronization](NATIVE_INVENTORY_SYNC.md).
+
+Use the same configured private home for CLI, REST and MCP. No new service,
+registration, profile replacement, solver or generation is required. Before
+updating the production checkout, check both durable job queues and any direct
+read worker/profile lease, back up SQLite state with SQLite's backup API and retain
+the protected environment. Restart only affected API/MCP services after work drains.
+Verify an authenticated inventory request through the existing workstation SSH
+forwards; retain the existing GUI service/configuration.

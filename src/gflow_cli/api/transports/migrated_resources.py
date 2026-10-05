@@ -12,6 +12,22 @@ from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
 
+def normalize_empty_catalog(payload: Any) -> Any:
+    """Normalize the measured null collections for observation reads only."""
+    if (
+        isinstance(payload, list)
+        and len(cast(list[Any], payload)) == 8
+        and all(payload[index] is None for index in (0, 1, 2, 4, 5, 6))
+        and isinstance(payload[3], list)
+        and isinstance(payload[7], list)
+    ):
+        normalized = list(cast(list[Any], payload))
+        normalized[1] = []
+        normalized[2] = []
+        return normalized
+    return cast(Any, payload)
+
+
 def project_media(payload: Any, project_id: str) -> list[dict[str, Any]]:
     """Read measured Zzl0ze timeline identities; do not guess prompt/type from captions."""
     if (
@@ -111,10 +127,16 @@ def trash_payload(media_ids: list[str], media: list[dict[str, Any]], project_id:
 
 
 async def read_project_payload(
-    page: Any, project_id: str, *, require_request_project: bool = False
+    page: Any,
+    project_id: str,
+    *,
+    require_request_project: bool = False,
+    allow_empty_catalog: bool = False,
 ) -> Any:
     if not is_uuid(project_id):
         raise ValueError("Invalid project identifier")
+    if allow_empty_catalog and not require_request_project:
+        raise ValueError("Empty catalog observations require the exact project request context")
     reply: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
 
     async def on_response(response: Any) -> None:
@@ -133,6 +155,9 @@ async def read_project_payload(
                 != ["/project/" + project_id]
             ):
                 return
+        if allow_empty_catalog and response.status != 200:
+            reply.set_exception(ValueError("Native catalog request was not successful"))
+            return
         try:
             length = response.headers.get("content-length")
             if length and int(length) > 2 * 1024 * 1024:
@@ -148,6 +173,8 @@ async def read_project_payload(
         try:
             for rpc, payload in parse_frames(text):
                 if rpc == "Zzl0ze":
+                    if allow_empty_catalog:
+                        payload = normalize_empty_catalog(payload)
                     project_media(payload, project_id)
                     if not reply.done():
                         reply.set_result(payload)

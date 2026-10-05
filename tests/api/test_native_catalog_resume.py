@@ -57,7 +57,7 @@ async def test_resume_keeps_order_and_pending_ids_without_account_page(monkeypat
     assert result["next_cursor"] is None and result["catalog_resume"] is True
     assert result["pending_project_ids"] == [P2] and result["catalogs_capped"] is True
     assert result["catalog_projects_read"] == 1 and result["project_catalogs"][0]["project_id"] == P
-    read.assert_awaited_once_with("page", P, require_request_project=True)
+    read.assert_awaited_once_with("page", P, require_request_project=True, allow_empty_catalog=True)
     listing.assert_not_awaited()
     c._checkin_page.assert_called_once_with("page")
 

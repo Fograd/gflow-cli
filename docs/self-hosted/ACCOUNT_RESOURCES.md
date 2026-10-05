@@ -82,3 +82,12 @@ separate from [inventory synchronization](NATIVE_INVENTORY_SYNC.md), which also
 tracks media and generated history.
 
 HTTP binds the selected registered profile to the exact private recorded principal digest before worker dispatch and rechecks registration and principal before publication. The worker retains that binding across browser opening and before every commit. This is a recorded-principal consistency check; it does not claim a new Google identity attestation. Operator account handles may differ from private Google emails.
+
+R03 synchronization and this listing now reuse the same private recorded-principal
+checks. The scoped SDK sync method is `client.sync_native_inventory(...)`; sync
+counts also include media/history and retain previous observations across fresh
+scans. This listing returns only its current epoch's character or saved-user-voice
+rows and its opaque continuation, so its counts can legitimately differ from
+retained sync counts. Exact eight-slot empty-project catalogs are accepted as
+observations with unknown completeness; malformed or unrelated replies still refuse.
+See [synchronization progress](NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).

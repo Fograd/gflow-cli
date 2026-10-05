@@ -9,7 +9,6 @@ from click.testing import CliRunner
 from gflow_cli import cli_inventory_sync as cli
 from gflow_cli.cli import main
 from gflow_cli.mcp import tools
-from gflow_cli.services import inventory_sync
 
 
 def configure(monkeypatch, tmp_path):
@@ -19,7 +18,7 @@ def configure(monkeypatch, tmp_path):
         profile_subdir=lambda profile: tmp_path / ("profile_" + profile),
     )
     cm = AsyncMock()
-    cm.__aenter__.return_value = "native-client"
+    cm.__aenter__.return_value = cm
     monkeypatch.setattr(cli, "get_settings", lambda: settings)
     monkeypatch.setattr(cli, "_resolve_profile", lambda profile: "owned")
     monkeypatch.setattr(cli, "read_account_file", lambda path: "account@example.test")
@@ -31,8 +30,11 @@ def configure(monkeypatch, tmp_path):
         "gflow_cli.profile_store.read_account_file", lambda path: "account@example.test"
     )
     sync = AsyncMock(return_value={"complete": None, "traversal_finished": False})
-    monkeypatch.setattr(cli, "sync_native_inventory", sync)
-    monkeypatch.setattr(inventory_sync, "sync_native_inventory", sync)
+    cm.sync_native_inventory = sync
+    monkeypatch.setattr(
+        "gflow_cli.services.account_resources.account_resource_scope",
+        lambda _: (tmp_path, "owned", "account@example.test"),
+    )
     return sync, cm
 
 
@@ -55,10 +57,6 @@ def test_cli_sync_forwards_private_home_account_and_controls(monkeypatch, tmp_pa
     )
     assert result.exit_code == 0, result.output
     sync.assert_awaited_once_with(
-        "native-client",
-        tmp_path / "native_inventory",
-        profile="owned",
-        account="account@example.test",
         max_steps=3,
         max_seconds=7,
         restart=True,
@@ -74,10 +72,6 @@ async def test_direct_mcp_sync_forwards_same_controls(monkeypatch, tmp_path):
     )
     assert result == {"status": "ok", "complete": None, "traversal_finished": False}
     sync.assert_awaited_once_with(
-        "native-client",
-        tmp_path / "native_inventory",
-        profile="owned",
-        account="account@example.test",
         max_steps=3,
         max_seconds=7,
         restart=True,
@@ -100,3 +94,16 @@ def test_cli_missing_recorded_account_refuses_browser(monkeypatch, tmp_path):
     assert result.exit_code == 11
     sync.assert_not_awaited()
     cm.__aenter__.assert_not_awaited()
+
+
+def test_cli_marker_changed_during_browser_open_refuses_sync(monkeypatch, tmp_path):
+    sync, _ = configure(monkeypatch, tmp_path)
+    scopes = iter(
+        [(tmp_path, "owned", "account@example.test"), (tmp_path, "owned", "other@example.test")]
+    )
+    monkeypatch.setattr(
+        "gflow_cli.services.account_resources.account_resource_scope", lambda _: next(scopes)
+    )
+    result = CliRunner().invoke(main, ["project", "sync", "--json"])
+    assert result.exit_code == 11
+    sync.assert_not_awaited()

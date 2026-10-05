@@ -1,9 +1,11 @@
 """Read-only real checkpoint resume, fresh SDK calls, zero Google generation."""
 
 import asyncio
+import hashlib
 import json
 import os
 import sqlite3
+from pathlib import Path
 
 import pytest
 from pytest_bdd import given, scenarios, then, when
@@ -113,3 +115,114 @@ def verified(case):
     )
     assert case["generation"] == 0
     print("native_sync_resume_steps", 2, "catalog_projects_read", 1, "generation", 0)
+
+
+@when("bounded SDK synchronization resumes through available traversal and starts a fresh scan")
+def full_traversal(case):
+    async def run():
+        settings = get_settings()
+        async with FlowApiClient(
+            profile_dir=settings.profile_subdir(case["profile"]), headless=False
+        ) as client:
+
+            async def guard(route):
+                if any(
+                    rpc in route.request.url or rpc in (route.request.post_data or "")
+                    for rpc in (
+                        "ogiZ0b",
+                        "MZZa6b",
+                        "fZytfe",
+                        "jIps6",
+                        "no0P6",
+                        "YhhmEf",
+                        "eb1hJf",
+                        "maseQ",
+                        "pGCYOe",
+                        "cz8Z4b",
+                        "lt8g5",
+                        "mYWVGd",
+                        "p0UkFb",
+                        "nprQif",
+                    )
+                ):
+                    case["generation"] += 1
+                    await route.abort()
+                else:
+                    await route.continue_()
+
+            await client._context.route("**/batchexecute*", guard)
+            case["bounded"] = await client.sync_native_inventory(
+                max_steps=1, max_seconds=90, restart=True
+            )
+            for _ in range(6):
+                case["finished"] = await client.sync_native_inventory(max_steps=30, max_seconds=120)
+                if case["finished"]["traversal_finished"]:
+                    break
+            db = settings.home / "native_inventory" / "native_inventory_sync.sqlite3"
+            account = read_account_file(settings.profile_subdir(case["profile"]))
+            assert account is not None
+            principal = hashlib.sha256(account.encode()).hexdigest()
+            with sqlite3.connect(db) as conn:
+                case["prior_identities"] = set(
+                    conn.execute(
+                        "SELECT scope,resource,project,identity FROM observations "
+                        "WHERE profile=? AND account=?",
+                        (case["profile"], principal),
+                    )
+                )
+            fixtures = os.getenv("GFLOW_CLI_E2E_NATIVE_SYNC_MEDIA_FIXTURES")
+            if fixtures:
+                selected = json.loads(Path(fixtures).read_text())
+                case["known_media_discovered"] = all(
+                    any(
+                        row[1] == "media" and row[3] == selected[kind]["media_id"]
+                        for row in case["prior_identities"]
+                    )
+                    for kind in ("generated", "uploaded")
+                )
+            case["fresh"] = await client.sync_native_inventory(
+                max_steps=1, max_seconds=90, restart=True
+            )
+            with sqlite3.connect(db) as conn:
+                current = set(
+                    conn.execute(
+                        "SELECT scope,resource,project,identity FROM observations "
+                        "WHERE profile=? AND account=?",
+                        (case["profile"], principal),
+                    )
+                )
+            case["prior_identities_retained"] = case["prior_identities"] <= current
+            await client._context.unroute("**/batchexecute*", guard)
+
+    asyncio.run(asyncio.wait_for(run(), 900))
+    reset_settings()
+
+
+@then("available pagination finishes and retained observations survive without writes")
+def full_verified(case):
+    bounded, finished, fresh = (case[key] for key in ("bounded", "finished", "fresh"))
+    assert bounded["steps_read"] == 1 and not bounded["traversal_finished"]
+    assert finished["traversal_finished"] and finished["pending_project_count"] == 0
+    assert finished["project_pagination_exhausted"] and finished["history_pagination_exhausted"]
+    assert finished["checkpoint_version"] > bounded["checkpoint_version"]
+    assert finished["retained_unique_counts"]["media"] > 0
+    assert fresh["scan_id"] != finished["scan_id"]
+    assert all(
+        fresh["retained_unique_counts"][key] >= count
+        for key, count in finished["retained_unique_counts"].items()
+    )
+    assert all(
+        result["complete"] is None and result["deletion_authority"] is False
+        for result in (bounded, finished, fresh)
+    )
+    assert case["generation"] == 0
+    assert case["prior_identities_retained"]
+    assert case.get("known_media_discovered", True)
+    print(
+        "native_sync_full_traversal",
+        finished["project_pages_read"],
+        finished["history_pages_read"],
+        "generation",
+        0,
+    )
+    print("native_sync_retained_counts", json.dumps(finished["retained_unique_counts"]))

@@ -3726,6 +3726,40 @@ class FlowApiClient:
             **history_options,
         )
 
+    async def sync_native_inventory(
+        self,
+        *,
+        max_steps: int = 10,
+        max_seconds: int = 180,
+        restart: bool = False,
+    ) -> dict[str, Any]:
+        """Resume the selected recorded principal's durable read-only traversal."""
+        from gflow_cli.services.account_resources import account_resource_scope
+        from gflow_cli.services.inventory_sync import sync_native_inventory, validate_sync_options
+
+        try:
+            validate_sync_options(max_steps, max_seconds, restart)
+            root, profile, account = account_resource_scope(self)
+
+            def verify_scope() -> None:
+                if account_resource_scope(self) != (root, profile, account):
+                    raise ConfigurationError(
+                        detail="Native inventory identity changed during the read"
+                    )
+
+            return await sync_native_inventory(
+                self,
+                root,
+                profile=profile,
+                account=account,
+                max_steps=max_steps,
+                max_seconds=max_seconds,
+                restart=restart,
+                verify_scope=verify_scope,
+            )
+        except ValueError as exc:
+            raise ConfigurationError(detail=str(exc)) from None
+
     async def list_account_resources(
         self,
         *,

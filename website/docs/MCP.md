@@ -938,3 +938,12 @@ Generated-video URL metadata may have null dimensions; downloaded video results
 report positive ffprobe-measured dimensions. Saved-user voice playback and exact registered voice-alias reads passed live
 SDK/CLI/REST/registered HTTP MCP checks on 5 October 2026. Backend voice creation
 remains Google-rejected; full mutation/binding acceptance remains R12.
+
+R03 `gflow_sync_native_inventory(profile="authorised-profile", max_steps=10,
+max_seconds=180, restart=False)` shares the scoped SDK/CLI/REST checkpoint.
+`checkpoint_version`, `scan_id` and page/catalog counters show real resumable
+progress; `retained_unique_counts` deduplicates previously observed identities
+across scopes/scans. Both pagination streams and pending catalogs must finish before
+`traversal_finished=true`; `complete=null` and `deletion_authority=false` remain.
+The direct tool creates no queued generation task. See
+[synchronization](self-hosted/NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).

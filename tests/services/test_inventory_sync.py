@@ -240,3 +240,118 @@ async def test_same_identity_cannot_move_to_a_different_origin_project(tmp_path)
     c = client([page([Q]), {"project_catalogs": [catalog(Q)]}])
     with pytest.raises(ValueError, match="project"):
         await run(c, tmp_path, restart=True)
+
+
+@pytest.mark.asyncio
+async def test_multiple_attachments_and_character_workflows_survive_fresh_scan(tmp_path):
+    import json
+
+    attached = catalog(Q)
+    attached["media"][0].update(project_id=P, attached_to_project_id=Q)
+    attached["workflows"] = []
+    attached["characters"] = [{"entity_id": M, "project_id": Q, "workflow_ids": [W]}]
+    other = catalog(M)
+    other["media"][0].update(project_id=P, attached_to_project_id=M)
+    other["workflows"] = []
+    other["characters"] = []
+    c = client([page([Q, M]), {"project_catalogs": [attached]}, {"project_catalogs": [other]}])
+    result = await run(c, tmp_path)
+    assert result["retained_unique_counts"]["media"] == 1
+    assert result["project_pages_read"] == result["history_pages_read"] == 1
+    assert result["deletion_authority"] is False
+    prior_scan = result["scan_id"]
+    prior_version = result["checkpoint_version"]
+    attached["characters"][0]["workflow_ids"] = [P]
+    fresh = await run(client([page([Q]), {"project_catalogs": [attached]}]), tmp_path, restart=True)
+    assert fresh["scan_id"] != prior_scan and fresh["checkpoint_version"] > prior_version
+    with sqlite3.connect(tmp_path / "native_inventory_sync.sqlite3") as conn:
+        rows = {
+            r[0]: json.loads(r[1])
+            for r in conn.execute(
+                "SELECT resource,metadata FROM observations "
+                "WHERE resource IN ('media','characters')"
+            )
+        }
+    assert set(rows["media"]["attached_to_project_ids"]) == {Q, M}
+    assert set(rows["characters"]["workflow_ids"]) == {W, P}
+    assert rows["media"]["project_id"] == P
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rows_do_not_inflate_counts_and_account_markers_separate(tmp_path):
+    c = client([page([P, P]), {"project_catalogs": [catalog()]}])
+    result = await run(c, tmp_path)
+    assert result["retained_unique_counts"]["projects"] == 1
+    assert result["catalog_projects_read"] == 1
+    separate = await sync_native_inventory(
+        client([page([])]), tmp_path, profile="p", account="different@example.test"
+    )
+    assert separate["retained_unique_counts"]["media"] == 0
+
+
+@pytest.mark.asyncio
+async def test_scope_change_after_read_refuses_before_commit(tmp_path):
+    checks = 0
+
+    def verify():
+        nonlocal checks
+        checks += 1
+        if checks == 3:
+            raise ValueError("identity changed")
+
+    with pytest.raises(ValueError, match="identity changed"):
+        await run(client([page([P])]), tmp_path, verify_scope=verify)
+    resumed = await run(client([page([])]), tmp_path, max_steps=1)
+    assert resumed["pending_project_count"] == 0
+    assert resumed["retained_unique_counts"]["projects"] == 0
+
+
+@pytest.mark.asyncio
+async def test_sdk_rechecks_recorded_principal_after_native_read(tmp_path, monkeypatch):
+    from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.errors import ConfigurationError
+
+    scopes = iter(
+        [(tmp_path, "p", "acct@example.test")] * 3 + [(tmp_path, "p", "other@example.test")]
+    )
+    monkeypatch.setattr(
+        "gflow_cli.services.account_resources.account_resource_scope", lambda _: next(scopes)
+    )
+    with pytest.raises(ConfigurationError, match="identity changed"):
+        await FlowApiClient.sync_native_inventory(client([page([P])]), max_steps=1)
+    with sqlite3.connect(tmp_path / "native_inventory_sync.sqlite3") as conn:
+        assert conn.execute("SELECT count(*) FROM observations").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_legacy_checkpoint_and_single_attachment_upgrade_without_loss(tmp_path):
+    import json
+
+    attached = catalog(Q)
+    attached["workflows"] = []
+    attached["media"][0].update(project_id=P, attached_to_project_id=Q)
+    await run(client([page([Q]), {"project_catalogs": [attached]}]), tmp_path)
+    db = tmp_path / "native_inventory_sync.sqlite3"
+    with sqlite3.connect(db) as conn:
+        state = json.loads(conn.execute("SELECT state FROM checkpoints").fetchone()[0])
+        for field in ("scan_id", "project_pages_read", "history_pages_read"):
+            state.pop(field)
+        conn.execute("UPDATE checkpoints SET state=?", (json.dumps(state),))
+        metadata = json.loads(
+            conn.execute("SELECT metadata FROM observations WHERE resource='media'").fetchone()[0]
+        )
+        metadata.pop("attached_to_project_ids")
+        conn.execute(
+            "UPDATE observations SET metadata=? WHERE resource='media'", (json.dumps(metadata),)
+        )
+    first = await run(client([]), tmp_path)
+    second = await run(client([]), tmp_path)
+    assert first["scan_id"] == second["scan_id"] and second["traversal_finished"]
+    attached["project_id"] = M
+    attached["media"][0]["attached_to_project_id"] = M
+    await run(client([page([M]), {"project_catalogs": [attached]}]), tmp_path, restart=True)
+    with sqlite3.connect(db) as conn:
+        metadata = json.loads(
+            conn.execute("SELECT metadata FROM observations WHERE resource='media'").fetchone()[0]
+        )
+    assert set(metadata["attached_to_project_ids"]) == {Q, M}

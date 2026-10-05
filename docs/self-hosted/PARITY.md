@@ -40,7 +40,7 @@ All paths below use the useapi `/v1/google-flow` prefix; all calls require beare
 | [POST videos/extend](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-extend) | `mediaGenerationId`, `prompt`, `model`, count 1–4, seed, async/callback/captcha | Standalone native extension is wired across SDK/CLI/MCP/REST with native model discovery, source ownership, independent output IDs and polling/download. Accepted paid extension output remains unverified; legacy scene-combining extension is separate. |
 | [POST videos/concatenate](https://useapi.net/docs/api-google-flow-v1/post-google-flow-videos-concatenate) | `media`2–10 items: ID, trimStart/trimEnd0–10s; sum trims less than clip duration; encodedVideo | Implemented local ffmpeg composition of 2–10 managed or freshly owned native clips with duration/trim/aspect checks, local artifact IDs and offline real-ffmpeg tests. This is labeled local composition, not Google-side scene editing; no paid generation required. |
 | [POST voices](https://useapi.net/docs/api-google-flow-v1/post-google-flow-voices) | email, preset voice, dialog1–120 chars, voicePerformance1–120, displayName1–200, captcha | Native saved-TTS creation is wired across SDK/CLI/MCP/REST: one TTS preview then two metadata saves, with partial identities preserved. The first preview returned an ambiguous outcome without recovery handles; preset casing was corrected and the corrected captured request was explicitly Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), so rendered TTS acceptance is unverified. This is preset/dialog/performance generation, not voice cloning. |
-| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | REST email-selected default combines fresh system and selected-project user voices; explicit bundled discovery remains. Dynamic native system preset catalog exists in SDK/CLI/MCP; same30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; Selected-project reads are verified; account-wide completeness remains R03. |
+| [GET voices](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices) | email required, source system/user optional | REST email-selected default combines fresh system and selected-project user voices; explicit bundled discovery remains. Dynamic native system preset catalog exists in SDK/CLI/MCP; same30 names live verified. Project-scoped source=user saved-TTS inventory is wired across SDK/CLI/MCP/REST; Selected-project reads are verified; R03 supported account traversal is complete; global visibility remains unknown. |
 | [GET voices/ref](https://useapi.net/docs/api-google-flow-v1/get-google-flow-voices-ref) | Preset name or custom ref; fresh audio URL for user voice | Implemented selected system preset lookup/sample metadata. Saved user-TTS detail uses strict typed ownership, fresh canonical base-preset/dialogue/performance metadata and optional playback URL across SDK/CLI/MCP/REST; REST no-store; published/deployed at3d35e1d5. Existing saved-user playback and all four lookup surfaces verified; creation acceptance remains R12. |
 | [DELETE voices/ref](https://useapi.net/docs/api-google-flow-v1/delete-google-flow-voices-ref) | Custom voice reference | Permanent selected saved-TTS deletion is wired across SDK/CLI/MCP/REST; final live lifecycle proof remains pending. System presets are not deletable. |
 | [POST characters](https://useapi.net/docs/api-google-flow-v1/post-google-flow-characters) | displayName1–200, imageReference_1 required, optional second, personalityNotes≤2000, optional voice | Implemented project-scoped one/two-existing-image copy creation with notes and system preset metadata; owned saved-TTS voice binding is also wired with fresh ownership validation, pending final E2E; SDK/CLI/registered MCP/deployed HTTP lifecycle verified. Originals preserved. Legacy CLI create separately generates portraits; account-wide exact useapi semantics remain gaps. |
@@ -162,7 +162,7 @@ rendering and R13 records the published revision.
 |---|---|---|
 |R01|Current composer, cookie banner, positive-index controls and explicit append caret; live exact ordered ten-reference wire capture passed|Rendered ten-reference output remains R12|
 |R02|Fresh typed media/character/saved-voice URLs and all four alias read adapters live verified|Unsupported/unmapped vendor encoding refuses explicitly; unobserved variants not claimed|
-|R03|Resumable SDK/CLI/MCP/REST sync plus bounded account characters/saved voices with opaque continuation|Global authoritative completeness unknown|
+|R03|Supported traversal complete: scoped SDK/CLI/MCP/REST, bounded resume, retained fresh scans and unique counts|Global authoritative completeness unknown; no absence-based deletion|
 |R04|Canonical image/entity/audio reference transport and fresh capacities|Rendered grounding remains R12|
 |R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
 |R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|REST and queued MCP text images accepted; other provider paths remain R12|
@@ -247,48 +247,39 @@ unsafe-caption canonical attachment proof.
   superseded by the exact registered HTTP input batch documented below. Broader
   composite translation, exact error equivalence and live saved-user audio
   acceptance remain open.
-- [ ] **R03 — Complete inventories and synchronization.** Page and reconcile
-  account-wide projects, attached media/history and character/user-voice
-  inventories. Expose completeness and counts only when established; a partial
-  snapshot or absent row must not imply deletion.
-  Bounded native account project traversal is now implemented across SDK,
-  CLI `--all-pages/--max-pages`, direct MCP and REST `allPages/maxPages`.
-  Counts are unique returned identities; page caps preserve continuation.
-  Exhaustion is reported separately from `complete=None`; cycles/duplicates
-  refuse and no absent row triggers deletion. The live two-page read-only
-  BDD passed in9.04seconds, then repeated in13.86seconds with concurrency
-  explicitly pinned to one and zero generation. At that traversal checkpoint attached media/history and account-wide character/
-  user-voice inventories remained open; later attached-media and bounded-history
-  deliveries are recorded below. Complete character/user-voice cohorts remain gaps.
-  Optional include_catalogs/max_projects now aggregates observed media, workflow
-  history, characters and saved user voices from one fresh payload per project.
-  CLI/MCP and REST includeCatalogs/maxProjects share the one-page/180second
-  boundary, known counts and explicit pending discovered IDs. The one-project
-  live BDD passed10.14seconds with zero generation. At that catalog checkpoint account-history paging was not implemented. It is now
-  published at41784983 with bounded continuation and durable REST observations.
-  Generated-only per-call summaries are now implemented and passed actual default
-  HTTP/read proof. Complete history and authoritative/destructive reconciliation
-  remain unproven; unknown completeness never becomes deletion evidence.
-  Follow-up 2026-10-04: read inventories now merge the source-derived timeline
-  and attached collection, preserve origin/attachment project identities, exclude
-  positively verified bundled preset wrappers, and expose exact typed upload
-  classification plus validated source timestamps. Strict ownership parsers retain
-  their separate same-project default. HTTP native media lists all observed rows
-  by default; explicit pagination is a fork extension. count/likelyUploads describe
-  returned rows and observedCount the full snapshot. Cached real payloads passed
-  for all3 accounts (53/556/565 observed media), and fresh catalog BDD passed in the
- 3-test batch. Later41784983 delivers bounded generation-history paging and metadata-only
-  observation upserts. Complete history and authoritative reconciliation remain
-  open; no absent row authorizes deletion.
-  Fresh isolated-profile follow-up: SDK, CLI, deployed registered MCP and REST
-  each passed a new discovery/catalog read and a real subsequent catalog resume
-  for both character and saved-user-voice kinds. Each also passed fresh inventory
-  sync plus catalog-committing resume. No zero-page or cached continuation was
-  counted as fresh access. The documented account-resources CLI alias is now
-  registered alongside resources; both spellings share one implementation.
-  Sampled resource counts were zero in two bounded catalogs, not evidence of
-  absence or globally complete cohorts; complete remains null and deletion
-  authority false.
+- [x] **R03 — Complete inventories and synchronization (supported traversal).**
+  Explicit pro2/pro3 selection now uses the same scoped SDK implementation from
+  Python, CLI, REST and MCP. It traverses available project pages, reachable
+  catalogs and bounded native generation history, including uploaded/generated
+  media, characters and saved-user voices. Original projects remain distinct
+  from retained attachment-project and character-workflow unions. Duplicate
+  observations merge by identity; interrupted reads resume only committed work.
+  Fresh scans retain earlier observations and never delete absent resources.
+  Scan IDs, checkpoint versions, page counts, pending projects and retained
+  unique counts distinguish progress from finished supported traversal.
+  Google visibility remains unknown: `complete=null` and
+  `deletion_authority=false`, even when `traversal_finished=true`.
+  Live read-only verification on 2026-10-05 completed pro2's 3 catalogs and
+  31 history pages (626 media, 617 workflows, one existing saved-user voice)
+  and pro3's 10 catalogs and 50 history pages (1056 media, 999 workflows).
+  Existing uploaded/generated media were positively matched to R02 fixtures.
+  Two tagged E2E scenarios passed for bounded resume, traversal completion and
+  fresh-scan retention. Controlled tests cover interruption, duplicates, stale
+  cursors, principal changes, account separation and relationship preservation.
+  Google's exact validated empty-catalog payload is now accepted during catalog
+  traversal; unknown shapes and unrelated responses still refuse.
+  All 13 discovered catalogs initially contained zero characters. With explicit
+  user authorization, a temporary metadata-only character using an existing
+  image was created on pro2; catalog, sync and account-resource discovery all
+  found its real identity and workflow relationships. The copied fixture raised
+  retained pro2 counts to 627 media, 618 workflows and one character; no image,
+  video or audio generation was performed. Fixture lifecycle and deployed
+  localhost evidence are recorded in the Mac R03 handoff.
+  An invalidated Google cursor, unreadable catalog or session failure keeps
+  supported work pending; start a fresh scan to recover while retaining earlier
+  observations. This does not promise every hidden/deleted/historical resource
+  or authoritative reconciliation. Earlier R03 checkpoints below are historical
+  and superseded by this supported-scope completion.
 - [ ] **R04 — Video reference and character coverage.** Implement canonical
   positional image/entity/audio grounding and video character references. Extend
   V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
@@ -665,7 +656,7 @@ final R12 tests must be recorded separately.
 | Item | New delivery | Remaining evidence or limit |
 |---|---|---|
 |R02/R04| Real saved-TTS preview tests and playback/binding paths | Browser and CapSolver preview WAF-refused; accepted lifecycle pending |
-|R03| Resumable project/catalog/history traversal; atomic URL-free checkpoint; SDK/CLI/MCP/REST | Real two-step resume passed; global completeness unknown |
+|R03| Supported project/catalog/history traversal finished on pro2/pro3; scoped SDK/CLI/MCP/REST, atomic checkpoints and retained identities | See current R03 completion above; global visibility unknown |
 |R06| Image/native/generic count1-4 providers and explicit1–10 WAF-only retry;2K/4K overrides with fresh availability | Actual solver-backed rendering pending |
 |R08| Lite10, separate character cap, weighted image cap; corrected caret retains all ten exact ordered references | One decoded owned ten-reference output accepted; per-reference visual influence remains R12 |
 |R09| Exact registered alias mutation inputs, strict confirmed-delete receipts | Arbitrary vendor decoding and unknown missing IDs unsupported |
@@ -1025,8 +1016,8 @@ or network reputation remain hypotheses, not established causes or Pro-account
 restrictions. No experimental transport change was shipped.
 
 Creation and the full saved-voice CRUD/binding lifecycle remain open under R12;
-exact vendor response/error equivalence remains R11. Project/account-wide voice
-inventory completeness remains R03. A temporary frontend comparison voice was
+exact vendor response/error equivalence remains R11. R03 supported project/account-wide voice
+traversal is complete; global visibility remains unknown. A temporary frontend comparison voice was
 removed; its SDK delete acknowledgement was uncertain, and a subsequent fresh
 list confirmed absence while preserving the original. Do not replay an uncertain
 mutation. No additional generation is needed to use R02 lookup.

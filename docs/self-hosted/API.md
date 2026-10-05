@@ -998,3 +998,19 @@ checks remain. Unknown vendor references are not inferred. Backend voice creatio
 remains Google-rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY; its cause is unknown.
 R02 lookup is complete; full voice CRUD/binding acceptance remains R12. See
 [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
+
+### R03 synchronization progress and account binding
+
+`POST /v1/google-flow/assets/sync/{email}` retains its existing bounded body
+(`maxSteps`, `maxSeconds`, `restart`) and now shares the scoped SDK sync method
+with CLI and MCP. The registered account's private recorded principal is captured
+before dispatch and checked before worker commits and REST publication. Missing or
+changed principal returns409; no profile is substituted.
+
+Responses add `checkpoint_version`, `scan_id`, current traversal page counters,
+`retained_unique_counts` and `deletion_authority=false`. Existing per-scope
+`observations` remains compatible. Retained counts include prior scans and are not
+fresh visibility claims. Repeat until `traversal_finished`, or explicitly restart
+without deleting observations. Unsupported catalog/cursor reads return an error
+with earlier committed progress retained. See
+[full progress semantics](NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).

@@ -9,14 +9,33 @@ import os
 import re
 import sqlite3
 import stat
+from collections.abc import Callable
 from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from uuid import uuid4
 
 from gflow_cli.api.transports.native_voices import validate_identifier
 
 if TYPE_CHECKING:
     from gflow_cli.api.client import FlowApiClient
+
+
+async def sync_inventory_session(
+    client: FlowApiClient, *, max_steps: int, max_seconds: int, restart: bool
+) -> dict[str, Any]:
+    """Share adapter browser entry while retaining its pre-entry principal binding."""
+    from gflow_cli.errors import ConfigurationError
+    from gflow_cli.services.account_resources import account_resource_scope
+
+    initial_scope = account_resource_scope(client)
+    async with client:
+        if account_resource_scope(client) != initial_scope:
+            raise ConfigurationError(detail="Native inventory identity changed before the read")
+        return await client.sync_native_inventory(
+            max_steps=max_steps, max_seconds=max_seconds, restart=restart
+        )
+
 
 _FIELDS = {
     "projects": ("project_id",),
@@ -64,6 +83,9 @@ def _private(path: Path, directory: bool) -> None:
 
 def _initial() -> dict[str, Any]:
     return {
+        "scan_id": uuid4().hex,
+        "project_pages_read": 0,
+        "history_pages_read": 0,
         "project_cursor": None,
         "history_cursor": None,
         "projects_exhausted": False,
@@ -188,7 +210,11 @@ class _Store:
                 "SELECT version,state FROM checkpoints WHERE profile=? AND account=?",
                 (self.profile, self.account),
             ).fetchone()
-        return (-1, _initial()) if row is None else (row[0], json.loads(row[1]))
+        if row is None:
+            return -1, _initial()
+        defaults = _initial()
+        defaults["scan_id"] = hashlib.sha256(row[1].encode()).hexdigest()[:32]
+        return row[0], {**defaults, **json.loads(row[1])}
 
     def save(
         self,
@@ -207,6 +233,8 @@ class _Store:
                 raise ValueError("Native sync checkpoint changed concurrently; resume again")
             for scope, resource, raw in observations:
                 clean = _clean(resource, raw)
+                if "attached_to_project_id" in clean:
+                    clean["attached_to_project_ids"] = [clean["attached_to_project_id"]]
                 identity = clean[_IDS[resource]]
                 key = (self.profile, self.account, scope, resource, clean["project_id"], identity)
                 old = conn.execute(
@@ -236,6 +264,15 @@ class _Store:
                     ):
                         raise ValueError("Native sync resource workflow identity conflicts")
                     clean = {**previous, **clean}
+                    for field in ("attached_to_project_ids", "workflow_ids"):
+                        values = previous.get(field, [])
+                        if (
+                            field == "attached_to_project_ids"
+                            and "attached_to_project_id" in previous
+                        ):
+                            values = [*values, previous["attached_to_project_id"]]
+                        if values or field in clean:
+                            clean[field] = list(dict.fromkeys([*values, *clean.get(field, [])]))
                 conn.execute(
                     "INSERT INTO observations VALUES(?,?,?,?,?,?,?) "
                     "ON CONFLICT DO UPDATE SET metadata=excluded.metadata",
@@ -262,6 +299,18 @@ class _Store:
                 result[scope][resource] = count
         return result
 
+    def unique_counts(self) -> dict[str, int]:
+        """Retained native identities, deduplicated across observation scopes."""
+        result = dict.fromkeys(_FIELDS, 0)
+        with closing(sqlite3.connect(self.path)) as conn:
+            for resource, count in conn.execute(
+                "SELECT resource,count(DISTINCT identity) FROM observations "
+                "WHERE profile=? AND account=? GROUP BY resource",
+                (self.profile, self.account),
+            ):
+                result[resource] = count
+        return result
+
 
 async def sync_native_inventory(
     client: FlowApiClient,
@@ -272,6 +321,7 @@ async def sync_native_inventory(
     max_steps: int = 10,
     max_seconds: int = 180,
     restart: bool = False,
+    verify_scope: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Commit one read at a time; cap/time interruption retains the last checkpoint.
 
@@ -281,16 +331,22 @@ async def sync_native_inventory(
     its origin project and explicit attachment relationship; completeness is always unknown.
     """
     validate_sync_options(max_steps, max_seconds, restart)
+    if verify_scope is not None:
+        verify_scope()
     store = _Store(root, profile, account)
     version, state = store.load()
     if restart:
         state = _initial()
+        if verify_scope is not None:
+            verify_scope()
         version = store.save(version, state, [])
     steps = 0
     timed_out = False
     try:
         async with asyncio.timeout(max_seconds):
             for _ in range(max_steps):
+                if verify_scope is not None:
+                    verify_scope()
                 observations: list[tuple[str, str, dict[str, Any]]] = []
                 if state["pending"]:
                     project = state["pending"][0]
@@ -319,29 +375,41 @@ async def sync_native_inventory(
                     projects = _rows(result.get("projects"))
                     _schedule(state, [row.get("project_id") for row in projects])
                     _cursor(state, "project", result)
+                    state["project_pages_read"] += 1
                     observations.extend(("discovery", "projects", row) for row in projects)
                 elif not state["history_exhausted"]:
                     result = await client.list_native_history(cursor=state["history_cursor"])
                     if result.get("pages_read") == 0:
                         break
                     _cursor(state, "history", result)
+                    state["history_pages_read"] += result["pages_read"]
                     for resource in ("workflows", "media"):
                         rows = _rows(result.get(resource))
                         _schedule(state, [row.get("project_id") for row in rows])
                         observations.extend(("native_history", resource, row) for row in rows)
                 else:
                     break
+                if verify_scope is not None:
+                    verify_scope()
                 version = store.save(version, state, observations)
                 steps += 1
     except TimeoutError:
         timed_out = True
     # Reload: mutations made by an interrupted/uncommitted step must not escape in output.
-    _, state = store.load()
+    current_version, state = store.load()
+    if current_version != version:
+        raise ValueError("Native sync checkpoint changed concurrently; resume again")
+    if verify_scope is not None:
+        verify_scope()
     finished = bool(
         state["projects_exhausted"] and state["history_exhausted"] and not state["pending"]
     )
     return {
         "steps_read": steps,
+        "scan_id": state["scan_id"],
+        "checkpoint_version": current_version,
+        "project_pages_read": state["project_pages_read"],
+        "history_pages_read": state["history_pages_read"],
         "timed_out": timed_out,
         "traversal_finished": finished,
         "pending_project_count": len(state["pending"]),
@@ -349,6 +417,7 @@ async def sync_native_inventory(
         "project_pagination_exhausted": state["projects_exhausted"],
         "history_pagination_exhausted": state["history_exhausted"],
         "complete": None,
+        "deletion_authority": False,
         "scope": "durable observed native inventory; completeness unknown; no deletion authority",
         "resource_scopes": {
             name: {"scope": scope, "complete": None}
@@ -361,4 +430,5 @@ async def sync_native_inventory(
             }.items()
         },
         "observations": store.counts(),
+        "retained_unique_counts": store.unique_counts(),
     }
