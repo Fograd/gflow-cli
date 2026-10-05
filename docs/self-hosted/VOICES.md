@@ -124,3 +124,12 @@ further preview retry is needed for lookup. Backend creation, deletion
 acknowledgement and character/audio binding acceptance remain R12 limitations.
 An uncertain deletion must be checked with fresh inventory, never automatically
 replayed. Existing-voice playback verification does not establish the full CRUD lifecycle.
+
+
+R04 video references accept saved-user audio UUIDs, supported generic native audio
+UUIDs without saved visibility, and fresh available system presets through distinct
+ownership/catalog checks. Generic audio is not a saved voice: saved-voice lookup
+and aliases still require the saved-user contract. No preview is needed to reference
+an existing voice. The existing-audio R2V/V2V final request preflight passed before
+token minting with the original voice preserved; speech/grounding remains R12.
+See [reference inputs](NATIVE_REFERENCE_VIDEO.md#r04-supported-reference-inputs-and-implementation-closure).

@@ -2430,7 +2430,7 @@ No registry reconciliation or missing-object deletion runs.
 Native video edit audio references accept active owned native audio media UUIDs,
 including uploaded audio without saved-TTS visibility. Max3 and exact fresh
 project/workflow/exclusive-audio proof apply before generation. Preset names
-and character IDs remain separate R04 work; rendered acceptance remains R12.
+and character inputs are implemented in the later R04 sections; rendered acceptance remains R12.
 
 ### R04 native character reference video
 SDK reference_character_ids, CLI video reference-native --character-ref and
@@ -2610,3 +2610,21 @@ Repeat bounded calls until `traversal_finished`; use `--restart` for a fresh sca
 retaining observations. Counts distinguish current traversal from retained distinct
 identities; account principal checks apply before browser reads and commits. See
 [self-hosted synchronization](self-hosted/NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).
+
+
+### Explicit native video slot maps
+
+Both `video reference-native` and `video edit-native` accept repeated
+`--reference-slot SLOT=REFERENCE`, replacing their ordered reference lists.
+Direct `gflow_generate_native_reference_video` and `gflow_edit_native_video` mirror
+this as `reference_slot_ids`, a JSON map replacing image_ref/audio_ref/character_ref.
+Example: `{"referenceImage_1":"IMAGE_UUID","referenceImage_3":"CHARACTER_UUID",
+"referenceAudio_3":"voices/charon"}` with a prompt mentioning those exact slots.
+Fresh classification preserves mixed slots and prompt order. Native audio UUIDs
+require exclusive active owned workflows without saved-TTS visibility; generic
+uploaded audio is not automatically a saved voice. Model catalogs expose
+max_images/max_audio/max_characters and fresh combined budgets apply before mint.
+The existing-audio preflight built R2V/V2V requests without token/submission;
+unsaved uploaded-audio live shape coverage is unavailable on current fixtures.
+Rendered acceptance remains R12. See [reference video](self-hosted/NATIVE_REFERENCE_VIDEO.md)
+and [video editing](VIDEO_EDIT.md).

@@ -88,3 +88,56 @@ GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT and GFLOW_CLI_E2E_PRESET_AUDIO=1.
 Native catalog presentation uses capitalized names; normalized uniqueness is
 case-insensitive, while the wire resource is lowercase.
 This proves live preflight, not accepted rendered video or speech.
+
+## R04 supported reference inputs and implementation closure
+
+R2V and V2V use the same strict native audio ownership check: an exclusive nonempty
+native audio arm, exact selected project/media/workflow identities and one active
+owned workflow. Saved-TTS visibility is not required. An uploaded generic audio
+asset remains generic audio; it is not automatically a saved voice or eligible for
+saved-voice aliases. Local audio paths, arbitrary URLs and unknown resource forms
+refuse. This work accepts existing native audio; it does not add audio ingestion.
+R2V permits at most five explicit audio refs; editing permits three. Fresh account
+model limits can lower these bounds. Model reads now return max_images, max_audio
+and max_characters; unknown or duplicate capacities refuse generation preflight.
+Character-linked image/audio weights keep the measured native pool policy.
+
+CLI `--reference-slot SLOT=REFERENCE` is repeatable on `reference-native` and
+`edit-native`. Direct MCP uses `reference_slot_ids`, a JSON object. Explicit maps
+replace image/audio/character lists on those adapters. SDK `reference_slot_ids`
+and REST positional fields retain their existing contracts. Fresh classification
+can bind a character under `referenceImage_3` without renumbering it to
+`character_1`; prompt occurrences retain their original order, including repeats.
+
+~~~bash
+gflow video reference-native --profile PROFILE --project PROJECT_UUID \
+  --prompt "Use @referenceImage_3 beside @referenceImage_1 with @referenceAudio_3" \
+  --reference-slot "referenceImage_1=IMAGE_UUID" \
+  --reference-slot "referenceImage_3=CHARACTER_UUID" \
+  --reference-slot "referenceAudio_3=AUDIO_UUID" --json
+~~~
+
+These are generation examples, not zero-cost verification commands. For editing,
+use `video edit-native VIDEO_UUID` with the same slots, a freshly returned
+`--model-key` and an eligible active source. Missing video dimensions or an aspect
+outside the exact supported 16:9, 9:16 or square ratios fails clearly before mint.
+
+The 5 October zero-generation existing-audio BDD passed in 42.04 seconds. It
+resolved the operator's saved voice and fresh models, built both actual final
+codecs at the pre-mint boundary and verified repeated audio slot three. No token,
+output checkpoint or submission occurred. Only its labelled synthetic source clip
+was archived; original media remained active. Earlier character and system-preset
+preflight evidence above is reused. Twelve current strict catalogs exposed no
+unsaved uploaded-audio cohort; a known empty catalog refused strict ownership
+reading. Controlled tests cover supported unsaved native audio, five-versus-three
+bounds, malformed/archived/foreign links, ordering, missing slots and account
+separation. Live upload-origin shape coverage remains an evidence limitation.
+Rendered output, audible speech and semantic influence belong to R12.
+
+Rerunnable BDD: `tests/e2e/test_native_reference_audio_bdd.py -m e2e_auth` requires
+private `GFLOW_CLI_E2E_PROFILE/HOME/RESOURCES_PROJECT`, existing native audio UUID
+in `GFLOW_CLI_E2E_REFERENCE_AUDIO`, and `GFLOW_CLI_E2E_REFERENCE_AUDIO_PREFLIGHT=1`.
+Prefer an eligible source in `GFLOW_CLI_E2E_REFERENCE_AUDIO_VIDEO`. When none exists,
+explicit `GFLOW_CLI_E2E_REFERENCE_AUDIO_SOURCE_FIXTURE=1` permits one labelled free
+synthetic MP4 upload and archive. Do not replay an uncertain upload/archive. This
+BDD cannot establish upload-origin audio if the supplied asset is a saved voice.

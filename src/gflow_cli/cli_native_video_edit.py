@@ -16,6 +16,7 @@ from gflow_cli.api.native_video_edit import (
     edit_native_video,
     wait_native_video_edit,
 )
+from gflow_cli.api.native_video_prompt import parse_video_slot_options, video_slot_inputs
 from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.config import get_settings
 from gflow_cli.services.native_captcha import (
@@ -44,6 +45,12 @@ from gflow_cli.services.native_captcha import (
 @click.option(
     "--character-ref", multiple=True, help="Owned character UUID; combined native limits apply."
 )
+@click.option(
+    "--reference-slot",
+    "reference_slot_ids",
+    multiple=True,
+    help="Explicit SLOT=REFERENCE, e.g. referenceImage_3=UUID; replaces reference lists.",
+)
 @click.option("--profile", default=None)
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/edits"))
 @click.option("--json", "as_json", is_flag=True)
@@ -70,11 +77,16 @@ def edit_native_command(
     profile: str | None,
     out_dir: Path,
     as_json: bool,
+    reference_slot_ids: tuple[str, ...] = (),
     captcha_order: str | None = None,
     captcha_retry: int | None = None,
 ) -> None:
     """Edit one owned video slice; output duration follows the frame window."""
     native_captcha_controls(captcha_order=captcha_order, captcha_retry=captcha_retry)
+    slots = parse_video_slot_options(reference_slot_ids)
+    image_ref, audio_ref, character_ref, _ = video_slot_inputs(
+        prompt, image_ref, audio_ref, character_ref, slots
+    )
     selected = _resolve_profile(profile)
 
     async def action() -> None:
@@ -115,6 +127,7 @@ def edit_native_command(
                         image_ids=image_ref,
                         audio_ids=audio_ref,
                         character_ids=character_ref,
+                        reference_slot_ids=slots,
                         on_started=checkpoint,
                     )
                     records = await wait_native_video_edit(client, started)

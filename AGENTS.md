@@ -410,7 +410,7 @@ The native video feature batch adds `video extension-models` / `extend-native`,
 `reference-native`, with matching MCP tools and durable REST jobs. These use
 fresh owned native media UUIDs and observed account model keys. Extension and
 reference generation support count 1–4; edit requires one output; omitted end derives a measured source-duration
-virtual-24fps window capped240, while explicit end overrides remain supported. Video editing accepts active owned native uploaded-audio media UUIDs without saved-TTS visibility; preset names and character IDs remain unwired. Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
+virtual-24fps window capped240, while explicit end overrides remain supported. Video editing accepts active owned native uploaded-audio media UUIDs without saved-TTS visibility; fresh available preset names and character IDs are implemented (R04 closure). Native credit/model catalogs passed live. R2V browser-token and controlled provider-token attempts were explicitly Google-rejected; extension/edit rendering was not additionally billed after the shared-account refusals. No rendered acceptance is claimed. See
 `docs/self-hosted/NATIVE_VIDEO_EXTENSION.md`, `docs/VIDEO_EDIT.md` and
 `docs/self-hosted/NATIVE_REFERENCE_VIDEO.md`.
 
@@ -496,3 +496,12 @@ Generic video count1–4 provider controls: SDK services.video_captcha wrapper, 
 Image upscale2K/4K explicit REST provider controls support1–10 positively confirmed WAF-only attempts. Fresh4K availability is checked before paid mint and dispatch; unavailable Pro options refuse. Existing SDK scopes/CLI token-file/direct MCP token remain single sequence. See [CAPTCHA](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/CAPTCHA.md).
 
 Generic count2–4 now retains all native results through SDK generate_videos_batch, CLI, queued MCP and one REST job; partial/unknown checkpoints never replay. Multipart text fields reuse the existing HTTP JSON validators. Automatic selection applies explicitly labeled local cooldowns only to typed native quota observations; CAPTCHA latency is measured only across matched local observer phases. See [batches](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/VIDEO_BATCH.md), [forms](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/FORM_REQUESTS.md) and [scheduler](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/ACCOUNT_SCHEDULER.md).
+
+
+R04 closure: CLI reference-native/edit-native --reference-slot SLOT=REFERENCE and
+matching direct MCP reference_slot_ids expose explicit mixed positional maps in
+place of reference lists. R2V/V2V share strict active native audio/workflow proof;
+generic audio is not automatically a saved voice. Public native model catalogs
+expose max_characters alongside image/audio pools; duplicate capacities refuse.
+Existing-audio final-request preflight passed without token mint/submission.
+Live unsaved uploaded-audio cohort coverage remains unavailable; rendering is R12.

@@ -227,3 +227,16 @@ read worker/profile lease, back up SQLite state with SQLite's backup API and ret
 the protected environment. Restart only affected API/MCP services after work drains.
 Verify an authenticated inventory request through the existing workstation SSH
 forwards; retain the existing GUI service/configuration.
+
+
+### R04 zero-generation verification
+
+Use model/reference reads for deployment smoke checks; do not POST videos just to
+exercise validation. Native source/reference preflight can run the explicitly
+configured existing-audio BDD described in [reference inputs](NATIVE_REFERENCE_VIDEO.md#r04-supported-reference-inputs-and-implementation-closure).
+It replaces the token minter with a local stop and blocks generation RPCs. Use
+pro2/pro3 only under the current operator constraints; pro1 stays disabled/UseAPI-only.
+Preserve originals and remove only acknowledged invocation fixtures, once. No
+preview or solver is required. Publication/deployment uses the same revision on
+all three fork branches and CC LXC production, after checking both queues. Keep
+existing Mac localhost forwards; no Mac service deployment is needed.

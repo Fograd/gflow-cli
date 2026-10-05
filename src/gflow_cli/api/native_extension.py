@@ -416,6 +416,7 @@ def parse_extension_models(
                     "aspect_enums": aspects,
                     "max_images": _at(usage, 21, 2),
                     "max_audio": _at(usage, 21, 0),
+                    "max_characters": _at(usage, 21, 1),
                     "resolution_enums": _at(usage, 23, 0),
                     "duration_flexible": _at(usage, 22) is True,
                 }

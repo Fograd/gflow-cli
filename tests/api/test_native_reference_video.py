@@ -45,11 +45,33 @@ def test_exact_reference_request_audio_resolution_and_positional_tokens():
 
 def test_ownership_and_exclusive_audio_arm():
     image = [IMAGE, P, W, None, None, None, []]
-    audio = [A, P, str(UUID(int=6)), None, None, None, None, None, None, None, []]
-    validate_reference_assets([None, None, [image, audio]], P, (IMAGE,), (A,))
+    audio = [
+        A,
+        P,
+        str(UUID(int=6)),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        [[None, "performance"]],
+    ]
+    validate_reference_assets(
+        [None, [[audio[2], None, None, ["audio", None, None, None, A], P]], [image, audio]],
+        P,
+        (IMAGE,),
+        (A,),
+    )
     audio[6] = []
     with pytest.raises(ConfigurationError):
-        validate_reference_assets([None, None, [image, audio]], P, (IMAGE,), (A,))
+        validate_reference_assets(
+            [None, [[audio[2], None, None, ["audio", None, None, None, A], P]], [image, audio]],
+            P,
+            (IMAGE,),
+            (A,),
+        )
 
 
 @pytest.mark.asyncio
@@ -110,9 +132,29 @@ async def test_fresh_audio_caps_single_dispatch_checkpoint_and_unknown(monkeypat
     client._checkout_page.return_value = page
     client._checkin_page = Mock()
     image = [IMAGE, P, W, None, None, None, []]
-    audio = [A, P, str(UUID(int=6)), None, None, None, None, None, None, None, []]
+    audio = [
+        A,
+        P,
+        str(UUID(int=6)),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        [[None, "performance"]],
+    ]
     monkeypatch.setattr(
-        module, "read_project_payload", AsyncMock(return_value=[None, None, [image, audio]])
+        module,
+        "read_project_payload",
+        AsyncMock(
+            return_value=[
+                None,
+                [[audio[2], None, None, ["audio", None, None, None, A], P]],
+                [image, audio],
+            ]
+        ),
     )
     usage = [None] * 25
     usage[0] = "actual-key"
@@ -172,7 +214,9 @@ async def test_poll_unrelated_response_preserves_exact_ids_without_source(monkey
     client._checkin_page = Mock()
     page.evaluate.return_value = {"status": 200, "text": "not inspected"}
     monkeypatch.setattr(
-        module, "parse_frames", lambda *_: [("as29s", [IMAGE, P, W, None, None, None, None, []])]
+        module,
+        "parse_frames",
+        lambda *_: [("as29s", [IMAGE, P, W, None, None, None, None, []])],
     )
     monkeypatch.setattr(module, "rpc_errors", lambda *_: [])
     with pytest.raises(NativeVideoGenerationUnknownError) as caught:

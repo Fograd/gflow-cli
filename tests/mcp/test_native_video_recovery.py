@@ -107,6 +107,7 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
             image_ids=(),
             audio_ids=(),
             character_ids=(),
+            reference_slot_ids=None,
         ),
         "reference": dict(
             project_id=P,
@@ -114,6 +115,7 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
             reference_image_ids=(M,),
             reference_audio_ids=(),
             reference_character_ids=(),
+            reference_slot_ids=None,
             model_key=None,
             count=1,
             aspect="16:9",

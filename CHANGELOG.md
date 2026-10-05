@@ -22,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### R04 video reference coverage
+
+- Share strict active native-audio ownership across reference video and editing,
+  retaining five-versus-three bounds and generic audio without saved visibility.
+- Refuse duplicate current model capacities; expose the fresh character cap.
+- Mirror existing mixed positional slot maps in CLI and direct MCP, preserving
+  holes and prompt order. Native REST workers keep the canonical positions.
+- Record zero-generation existing-audio request proof and the missing live
+  uploaded-audio cohort separately from R12 rendered acceptance.
+
+
 ### R03 inventory synchronization
 
 - Preserve all observed media attachment and character workflow relationships across catalogs and fresh scans.

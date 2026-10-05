@@ -25,10 +25,12 @@ from gflow_cli.api.native_video_audio import (
     audio_wire_id,
     normalize_audio_reference,
     validate_audio_presets,
+    validate_owned_audio,
 )
 from gflow_cli.api.native_video_characters import (
     character_reference_counts,
     classify_video_slots,
+    model_reference_limits,
     reference_capacity,
 )
 from gflow_cli.api.native_video_prompt import encode_video_prompt
@@ -171,7 +173,8 @@ def reference_args(
 def validate_reference_assets(
     payload: Any, project: str, images: tuple[str, ...], audio: tuple[str, ...]
 ) -> None:
-    """Fresh Lx ownership and exclusive image7/audio11 oneof; no supplied type hints."""
+    """Fresh typed image proof and shared active native audio ownership."""
+    validate_owned_audio(payload, project, audio, max_refs=5)
     from gflow_cli.api.transports.batchexecute import _at
 
     if not isinstance(payload, list) or not isinstance(_at(cast(list[Any], payload), 2), list):
@@ -294,39 +297,25 @@ async def generate_native_reference_video(
         )
         from gflow_cli.api.transports.batchexecute import _at
 
-        # Capability extensions are decoded directly from the same source model rows.
-        capabilities: dict[str, tuple[Any, Any, Any, Any]] = {}
-        for family in cast(list[Any], _at(models, 0, 4) or []):
-            for usage in cast(list[Any], _at(family, 1) or []):
-                capabilities[_at(usage, 0)] = (
-                    _at(usage, 21, 2),
-                    _at(usage, 21, 0),
-                    _at(usage, 21, 1),
-                    _at(usage, 23, 0),
-                )
         selected: list[dict[str, Any]] = []
         for row in options:
-            max_images, max_audio, max_characters, resolutions = capabilities.get(
-                row["model_key"], (None, None, None, None)
-            )
-            if not reference_capacity(
-                len(images), len(audio), weights, (max_audio, max_characters, max_images)
-            ):
-                continue
-            if {"16:9": 2, "9:16": 1, "1:1": 0}[aspect] not in (row.get("aspect_enums") or []):
-                continue
-            if duration is not None and row["duration"] != duration:
-                continue
-            if resolution != "720p" and {"360p": 4, "1080p": 2, "4k": 3}[resolution] not in (
-                resolutions or []
-            ):
-                continue
             if model_key is not None and row["model_key"] != model_key:
                 continue
             # Alias-free SDK default may select only confirmed Omni Flash family, not Veo.
             if model_key is None and "omni" not in str(row.get("display_name", "")).lower():
                 continue
             if model_key is None and "flash" not in str(row.get("display_name", "")).lower():
+                continue
+            limits = model_reference_limits(models, row["model_key"])
+            if not reference_capacity(len(images), len(audio), weights, limits):
+                continue
+            if {"16:9": 2, "9:16": 1, "1:1": 0}[aspect] not in (row.get("aspect_enums") or []):
+                continue
+            if duration is not None and row["duration"] != duration:
+                continue
+            if resolution != "720p" and {"360p": 4, "1080p": 2, "4k": 3}[resolution] not in (
+                row.get("resolution_enums") or []
+            ):
                 continue
             selected.append(row)
         if not selected:

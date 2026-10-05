@@ -1014,3 +1014,16 @@ fresh visibility claims. Repeat until `traversal_finished`, or explicitly restar
 without deleting observations. Unsupported catalog/cursor reads return an error
 with earlier committed progress retained. See
 [full progress semantics](NATIVE_INVENTORY_SYNC.md#r03-supported-traversal-and-progress).
+
+
+### R04 reference closure
+
+Native video model endpoints return max_images, max_audio and max_characters from
+fresh account data. R2V/V2V share active exclusive native-audio/workflow proof;
+UUID audio need not be saved-TTS visible. Exact registered saved-voice aliases
+continue to require actual saved-user resources. Existing referenceImage_N,
+referenceAudio_N and character_N fields retain original positions into the workers.
+CLI --reference-slot and direct MCP reference_slot_ids now expose the same mapping.
+Live existing-audio final request construction passed before token mint/submission;
+current fixtures lack unsaved uploaded-audio coverage. Rendered acceptance is R12.
+See [supported inputs](NATIVE_REFERENCE_VIDEO.md#r04-supported-reference-inputs-and-implementation-closure).

@@ -31,3 +31,13 @@ private workers retain different process boundaries, so final E2E covers each.
 See [API](API.md), [roadmap](PARITY.md#roadmap), [contract audit](CONTRACT_AUDIT.md),
 [batch results](VIDEO_BATCH.md), [scheduler](ACCOUNT_SCHEDULER.md),
 [forms](FORM_REQUESTS.md) and [final E2E](FINAL_E2E.md).
+
+
+R04 closure, 5 October: supported reference implementation is complete. Native
+R2V/V2V share strict active audio ownership and unique current capacity pools;
+model reads include max_characters. CLI --reference-slot and direct MCP
+reference_slot_ids mirror existing SDK/REST positional maps, with holes/mixed slots
+retained. Existing saved-audio final codecs passed live before minting; previous
+character/system-preset evidence is reused. No current unsaved uploaded-audio
+cohort was available, so that live shape coverage remains an evidence limitation.
+Rendered video/speech and semantic grounding remain R12, with no acceptance claim.

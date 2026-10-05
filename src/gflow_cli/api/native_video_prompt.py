@@ -59,3 +59,50 @@ def encode_video_prompt(
             raise ConfigurationError(detail="Native reference video marker kind is unsupported")
     text: list[Any] = [None, None, [parts]]
     return text
+
+
+def parse_video_slot_options(values: tuple[str, ...]) -> dict[str, str] | None:
+    """CLI spelling of the existing native slot map; never reorder its keys."""
+    if not values:
+        return None
+    slots: dict[str, str] = {}
+    for value in values:
+        key, separator, identifier = value.partition("=")
+        if not separator or not identifier or key in slots:
+            raise ConfigurationError(
+                detail="Reference slots require distinct SLOT=REFERENCE values"
+            )
+        slots[key] = identifier
+    return slots
+
+
+def video_slot_inputs(
+    prompt: str,
+    images: tuple[str, ...],
+    audio: tuple[str, ...],
+    characters: tuple[str, ...],
+    slot_ids: Mapping[str, str] | None,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], dict[str, ReferenceSlot] | None]:
+    """Prepare explicit adapter slots; fresh classification remains in the SDK."""
+    if slot_ids is None:
+        return images, audio, characters, None
+    if images or audio or characters or not slot_ids:
+        raise ConfigurationError(
+            detail="Explicit reference slots must replace image/audio/character reference lists"
+        )
+    slots = {
+        key: ReferenceSlot(
+            "audio"
+            if key.startswith("referenceAudio_")
+            else "character"
+            if key.startswith("character_")
+            else "image",
+            normalize_audio_reference(value) if key.startswith("referenceAudio_") else value,
+        )
+        for key, value in slot_ids.items()
+    }
+    try:
+        plan = resolve_reference_markers(prompt, surface="video", slots=slots)
+    except ValueError:
+        raise ConfigurationError(detail="Invalid or missing native video reference slot") from None
+    return plan.image_ids, plan.audio_ids, plan.character_ids, slots

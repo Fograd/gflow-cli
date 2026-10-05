@@ -280,14 +280,15 @@ unsafe-caption canonical attachment proof.
   observations. This does not promise every hidden/deleted/historical resource
   or authoritative reconciliation. Earlier R03 checkpoints below are historical
   and superseded by this supported-scope completion.
-- [ ] **R04 — Video reference and character coverage.** Implement canonical
-  positional image/entity/audio grounding and video character references. Extend
-  V2V beyond existing image/saved-TTS UUIDs to supported uploaded audio, system
-  presets and character inputs. Discover actual source contracts before enabling
-  each form; an attachment alone does not prove semantic grounding.
+- [x] **R04 — Video reference and character coverage (supported implementation).**
+  Canonical positional image/entity/audio request construction is shared across
+  SDK, CLI, REST, direct MCP and native workers. R2V/V2V accept active owned
+  native audio UUIDs without requiring saved-TTS visibility, saved voices, fresh
+  available system presets and owned characters. Unknown forms refuse explicitly.
+  An attachment or request binding is not rendered semantic-grounding proof.
   Generic native-audio edit preflight is now implemented without saved-TTS
   visibility, with exact active workflow and exclusive audio proof. Read-only
-  preflight BDD passed7.68seconds; uploaded-audio/rendered acceptance remains R12.
+  preflight BDD passed7.68seconds; that earlier read did not contain an uploaded-audio fixture.
   R2V character inputs and preserved mixed canonical slots are now wired across
   SDK/CLI/registered MCP/REST/privateworker with native combined budgets. Free
   fixture BDD passed42.07seconds with0generation. V2V character/positional
@@ -309,6 +310,29 @@ unsafe-caption canonical attachment proof.
   at4f2b4cc3, with an actual pro3 read-only model BDD. The later pro3
   character+preset submission was explicitly WAF-rejected, accepted0,unknown=false.
   Accepted rendered character/audio/video proof remains open.
+  Closure on 5 October 2026: R2V now reuses the strict active audio/workflow
+  validator with its five-audio bound; edit retains three. Empty/malformed audio,
+  archived/missing/foreign/ambiguous workflow links refuse before mint/checkpoint.
+  R2V now uses the same unique current model-capacity lookup as editing; public
+  model catalogs expose max_images, max_audio and max_characters. Character-linked
+  images/audio consume those pools under the previously measured frontend policy.
+  CLI --reference-slot SLOT=REFERENCE and direct MCP reference_slot_ids expose
+  the existing explicit map, preserving holes and mixed image/character positions.
+  They replace the ordered reference lists; REST positional fields and SDK maps
+  keep their existing contracts. Native workers retain canonical slot identities.
+  The live existing-audio BDD passed 1 test in 42.04 seconds: current saved voice
+  and fresh model data built both final requests with repeated referenceAudio_3,
+  before the real token minter and dispatch. Only its acknowledged synthetic source
+  clip was archived; originals and the private generation ledger were preserved.
+  Twelve current strict project payloads were readable across pro2/pro3; one known
+  empty catalog refused the strict ownership reader. They exposed one saved voice
+  and no unsaved uploaded-audio cohort. Supported unsaved audio is covered by
+  controlled tests; live upload-origin shape coverage is an explicit evidence gap,
+  not rendered acceptance and not a claim of missing Google capability. Arbitrary
+  audio file/URL ingestion is not added. Current generated sources without dimensions
+  and uploaded sources outside exact supported aspect ratios refuse editing clearly.
+  Accepted rendered video, audible speech and per-reference semantic influence
+  remain R12; no paid render is required for this implementation closure.
 - [x] **R05 — Native video controls (bounded discovery, limits recorded).** Find and wire numerical video seeds and
   distinct 4:3/3:4 video ratios if the service exposes them. The currently observed
   codec collapses those ratios: do not ship extra input choices that produce the
@@ -494,7 +518,7 @@ page-context native model discovery, not accepted rendering or CAPTCHA solving.
 Deployed6a264 native inventory subsequently returned pro1=51 and pro2=557 observed
 rows, complete:null. These later fresh observations supplement the earlier cached
 53/556/565 observations; neither establishes complete account history.
-R02/R03/R04 remain unchecked until their broader evidence requirements are met.
+That earlier checkpoint left R02/R03/R04 unchecked; their dated closure sections supersede it for supported implementation scope.
 
 
 ### R03 measured account-history continuation — 2026-10-04

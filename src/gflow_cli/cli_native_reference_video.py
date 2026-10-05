@@ -8,6 +8,7 @@ import click
 
 from gflow_cli import json_output
 from gflow_cli._cli_helpers import _resolve_profile, run_with_handlers
+from gflow_cli.api.native_video_prompt import parse_video_slot_options, video_slot_inputs
 from gflow_cli.cli_native_captcha import native_captcha_option
 from gflow_cli.errors import NativeVideoGenerationUnknownError
 from gflow_cli.selfhost.reference_video_worker import run_reference_video
@@ -34,6 +35,12 @@ from gflow_cli.services.native_captcha import (
 @click.option("--aspect", type=click.Choice(["16:9", "9:16", "1:1"]), default="16:9")
 @click.option("--duration", type=click.IntRange(1, 60), default=None)
 @click.option("--resolution", type=click.Choice(["360p", "720p", "1080p", "4k"]), default="720p")
+@click.option(
+    "--reference-slot",
+    "reference_slot_ids",
+    multiple=True,
+    help="Explicit SLOT=REFERENCE, e.g. referenceImage_3=UUID; replaces reference lists.",
+)
 @click.option("--profile", default="default")
 @click.option("--out-dir", type=click.Path(path_type=Path), default=Path("./out/reference-video"))
 @click.option("--json", "as_json", is_flag=True)
@@ -61,18 +68,24 @@ def reference_native_command(
     profile: str,
     out_dir: Path,
     as_json: bool,
+    reference_slot_ids: tuple[str, ...] = (),
     captcha_order: str | None = None,
     captcha_retry: int | None = None,
 ) -> None:
     """Generate once from UUID ingredients; download independently identified outputs."""
     controls = native_captcha_controls(captcha_order=captcha_order, captcha_retry=captcha_retry)
     profile = _resolve_profile(profile)
+    slots = parse_video_slot_options(reference_slot_ids)
+    image_ref, audio_ref, character_ref, _ = video_slot_inputs(
+        prompt, image_ref, audio_ref, character_ref, slots
+    )
     payload = {
         **controls,
         "prompt": prompt,
         "referenceImageIds": image_ref,
         "referenceAudioIds": audio_ref,
         "referenceCharacterIds": character_ref,
+        "referenceSlotIds": slots,
         "modelKey": model_key,
         "count": count,
         "aspectRatio": aspect,

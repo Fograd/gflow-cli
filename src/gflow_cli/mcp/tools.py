@@ -3259,6 +3259,7 @@ async def gflow_delete_native_media(
     name="gflow_edit_native_video",
     description="Edit an owned video with Omni Flash. Virtual24fps trim window0..240; "
     "up to5 owned images,3 audio UUID/preset refs and owned characters with native limits. "
+    "Explicit reference_slot_ids preserve mixed slots and replace reference lists. "
     "Explicit native "
     "model_key required; omitted end uses measured source duration capped240 frames. "
     "Consumes video credits; optional confidential single-use captcha_token. Optional "
@@ -3276,6 +3277,7 @@ async def gflow_edit_native_video(
     image_ref: list[str] | None = None,
     audio_ref: list[str] | None = None,
     character_ref: list[str] | None = None,
+    reference_slot_ids: dict[str, str] | None = None,
     out_dir: str | None = None,
     profile: str = "default",
     captcha_token: str | None = None,
@@ -3299,6 +3301,11 @@ async def gflow_edit_native_video(
         return _bad_param("Invalid video edit identifiers", "Project/media must be UUIDs")
     images, audio = tuple(image_ref or []), tuple(audio_ref or [])
     characters = tuple(character_ref or [])
+    from gflow_cli.api.native_video_prompt import video_slot_inputs
+
+    images, audio, characters, slots = video_slot_inputs(
+        prompt, images, audio, characters, reference_slot_ids
+    )
     video_edit_args(
         new_extension_started(project, media_id, 1),
         prompt=prompt,
@@ -3310,6 +3317,7 @@ async def gflow_edit_native_video(
         image_ids=images,
         audio_ids=audio,
         character_ids=characters,
+        reference_slots=slots,
     )
     resolved = _resolve_and_validate_profile(profile)
     if isinstance(resolved, dict):
@@ -3338,6 +3346,7 @@ async def gflow_edit_native_video(
                     image_ids=images,
                     audio_ids=audio,
                     character_ids=characters,
+                    reference_slot_ids=reference_slot_ids,
                     on_started=_native_video_checkpoint(target, "edit"),
                 )
                 records = await client.wait_native_video_edit(started)
@@ -3387,7 +3396,8 @@ async def gflow_list_edit_models(project: str, profile: str = "default") -> dict
 @server.tool(
     name="gflow_generate_native_reference_video",
     description="Generate Omni Flash with owned image/audio/character or system-preset refs; "
-    "the chosen account model imposes its own limits. Optional native model_key, "
+    "the chosen account model imposes its own limits. Explicit reference_slot_ids "
+    "preserve mixed slots and replace reference lists. Optional native model_key, "
     "duration/resolution; downloads MP4 outputs. Consumes video credits; "
     "optional confidential single-use captcha_token. Optional captcha_order/captcha_retry "
     "select configured providers; omission uses browser once. Only confirmed rejection "
@@ -3400,6 +3410,7 @@ async def gflow_generate_native_reference_video(
     image_ref: list[str] | None = None,
     audio_ref: list[str] | None = None,
     character_ref: list[str] | None = None,
+    reference_slot_ids: dict[str, str] | None = None,
     model_key: str | None = None,
     count: int = 1,
     aspect: str = "16:9",
@@ -3428,12 +3439,18 @@ async def gflow_generate_native_reference_video(
         return _bad_param("Invalid project", "project must be a UUID")
     images, audio = tuple(image_ref or []), tuple(audio_ref or [])
     characters = tuple(character_ref or [])
+    from gflow_cli.api.native_video_prompt import video_slot_inputs
+
+    images, audio, characters, slots = video_slot_inputs(
+        prompt, images, audio, characters, reference_slot_ids
+    )
     reference_args(
         new_reference_started(project, count),
         prompt=prompt,
         image_ids=images,
         audio_ids=audio,
         character_ids=characters,
+        reference_slots=slots,
         model_key=model_key or "discover-native-model",
         aspect=aspect,
         resolution=resolution,
@@ -3464,6 +3481,7 @@ async def gflow_generate_native_reference_video(
                     reference_image_ids=images,
                     reference_audio_ids=audio,
                     reference_character_ids=characters,
+                    reference_slot_ids=reference_slot_ids,
                     model_key=model_key,
                     count=count,
                     aspect=aspect,
