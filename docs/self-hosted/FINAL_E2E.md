@@ -38,7 +38,8 @@ one attempt; no hidden retry budget was enabled.
 |V5r|pro2 direct MCP native Lite extension; CapSolver 1|Repaired owned-source measurement passed; `fZytfe` explicitly refused with gRPC 8, `PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC`|
 |V4u|pro3 REST async Omni native edit; cheapest 360p model; CapSolver 1|Repaired source measurement passed; `jIps6` explicitly refused with gRPC 8, `PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC`; typed failed job retained|
 |L1|SDK free export of existing owned clip; billable RPCs blocked|Original MP4 1280×720 and animated GIF 480×270 both decoded, 8s; actual browser downloads; zero billable forwarding|
-|L2|REST local concatenation of two existing owned clips|Initial alias lookup failed under old decoder; next attempt exposed omitted dimensions in native cache. Focused fix and final deployed retest recorded below.|
+|L2|REST local concatenation of two existing owned clips|Initial lookup/cache failures fixed; deployed Mac-localhost REST returned one decoded 14s, 1280×720 H.264/AAC clip, 30fps/48kHz, inputsCount 2. Same-job download representations have identical SHA-256.|
+|L3|pro3 registered MCP free export of V2|Accepted animated GIF, 480×270, 8s, exact source identity; no new video generation|
 |CB1|Isolated runtime callback worker and controlled loopback receiver|One HTTP 204 delivery; exact stored job snapshot received; production configuration unchanged. Public delivery was not tested.|
 
 Eight image outputs and five generated clips were preserved locally under the
@@ -97,7 +98,17 @@ Live tagged BDD checks passed for current owned metadata/MP4 measurement,
 actual bound Fast frame requests fulfilled locally before forwarding, original
 MP4/GIF export with billable RPCs blocked, and fresh owned native-cache bytes.
 Harness failures were recorded and corrected without generation replay.
-Offline regressions and required whole-gate results are reconciled at delivery.
+Required hygiene, links, privacy, generated mirrors, council references, lint,
+format and strict types passed. Final quiet suite: 8,293 passed, 5 skipped,
+90.14% coverage. The preceding run had one unchanged virtualized-picker DOM
+failure and 8,292 passes; that test passed isolated, then the quiet whole run
+passed. The earlier run is not claimed all-green. Runtime revisions were
+`957395f9d9a3595db7f4bd89f6543eb63564cf5c` then
+`b8d701cb295ea0e027cbb5e89dba90a21f8ff589`, published atomically to all three
+requested branches and deployed after idle-queue checks, SQLite/config backup
+and quick checks. API/MCP/solver-GUI services were active and protected
+configuration unchanged. Final documentation revision has the same tested
+runtime; root R12_HANDOFF.md records its exact SHA and localhost verification.
 
 Invocation-owned uploads and the character were cleaned up after positive image
 results. All other observed active media remained present. Pro3's initial

@@ -2224,3 +2224,22 @@ website/plugin mirrors, council-memory links, whole-tree Ruff and strict Pyright
 passed. No CLI option/exit surface changed; the internal typed identity HTTP error
 stays inside health classification. The duplication proxy found only existing
 untouched blocks; production and localhost acceptance follows in R10_HANDOFF.md.
+
+
+## R12 representative final E2E — 5 October 2026
+
+[Actual R12 matrix](FINAL_E2E.md): three Nano families, mixed/Auto/plural images,
+native 2K, text/start-end videos, exact original output recovery, MP4/GIF exports
+and local REST concatenation passed. Saved audio/native reference/edit/extension/
+promotion were explicitly Google-refused; full paid acceptance is not claimed.
+Controlled callback delivery passed; public delivery and renewal remain unproved.
+
+Runtime revisions: 957395f9d9a3595db7f4bd89f6543eb63564cf5c and
+b8d701cb295ea0e027cbb5e89dba90a21f8ff589. Required static gates passed. Final quiet
+whole suite: 8,293 passed, 5 skipped, 90.14% coverage. Earlier run: 8,292 passed,
+one unchanged virtualized-picker DOM failure; isolated retest and quiet full
+rerun passed. Four opted-in e2e_auth BDDs passed for measured owned video records,
+bound Fast frames intercepted before forwarding, bounded original MP4/GIF browser
+downloads, and freshly owned native-cache bytes. Independent reviews found no
+blocker. Final documentation revision preserves that runtime; root handoff has
+final deployed SHA and localhost status.

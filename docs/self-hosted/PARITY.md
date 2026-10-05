@@ -1178,3 +1178,30 @@ was attempted. R10 is therefore partially accepted: implemented session manageme
 pending automatic renewal acceptance. Successful import and three-account live
 coverage remain explicitly excluded; pro1 is disabled and reserved for UseAPI.
 See [current session evidence and recovery](SESSION_HEALTH.md#r10-current-behavior-and-measured-survival--5-october-2026).
+
+
+### R12 measured representative campaign — 5 October 2026
+
+See [FINAL_E2E.md](FINAL_E2E.md) for actual outputs, identities, allowances and
+recovery. Eight decoded images across Nano2/Pro/Lite, mixed/Auto/plural references
+and native 2K passed. Five generic video clips passed or were recovered by exact
+identity; deployed REST text and queued MCP start/end retests completed. Existing
+clip MP4/GIF exports and local trimmed REST concatenation passed.
+
+Google explicitly refused saved voice, native reference video, edit, extension and
+1080p promotion. Native 4K was not attempted; models were unavailable or capability
+observations unknown/disabled. Public callback delivery and authentication renewal
+remain unproved. R12 paid acceptance stays unchecked; delivered implementation
+checkboxes remain completed. The campaign did not repeat the full parity audit.
+
+New allowance consumed: pro2 images 6/videos 5/audio 0; pro3 images 3/videos 4/audio 1;
+CapSolver 4 of 10, all solved/submitted/rejected. Historical counters retained; one
+unknown initial image-upscale slot remains conservative. Fresh final Google credits
+1020/1010. No top-up or purchase. Only exact invocation-owned fixtures were cleaned.
+
+Five focused fixes were reviewed and passed strict static checks, 8,293 offline
+tests at 90.14% coverage, plus four scoped live zero-credit BDDs. The preceding
+parallel suite's one unchanged DOM failure remains recorded; isolated and quiet
+whole-suite reruns passed. All three requested branches and CC production carry
+the tested runtime and final documentation; root R12_HANDOFF.md records exact SHA,
+service status and R13 external acceptance instructions.
