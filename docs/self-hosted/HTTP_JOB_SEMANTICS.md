@@ -37,7 +37,9 @@ Polling and webhook snapshots have the same public shape:
 
 `status` is `created`, `started`, `completed`, or `failed`. Terminal results appear under `response`; large media bytes appear only under `response.media`, rather than being duplicated at the top level. Numeric `createdAt`/`updatedAt`, `jobId` and small recovery counters remain compatibility extensions. Internal queue execution states remain separate from this projection. Legacy queued records can omit request mode if it was never recorded.
 
-The request projection excludes supplied CAPTCHA tokens, secret-file locations, input/ref paths, and private worker controls. Results exclude raw worker output, unknown fields, absolute local paths, and signed URLs. Managed download paths remain bearer-protected.
+The request projection retains accepted public audio/video slots, native modelKey,
+operation, source frame trims and saved-voice inputs. The performance alias is
+reported as voicePerformance. It excludes supplied CAPTCHA tokens, secret-file locations, input/ref paths, and private worker controls. Results exclude raw worker output, unknown fields, absolute local paths, and signed URLs. Managed download paths remain bearer-protected.
 
 ## Wait expiry and unknown outcomes
 

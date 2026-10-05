@@ -542,3 +542,30 @@ proves ordered attachment/request preparation and an accepted Lite output, not
 visual influence of each reference or all wrapper/model rendered coverage.
 Native Google Auto remains distinct from the first-reference approximation.
 See [R08 forms, limits and scope](IMAGE_REFERENCE_BUDGETS.md).
+
+
+## R11-based R12 permission checklist
+
+R11 authorizes no production generation, upscale, audio preview, solver task or
+native deletion. This is preparation, not permission to run those operations.
+
+- [ ] Obtain new per-operation attempt/credit/solver caps on original pro2/pro3;
+  existing video allowances are exhausted. Keep pro1 disabled/reserved.
+- [ ] Choose a small representative output campaign: REST Auto/mixed grounding;
+  queued MCP/REST generic plural video; native reference/edit/extension with
+  requested Fast/Lite/Quality family where currently available. Each has separate
+  accepted/refused/unknown evidence and no blind replay.
+- [ ] Obtain explicit paid promotion/image upscale permissions; prove720p/1080p
+  target pixels and entitled4K only when fresh catalogs actually offer it.
+- [ ] Obtain bounded voice preview/create/binding permissions if that backend
+  acceptance gap is to be tested; reuse existing saved playback evidence.
+- [ ] Authorize creation and cleanup of invocation-owned temporary assets only
+  for any missing mutation lifecycle proof. Preserve every original asset.
+- [ ] Specify a public allowlisted callback receiver for actual delivery proof;
+  controlled callback/recovery outcomes already cover R11 semantics.
+- [ ] Record fresh account/model/credit reads and reserve the private ledger
+  before each allowed attempt. Stop at accepted/unknown/refused budget limits.
+
+Automatic renewal remains the separate R10 acceptance boundary. Cookie import,
+profile replacement and pro1 testing remain excluded. No numerical generation
+seed investigation or vendor-wide statistics work is proposed for R12.

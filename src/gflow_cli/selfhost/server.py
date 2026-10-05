@@ -297,6 +297,24 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         unknown = sorted(set(payload) - allowed)
         if unknown:
             feature_missing(",".join(unknown))
+        if "projectId" in payload:
+            payload["projectId"] = uuid_value(payload["projectId"], "projectId")
+
+    def native_video_controls(payload: dict[str, Any]) -> None:
+        """Canonicalize existing controls without treating explicit invalid values as omitted."""
+        if "modelKey" in payload and (
+            not isinstance(payload["modelKey"], str) or not 1 <= len(payload["modelKey"]) <= 200
+        ):
+            raise HTTPException(422, "modelKey requires a bounded native model key")
+        if "aspectRatio" in payload:
+            aspect = payload["aspectRatio"]
+            if not isinstance(aspect, str):
+                raise HTTPException(422, "Invalid native video aspect ratio")
+            payload["aspectRatio"] = {"landscape": "16:9", "portrait": "9:16"}.get(aspect, aspect)
+            if payload["aspectRatio"] not in ("16:9", "9:16", "1:1"):
+                raise HTTPException(422, "Invalid native video aspect ratio")
+        if payload.get("resolution") == "4K":
+            payload["resolution"] = "4k"
 
     async def translate_input_aliases(
         payload: dict[str, Any], fields: dict[str, str], *, confirmed_delete: bool = False
@@ -526,7 +544,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(
                 409, "Account registration changed; inspect the account before retrying"
             )
-        payload["project"] = uuid_value(payload.get("projectId") or default_project, "projectId")
+        payload["project"] = uuid_value(payload.get("projectId", default_project), "projectId")
         owned_secret: Path | None = None
         if captcha_token is not None and existing is None:
             secret = payload["captchaSecret"]
@@ -3033,6 +3051,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "projectId",
                 "mediaGenerationId",
                 "prompt",
+                "model",
                 "modelKey",
                 "count",
                 "aspectRatio",
@@ -3043,6 +3062,13 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 "replyUrl",
             },
         )
+        native_video_controls(payload)
+        if "model" in payload and "modelKey" in payload:
+            raise HTTPException(422, "Choose model or modelKey for extension")
+        if "modelKey" not in payload:
+            model = payload.setdefault("model", "veo-3.1-fast")
+            if not isinstance(model, str) or model not in VIDEO_ALIASES or model == "omni-flash":
+                raise HTTPException(422, "Extension requires a supported Veo model")
         await translate_input_aliases(payload, {"mediaGenerationId": "video"})
         profile, project = character_project(payload)
         payload["mediaGenerationId"] = uuid_value(
@@ -3101,6 +3127,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(payload, allowed)
         if payload.get("model", "omni-flash") != "omni-flash":
             raise HTTPException(422, "Audio ingredients currently require Omni Flash")
+        native_video_controls(payload)
         await translate_input_aliases(
             payload,
             {
@@ -3113,17 +3140,17 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         images = [
             uuid_value(payload[f"referenceImage_{i}"], f"referenceImage_{i}")
             for i in range(1, 8)
-            if payload.get(f"referenceImage_{i}")
+            if f"referenceImage_{i}" in payload
         ]
         audio = [
             video_audio_value(payload[f"referenceAudio_{i}"])
             for i in range(1, 6)
-            if payload.get(f"referenceAudio_{i}")
+            if f"referenceAudio_{i}" in payload
         ]
         characters = [
             uuid_value(payload[f"character_{i}"], f"character_{i}")
             for i in range(1, 8)
-            if payload.get(f"character_{i}")
+            if f"character_{i}" in payload
         ]
         slot_ids = {
             key: video_audio_value(payload[key])
@@ -3131,7 +3158,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             else uuid_value(payload[key], key)
             for family, cap in (("referenceImage", 7), ("referenceAudio", 5), ("character", 7))
             for i in range(1, cap + 1)
-            if payload.get(key := f"{family}_{i}")
+            if (key := f"{family}_{i}") in payload
         }
         from gflow_cli.api.reference_markers import ReferenceSlot
 
@@ -3204,6 +3231,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         check_unknown(payload, allowed)
         if payload.get("model", "omni-flash") != "omni-flash":
             raise HTTPException(422, "referenceVideo_1 requires Omni Flash")
+        native_video_controls(payload)
         if type(payload.get("count", 1)) is not int or payload.get("count", 1) != 1:
             raise HTTPException(422, "Native Omni edit supports count=1")
         await translate_input_aliases(
@@ -3220,17 +3248,17 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         images = [
             uuid_value(payload[f"referenceImage_{i}"], f"referenceImage_{i}")
             for i in range(1, 6)
-            if payload.get(f"referenceImage_{i}")
+            if f"referenceImage_{i}" in payload
         ]
         audio = [
             video_audio_value(payload[f"referenceAudio_{i}"])
             for i in range(1, 4)
-            if payload.get(f"referenceAudio_{i}")
+            if f"referenceAudio_{i}" in payload
         ]
         characters = [
             uuid_value(payload[f"character_{i}"], f"character_{i}")
             for i in range(1, 8)
-            if payload.get(f"character_{i}")
+            if f"character_{i}" in payload
         ]
         slot_ids = {
             key: video_audio_value(payload[key])
@@ -3238,7 +3266,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             else uuid_value(payload[key], key)
             for family, cap in (("referenceImage", 5), ("referenceAudio", 3), ("character", 7))
             for i in range(1, cap + 1)
-            if payload.get(key := f"{family}_{i}")
+            if (key := f"{family}_{i}") in payload
         }
         from gflow_cli.api.reference_markers import ReferenceSlot
 
@@ -3557,7 +3585,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             raise HTTPException(422, "operation must be promotion or export for video upscale")
         if (
             promoting
-            and payload.get("modelKey") is not None
+            and "modelKey" in payload
             and (
                 not isinstance(payload["modelKey"], str) or not 1 <= len(payload["modelKey"]) <= 200
             )

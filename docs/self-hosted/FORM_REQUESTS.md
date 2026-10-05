@@ -5,7 +5,7 @@ Raw `/assets` uploads retain their PNG/JPEG/WebP/MP4 byte contract.
 
 Each form field appears once and has no filename. `prompt`, `model`, `email`,
 references, cookie tables and provider tokens stay literal text. Numeric controls
-such as `count`, `seed`, `duration`, `captchaRetry`, `startFrameIndex_1` and `endFrameIndex_1` use JSON numbers. Booleans
+such as `count`, `seed`, `duration`, `captchaRetry`, `startFrameIndex_1`, `endFrameIndex_1`, `trimStartFrame` and `trimEndFrame` use JSON numbers. Booleans
 such as `async`, `enabled`, `verified` and `localOnly` use exactly `true` or `false`. `media`
 and `mediaGenerationIds` use JSON arrays. These conversions feed the existing
 route validation and selected-account ownership checks.

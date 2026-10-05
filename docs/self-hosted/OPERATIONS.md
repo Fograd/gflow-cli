@@ -205,7 +205,7 @@ PUBLIC_ERROR_UNUSUAL_ACTIVITY; its exact cause is unknown. Frontend creation
 succeeded with matching payloads, while the 90-second backend experiment was
 rejected in 0.45 seconds. Full saved-voice CRUD/binding acceptance remains R12;
 R03 supported account inventory traversal is complete; Google-wide visibility
-remains unknown. Exact contract equivalence remains R11. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
+remains unknown. The current R11 matrix documents supported compatibility and deliberate differences. See [voice usage and limitations](VOICES.md#existing-saved-voices-verified-lookup-and-creation-limitation).
 
 ### R03 read-only inventory operation
 

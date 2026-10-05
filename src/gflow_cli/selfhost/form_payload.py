@@ -37,6 +37,8 @@ _NUMERIC = frozenset(
         "endIndex",
         "startFrameIndex_1",
         "endFrameIndex_1",
+        "trimStartFrame",
+        "trimEndFrame",
         "maxPages",
         "maxProjects",
         "maxSteps",

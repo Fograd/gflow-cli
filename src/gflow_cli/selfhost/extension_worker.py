@@ -60,6 +60,25 @@ async def _run_extension(
     profile: str, project: str, payload: dict[str, Any], out: Path
 ) -> dict[str, Any]:
     # Reject malformed requests before creating the browser client.
+    model_family: str | None = None
+    if "model" in payload:
+        from gflow_cli.api.video import VideoModel
+        from gflow_cli.errors import ConfigurationError
+        from gflow_cli.selfhost.config import VIDEO_ALIASES
+
+        alias = payload["model"]
+        if (
+            not isinstance(alias, str)
+            or alias not in VIDEO_ALIASES
+            or alias == "omni-flash"
+            or "modelKey" in payload
+        ):
+            raise ConfigurationError(
+                detail="Extension requires one supported Veo model or modelKey"
+            )
+        model = VideoModel.from_cli(VIDEO_ALIASES[alias])
+        assert model is not None
+        model_family = model.value
     validation = new_extension_started(
         project, payload["mediaGenerationId"], payload.get("count", 1)
     )
@@ -86,6 +105,7 @@ async def _run_extension(
             media_id=payload["mediaGenerationId"],
             prompt=payload["prompt"],
             model_key=payload.get("modelKey"),
+            model_family=model_family,
             count=payload.get("count", 1),
             aspect=payload.get("aspectRatio"),
             trim_start_frame=payload.get("trimStartFrame"),

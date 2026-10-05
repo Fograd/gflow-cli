@@ -22,8 +22,22 @@ _REQUEST_STRINGS = {
     "startImage",
     "endImage",
     "mediaGenerationId",
+    "modelKey",
+    "operation",
+    "displayName",
+    "voice",
+    "dialog",
+    "voicePerformance",
 }
-_REQUEST_NUMBERS = {"count", "duration", "seed"}
+_REQUEST_NUMBERS = {
+    "count",
+    "duration",
+    "seed",
+    "startFrameIndex_1",
+    "endFrameIndex_1",
+    "trimStartFrame",
+    "trimEndFrame",
+}
 _NATIVE_UNKNOWN_CODES = {
     "voice_mutation_outcome_unknown",
     "native_video_generation_outcome_unknown",
@@ -109,11 +123,16 @@ def request_record(payload: dict[str, Any]) -> dict[str, Any]:
     """Whitelist primitive request fields; never echo token/ref paths or worker controls."""
     request: dict[str, Any] = {}
     for key, value in payload.items():
-        slot = re.fullmatch(r"(?:reference|referenceImage|character)_[1-9][0-9]?", key)
+        slot = re.fullmatch(
+            r"(?:reference|referenceImage|referenceAudio|referenceVideo|character)_[1-9][0-9]?",
+            key,
+        )
         if (key in _REQUEST_STRINGS or slot) and isinstance(value, str):
             request[key] = value
         elif key in _REQUEST_NUMBERS and type(value) is int:
             request[key] = value
+    if isinstance(payload.get("performance"), str):
+        request["voicePerformance"] = payload["performance"]
     if aspect_metadata(payload):
         request["aspectRatio"] = "auto"
     if type(payload.get("_delivery_async")) is bool:

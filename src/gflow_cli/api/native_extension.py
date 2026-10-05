@@ -160,6 +160,7 @@ async def extend_native_video(
     media_id: str,
     prompt: str,
     model_key: str | None = None,
+    model_family: str | None = None,
     count: int = 1,
     aspect: str | None = None,
     trim_start_frame: int | None = None,
@@ -168,6 +169,15 @@ async def extend_native_video(
 ) -> NativeExtensionStarted:
     """Submit once; checkpoint exact preassigned IDs before the native dispatch."""
     project_id, media_id = _uuid(project_id), _uuid(media_id)
+    if model_family is not None:
+        from gflow_cli.api.video import VideoModel
+
+        if model_key is not None or model_family not in {
+            model.value for model in VideoModel if model != VideoModel.OMNI_FLASH
+        }:
+            raise ConfigurationError(
+                detail="Native extension requires one known Veo family or exact model key"
+            )
     if type(count) is not int or count not in range(1, 5):
         raise ConfigurationError(detail="Native extension count must be one through four")
     started = new_extension_started(project_id, media_id, count)
@@ -215,6 +225,8 @@ async def extend_native_video(
         ]
         if model_key is not None:
             candidates = [item for item in candidates if item["model_key"] == model_key]
+        if model_family is not None:
+            candidates = [item for item in candidates if item["family"] == model_family]
         if not candidates:
             raise ConfigurationError(
                 detail="No tier-available native extension model matches this source"

@@ -22,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Self-hosted R11 contract closure: HTTP extension defaults to the currently
+  available Fast family, supports explicit Veo aliases or an exclusive native key,
+  normalizes native aspect/4K controls and multipart extension trims, refuses
+  explicit invalid scope/reference controls, and retains native/TTS public
+  request fields in polling/callback records. Current29endpoint dispositions
+  and deliberate vendor differences are separated from historical evidence.
+
+
 ### Fixed
 - R10 health checks verify fresh original Google identity before and after native
   project access. Private registration-epoch status retains last access/identity

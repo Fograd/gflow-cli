@@ -117,8 +117,8 @@ never expose tokens, cookies or solver keys.
 
 ## Roadmap
 
-**Next implementation task: R11.** R01–R09 supported implementation and R10
-original-profile session management are delivered. The feature checkboxes below
+**Next task: R12, subject to new bounded operation permissions.** R01–R09 supported implementation and R10
+original-profile session management and the supported R11 contract audit/fixes are delivered. The feature checkboxes below
 record that implementation scope; paid output acceptance and automatic authentication
 renewal remain separately unchecked. Current access does not prove an unattended
 login lifetime. Preserve the first account exclusively for UseAPI.
@@ -170,7 +170,7 @@ rendering and R13 records the published revision.
 |R08|Complete supported SDK/CLI/REST/MCP/worker references, fresh weighted limits, ordered inputs and strict existing controls|Accepted Lite ten-reference output reused; per-reference visual influence remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
 |R10|Original pro2/pro3 persistence, leases, fresh expected identity/project checks, scoped private status and maintenance backoff|Automatic renewal and genuine long idle unproved; successful import/three-account acceptance excluded by current restrictions|
-|R11|All29contract audit, defaults, WebP, local event timing, native concat/inputsCount, exact quota mapper/cooldowns and generic all-output batches|Vendor opaque IDs/envelopes and inferred reset semantics remain explicit differences|
+|R11|Current29endpoint dispositions; safe native/TTS projection, strict controls, aliases, multipart trims and extension defaultFast/family selection|Vendor IDs/envelopes, optional source timestamps, seeds and hosted statistics remain explicit differences|
 
 ### Ordered feature backlog
 
@@ -402,12 +402,18 @@ unsafe-caption canonical attachment proof.
   Pro1 is disabled/UseAPI-only and must not be opened. Successful cookie import and
   three-account live coverage cannot be claimed under the current no-copy/import
   restrictions; no account-import rebuilding is included. See [session health](SESSION_HEALTH.md).
-- [ ] **R11 — Remaining useapi contract equivalence.** Audit all 29 endpoint
-  contracts and parameter matrices against the finished adapters: defaults,
-  supported controls, response/error fields, sync/async status, polling,
-  callbacks and timeout/unknown semantics. Unknown controls must fail explicitly
-  before generation. Update the endpoint matrix and API documentation with exact
-  scope instead of declaring parity from endpoint-name coverage. R11 delivery: HTTP native asset deletion defaults to the selected account's registered project; explicit invalid values refuse. Deprecated image model aliases normalize to current Nano2/Lite models; landscape/portrait image aspects and explicit native promotion4K normalize to canonical controls. Explicit job statistics options now provide account-load views with honest timing/rate-limit scope; default summary and score-based automatic selection are implemented; reason/model quarantine is now implemented under the explicit local compatibility policy; Google reset times remain unobserved. The 29 primary contracts were retrieved for comparison; the full29endpoint audit is in CONTRACT_AUDIT.md with delivery changes and remaining differences.
+- [x] **R11 — Remaining UseAPI contract audit and supported compatibility fixes.**
+  All29 current official endpoint contracts were re-read on5October. The
+  [authoritative current matrix](CONTRACT_AUDIT.md#current-r11-matrix--5-october-2026)
+  separates completed R02–R10 work from current controls, defaults, aliases,
+  response/error shape, polling/callback/wait behavior and explicit differences.
+  R11 fixes native/TTS request projection, native video aspect/4K aliases,
+  explicit invalid controls/supplied slots, multipart extension trims and HTTP
+  extension family/defaultFast selection. Controlled outcomes and deployed
+  localhost read/schema checks verify the supported scope; no new generation
+  or paid acceptance is claimed. Vendor IDs/envelopes, optional source timestamps,
+  global statistics, numerical video seeds and unproved entitlements remain
+  documented alternatives/limits, not hidden implementation promises.
 
 ### Outstanding acceptance boundaries
 
@@ -427,14 +433,15 @@ unsafe-caption canonical attachment proof.
   native2K, available higher-resolution paths, video generation/reference/edit/
   extension/export/GIF, saved TTS CRUD/binding and native media lifecycles.
   Exercise REST and registered MCP, including queued paths where different code
-  runs, callbacks/recovery and available account entitlements. Use existing paid
-  test authorizations and remaining allowances; do not start an unbounded stress
-  test or repeatedly submit the same known refusal. Prefer read-only checks until
+  runs, callbacks/recovery and available account entitlements. Obtain new bounded per-operation
+  permissions before paid/mutation checks; existing video allowances are exhausted.
+  Do not start an unbounded stress test or repeat a known refusal. Prefer read-only checks until
   an integration change justifies a new paid trial.
-- [ ] **R13 — Publish, deploy and reconcile documentation.** Latest runtime implementation
-  published/deployed: f4e651c36d2cc3ece65d41829dfea708e7e993ef, with
-  REST/MCP/GUI active and both test accounts passing fresh queued health.
-  R11, final acceptance and final delivery reconciliation remain open. Publish completed
+- [ ] **R13 — Publish, deploy and reconcile documentation.** The R10 baseline f4e651c36d2cc3ece65d41829dfea708e7e993ef was published/deployed
+  with REST/MCP/GUI active and both test accounts passing fresh queued health.
+  R11 exact publication/deployment evidence is recorded in the operator R11 handoff.
+  R11 supported audit/fixes are delivered; final acceptance and final campaign
+  reconciliation remain open. Publish completed
   work to the GitHub fork, deploy it on CC LXC without interrupting active jobs,
   verify actual API/MCP capabilities, and update this roadmap, endpoint matrix,
   [API guide](API.md) and [verification ledger](VERIFICATION.md). Record code

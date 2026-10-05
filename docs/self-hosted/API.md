@@ -60,7 +60,7 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `PATCH/DELETE /characters/{ref}` | Native metadata changes/removal; inspect unconfirmed outcomes before retry |
 | `POST /characters` | Native one/two-image creation with initial notes and system preset or owned saved TTS voice assignment |
 | `POST /videos` | Text, start/end image or image-ingredient video; referenceVideo_1 selects native Omni editing with frame trims, up to5 image/3 saved-audio references; ordinary Omni image/audio ingredients use the dedicated native adapter; explicitly enabled |
-| `POST /videos/extend` | Native standalone continuation outputs, count1–4; optional modelKey discovered by account tier/source aspect; see [extension](NATIVE_VIDEO_EXTENSION.md) |
+| `POST /videos/extend` | Native standalone continuation outputs, count1–4; HTTP model defaultsFast or explicit exclusive modelKey, fresh tier/source aspect selection; see [extension](NATIVE_VIDEO_EXTENSION.md) |
 | `GET /videos/extend/models`, `/videos/edit/models`, `/videos/reference/models` | Fresh native model keys and credit costs for the selected account/project |
 | `POST /videos/upscale`, `/videos/gif` | Default native1080p promotion, optional720p/4k subject to entitlement; explicit operation=export retains legacy exports. GIF is270p export. Paid promotion acceptance remains pending. |
 | `POST /videos/concatenate` | Local ffmpeg on 2–10 managed/native owned videos; fresh native validation/cache, same account/project/dimensions, trims and inputsCount |
@@ -94,10 +94,10 @@ adapters await final E2E verification. Voice cloning is unsupported. Read
 
 Video generation accepts `veo-3.1-fast`, `veo-3.1-quality`, `veo-3.1-lite`,
 `veo-3.1-lite-low-priority`, and `omni-flash`, subject to the underlying SDK's
-model/duration validation. Counts 1–4 run serial single-output calls with durable output checkpoints; inspect
-partial results if a later call fails. Paid live video verification remains pending. Export jobs return protected download paths
-for local variants while retaining the source Google media ID. GIF export uses a
-job/download path, rather than useapi's synchronous `encodedGif` response.
+model/duration validation. Counts 1–4 use one native RPC with all-output durable checkpoints; inspect
+retained outputs if polling or downloading is incomplete. Paid live video verification remains pending. Export jobs return protected download paths
+for local variants while retaining the source Google media ID. GIF export returns `encodedGif` and a protected download artifact through the
+durable job response.
 
 Concatenation accepts `media` items with `mediaGenerationId`, optional `trimStart`
 and `trimEnd` in seconds. Each trim is finite and within 0–10 seconds. Combined
@@ -352,7 +352,8 @@ failure preserves an acknowledged character reference. The native live BDD and d
 verified Charon on creation, Aoede after update and notes clearing with
 preserved preset/two references, with both sources intact.
 This is assignment metadata, without a rendered speech or character-generation
-binding proof. Custom/user voice CRUD remains unsupported.
+binding proof. Saved preset-based user voice create/list/detail/delete adapters are supported.
+Backend creation and saved binding acceptance remain R12; cloning is unsupported.
 
 For CLI/MCP native project inventory and character mirrors, see the
 [surface matrix](SURFACE_MATRIX.md). For preserved outputs after a failed download,
@@ -486,8 +487,8 @@ generation jobs or persist protected URLs in a durable queue. Existing generatio
 direct/queued MCP routes remain separate. CLI/MCP downloads may retrieve images
 as a fork extension; existing output files are never overwritten. Video decoding
 requires ffprobe; image decoding uses Pillow. Invalid output destinations return
-typed errors. Audio/voice/character-reference/thumbnail detail and composite
-useAPI handle translation remain separate roadmap tasks.
+typed errors. Saved-voice and character image/thumbnail detail use their separate fresh adapters.
+Exact privately registered aliases are supported; arbitrary vendor ID decoding is unavailable.
 
 A zero-generation BDD passed image/video download with concurrency one in18.92s.
 The live samples were uploaded variants; generated URL arms have public-source
@@ -516,8 +517,8 @@ character-owned active workflow, only after strict GetMedia proves the exact
 project/media/workflow/image identity. A separately projected, typed thumbnail
 can be read through its character-owned workflow without being inserted into
 ordered references. All distinct image/thumbnail reads share a sixteen-read and
-sixty-second budget. Contradictory projections refuse. Composite vendor refs and
-thumbnail variants with no proven workflow remain open.
+sixty-second budget. Contradictory projections refuse. Exact registered composite refs are supported. Thumbnail variants without a proven
+character-owned workflow remain unsupported.
 
 
 ### Fresh saved user voice detail
@@ -624,7 +625,8 @@ captchaToken (20–20000 characters, one use). It is mutually exclusive with
 captchaOrder/captchaRetry, which are supported on dedicated native paths after validation. Raw tokens
 stay outside durable job JSON and are consumed through private worker files.
 Exact native project/action/host binding and no fallback/replay apply.
-Generic UI video supplied/provider controls require count1; configured order and explicit1–10 WAF-only retries are supported. Generic multi-output overrides remain501. Image2K/4K supports supplied/provider tokens and explicit1–10 WAF-only retries, with current4K availability checked before paid mint and dispatch. Exports use no generation override.
+Generic UI video count1–4 supports supplied/provider controls, configured order and
+explicit1–10 confirmed-WAF-only retries through one native RPC. Image2K/4K supports supplied/provider tokens and explicit1–10 WAF-only retries, with current4K availability checked before paid mint and dispatch. Exports use no generation override.
 See [native CAPTCHA controls](NATIVE_CAPTCHA.md).
 
 ## Explicit native video promotion
@@ -638,7 +640,8 @@ Confirmed permanent-delete retries preserve requested deleted IDs, separate newl
 ## Account-load statistics (HTTP extension)
 GET /jobs?options=summary returns public configured account identifiers plus images/videos/combined summary objects. options=executing adds running jobs with elapsed time; options=history adds executing and the ten newest terminal records per generation family. GET /jobs defaults to summary; source=local selects the paginated job list. Statistics options cannot combine with listing filters; invalid options return400.
 
-Only enabled, verified registrations contribute. Image generation/upscaling and video text/reference/edit/extension/promotion jobs are counted; queued jobs, account maintenance, uploads/deletion, export/GIF and local composition are excluded. Running jobs remain visible regardless of age; terminal outcomes use a fifteen-minute window. Completed, failed and rateLimited counters are separate; recorded429 outcomes are excluded from failed. The observational score is executing+completed+10*failed+20*rateLimited. Automatic selection now uses the combined score, then queue load; native reason/model quarantine remains unsupported.
+Only enabled, verified registrations contribute. Image generation/upscaling and video text/reference/edit/extension/promotion jobs are counted; queued jobs, account maintenance, uploads/deletion, export/GIF and local composition are excluded. Running jobs remain visible regardless of age; terminal outcomes use a fifteen-minute window. Completed, failed and rateLimited counters are separate; recorded429 outcomes are excluded from failed. The observational score is executing+completed+10*failed+20*rateLimited. Automatic selection now uses the combined score, then queue load; native reason/model cooldowns use the documented local compatibility policy;
+Google reset times remain unobserved.
 
 timingPolicy=accepted-to-observation-or-terminal explicitly includes queue waiting. Elapsed timestamps start at durable acceptance; responseTime and avgResponseTime are milliseconds from acceptance to terminal update. The combined average weights actual timing samples; no samples return null. This is not proof of pure execution duration. rateLimitScope=recorded-terminal-jobs excludes queue-admission429 failures that have no job. Unknown stored failure codes project to502; interrupted jobs remain502. Metadata projection exposes no prompts, cookies, CAPTCHA tokens, result bodies, protected URLs or filesystem paths.
 
@@ -791,7 +794,7 @@ optional saved-voice workflow declarations; saved-voice aliases require the exac
 fresh audio workflow. Unknown vendor prefixes are never decoded. At the 4 October checkpoint, saved-user audio and voice-alias fixture proof
 remained pending. Actual character-alias REST lifecycle passed without generation
 or Google mutation. The 5 October closure below supersedes the voice fixture
-limitation; exact vendor contract equivalence remains R11.
+limitation; the current R11 matrix documents supported compatibility and deliberate differences.
 
 
 ## Explicit native catalog resume
@@ -1071,3 +1074,33 @@ ten-reference evidence. Existing controls only: model aliases, integer count1–
 32-bit seed+count range and five explicit ratios. Invalid controls refuse; no
 new controls were added. Controlled queued MCP tests use a temporary queue and
 stop before mint/submission. Per-reference rendered influence remains R12.
+
+
+## R11 current contract closure
+
+The [current 29-endpoint matrix](CONTRACT_AUDIT.md#current-r11-matrix--5-october-2026)
+is authoritative; historical checkpoints below/elsewhere do not reopen completed
+R02–R10 work. Local IDs, bounded inventory, safe envelopes and protected callback
+rules are deliberate differences. Optional native character/saved-voice source
+timestamps are not decoded and are not invented.
+
+Native reference/extension video accepts landscape/portrait as16:9/9:16; reference
+video accepts4K as4k. Explicitly invalid projectId/modelKey or supplied native
+reference slots refuse422 before queue creation, including empty/null values.
+Omitting a project still uses the registered project. Current fresh ownership,
+model capacities and entitlements remain required at execution.
+
+POST /videos/extend accepts model=veo-3.1-fast (HTTP default), veo-3.1-quality,
+veo-3.1-lite or veo-3.1-lite-low-priority. It selects an exact currently available
+family for the owned source aspect; unavailable low-priority does not fall back.
+Use modelKey instead for an exact native model, never both. The private worker
+passes a canonical model_family filter into the existing SDK selection. Native
+CLI/direct MCP keep exact model_key and their existing cheapest-compatible default;
+this HTTP default change adds no CLI option or queued MCP control.
+
+GET /jobs/{jobId} and callbacks now retain accepted audio/video reference slots,
+modelKey, operation, frame trims and voice displayName/voice/dialog/voicePerformance.
+The performance extension projects as voicePerformance. Tokens, private paths,
+worker vectors and unknown fields remain excluded. Text multipart extension
+trimStartFrame/trimEndFrame are decoded as JSON numbers before integer validation.
+See [job responses](HTTP_JOB_SEMANTICS.md) and [forms](FORM_REQUESTS.md).

@@ -1,6 +1,6 @@
 # Current public surface audit
 
-This is the 4October2026 implementation audit. The release revision and actual
+This is the current supported implementation audit through R11, 5October2026. The release revision and actual
 live results are recorded in [verification](VERIFICATION.md). Supported adapters,
 accepted rendering and vendor compatibility differences are separate columns.
 
@@ -41,3 +41,10 @@ retained. Existing saved-audio final codecs passed live before minting; previous
 character/system-preset evidence is reused. No current unsaved uploaded-audio
 cohort was available, so that live shape coverage remains an evidence limitation.
 Rendered video/speech and semantic grounding remain R12, with no acceptance claim.
+
+R11 closure: all29official current endpoint documents have dispositions in the
+current contract matrix. HTTP-only model/default and alias normalization reaches
+the private workers/shared SDK; native CLI/MCP default policies remain explicit
+alternatives. Public job request projections retain native/TTS controls, while
+private tokens and worker internals remain excluded. Current schema discovery
+and read-only deployed proof are recorded in the operator R11 handoff.

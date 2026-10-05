@@ -35,7 +35,8 @@ scene concatenation.
 python -m gflow_cli.selfhost.extension_worker PROFILE PROJECT_UUID REQUEST_JSON_PATH
 ```
 
-The private JSON accepts `mediaGenerationId`, `prompt`, optional `modelKey`,
+The private JSON accepts `mediaGenerationId`, `prompt`, optional HTTP `model`
+(defaultFast inserted by REST) or exclusive `modelKey`,
 `count`, `aspectRatio`, `trimStartFrame`, `trimEndFrame`, and `timeout`.
 Output is `video_extension_result` with `project_id`, `source_media_id`,
 and `results` containing `media_name`, `media_id`, `workflow_id`, and
@@ -65,3 +66,22 @@ Focused offline tests verify positional encoding, exact output assignment,
 validation before checkout, current-tier model filtering, one dispatch after
 checkpoint, exact-ID result correlation and CLI registration. These tests do not
 establish generation acceptance.
+
+
+## R11 HTTP model contract
+
+POST /videos/extend defaults to model=veo-3.1-fast, rather than choosing the
+cheapest extension family. Explicit model supports the four Veo aliases including
+lite-low-priority; fresh tier/aspect metadata must contain the exact family.
+Missing families refuse before token mint; no key is guessed. Alternatively
+supply modelKey, with model omitted. HTTP landscape/portrait aliases normalize
+to16:9/9:16. Explicit invalid modelKey/aspect/project controls refuse; omitted
+aspect is inherited. JSON and text multipart trimStartFrame/trimEndFrame reach
+the existing integer frame codec.
+
+The shared SDK accepts an optional canonical model_family selection filter used
+by the private HTTP worker. Existing native SDK/CLI/direct MCP calls with neither
+filter nor model_key keep the cheapest available compatible selection. The
+existing exact-key controls and source/project checks are retained. R11 verifies
+selection and dispatch with controlled outcomes and current pro2 read-only model
+metadata; accepted extension rendering still requires separate R12 permission.

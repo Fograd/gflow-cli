@@ -1,5 +1,40 @@
 # Self-hosted fork verification
 
+## R11 supported contract closure — 5 October 2026
+
+The current official index and all29linked primary endpoint documents were
+retrieved read-only. The authoritative current matrix is in CONTRACT_AUDIT.md,
+with the ff42c17c baseline preserved separately. R11 fixes public native/TTS
+request projection, native aspect/4K aliases, explicit invalid scope/model/slot
+refusal, multipart extension trims, and HTTP extension defaultFast/exact fresh
+family selection. Existing native-key SDK/CLI/MCP defaults remain documented.
+
+Controlled RED/GREEN evidence:46initial adapter failures,12managed-project
+failures,1form-trim failure,11HTTP extension-default/model failures and15SDK/worker
+family failures before their fixes. Initial focused173passed; broader selfhost
+1406passed; final focused191passed including CLI/MCP schemas. Required hygiene,
+doc links233, website privacy, generated mirrors21, council memory, whole-tree
+ruff/format and pyright gates passed. Independent source/test reviews were GREEN;
+five stale documentation findings were corrected and the doc review rechecked GREEN.
+
+One whole offline coverage run finished8259passed/1failed/7skipped,260deselected,
+90.13%coverage in727.08seconds. The packaging subprocess could not find uv in
+the non-login SSH PATH, despite the parent using an absolute uv path. With the uv directory on PATH, the isolated packaging file passed2tests; the whole run is not claimed
+all-green and was not repeated. The failure requires no product-code change.
+
+Baseline Maclocalhost reads passed registrations, default/all job statistics
+modes, durable existing job detail, fresh pro2 extension families/system+saved
+voice list/character list, capabilities, provider metadata, authenticated
+OpenAPI and43registered MCP schemas. Provider observations were unchanged and
+submitted jobs0. Publication, guarded production deployment and final pro2/pro3
+localhost read-only evidence with the exact revision are recorded in the
+operator R11_HANDOFF.md. No generation, upscale, audio preview, paid solver,
+native deletion, UseAPI mutation, cookie import or profile replacement was
+performed. Pro1 stays disabled/reserved; R07 paid acceptance and R10 renewal
+remain unchecked. R12 requires fresh bounded operation permissions.
+
+
+
 Measured across 2026-10-02–03 using one authenticated Google AI Pro profile served by `flow.google.com`. Previously published snapshot: one/two-reference character creation, initial notes and system preset assignment are live verified through the native adapter. Native MP4 upload and reversible archive are verified separately through SDK, CLI, registered MCP and HTTP below. The preceding portable-media offline gate was 5,612 passed, 28 skipped and 90.75% code coverage. This is code coverage, not useapi feature completeness or Google generation success. Earlier gate results below describe their recorded historical snapshots.
 
 | Surface | Evidence | Result |
