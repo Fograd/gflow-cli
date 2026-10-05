@@ -167,7 +167,7 @@ rendering and R13 records the published revision.
 |R05|Bounded current-codec investigation complete|Numeric generation seed/five distinct ratios lack a working contract|
 |R06|Image/native/generic count1–4 providers;2K/4K overrides; positive WAF-only retries and one-use supplied tokens|REST and queued MCP text images accepted; other provider paths remain R12|
 |R07|Native720p/1080p/4K promotion, default1080p; image2K/4K entitlement guards|Accepted promotion/entitled4K remains R12/access dependent|
-|R08|Lite10, independent character/image pools and fresh weighted caps; live ten-chip/wire proof passed|Rendered proof remains R12|
+|R08|Complete supported SDK/CLI/REST/MCP/worker references, fresh weighted limits, ordered inputs and strict existing controls|Accepted Lite ten-reference output reused; per-reference visual influence remains R12|
 |R09|Exact alias mutation and scoped confirmed-delete receipts|Unproven arbitrary missing IDs cannot become success|
 |R10|Atomic accepted-refresh lineage, historical three-account health, fresh-principal checks and staged Session-cookie retention|Successful import/automatic renewal proof; both isolated test profiles currently pass fresh health|
 |R11|All29contract audit, defaults, WebP, local event timing, native concat/inputsCount, exact quota mapper/cooldowns and generic all-output batches|Vendor opaque IDs/envelopes and inferred reset semantics remain explicit differences|
@@ -365,11 +365,13 @@ unsafe-caption canonical attachment proof.
   promotion. Discover actual account capability and return clear limits; three
   Pro subscriptions do not establish Ultra access. Preserve the working image2K
   path while investigating higher resolutions.
-- [ ] **R08 — Reference budgets and remaining image controls.** Cover the
+- [x] **R08 — Reference budgets and remaining image controls.** Cover the
   documented reference forms/counts with current per-model limits, including
   ten-image cases where actually supported. Lite10 admission and separate character budgets are implemented; actual ordered ten-chip/wire retention and one decoded owned image passed. Per-reference visual influence remains R12.
   Keep first-reference ordering and validation consistent across surfaces.
   Native Google Auto remains separate from the implemented approximation.
+  See [R08 limits and acceptance scope](IMAGE_REFERENCE_BUDGETS.md); strict existing
+  model/aspect/count/seed boundaries and controlled queued execution are covered.
 - [ ] **R09 — Individual-delete compatibility.** Establish exact already-gone
   semantics and complete supported batch behavior with fresh owned membership
   proof. Preserve permanent deletion versus reversible archive versus local-cache

@@ -192,6 +192,55 @@ async def test_worker_process_t2i_batch(temp_db: DataStore) -> None:
 
 
 @pytest.mark.asyncio
+async def test_r08_ten_reference_queue_execution_stops_before_submission(temp_db):
+    from uuid import UUID
+
+    from gflow_cli.api.image import Aspect, Model
+    from gflow_cli.errors import ConfigurationError
+
+    refs = [str(UUID(int=index + 1)) for index in range(10)]
+    repo = QueueRepository(temp_db)
+    task = repo.enqueue_task(
+        task_id="r08-preflight",
+        profile_name="default",
+        task_type="i2i",
+        payload={
+            "prompt": "Use @reference_10 then @reference_1 then @reference_10.",
+            "refs": refs,
+            "reference_syntax": "slots",
+            "model": "nano2-lite",
+            "aspect": "3:4",
+            "count": 2,
+            "seed": 42,
+            "project_id": str(UUID(int=100)),
+        },
+    )
+    client = FakeFlowApiClient()
+
+    async def stop(**kwargs):
+        req = kwargs["req"]
+        assert tuple(ref.name for ref in req.refs) == tuple(refs)
+        assert req.reference_prompt_plan.image_ids == tuple(refs)
+        assert req.model is Model.HARBOR_SEAL and req.aspect is Aspect.PORTRAIT_THREE_FOUR
+        assert (req.count, kwargs["count"], req.seed) == (2, 2, 42)
+        raise ConfigurationError(detail="Controlled R08 stop before mint/submission")
+
+    client.generate_images_batch.side_effect = stop
+    worker = FlowWorker("default", str(temp_db.path))
+    try:
+        with patch("gflow_cli.worker.daemon.FlowApiClient", return_value=client):
+            await worker.process_task(task)
+        result = repo.get_task(task.task_id)
+        assert result.status == "failed" and result.flow_media_id is None
+        assert result.checkpoint["may_have_spent"] is False
+        client.generate_images_batch.assert_awaited_once()
+        client.generate_image.assert_not_awaited()
+        client.create_project.assert_not_awaited()
+    finally:
+        worker.close()
+
+
+@pytest.mark.asyncio
 async def test_an_agent_supplied_project_name_becomes_the_created_project_title(
     temp_db: DataStore,
 ) -> None:

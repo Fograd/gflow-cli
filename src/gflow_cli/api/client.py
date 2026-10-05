@@ -3183,7 +3183,7 @@ class FlowApiClient:
         Raises:
             ValueError: if ``count`` is outside ``[1, 4]``.
         """
-        if not 1 <= count <= 4:
+        if type(count) is not int or not 1 <= count <= 4:
             msg = f"count must be between 1 and 4, got {count}"
             raise ValueError(msg)
 

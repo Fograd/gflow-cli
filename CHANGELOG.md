@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- R08 image SDK and queued MCP reject boolean/fractional counts and unsupported
+  model/aspect values; explicit empty queue choices no longer fall back to defaults.
+  Existing weighted reference budgets and composer are retained.
+
 ### R07 resolution promotion safeguards
 
 - Reuse bounded owned MP4 measurement when promotion metadata explicitly omits dimensions.

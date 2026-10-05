@@ -80,6 +80,8 @@ class Aspect(StrEnum):
         """
         if cli is None:
             return cls.PORTRAIT
+        if not isinstance(cast(object, cli), str):
+            raise ValueError("Image aspect must be a supported ratio string")
         if cli not in _ASPECT_FROM_CLI:
             msg = f"Unsupported image aspect ratio {cli!r}; choose from {sorted(_ASPECT_FROM_CLI)}"
             raise ValueError(
@@ -110,6 +112,8 @@ class Model(StrEnum):
         """
         if cli is None:
             return cls.NARWHAL
+        if not isinstance(cast(object, cli), str):
+            raise ValueError("Image model must be a supported model string")
         key = cli.strip().lower()
         if key not in _MODEL_FROM_CLI:
             msg = (
@@ -467,6 +471,10 @@ class GenerateImageRequest:
     local_ref_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(cast(object, self.model), Model) or not isinstance(
+            cast(object, self.aspect), Aspect
+        ):
+            raise ValueError("Image model and aspect must be supported enum choices")
         if self.local_ref_ids and (
             len(self.local_ref_ids) != len(self.ref_paths)
             or any(
@@ -480,7 +488,7 @@ class GenerateImageRequest:
         if not self.prompt or not self.prompt.strip():
             msg = "GenerateImageRequest.prompt must be non-empty"
             raise ValueError(msg)
-        if not 1 <= self.count <= 4:
+        if type(self.count) is not int or not 1 <= self.count <= 4:
             msg = f"GenerateImageRequest.count must be 1–4, got {self.count}"
             raise ValueError(msg)
         if self.seed is not None and (

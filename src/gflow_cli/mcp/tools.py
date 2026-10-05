@@ -36,7 +36,7 @@ from pydantic import StrictBool, StrictInt
 from gflow_cli import auth as auth_mod
 from gflow_cli._cli_helpers import _FLOW_ID_RE
 from gflow_cli.api.client import FlowApiClient
-from gflow_cli.api.image import AgentInstruction, GenerateImageRequest, ImageRef
+from gflow_cli.api.image import AgentInstruction, ImageRef
 from gflow_cli.api.image_upscale import TargetResolution
 from gflow_cli.api.native_captcha import native_captcha_or_none
 from gflow_cli.api.native_catalogs import (
@@ -896,8 +896,8 @@ async def gflow_generate_image(
     prompt: str,
     model: str = "nano2",
     aspect: str = "1:1",
-    count: int = 1,
-    seed: int | None = None,
+    count: StrictInt = 1,
+    seed: StrictInt | None = None,
     reference_images: list[str] | None = None,
     reference_syntax: str = "names",
     reference_entities: list[str] | None = None,
@@ -1059,11 +1059,20 @@ async def gflow_generate_image(
             }
         except (ValueError, TypeError) as exc:
             return _bad_param("Invalid image reference slots", str(exc))
-    if seed is not None:
-        try:
-            GenerateImageRequest(prompt=prompt, count=count, seed=seed)
-        except ValueError as error:
-            return _bad_param("Invalid image seed", str(error))
+    try:
+        from gflow_cli.worker.codec import build_image_request
+
+        build_image_request(
+            {
+                "prompt": prompt,
+                "model": model,
+                "aspect": aspect,
+                "count": count,
+                "seed": seed,
+            }
+        )
+    except (ValueError, TypeError) as error:
+        return _bad_param("Invalid image controls", str(error))
     if (proj_err := _validate_project(project)) is not None:
         return proj_err
 

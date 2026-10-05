@@ -182,10 +182,10 @@ def build_image_request(payload: dict[str, Any]) -> GenerateImageRequest:
     prompt = payload["prompt"]
 
     aspect_val = payload.get("aspect")
-    aspect = ImageAspect.from_cli(aspect_val) if aspect_val else ImageAspect.PORTRAIT
+    aspect = ImageAspect.from_cli(aspect_val)
 
     model_val = payload.get("model")
-    model = ImageModel.from_cli(model_val) if model_val else ImageModel.NARWHAL
+    model = ImageModel.from_cli(model_val)
 
     # ref_meta (set by the MCP layer's _enrich_image_refs) carries the
     # display_name + on-disk local_path per media-id ref, so the transport

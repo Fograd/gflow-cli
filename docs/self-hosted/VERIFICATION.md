@@ -2083,3 +2083,48 @@ checks passed before publication. The duplication proxy found only
 pre-existing duplicates in untouched files. Independent implementation reviews
 approved the corrected diff. Accepted native video, solver-backed image upscale
 and entitled4K output tests remain separately permissioned R12.
+
+
+### R08 supported reference closure — 5 October 2026
+
+The existing weighted budget/composer implementation is retained. Supported
+Python/CLI/direct and queued MCP/REST image references use current model metadata,
+fresh ownership, separate image/character pools and actual character image weights.
+Mixed local/native slot order and positional prompt markers survive request/queue
+preparation. SDK/queue/MCP now refuse boolean/fractional counts and explicit invalid
+model/aspect choices; model/count/seed/aspect forwarding has controlled coverage.
+
+Fresh Mac-localhost REST/MCP reads on original pro2/pro3 agree: Nano2/Pro/Lite
+have ten effective image slots and seven effective character slots. Original-library
+zero-generation BDDs passed one each (pro2 34.00s; pro3 24.80s), preparing all three
+models with ten existing ordered native images, count2, seed42 and explicit3:4,
+then stopping at a substituted transport before real mint/submission. Missing
+references refused and first-native-reference Auto used the documented policy.
+No usable active character fixture existed in either selected library; actual
+one/two-image weights, zero/smaller character pools and weighted overflow have
+controlled fixture coverage. No original resource was changed or copied.
+
+Focused interface/budget/Auto/worker group: 258 passed in21.76s. Controlled SDK,
+MCP and daemon group: 60 passed in12.97s. SDK control regression went RED14failures
+then GREEN15; MCP control regression went RED5failures then GREEN8. A temporary
+queued worker preserved ten ordered references, model, aspect, count and seed,
+then stopped with may_have_spent=false; no production job was enqueued.
+Required release gate: 8,123 passed, 5 skipped, 27 warnings in256.97s,
+89.94%coverage. Hygiene, links, published privacy, generated mirrors, council
+references, Ruff lint/format and strict Pyright passed. Duplication proxy found
+only existing blocks in untouched code. No repeated whole-suite run was needed.
+Post-review documentation/mirror and surface-schema checks are recorded in the
+R08 handoff.
+
+Reused accepted ten-reference evidence is original-pro2 Lite count-one SDK with
+canonical slots, on source baseline890a65918255d5a71065a82af0e0bd61a404c2b0 plus
+composer corrections committed as a7846083edfeb61861bb8c5f8cf23d2af3215cb7.
+The corrected retained follow-up records ten identities in order, captured1,
+dispatch1, accepted1, fresh owned output and a decoded768x1376JPEG, clear10to0;
+fixtures were archived and originals preserved. An earlier separate output was
+recovered read-only after an output-path mismatch, without replay. This supersedes
+historical statements that ten-reference rendering was wholly unverified. It
+proves ordered attachment/request preparation and an accepted Lite output, not
+visual influence of each reference or all wrapper/model rendered coverage.
+Native Google Auto remains distinct from the first-reference approximation.
+See [R08 forms, limits and scope](IMAGE_REFERENCE_BUDGETS.md).

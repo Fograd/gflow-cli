@@ -331,7 +331,7 @@ Options:
 |---|---|---|
 | `nano2` | Nano Banana 2 (`NARWHAL`) | Default. Fast, balanced quality. |
 | `nano-pro` | Nano Banana Pro (`GEM_PIX_2`) | Higher quality, slower. |
-| `nano2-lite` | Nano Banana 2 Lite (`HARBOR_SEAL`) | Lightweight Nano Banana 2 variant. Its i2i reference cap is a provisional 3 and its daily quota is unmeasured (#787). |
+| `nano2-lite` | Nano Banana 2 Lite (`HARBOR_SEAL`) | Lightweight Nano Banana 2 variant. Its native i2i ceiling is ten, restricted by fresh account model metadata; daily quota remains account-specific. |
 | `image4` | Imagen 4 (`IMAGEN_3_5`) | Photoreal-leaning Imagen variant. |
 
 **Multi-prompt shortcut.**
@@ -425,11 +425,11 @@ gflow image t2i "A ceramic blue sphere" --seed 42 --count 2 --project PROJECT_ID
 
 Generate 1–4 images by blending a text prompt with one or more reference images. Same flag set as `t2i`, plus a required `--ref` (repeatable).
 
-> **Migrated `flow.google.com` accounts (#639):** local-file `--ref` values are supported
-> and each uploaded media id is verified in the outgoing `ogiZ0b` body. Without `--project`,
-> gflow creates one there first (#864). UUID refs, `@Name` / `--reference-entity`, Agent
-> instructions and Imagen 4 remain unavailable on that host and fail
-> before submit rather than silently degrading to T2I.
+> **Current native composer:** local PNG/JPEG files, active owned native image
+> UUIDs and character entities are supported with fresh weighted preflight. Native
+> references require their existing project; captions are search hints and exact
+> media identities are checked. Mixed local/native inputs use explicit slots mode.
+> Agent instructions and Imagen4 remain pre-submit refusals on this composer.
 
 ```text
 gflow image i2i PROMPT --ref PATH_OR_UUID [--ref ...] [OPTIONS]
@@ -453,12 +453,18 @@ Options:
   --profile NAME            Profile name (overrides default).
 ```
 
-**Path-or-UUID semantics.** Each `--ref` value is classified at the CLI boundary:
+**Path-or-UUID semantics.** Each `--ref` is a local file or native UUID.
+On the current native composer a UUID is validated freshly in the selected
+project and attached by exact thumbnail identity; missing, foreign, archived or
+ambiguous IDs refuse before upload/mint. Captions may repeat without changing
+identity. Each supplied local PNG/JPEG is decoded and budgeted before attachment;
+acknowledged uploads are bound to the canonical plan. Legacy-host catalog fallback
+can re-upload an integrity-verified local recording when an owned tile cannot be
+reached; it does not bypass current native ownership checks.
 
-- **Looks like a Flow asset UUID** (case-insensitive 8-4-4-4-12 hex, e.g. `ddb6ef97-262d-49f4-8269-4a28c0fae6a2`) → resolved through the local catalog (v0.58.0, #529): the asset's recorded Flow display name is searched in the project's reference picker and the **exact UUID tile** is selected — no duplicate upload, no grid scrolling, no UUID/prompt-text searches. A stale cached name self-heals ([#546](https://github.com/ffroliva/gflow-cli/issues/546)): on a picker miss in a known project, one free ~0.5 s listing fetch resolves the *current* name by UUID, the search is retried once, and the catalog is updated (`sync.source = "refresh"`) — a rename in the Flow UI costs one extra request, once. When the tile still can't be reached (different project, no recorded name), the catalog's recorded local file is uploaded instead — only after its byte count and SHA-256 still match the recording; otherwise the run aborts with a typed error rather than attaching the wrong bytes.
-- **Anything else** → treated as a local path. The CLI canonicalises it (resolving symlinks once at validation time, closing the symlink-laundering vector where `./hero.png -> ~/.ssh/id_rsa` could exfiltrate secrets), then attaches it — **deduplicated by filename since v0.38.0 (#314):** if the target project's library already holds an asset with the exact same filename, that existing tile is selected in the picker instead of re-uploading, so repeating a ref across runs no longer piles up duplicate library entries. On a picker miss the file is uploaded as before. Caveat: the match is by exact filename only — a *different* image that happens to share the name of one already in the project will be reused, not uploaded; rename the file if you need a fresh upload. (Video `r2v` refs keep upload-only behavior.)
-
-Mix and match in a single call. UUIDs and paths can co-exist on the same command line; order is preserved so `imageInputs[]` matches the order you typed.
+For a mix of UUIDs and paths, use `--reference-syntax slots` and the existing
+`--project`. `@reference_N` follows the image order you supplied, including an
+interleaved local/native sequence. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
 
 **Examples:**
 
@@ -470,12 +476,12 @@ gflow image i2i "make it cinematic, golden hour" --ref hero.png
 gflow image i2i "blend these two compositions" --ref a.png --ref b.png
 
 # Already-uploaded asset by UUID
-gflow image i2i "stylize this asset" --ref ddb6ef97-262d-49f4-8269-4a28c0fae6a2
+gflow image i2i "stylize this asset" --ref ddb6ef97-262d-49f4-8269-4a28c0fae6a2 --project PROJECT_ID
 
 # Mix: one path, one UUID
-gflow image i2i "mix references" --ref hero.png --ref ddb6ef97-262d-49f4-8269-4a28c0fae6a2
+gflow image i2i "mix @reference_1 and @reference_2" --ref hero.png --ref ddb6ef97-262d-49f4-8269-4a28c0fae6a2 --reference-syntax slots --project PROJECT_ID
 
-# 4-image fan-out from one ref, written flat
+# One native request for four variants from one reference
 gflow image i2i "4 variants of this scene" --ref hero.png -n 4 --out ./variants
 ```
 
@@ -2330,7 +2336,7 @@ retry behavior.
 
 Image CLI leaf commands accept `--reference-syntax slots`; MCP image generation accepts `reference_syntax="slots"`. The default `names` retains saved asset-name expansion. Slot mode uses ordered image and character inputs as `@reference_1..10` and `@character_1..7`, matches tokens case-insensitively, preserves repeated positions and requires matching inputs. Unknown token families and email text stay literal. Queue codecs retain and validate the immutable plan; they do not strip markers into text that appears grounded.
 
-Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Lite cap remains 3. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Canonical video positional syntax is not yet implemented.
+Character references require one fresh native project snapshot proving the active owned image workflows. Each actual character image consumes the shared image budget; the native Nano2/Pro/Lite ceiling is ten, restricted by fresh metadata. Local upload identities are mapped to acknowledged Google identities before native wire validation. Image positional transport is implemented in the isolated expansion; the accepted one-image native SDK proof passed in 104.75s and is recorded separately in the verification ledger. Image rendered per-reference influence remains R12.
 
 
 ### Native MP4 upload and reversible archive
@@ -2486,7 +2492,7 @@ limitations, cleanup, verification and troubleshooting.
 Explicit native promotion at720p/1080p/4k is separate from exports. CLI `video upscale-native`/`upscale-models` have direct MCP twins and REST `videos/upscale` accepts `operation: promotion`. Fresh account model/task/target checks determine availability. See [native promotion](self-hosted/NATIVE_VIDEO_PROMOTION.md) for billing, supplied-token, ownership and output verification contracts; paid acceptance remains R12.
 
 ### Fresh native image reference limits (R08)
-`image reference-models`, SDK `list_native_image_reference_models`, direct MCP `gflow_list_image_reference_models` and HTTP GET `images/reference/models` share fresh account capacity discovery. Native reference-bearing SDK requests enforce the smaller of advertised and transport capacities before upload/mint, preserving image order and character weights. Lite remains conservatively3; metadata advertises10 but does not prove retained/rendered use. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
+`image reference-models`, SDK `list_native_image_reference_models`, direct MCP `gflow_list_image_reference_models` and HTTP GET `images/reference/models` share fresh account capacity discovery. Native reference-bearing SDK requests enforce the smaller of advertised and transport capacities before upload/mint, preserving image order and character weights. Nano2/Pro/Lite admit up to ten with fresh capacity; accepted ordered Lite ten-reference output is established, while individual visual influence remains R12. See [reference budgets](self-hosted/IMAGE_REFERENCE_BUDGETS.md).
 
 Confirmed permanent-delete retries preserve requested deleted IDs, separate newly/already deleted IDs and make zero mutation calls for receipt-backed already-gone batches. Fresh account/project and exact GetMedia NOT_FOUND proof required; arbitrary absent UUIDs refuse. See [native media](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_MEDIA.md#confirmed-deletion-retries-r09).
 
@@ -2663,3 +2669,18 @@ upscale, accepted promotion and entitled4K outputs need separately authorized R1
 operations and solver/credit allowances. See
 [native promotion](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_VIDEO_PROMOTION.md)
 and [image capabilities](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_UPSCALE_CAPABILITIES.md).
+
+
+## R08 image reference limits and controls
+
+Native image references use fresh active same-project ownership and model-specific
+image/character pools. Nano2/Pro/Lite can admit ten image slots when the fresh
+catalog permits; every actual character image also consumes that pool, with a
+separate maximum seven characters. Smaller/unavailable capacities refuse before
+upload or mint. Mixed local/native inputs use explicit slots mode; ordering and
+repeated positional prompt markers survive queue execution. Existing Auto derives
+from the first ordered image and refuses unknown dimensions; explicit ratios
+remain unchanged. Strict model/aspect/count/seed choices refuse invalid values.
+Accepted ordered ten-reference Lite SDK output is established; individual visual
+influence and wrapper/model rendering coverage stay R12. Read the
+[complete forms, controls and evidence](self-hosted/IMAGE_REFERENCE_BUDGETS.md).

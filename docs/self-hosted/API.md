@@ -326,15 +326,15 @@ host. Captions supply safe picker search text; the selected project's exact medi
 UUID-to-thumbnail-token match identifies the image. Foreign, inactive, ambiguously
 owned or unsearchable references remain refused, and outgoing media IDs remain
 guarded. The no-submit live repeated-caption test proves hydration and attachment;
-canonical grounding and accepted image output are separate proofs. Unregistered
-native REST references remain part of the native lookup backlog.
+canonical grounding and accepted image output are separate proofs. Unregistered native REST references use explicit configured account/project scope
+and fresh ownership; see the ordered reference section below.
 
 ### Automatic image aspect
 
 REST managed local-image references support `aspectRatio:auto` through a labeled local policy: derive the nearest supported ratio from the first ordered decoded reference. Nano2/Pro image-to-image defaults use this policy; Lite retains its explicit default. Results preserve requested/resolved aspect and policy metadata. This is an approximation, not an observed native Google Auto sentinel. CLI/MCP and manifest rows now support first-local-reference Auto through the same
 policy. CLI/MCP also resolve a first native image UUID from fresh owned selected-project
-dimensions; text-only/character-only Auto refuse. REST still requires registered
-managed image assets, so unregistered native UUID lookup remains a separate gap.
+dimensions; text-only/character-only Auto refuse. REST supports managed assets,
+owned native UUIDs and exact registered aliases in ordered slots.
 Native Google Auto is not claimed. See [Auto aspect](../AUTO_ASPECT.md).
 
 ### Historical voice transition investigation
@@ -383,7 +383,7 @@ exact source evidence and the pending live-acceptance boundary.
 
 ## Final source checkpoint
 
-The registered MCP surface contains 42 tools: the prior 24 plus 18 feature adapters. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
+That historical checkpoint registered 42 tools: the prior 24 plus 18 feature adapters; the current R08 checkpoint registers 43. Native credit inspection and model/catalog reads passed live. This does not prove paid rendering or full vendor parity. A controlled CapSolver Enterprise v3 proxyless VIDEO_GENERATION trial solved one token, submitted once and was rejected with PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7); accepted outputs were zero and no retry occurred. Current implementation and these scoped proofs do not establish successful import or generation across all three Google accounts.
 
 Final measured scope: permanent synthetic upload/deletion passed in 28.91 seconds, preserving original active media. Corrected Charon TTS submitted one captured no0P6 request and received PUBLIC_ERROR_UNUSUAL_ACTIVITY (gRPC 7), with no accepted audio or binding lifecycle. Extension/edit rendering was not additionally billed after the account's refusals; catalog availability is verified separately.
 
@@ -1062,3 +1062,13 @@ upscale, accepted promotion and entitled4K outputs need separately authorized R1
 operations and solver/credit allowances. See
 [native promotion](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/NATIVE_VIDEO_PROMOTION.md)
 and [image capabilities](https://github.com/Fograd/gflow-cli/blob/develop/docs/self-hosted/IMAGE_UPSCALE_CAPABILITIES.md).
+
+
+### R08 supported image reference closure
+
+See [reference budgets](IMAGE_REFERENCE_BUDGETS.md) for forms, fresh independent
+image/character limits, actual character weights, ordering, Auto and exact accepted
+ten-reference evidence. Existing controls only: model aliases, integer count1–4,
+32-bit seed+count range and five explicit ratios. Invalid controls refuse; no
+new controls were added. Controlled queued MCP tests use a temporary queue and
+stop before mint/submission. Per-reference rendered influence remains R12.

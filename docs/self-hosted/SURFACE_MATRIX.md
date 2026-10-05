@@ -11,7 +11,7 @@ accepted rendering and vendor compatibility differences are separate columns.
 | Account characters/saved voices | list_account_resources, project account-resources, direct MCP continuation | assets/resources/{email}, opaque kind/project/principal-scoped continuation | Actual corrected SDK plus resume passed; deployed correction/readproof recorded separately |
 | Native media lookup | Fresh owned typed image/video/audio/character/voice detail | Exact registered composite mappings and fresh URLs | Image/video/character reads accepted; generic audio ismetadata-only; arbitrary vendor decoding unsupported |
 | Image/MP4 upload | Native upload mirrors and explicit MP4 rights consent | Raw PNG/JPEG/WebP/MP4,20MiB; WebP validated/converted | Own fixture upload/read/delete proofs; no implicit global consent |
-| Image references/Auto/seed | Ordered local/native/character inputs; local first-reference Auto policy; existing image seed scope | Same owned bindings/privateworker and request count validation | Exact ten-reference abort proof passed; accepted multi/native grounding remainsR12 |
+| Image references/Auto/seed | Ordered local/native/character inputs; first ordered local/native image Auto policy; existing image seed scope | Same owned bindings/privateworker and request count validation | Accepted ordered Lite ten-reference SDK output reused; fresh reference preflight and controlled worker forwarding; per-reference influence remains R12 |
 | Image upscale | Shared native2K/4K export; optional controlled override/token scopes |2K/4K fresh entitlement-before-mint and explicit WAF-only retries | Earlier2K accepted; latest pro1 provider2K traffic-refused; Pro4K entitlement remains unavailable |
 | Generic video | Singular count1; generate_videos_batch count2–4; CLI all outputs; queued MCP all handles/files | One native request/job; all-output checkpoint/recovery | Real count4 request/4IDs aborted beforeforwarding; accepted plural rendering requires extra allowance |
 | Native reference/edit/extend | Canonical positional image/entity/audio and fresh exact model/budget guards; direct MCP | Private native workers, supplied/provider controls and original slot mapping | Free ownership/binding/request proof; accepted output remainsR12 |
@@ -24,7 +24,7 @@ accepted rendering and vendor compatibility differences are separate columns.
 | Scheduler/jobs | Existing score/queue ordering, all-output SDK/MCP checkpoints | Local typed quota/model cooldown policy, flat429, sync/async/callback/idempotency | Offline refusal/recovery policy tests; local cooldowns are not Google reset predictions |
 | Request contracts | Existing typed SDK/CLI/MCP controls | JSON and multipart text for all18 mapped mutations, authenticated OpenAPI | Duplicate/header/deepJSON/file refusal beforequeue; raw uploads unchanged |
 
-The MCP server currently registers42tools. Native direct mutation tools have no
+The MCP server currently registers43tools. Native direct mutation tools have no
 queued twin unless explicitly documented. Queued generic/image jobs and REST
 private workers retain different process boundaries, so final E2E covers each.
 
