@@ -48,7 +48,7 @@ HTML review gallery. Root `R12_HANDOFF.md` provides clickable local files, exact
 identities, final revision, services and follow-up instructions. Protected raw
 responses, signed URLs, journals and the atomic ledger remain outside Git.
 
-### Allowance, credits and skipped capabilities
+### Original 5 October allowance, credits and skipped capabilities
 
 |Account|Images used / remaining|Videos used / remaining|Audio used / remaining|Fresh Google credits before → after|
 |---|---|---|---|---|
@@ -124,7 +124,26 @@ After the initial R12 close, the user authorized a narrow repaired port of PR907
 
 The free BDD passed four ordinary/CDP comparisons through shared-client and standalone-image launch paths, with actual original pro3 identity/owned V2 video, 1010 credits, requested language/header/viewport, webdriver false, loopback debugger, graceful Chrome exit and lease recovery. No generation or solver task occurred. Startup findings were fixed: migrated accounts do not require the obsolete labs cookie; standalone CDP needs its locale language header; LXC process cleanup needs both the invocation scope and Chrome's exact fresh-PID desktop scope. An incompatible crash-reporter-disable experiment was removed. Original failed-test evidence and the positively identified process recovery remain private.
 
-The one remaining pro3 video allowance is reserved for a single native1080p promotion of retained V2 only after final gates/deployment. Its outcome must be recorded separately; startup success does not prove Google acceptance. No native acceptance checkbox is changed by these free checks.
+The final pro3 video slot was atomically reserved as V6c, then submitted once through the registered MCP tool on the deployed repaired launch path. Fresh Mac-forwarded discovery advertised `veo_3_1_upsampler_1080p`; original account balances before the test were 1020/1010. Existing V2 was the exact owned source; no new reference upload was needed.
+
+|Case|Account / interface / model / controls|Reservation and evidence|Classification|
+|---|---|---|---|
+|V6c|pro3 registered MCP `gflow_upscale_native_video`; Veo 3.1 1080p upsampler; retained 8s 720p V2; count1|One video slot, zero solver tasks; exact source/project; one `p0UkFb` submission; durable private checkpoint and typed response|Google explicitly refused: `PUBLIC_ERROR_UNUSUAL_ACTIVITY`, gRPC7 / WAF403; zero outputs|
+
+The first harness run used the nonexistent `Tool.inputSchema` field and failed before its dispatch checkpoint or mutating call; the installed SDK uses `Tool.input_schema`. This demonstrated zero Google/solver submissions; the same reservation was retained while that one-line test-field error was corrected. The subsequent run made exactly one mutating call and received the explicit refusal. The paid BDD therefore failed acceptance as expected from the recorded response; it is not called green. The deployed journal proves owned CDP startup and graceful reap around that exact submission. There was no automatic retry, provider fallback, paid solver or unknown promoted output to replay.
+
+This does not demonstrate improved acceptance or establish startup as the refusal's cause. The older default-path refusal and this test occurred at different times. The repaired option stays false by default; the invocation-owned MCP runtime drop-in was removed after idle checks. All three services are active and protected environment files were preserved. No public browser-control service was exposed.
+
+|Final R12 allowance|Images used / remaining|Videos used / remaining|Audio previews used / remaining|
+|---|---|---|---|
+|pro2|6 / 14|5 / 0|0 / 2|
+|pro3|3 / 17|5 / 0|1 / 1|
+
+CapSolver remains 4 used / 6 remaining. Fresh post-test balances remain pro2 1020 and pro3 1010; this rejected promotion had zero observed credit decrease. Both video allowances are exhausted; further video attempts require new approval. Image counts 6/20 and 3/20 describe consumed allowance, not success rates. The original eight accepted images/five generated clips and all historical counters remain intact. Native promotion, reference/edit/extension/audio acceptance, automatic authentication renewal and public callback delivery remain unproved.
+
+Runtime publication: `157086bab74ba2bf5c1376a0869c735224fa1616`, aligned on all three authorized branches and deployed after idle queue/worker checks and private SQLite/config backups. The tested runtime tree passed 98 focused checks, strict static/doc/privacy/type gates and a quiet full suite: 8371 passed, 5 skipped, 89.99% coverage; the required 80% threshold was also independently rechecked. Earlier full runs retained one unchanged DOM failure and one scaled-budget timing failure; both passed focused (9 tests). A runner quoting error briefly changed the quiet command's threshold to40; measured coverage was89.99 and the separate required80 check passed. The corrected runner enforces80. No dependency or timer change was made.
+
+The final documentation/test-harness revision, final required gate and Mac localhost verification are recorded in root `R12_HANDOFF.md`. Implementation checkboxes remain complete; no paid acceptance item is checked by these refusals. Private evidence: `r12-pr907/V6c-checkpoint.json`, `V6c-pre-dispatch-proof.json`, `runtime-manifest.json`, and protected journals. Public-safe Mac startup and balance evidence are in `artifacts/r12-pr907-*.json`.
 
 ## Entry checks
 - Record deployed source revision, API/MCP health and empty per-profile queues.

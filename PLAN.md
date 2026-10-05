@@ -680,6 +680,8 @@ validates a fresh loopback endpoint. It never attaches to arbitrary existing
 browsers. Scope, safeguards and live acceptance gates are in the
 [owned CDP launch plan](docs/superpowers/plans/2026-10-05-owned-cdp-launch/PLAN.md).
 
+**6 October follow-up:** implemented and published as a false-default owned launch option. Four original-profile ordinary/CDP startup comparisons passed. The one remaining pro3 promotion submission was explicitly refused by Google again; no acceptance improvement was shown. Ordinary startup is restored and both R12 video allowances are exhausted. Native paid acceptance stays unchecked.
+
 ### Phase 8 — Pluggable storage backend — BACKLOG
 
 Today the CLI writes media to `$GFLOW_CLI_OUTPUT_DIR` on the local filesystem. Phase 8 makes the storage backend pluggable so generated assets can stream directly to S3 / GCS / Azure Blob without an intermediate local copy.

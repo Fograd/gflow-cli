@@ -409,7 +409,7 @@ def promotion_invoke(promotion):
                         "resolution": "1080p",
                         "out_dir": promotion["outdir"],
                     }
-                    properties = matches[0].inputSchema.get("properties", {})
+                    properties = matches[0].input_schema.get("properties", {})
                     assert set(arguments).issubset(properties), (
                         "Registered promotion schema differs"
                     )

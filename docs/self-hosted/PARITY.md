@@ -1205,3 +1205,8 @@ parallel suite's one unchanged DOM failure remains recorded; isolated and quiet
 whole-suite reruns passed. All three requested branches and CC production carry
 the tested runtime and final documentation; root R12_HANDOFF.md records exact SHA,
 service status and R13 external acceptance instructions.
+
+
+### PR907 bounded follow-up — 6 October 2026
+
+A repaired false-default owned-CDP startup option is published, with original-profile identity/lease checks, fresh loopback endpoint ownership and Linux user-systemd process cleanup. Four ordinary/CDP shared/standalone live comparisons passed without generation. The one remaining pro3 video slot, V6c, retried native1080p promotion of the exact retained V2 through deployed registered MCP. Google again explicitly refused unusual activity/gRPC7; zero outputs or solver tasks. Acceptance improvement is unproved. The temporary MCP option was removed and ordinary startup restored. Final R12 counters: pro2 images6/videos5/audio0; pro3 images3/videos5/audio1; solver4. Balances remain1020/1010. Both video allowances are exhausted; no paid acceptance checkbox changes. See [measured follow-up](FINAL_E2E.md#authorized-pr907-follow-up--6-october-2026) and root R12 handoff for exact evidence and final publication.

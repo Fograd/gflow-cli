@@ -32,15 +32,15 @@ This reopens PLAN ADR13 only for an owned, opt-in launch experiment. The older 1
 
 - [x] Tagged zero-credit live BDD: original pro3 profile, ordinary/CDP startup, actual browser controls, original authentication, loopback debugger and confirmed cleanup.
 - [x] Read fresh balances/models and inspect active jobs before any affected service restart.
-- [ ] Atomically reserve one remaining pro3 video slot only after prerequisites pass; one native promotion of retained V2 identity, no solver, no retries.
-- [ ] Download/decode/inspect an accepted promotion or retain exact refused/unknown handles; never claim approval from a solved token or export.
+- [x] Atomically reserve one remaining pro3 video slot only after prerequisites pass; one native promotion of retained V2 identity, no solver, no retries.
+- [x] Retain exact refused V6c evidence: one `p0UkFb` submission, unusual activity/gRPC7, no output or solver. Acceptance remains unmet.
 
 ## Task 4 — Publication and delivery
 
 - [x] Document option, requirements, incompatible recording, process environment and rollback; update generated mirrors.
-- [ ] Focused tests, required gates and independent review pass.
-- [ ] Publish the tested code/docs aligned on all three authorized branches; deploy the same revision with idle queues and protected state/configuration preserved.
-- [ ] Update R12 handoff, final acceptance ledger and OVERNIGHT with actual results and remaining allowance. Global opt-in stays disabled unless live evidence supports changing it.
+- [x] Focused tests, required gates and independent review pass for published runtime:98 focused,8371 full,5 skipped,89.99% coverage; required80 threshold rechecked. Final harness/docs gate is recorded in the handoff.
+- [x] Publish the tested code/docs aligned on all three authorized branches; deploy the same revision with idle queues and protected state/configuration preserved.
+- [x] Update R12 handoff, final acceptance ledger and OVERNIGHT with actual results and remaining allowance. Global opt-in stays disabled unless live evidence supports changing it.
 
 ## BDD scenarios
 
@@ -63,4 +63,8 @@ On 6 October, the final free BDD passed all four shared/standalone ordinary/CDP 
 
 Initial live failures exposed a migrated-auth legacy-cookie assumption, a missing standalone language header, and a Crashpad tracer retaining an exiting LXC child. An attempted crash-reporter-disable flag caused CDP attach timeouts and was removed. The final Linux launcher uses unique systemd ownership scopes, including Chrome's own exact fresh-PID desktop scope after independent process-group proof. It waits for natural browser exit before escalation and verifies the kernel control groups are empty. The retained failed-test process/tracer was cleaned only after exact ownership proof. No original fixture/profile was removed.
 
-Focused checks: 98 passes. Earlier full run: 8,358 passes, five skips and one previously observed virtualized-picker DOM failure; it is not called all-green. A quiet final required run and independent review precede publication. PR907 head reviewed: `fa6547ac9f7e658bd953f372d54e076b52da7e0f`; no wholesale merge, dependency update, selector or retry change.
+Focused checks: 98 passes. Earlier full run: 8,358 passes, five skips and one previously observed virtualized-picker DOM failure; it is not called all-green. The final quiet full run passed8371/5 skipped at89.99% coverage, with a separate required80 coverage check; independent lifecycle/compatibility reviews passed after blockers were repaired. PR907 head reviewed: `fa6547ac9f7e658bd953f372d54e076b52da7e0f`; no wholesale merge, dependency update, selector or retry change.
+
+## Final single promotion result
+
+V6c used the final pro3 video slot through deployed registered MCP with the owned CDP option enabled only in an invocation-owned runtime drop-in. Google explicitly refused `p0UkFb` with unusual activity/gRPC7; no output, solver task or observed credit decrease occurred. The pre-dispatch SDK field-name harness failure submitted nothing; its correction reused the same reservation. The durable response/checkpoint was inspected without replay. The runtime drop-in and derived600-mode token fixture were removed; ordinary startup is restored. Both R12 video allowances are exhausted. The option is applied and startup-validated on CC Linux, but an acceptance improvement is unproved. PR882 remains deferred. Final branch/deployed SHA and final gates are recorded in root R12 handoff.
