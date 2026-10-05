@@ -243,6 +243,30 @@ existing Mac localhost forwards; no Mac service deployment is needed.
 
 ## R06 deployment and statistics checks
 
+### Experimental owned CDP launch
+
+`GFLOW_CLI_CDP_LAUNCH=true` selects the experimental installed-Chrome/Patchright
+startup for both shared clients and standalone image transport. It is false by
+default. Test an isolated invocation first with the existing original profile,
+headed display and `GFLOW_CLI_BROWSER_ENGINE=patchright`; preserve the normal
+profile lease, account verification and protected environment. This option does
+not authorize additional Google submissions or paid solver tasks.
+
+Before any service-level change, check REST/MCP queues and active profile leases,
+retain SQLite/configuration snapshots, and restart only idle affected services.
+The running worker needs the setting; changing a Mac caller's environment has no
+effect on an already-running CC worker. Roll back by unsetting the option and
+restarting affected idle services. Keep existing SSH forwards and personal
+Vivaldi usage unchanged.
+
+The launcher only connects to its newly spawned Chrome's validated loopback
+endpoint. It does not expose a public browser-control service, copy cookies or
+create a replacement profile. Unsupported HAR/video recording refuses before
+launch. Verify original authentication, actual viewport/locale/headers, local
+debugger binding and process exit before lease release in a zero-generation
+probe before spending an operation allowance. A successful export is not native
+promotion acceptance, and successful startup alone does not prove WAF recovery.
+
 Load the same protected operator environment for Python/CLI, REST and MCP so
 `GFLOW_SELFHOST_ROOT` resolves to the same private statistics store. Read masked
 GET accounts/captcha-providers and local GET accounts/captcha-stats; neither

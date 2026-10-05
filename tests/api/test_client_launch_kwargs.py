@@ -470,3 +470,235 @@ async def test_ui_automation_setup_refuses_profile_engine_downgrade(
 
     fake_chromium.launch_persistent_context.assert_not_awaited()
     mock_cm.__aexit__.assert_awaited_once()  # driver torn back down on refusal
+
+
+def test_cdp_launch_is_explicit_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    from gflow_cli.config import Settings
+
+    monkeypatch.delenv("GFLOW_CLI_CDP_LAUNCH", raising=False)
+    assert Settings().cdp_launch is False
+    monkeypatch.setenv("GFLOW_CLI_CDP_LAUNCH", "true")
+    assert Settings().cdp_launch is True
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_launch_retains_owner_before_launch(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    client = FlowApiClient(profile_dir=tmp_path, settings=Settings(cdp_launch=True))
+    client._pw = MagicMock()  # noqa: SLF001
+    client._pw.chromium.launch_persistent_context = AsyncMock()  # noqa: SLF001
+    owner = MagicMock()
+    context = MagicMock()
+
+    async def launch(_pw: object, _kwargs: object) -> object:
+        assert client._cdp_launcher is owner  # noqa: SLF001
+        return context
+
+    owner.launch = AsyncMock(side_effect=launch)
+    with patch("gflow_cli.api.client.CdpLauncher", return_value=owner, create=True):
+        actual = await client._launch_persistent_context({})  # noqa: SLF001
+    assert actual is context
+    client._pw.chromium.launch_persistent_context.assert_not_awaited()  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_original_session_never_seeds(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+    from gflow_cli.errors import AuthExpiredError
+
+    client = FlowApiClient(profile_dir=tmp_path, settings=Settings(cdp_launch=True))
+    context = MagicMock()
+    context.cookies = AsyncMock(return_value=[])
+    context.add_cookies = AsyncMock()
+    client._context = context  # noqa: SLF001
+    client._preread_flow_cookies = {"__Secure-next-auth.session-token": "old"}  # noqa: SLF001
+    with pytest.raises(AuthExpiredError):
+        await client._ensure_context_session_cookie()  # noqa: SLF001
+    context.add_cookies.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_reaps_failed_launch_before_lease_release(tmp_path: Path) -> None:
+    client = FlowApiClient(profile_dir=tmp_path)
+    order: list[str] = []
+    owner = MagicMock()
+    owner.process_running = True
+    owner.graceful_close = False
+
+    async def reap() -> None:
+        order.append("reap")
+        owner.process_running = False
+
+    owner.reap = AsyncMock(side_effect=reap)
+    lease = MagicMock()
+    lease.release.side_effect = lambda: order.append("release")
+    client._cdp_launcher = owner  # noqa: SLF001
+    client._lease = lease  # noqa: SLF001
+    await client._close_browser_resources()  # noqa: SLF001
+    assert order == ["reap", "release"]
+    assert client.browser_teardown_succeeded is False
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_keeps_lease_if_owned_process_still_running(tmp_path: Path) -> None:
+    client = FlowApiClient(profile_dir=tmp_path)
+    owner = MagicMock()
+    owner.process_running = True
+    owner.graceful_close = False
+    owner.reap = AsyncMock(side_effect=ConfigurationError("cannot establish process exit"))
+    lease = MagicMock()
+    client._cdp_launcher = owner  # noqa: SLF001
+    client._lease = lease  # noqa: SLF001
+    with pytest.raises(ConfigurationError):
+        await client._close_browser_resources()  # noqa: SLF001
+    lease.release.assert_not_called()
+    assert client._cdp_launcher is owner  # noqa: SLF001
+    assert client.browser_teardown_succeeded is False
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_setup_skips_cookie_preread(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    client = FlowApiClient(profile_dir=tmp_path, settings=Settings(cdp_launch=True))
+    client._pw = MagicMock()  # noqa: SLF001
+    preread = AsyncMock()
+    with (
+        patch.object(client, "_preread_flow_session_cookies", preread),
+        patch.object(client, "_persistent_context_kwargs", side_effect=ConfigurationError("stop")),
+        pytest.raises(ConfigurationError, match="stop"),
+    ):
+        await client._enter_setup()  # noqa: SLF001
+    preread.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ui_automation_cdp_setup_owns_launch_and_reaps(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    context = MagicMock()
+    page = MagicMock()
+    page.goto = AsyncMock()
+    context.pages = [page]
+    context.add_init_script = AsyncMock()
+    context.close = AsyncMock()
+    pw = MagicMock()
+    pw.chromium.launch_persistent_context = AsyncMock()
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=pw)
+    cm.__aexit__ = AsyncMock()
+    transport = UiAutomationTransport()
+    owner = MagicMock()
+    owner.process_running = False
+    owner.reap = AsyncMock()
+    owner.verify_native_identity = AsyncMock()
+
+    async def launch(_pw: object, kwargs: dict) -> object:
+        assert transport._cdp_launcher is owner  # noqa: SLF001
+        assert kwargs["user_data_dir"] == str(tmp_path)
+        return context
+
+    owner.launch = AsyncMock(side_effect=launch)
+    with (
+        patch("gflow_cli.api.transports.ui_automation.async_playwright", return_value=cm),
+        patch("gflow_cli.config.get_settings", return_value=Settings(cdp_launch=True)),
+        patch("gflow_cli.api.transports.ui_automation.CdpLauncher", return_value=owner),
+    ):
+        await transport.setup(tmp_path)
+        await transport.teardown()
+    owner.launch.assert_awaited_once()
+    owner.reap.assert_awaited_once()
+    pw.chromium.launch_persistent_context.assert_not_awaited()
+    assert transport._lease is None  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_ui_automation_cdp_failed_launch_reaps_without_context(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    cm.__aexit__ = AsyncMock()
+    owner = MagicMock()
+    owner.launch = AsyncMock(side_effect=ConfigurationError("connect failed"))
+    owner.process_running = False
+    owner.reap = AsyncMock()
+    owner.verify_native_identity = AsyncMock()
+    transport = UiAutomationTransport()
+    with (
+        patch("gflow_cli.api.transports.ui_automation.async_playwright", return_value=cm),
+        patch("gflow_cli.config.get_settings", return_value=Settings(cdp_launch=True)),
+        patch("gflow_cli.api.transports.ui_automation.CdpLauncher", return_value=owner),
+        pytest.raises(ConfigurationError, match="connect failed"),
+    ):
+        await transport.setup(tmp_path)
+    owner.reap.assert_awaited_once()
+    assert transport._lease is None  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_client_cdp_cancelled_reap_releases_only_after_exit(tmp_path: Path) -> None:
+    import asyncio
+
+    client = FlowApiClient(profile_dir=tmp_path)
+    owner = MagicMock()
+    owner.process_running = True
+    owner.graceful_close = False
+    lease = MagicMock()
+
+    async def reap() -> None:
+        lease.release.assert_not_called()
+        owner.process_running = False
+        raise asyncio.CancelledError
+
+    owner.reap = AsyncMock(side_effect=reap)
+    client._cdp_launcher = owner  # noqa: SLF001
+    client._lease = lease  # noqa: SLF001
+    with pytest.raises(asyncio.CancelledError):
+        await client._close_browser_resources()  # noqa: SLF001
+    lease.release.assert_called_once()
+    assert client.browser_teardown_succeeded is False
+
+
+@pytest.mark.asyncio
+async def test_ui_automation_cdp_partial_cleanup_can_be_retried(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=MagicMock())
+    cm.__aexit__ = AsyncMock()
+    owner = MagicMock()
+    owner.launch = AsyncMock(side_effect=ConfigurationError("connect failed"))
+    owner.process_running = True
+    owner.reap = AsyncMock(side_effect=ConfigurationError("reap failed"))
+    transport = UiAutomationTransport()
+    with (
+        patch("gflow_cli.api.transports.ui_automation.async_playwright", return_value=cm),
+        patch("gflow_cli.config.get_settings", return_value=Settings(cdp_launch=True)),
+        patch("gflow_cli.api.transports.ui_automation.CdpLauncher", return_value=owner),
+        pytest.raises(ConfigurationError, match="reap failed"),
+    ):
+        await transport.setup(tmp_path)
+    assert transport._lease is not None  # noqa: SLF001
+    assert transport._cdp_launcher is owner  # noqa: SLF001
+    owner.process_running = False
+    owner.reap.side_effect = None
+    await transport.teardown()
+    assert transport._lease is None  # noqa: SLF001
+    assert transport._cdp_launcher is None  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_client_native_cdp_does_not_require_legacy_cookie(tmp_path: Path) -> None:
+    from gflow_cli.config import Settings
+
+    client = FlowApiClient(
+        profile_dir=tmp_path, settings=Settings(cdp_launch=True, flow_host="flow.google.com")
+    )
+    context = MagicMock()
+    context.cookies = AsyncMock(return_value=[{"name": "SAPISID", "expires": -1}])
+    context.add_cookies = AsyncMock()
+    client._context = context
+    await client._ensure_context_session_cookie()
+    context.add_cookies.assert_not_awaited()

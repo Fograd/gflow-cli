@@ -42,6 +42,7 @@ from gflow_cli.api._engine import (
     run_teardown_step,
 )
 from gflow_cli.api._retry import parse_retry_after, post_with_retry
+from gflow_cli.api.cdp_launch import CdpLauncher
 from gflow_cli.api.character import Character, CharacterImageRequest, parse_characters
 from gflow_cli.api.dto import (
     AssetInfo,
@@ -421,6 +422,7 @@ class FlowApiClient:
         self._access_token_exp: float = 0.0  # epoch seconds; 0 = unknown/expired
         self._pw: Playwright | None = None
         self._context: BrowserContext | None = None
+        self._cdp_launcher: CdpLauncher | None = None
         self._browser_teardown_succeeded = False
         # Account locale segment, resolved once from the bootstrap navigation (#580),
         # then cached per profile (#587).
@@ -699,6 +701,10 @@ class FlowApiClient:
         try:
             cookies = await self._context.cookies()
         except Exception as exc:  # noqa: BLE001 — must never break the launch
+            if self.settings.cdp_launch:
+                raise AuthExpiredError(
+                    detail="Cannot verify the original Flow session in the CDP browser",
+                ) from exc
             logger.warning("client.context_cookie_probe_error", error=type(exc).__name__)
             return
         now = time.time()
@@ -720,6 +726,24 @@ class FlowApiClient:
             ),
             google_sapisid_present=any(c.get("name") == "SAPISID" for c in cookies),
         )
+        if self.settings.cdp_launch:
+            # Migrated Flow has no labs session cookie. The owned launcher
+            # checks its original Google session and verifies fresh identity
+            # after bootstrap. No CDP path ever seeds/imports cookies.
+            if self.settings.flow_host != "labs.google" and any(
+                c.get("name") in {"SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID"}
+                for c in cookies
+            ):
+                return
+            if flow_cookie is None or (
+                flow_expires is not None and flow_expires != -1 and flow_expires < now
+            ):
+                raise AuthExpiredError(
+                    detail=(
+                        "The original profile has no active Flow session; CDP cannot seed cookies"
+                    ),
+                )
+            return
         if flow_cookie is not None:
             return  # context loaded the session cookie — nothing to seed
         if not self._preread_flow_cookies:
@@ -753,7 +777,8 @@ class FlowApiClient:
         # headed context can't decrypt the on-disk store. Must run pre-launch — the
         # snapshot's fallback opens a headless context on the same profile, which
         # would deadlock on the singleton lock once the headed context holds it.
-        await self._preread_flow_session_cookies()
+        if not self.settings.cdp_launch:
+            await self._preread_flow_session_cookies()
         kwargs = self._persistent_context_kwargs()
         if self._recorder is not None:
             self._recorder.note_har_pre_launch(self.settings.har_path)
@@ -823,6 +848,8 @@ class FlowApiClient:
         # re-minting reCAPTCHA inside each retry loop on the worker's own
         # Page; no session-id work happens in T2.)
         await self._bootstrap_and_resolve_locale()
+        if self._cdp_launcher is not None:
+            await self._cdp_launcher.verify_native_identity(self._page, self.profile_dir)
 
         # --- Step 2: Resolve and set up transport, passing the live Page so
         # S1 can share this context rather than opening its own.
@@ -1132,6 +1159,9 @@ class FlowApiClient:
         """Launch the context and classify profile access versus contention failures."""
         assert self._pw is not None
         try:
+            if self.settings.cdp_launch:
+                self._cdp_launcher = CdpLauncher(self.settings.home)
+                return cast("BrowserContext", await self._cdp_launcher.launch(self._pw, kwargs))
             return await self._pw.chromium.launch_persistent_context(**kwargs)
         except Exception as exc:
             # Before _is_target_closed: an access denial can arrive as a
@@ -1286,7 +1316,7 @@ class FlowApiClient:
         landing mid-context-close cannot skip the driver stop below and cannot
         skip the lease release in ``finally``. The original cancellation is
         captured and re-raised LAST, after every ownership-release step has run.
-        Teardown order: (4) close context/browser -> stop driver;
+        Teardown order: (4) close context/browser -> stop driver -> reap owned CDP Chrome;
         (6) release the profile lease.
         """
         # Stop accepting incident events and detach listeners BEFORE the
@@ -1301,6 +1331,7 @@ class FlowApiClient:
         # "complete" (har-honesty contract, design §5.6).
         close_result = [False]
         driver_result = [self._pw is None]
+        reap_error: Exception | None = None
         try:
             if self._context is not None:
                 # Bounded close + force-close fallback (issue #293) — shared
@@ -1353,7 +1384,8 @@ class FlowApiClient:
                 # pw.stop() awaits the Node driver's exit with no deadline of
                 # its own — a wedged driver would hang teardown forever, so it
                 # is bounded here. It runs even when the context close above was
-                # abandoned by cancellation (driver stop force-kills chrome).
+                # abandoned by cancellation. The external CDP process is reaped
+                # independently below; stopping its driver does not prove exit.
                 driver = self._pw
 
                 async def _stop_driver_recording() -> None:
@@ -1370,6 +1402,24 @@ class FlowApiClient:
                     or cancelled
                 )
         finally:
+            cdp_stopped = True
+            cdp_graceful = True
+            if self._cdp_launcher is not None:
+                launcher = self._cdp_launcher
+                try:
+                    await launcher.reap()
+                except asyncio.CancelledError as exc:
+                    cancelled = cancelled or exc
+                except Exception as exc:  # noqa: BLE001 — retain the lease on failed process reap
+                    reap_error = exc
+                cdp_stopped = not launcher.process_running
+                cdp_graceful = launcher.graceful_close
+                if cdp_stopped:
+                    self._cdp_launcher = None
+                elif reap_error is None:
+                    reap_error = ConfigurationError(
+                        "Owned CDP Chrome is still running; retaining its profile lease",
+                    )
             # Field resets must survive even cancellation (Ctrl-C mid-close),
             # or a reused client holds references to a dead BrowserContext.
             self._pages = []
@@ -1381,12 +1431,19 @@ class FlowApiClient:
             # the driver stopped — so the profile dir is genuinely free before
             # another process can acquire it (D3 release ordering). release() is
             # idempotent and never unlinks the lock file.
-            if self._lease is not None:
+            if self._lease is not None and cdp_stopped:
                 self._lease.release()
                 self._lease = None
             self._browser_teardown_succeeded = (
-                close_result[0] and driver_result[0] and cancelled is None
+                close_result[0]
+                and driver_result[0]
+                and cdp_stopped
+                and cdp_graceful
+                and reap_error is None
+                and cancelled is None
             )
+        if reap_error is not None:
+            raise reap_error
         # Re-raise the original cancellation only after teardown completed, so a
         # cancelled close still stopped Playwright and released the lease.
         if cancelled is not None:

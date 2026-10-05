@@ -409,6 +409,20 @@ Measurement script: `scripts/dev/spike_offscreen_window.py`.
 **Reverting:** unset the variable (or set `playwright`) — the default path is byte-identical to a build without this feature, with no profile migration.
 **Security note:** the `patchright` extra ships a *patched Chromium driver* that handles your live Google session cookies; it is exact-pinned and treated as a security-review-required dependency. See [SECURITY.md § Dependencies](SECURITY.md).
 
+### `GFLOW_CLI_CDP_LAUNCH`
+
+**What:** Experimental, owned system-Chrome startup followed by a Patchright CDP connection, adapted narrowly from upstream [PR907](https://github.com/ffroliva/gflow-cli/pull/907).
+**Values:** `true` | `false`.
+**Default:** `false`; normal launch flags and behavior are preserved.
+**Requirements:** a migrated `flow.google.com` profile, headed mode, `GFLOW_CLI_BROWSER_ENGINE=patchright`, installed Google Chrome at the supported system-channel location, and an existing canonical Chrome profile below the configured home. Authentication must load from that original profile; this path does not import or seed cookies.
+**Controls:** requested viewport, locale and HTTP headers must be applied before application navigation. HAR/video recording and unsupported launch options fail explicitly before spawning. There is no fallback to a new empty context, another profile or the normal launcher.
+**Ownership:** the normal profile lease encloses the browser process. Chrome allocates a fresh loopback debugging port; the launcher validates its own endpoint and shuts down/reaps its own process before releasing the lease. Debugger endpoints remain private; the local port is diagnostic metadata. Forced cleanup is reported separately from normal shutdown.
+**Scope:** process configuration shared by SDK/CLI, direct MCP and REST/queued workers. Set it in the process that actually launches Chrome; a client's environment cannot change an already-running server or worker. It adds no generation request parameter or hidden retry.
+**Reverting:** unset the option or set `false`; no profile migration or cookie replacement is needed.
+**Linux process ownership:** an active user systemd manager is required. Each invocation receives a unique transient scope. Chrome may register its own desktop scope; the actual browser must first match the spawned process group before its exact PID-bound desktop scope is admitted. Shutdown gives Chrome a natural-exit grace, then stops only those owned scopes, including detached reporters, and proves their kernel control groups empty before releasing the profile lease. No permanent service is installed or changed.
+**Platform proof:** live startup and process cleanup are verified only on CC Linux; Windows/macOS are not live-validated. Installed stable Chrome must be in its standard system location.
+**Acceptance:** startup compatibility and generation acceptance are separate. This option does not guarantee that Google will accept a previously refused request. See [the implementation and verification plan](superpowers/plans/2026-10-05-owned-cdp-launch/PLAN.md).
+
 ### `GFLOW_CLI_UI_MODE`
 
 **What:** Which Flow UI arm to use for generation. Flow serves a **classic** composer (hard crop/aspect controls) or an **agentic** chat cohort, server-assigned and flapping per page load ([#299](https://github.com/ffroliva/gflow-cli/issues/299)).

@@ -16,10 +16,10 @@
    :class:`gflow_cli.api.transports.ui_automation.UiAutomationTransport`,
    which uses Playwright's internal CDP port (Playwright manages it
    privately, never externally exposed) rather than an externally-exposed
-   debug port. CDP-attach as a distinct opt-in transport remains a parked
-   backlog idea — see PLAN.md ADR #13 and the "CDP Attach Transport —
-   BACKLOG" section — should a future contributor want to revisit it with a
-   safe ownership model.
+   debug port by default. Since 2026-10-05, api/cdp_launch.py provides a
+   separate false-default owned-process experiment under the profile lease;
+   it never attaches to an arbitrary browser. See PLAN.md ADR #13 and
+   docs/CONFIGURATION.md for its bounded scope and limitations.
 
 Single responsibility: locate the system Chrome binary and decide which
 Playwright ``channel`` (if any) a given profile should launch with.

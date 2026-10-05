@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental `GFLOW_CLI_CDP_LAUNCH` owned system-Chrome/Patchright startup,
+  disabled by default, with local endpoint checks, original-profile leases and
+  explicit owned-process cleanup. Unsupported recording options fail before
+  launch. Existing generation controls and retries remain unchanged; improved
+  Google acceptance requires separate live output evidence.
+
 ### Changed
 
 - Self-hosted R11 contract closure: HTTP extension defaults to the currently

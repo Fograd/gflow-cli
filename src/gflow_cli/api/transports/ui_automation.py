@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 import structlog
 
 from gflow_cli.api._retry import parse_retry_after
+from gflow_cli.api.cdp_launch import CdpLauncher
 from gflow_cli.api.character import CharacterImageRequest
 from gflow_cli.api.dto import BatchSubmissionResult, GeneratedImage
 from gflow_cli.api.image import Aspect, GenerateImageRequest, ImageRef, Model
@@ -935,9 +936,8 @@ class UiAutomationTransport(VideoGenerationMixin):
 
     Drives the Flow editor on a logged-in Pro/Ultra profile through a
     Playwright-managed persistent context. The strategy never exposes an
-    external CDP debug port; Playwright's internal port is sufficient and
-    keeps the browser environment indistinguishable from a typical
-    developer session.
+    external CDP debug port by default. The opt-in CDP launcher owns its
+    system-Chrome process and exposes debugging only on loopback.
 
     Lifecycle (Protocol § 4.1)::
 
@@ -957,6 +957,7 @@ class UiAutomationTransport(VideoGenerationMixin):
     def __init__(self) -> None:
         self._pw_cm: Any | None = None
         self._ctx: Any | None = None
+        self._cdp_launcher: CdpLauncher | None = None
         self._page: Page | None = None
         self._setup_done: bool = False
         self._owns_playwright: bool = False
@@ -1091,20 +1092,40 @@ class UiAutomationTransport(VideoGenerationMixin):
             # #477: refuse a bundled-Chromium open of a profile last written by
             # a newer Chromium — downgrade cleanup can shred the session store.
             ensure_profile_engine_compatible(profile_dir, channel)
-            ctx = await pw.chromium.launch_persistent_context(
-                str(profile_dir),
-                headless=False,
-                viewport=cast("ViewportSize", _VIEWPORT),
-                locale=locale_env,
-                channel=channel,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--password-store=basic",
-                    "--disable-dev-shm-usage",
-                    *session_retention_args(profile_dir, channel),
-                    *window_position_args(get_settings().browser_window_position),
-                ],
-            )
+            if get_settings().cdp_launch:
+                self._cdp_launcher = CdpLauncher(get_settings().home)
+                ctx = await self._cdp_launcher.launch(
+                    pw,
+                    {
+                        "user_data_dir": str(profile_dir),
+                        "headless": False,
+                        "viewport": _VIEWPORT,
+                        "locale": locale_env,
+                        "channel": channel,
+                        "args": [
+                            "--disable-blink-features=AutomationControlled",
+                            "--password-store=basic",
+                            "--disable-dev-shm-usage",
+                            *session_retention_args(profile_dir, channel),
+                            *window_position_args(get_settings().browser_window_position),
+                        ],
+                    },
+                )
+            else:
+                ctx = await pw.chromium.launch_persistent_context(
+                    str(profile_dir),
+                    headless=False,
+                    viewport=cast("ViewportSize", _VIEWPORT),
+                    locale=locale_env,
+                    channel=channel,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--password-store=basic",
+                        "--disable-dev-shm-usage",
+                        *session_retention_args(profile_dir, channel),
+                        *window_position_args(get_settings().browser_window_position),
+                    ],
+                )
             # Hide the automation flag so reCAPTCHA Enterprise doesn't score
             # the session as a bot — navigator.webdriver=true causes low-score
             # tokens and HTTP 403 on batchGenerateImages.
@@ -1119,13 +1140,15 @@ class UiAutomationTransport(VideoGenerationMixin):
                 await page.goto(FLOW_URL, wait_until="networkidle", timeout=45_000)
             except Exception as e:
                 log.warning("ui_automation.flow_initial_goto_failed", error=str(e))
+            if self._cdp_launcher is not None:
+                await self._cdp_launcher.verify_native_identity(page, profile_dir)
             self._owns_playwright = True
             self._setup_done = True
             log.info(
                 "ui_automation.setup_own_context",
                 profile_dir=str(profile_dir),
             )
-        except BaseException:
+        except BaseException as setup_error:
             # Partial-setup leak guard. Catches BaseException (not just
             # Exception) so a CancelledError mid-setup ALSO tears down the
             # launched context (D4) — otherwise a cancelled launch would orphan
@@ -1153,10 +1176,23 @@ class UiAutomationTransport(VideoGenerationMixin):
                 owner="ui_automation",
                 step="setup_driver_exit",
             )
+            reap_cancelled: asyncio.CancelledError | None = None
+            if self._cdp_launcher is not None:
+                try:
+                    await self._cdp_launcher.reap()
+                except asyncio.CancelledError as exc:
+                    reap_cancelled = exc
+                if self._cdp_launcher.process_running:
+                    raise ConfigurationError(
+                        "Owned CDP Chrome is still running; retaining its profile lease",
+                    ) from setup_error
+                self._cdp_launcher = None
             # Release the lease last — after context + driver are down (D3).
             if self._lease is not None:
                 self._lease.release()
                 self._lease = None
+            if reap_cancelled is not None:
+                raise reap_cancelled from setup_error
             raise
 
     # ------------------------------------------------------------------
@@ -4495,7 +4531,7 @@ class UiAutomationTransport(VideoGenerationMixin):
         is False (shared-page setup) the caller retains lifecycle
         ownership; this method releases nothing and just resets state.
         """
-        if not self._setup_done:
+        if not self._setup_done and self._cdp_launcher is None:
             return
         from gflow_cli.api._engine import (  # noqa: PLC0415
             CONTEXT_TEARDOWN_TIMEOUT_S,
@@ -4509,6 +4545,7 @@ class UiAutomationTransport(VideoGenerationMixin):
         # lease release in `finally`; the original cancellation re-raises last.
         # Teardown order: (4) close context -> exit driver; (6) release lease.
         cancelled: BaseException | None = None
+        reap_error: Exception | None = None
         try:
             if self._owns_playwright and self._pw_cm is not None:
                 if self._ctx is not None:
@@ -4534,10 +4571,26 @@ class UiAutomationTransport(VideoGenerationMixin):
                     or cancelled
                 )
         finally:
+            cdp_stopped = True
+            if self._cdp_launcher is not None:
+                launcher = self._cdp_launcher
+                try:
+                    await launcher.reap()
+                except asyncio.CancelledError as exc:
+                    cancelled = cancelled or exc
+                except Exception as exc:  # noqa: BLE001 — retain lease on failed reap
+                    reap_error = exc
+                cdp_stopped = not launcher.process_running
+                if cdp_stopped:
+                    self._cdp_launcher = None
+                elif reap_error is None:
+                    reap_error = ConfigurationError(
+                        "Owned CDP Chrome is still running; retaining its profile lease",
+                    )
             # Release the profile lease last — after the context is closed and
             # the driver stopped (D3). No-op on the shared-page path (lease is
             # None). Field resets survive even a cancelled teardown.
-            if self._lease is not None:
+            if self._lease is not None and cdp_stopped:
                 self._lease.release()
                 self._lease = None
             self._pw_cm = None
@@ -4545,5 +4598,7 @@ class UiAutomationTransport(VideoGenerationMixin):
             self._page = None
             self._setup_done = False
             self._owns_playwright = False
+        if reap_error is not None:
+            raise reap_error
         if cancelled is not None:
             raise cancelled

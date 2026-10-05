@@ -671,6 +671,15 @@ Records image, batch, T2V, I2V, and R2V provenance in a local SQLite catalog. Re
 
 ---
 
+**5 October 2026 owned-launch investigation:** the user explicitly authorized a
+narrow hardened port of upstream PR907 after R12's four native video refusals.
+The historical successful default baseline and R12's eight validated images/five
+clips remain recorded; browser startup is not a proven root cause. The new
+false-default process option starts its own Chrome under the existing lease and
+validates a fresh loopback endpoint. It never attaches to arbitrary existing
+browsers. Scope, safeguards and live acceptance gates are in the
+[owned CDP launch plan](docs/superpowers/plans/2026-10-05-owned-cdp-launch/PLAN.md).
+
 ### Phase 8 — Pluggable storage backend — BACKLOG
 
 Today the CLI writes media to `$GFLOW_CLI_OUTPUT_DIR` on the local filesystem. Phase 8 makes the storage backend pluggable so generated assets can stream directly to S3 / GCS / Azure Blob without an intermediate local copy.

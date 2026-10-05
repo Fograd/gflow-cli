@@ -557,6 +557,15 @@ class Settings(BaseSettings):
             "stays playwright and is unaffected. Override via GFLOW_CLI_BROWSER_ENGINE."
         ),
     )
+    cdp_launch: bool = Field(
+        default=False,
+        description=(
+            "Opt-in owned system-Chrome launch attached over loopback CDP. Requires "
+            "the Patchright engine, headed Chrome and the original authenticated "
+            "profile. Default launch behavior is unchanged. Override via "
+            "GFLOW_CLI_CDP_LAUNCH."
+        ),
+    )
     flow_host: Literal["auto", "flow.google.com", "labs.google"] = Field(
         default="auto",
         description=(

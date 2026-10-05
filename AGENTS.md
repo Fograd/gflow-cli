@@ -514,3 +514,5 @@ inherited aspect; explicitly dimensionless owned videos reuse bounded R02 MP4
 measurement. Available/disabled/unknown observations never infer plan entitlement.
 Read models/capabilities first. Implementation complete, paid acceptance pending:
 accepted promotion, solver upscale and entitled4K outputs require new R12 permissions.
+
+Experimental owned browser startup: `GFLOW_CLI_CDP_LAUNCH=true` is false by default, native `flow.google.com` only, headed Patchright/system Chrome/original managed profile. Linux requires a user systemd manager; transient scope ownership, fresh account identity and process exit are verified before lease release. No cookie import or hidden generation retry. See [configuration](docs/CONFIGURATION.md#gflow_cli_cdp_launch) and [plan](docs/superpowers/plans/2026-10-05-owned-cdp-launch/PLAN.md).

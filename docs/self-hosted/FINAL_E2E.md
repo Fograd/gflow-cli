@@ -75,8 +75,7 @@ observed working; automatic renewal across expiry was not observed.
 
 The fixes retain original profiles, account/project/workflow ownership checks,
 leases and startup defaults. No dependencies changed and no upstream PR was
-merged. PR907 was inspected after matching refusals; its startup alternative was
-not ported without evidence that it solves this host's failures.
+merged. At the original R12 close, PR907 was inspected but not ported. The separately authorized follow-up below preserves that historical result.
 
 1. Accept exactly the measured Fast first/last model key while requiring both
    invocation-bound frame UUIDs.
@@ -118,6 +117,14 @@ archive without replay. No original or historical fixture was removed.
 R12 is a representative executed campaign with external refusals, not full paid
 acceptance. Native reference rendering, audio, edit, extension, promotion and
 public callback delivery remain unchecked until their real requirements pass.
+
+## Authorized PR907 follow-up — 6 October 2026
+
+After the initial R12 close, the user authorized a narrow repaired port of PR907's alternative startup. `GFLOW_CLI_CDP_LAUNCH` remains false by default; normal launch flags, request contracts, selectors, retries and dependencies are unchanged. Native Flow only, headed Patchright, installed system Chrome, an original managed profile and Linux user systemd are required. No arbitrary-browser attachment, cookie import or profile replacement is allowed. [Configuration](../CONFIGURATION.md#gflow_cli_cdp_launch) and [plan](../superpowers/plans/2026-10-05-owned-cdp-launch/PLAN.md) describe scope ownership and rollback.
+
+The free BDD passed four ordinary/CDP comparisons through shared-client and standalone-image launch paths, with actual original pro3 identity/owned V2 video, 1010 credits, requested language/header/viewport, webdriver false, loopback debugger, graceful Chrome exit and lease recovery. No generation or solver task occurred. Startup findings were fixed: migrated accounts do not require the obsolete labs cookie; standalone CDP needs its locale language header; LXC process cleanup needs both the invocation scope and Chrome's exact fresh-PID desktop scope. An incompatible crash-reporter-disable experiment was removed. Original failed-test evidence and the positively identified process recovery remain private.
+
+The one remaining pro3 video allowance is reserved for a single native1080p promotion of retained V2 only after final gates/deployment. Its outcome must be recorded separately; startup success does not prove Google acceptance. No native acceptance checkbox is changed by these free checks.
 
 ## Entry checks
 - Record deployed source revision, API/MCP health and empty per-profile queues.
