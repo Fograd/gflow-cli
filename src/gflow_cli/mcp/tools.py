@@ -3139,7 +3139,7 @@ async def gflow_extend_native_video(
     captcha_retry: StrictInt | None = None,
 ) -> dict[str, Any]:
     from gflow_cli.api.native_extension import (
-        NativeExtensionUnknownError,
+        download_native_extension,
         extension_args,
         new_extension_started,
     )
@@ -3196,9 +3196,16 @@ async def gflow_extend_native_video(
                     on_started=_native_video_checkpoint(target, "extend"),
                 )
                 records = await client.wait_native_extension(started)
-                results = await _download_native_video_results(
-                    client, records, target, NativeExtensionUnknownError(started)
-                )
+                downloaded = await download_native_extension(client, started, records, target)
+                results = [
+                    {
+                        "media_id": item.media_id,
+                        "workflow_id": item.workflow_id,
+                        "path": str(item.path),
+                        "bytes": item.bytes,
+                    }
+                    for item in downloaded
+                ]
             return {
                 "status": "ok",
                 "project_id": project,

@@ -28,9 +28,13 @@ from gflow_cli.errors import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Sequence
+    from pathlib import Path
 
     from gflow_cli.api.client import FlowApiClient
+    from gflow_cli.api.transports.batchexecute import GenerationRecord
+    from gflow_cli.api.transports.native_asset_download import DownloadedNativeAsset
+    from gflow_cli.api.transports.native_asset_lookup import NativeAsset
 
 RPC = "fZytfe"
 
@@ -50,6 +54,51 @@ class NativeExtensionStarted:
     workflow_ids: tuple[str, ...]
     media_seeds: tuple[str, ...] = field(default=(), repr=False)
     workflow_seeds: tuple[str, ...] = field(default=(), repr=False)
+
+
+async def download_native_extension(
+    client: FlowApiClient,
+    started: NativeExtensionStarted,
+    records: Sequence[GenerationRecord],
+    out_dir: Path,
+) -> tuple[DownloadedNativeAsset, ...]:
+    """Recover fresh owned URLs and validate MP4s without replaying submission.
+
+    Completed siblings stay available after a partial download failure. The
+    pre-submit checkpoint remains the authority for recovery, never a retry.
+    """
+    from gflow_cli.api.transports.native_asset_download import download_asset
+
+    try:
+        expected = tuple(zip(started.media_ids, started.workflow_ids, strict=True))
+        actual = tuple((record.media_id, record.workflow_id) for record in records)
+        if (
+            not 1 <= len(expected) <= 4
+            or actual != expected
+            or len(set(started.media_ids)) != len(expected)
+            or len(set(started.workflow_ids)) != len(expected)
+            or any(
+                record.project_id != started.project_id or not record.video_url
+                for record in records
+            )
+        ):
+            raise ValueError("Extension output identities do not match the checkpoint")
+        assets: list[NativeAsset] = []
+        for record in records:
+            asset = await client.get_native_asset(started.project_id, record.media_id)
+            if (
+                asset.kind != "video"
+                or asset.project_id != started.project_id
+                or asset.media_id != record.media_id
+                or asset.workflow_id != record.workflow_id
+            ):
+                raise ValueError("Fresh extension output identity does not match")
+            assets.append(asset)
+        return tuple([await download_asset(asset, out_dir) for asset in assets])
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        raise NativeExtensionUnknownError(started) from None
 
 
 def assigned_id(seed: str) -> str:

@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- Native standalone extension worker/CLI/REST and direct MCP downloads verify
+  checkpoint identities against fresh owned video metadata, then use bounded
+  MP4 validation without browser authentication or overwriting existing files.
+  Download failures retain recovery handles without replaying generation.
+
 - R12 video export also captures bounded browser downloads when Flow produces no
   page-visible blob; both original MP4 and animated GIF passed live decoding.
 - Native concatenation measures fresh owned MP4 bytes when both dimensions are

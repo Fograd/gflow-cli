@@ -46,6 +46,7 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
         AsyncMock(
             return_value=[
                 SimpleNamespace(
+                    project_id=P,
                     media_id=started.media_ids[0],
                     workflow_id=started.workflow_ids[0],
                     video_url=None if failure == "missing" else "https://example.invalid/video",
@@ -58,6 +59,8 @@ async def test_native_video_recovery(tmp_path, monkeypatch, mode, failure):
             asyncio.CancelledError() if failure == "cancel" else OSError("private download error")
         )
     )
+    if mode == "extend":
+        client.get_native_asset = AsyncMock(side_effect=client.download.side_effect)
     monkeypatch.setattr(tools, "FlowApiClient", lambda **kwargs: client)
     monkeypatch.setattr(tools, "_resolve_and_validate_profile", lambda p: "fixture")
     monkeypatch.setattr(tools._rate_limiter, "acquire", AsyncMock(return_value=True))

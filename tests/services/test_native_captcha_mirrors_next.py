@@ -206,6 +206,13 @@ async def test_mcp_fresh_clients_per_refusal_one_rate_acquisition(
     monkeypatch.setattr(tools, "_resolve_and_validate_profile", lambda _: "fixture")
     rate = AsyncMock(return_value=True)
     monkeypatch.setattr(tools._rate_limiter, "acquire", rate)
+    if kind == "extend":
+        # This fixture isolates CAPTCHA retry/client lifetime; content validation
+        # has separate real bounded-download regressions.
+        monkeypatch.setattr(
+            "gflow_cli.api.native_extension.download_native_extension",
+            AsyncMock(return_value=()),
+        )
     kwargs = dict(out_dir=str(tmp_path), captcha_order="CapSolver", captcha_retry=2)
     if kind == "extend":
         result = await tools.gflow_extend_native_video(P, M, "Fixture", **kwargs)

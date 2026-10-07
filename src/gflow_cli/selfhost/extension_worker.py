@@ -13,6 +13,7 @@ from gflow_cli.api.client import FlowApiClient
 from gflow_cli.api.native_extension import (
     NativeExtensionStarted,
     NativeExtensionUnknownError,
+    download_native_extension,
     extend_native_video,
     extension_args,
     new_extension_started,
@@ -116,17 +117,13 @@ async def _run_extension(
             client, started, timeout_s=payload.get("timeout", 600)
         )
         outputs: list[dict[str, Any]] = []
-        for record in records:
-            path = out / f"{record.media_id}.mp4"
-            if record.video_url is None:
-                raise NativeExtensionUnknownError(started)
-            await client.download(record.video_url, path)
+        for record in await download_native_extension(client, started, records, out):
             outputs.append(
                 {
                     "media_name": record.media_id,
                     "media_id": record.media_id,
                     "workflow_id": record.workflow_id,
-                    "local_path": str(path),
+                    "local_path": str(record.path),
                 }
             )
         return {

@@ -145,6 +145,59 @@ Runtime publication: `157086bab74ba2bf5c1376a0869c735224fa1616`, aligned on all 
 
 The final documentation/test-harness revision, final required gate and Mac localhost verification are recorded in root `R12_HANDOFF.md`. Implementation checkboxes remain complete; no paid acceptance item is checked by these refusals. Private evidence: `r12-pr907/V6c-checkpoint.json`, `V6c-pre-dispatch-proof.json`, `runtime-manifest.json`, and protected journals. Public-safe Mac startup and balance evidence are in `artifacts/r12-pr907-*.json`.
 
+## PR882 focused comparison and recovery repair — 7 October 2026
+
+[Upstream PR882](https://github.com/ffroliva/gflow-cli/pull/882) remains open at
+`30365f520458f48eaa3257c09d32a12864e84106`. Its scene-based `video extend`
+uses operation enum2, source workflow, a scene source-path and a last-second
+24fps frame window. R12 V5r used standalone `extend-native` / REST
+`videos/extend` / registered `gflow_extend_native_video`: enum1, source media,
+preassigned independent output identities and no scene. The shared RPC name
+`fZytfe` does not make these request schemas interchangeable. No scene payload,
+whole PR, dependency change or speculative refusal fix was ported. Current
+upstream checks include failed Python3.13 tests and cancelled3.11/3.12 runs;
+the captured failure has six outdated CLI mocks without `create_scene_for_extend`.
+The author's reported scene output is separate upstream evidence, not CC proof.
+
+Comparison exposed a demonstrated local download gap: both extension worker and
+MCP could report arbitrary HTML bytes as an MP4 without a fresh workflow check.
+Six regressions failed before the repair. Both now share checkpoint-bound
+recovery: exact ordered output count/media/project/workflow, fresh owned video
+metadata and the existing bounded unauthenticated native downloader. Protected
+URLs refresh before download. Redirects, wrong identities/types/dimensions,
+non-MP4 content and destination replacement refuse. Partial validated siblings
+remain on disk; cancellation cleans temporary files and propagates; failures
+retain original handles as nonretryable uncertainty without generation replay.
+Public parameters, request DTO, model choice, retries and browser defaults did
+not change. CLI and REST use the shared worker; direct MCP uses the same helper.
+Native editing/reference download paths were outside this focused repair.
+
+|Free case|Actual result|Cost and limits|
+|---|---|---|
+|Local worker/MCP invalid content, wrong workflow and foreign URL|Red before repair; green after|Controlled requests only; no Google dispatch|
+|Plural MP4, partial failure, mid-stream cancellation and existing destination|Validated sibling preserved, temporary bytes removed, exclusive write enforced|Local generated fixture only|
+|Original pro3 retained V2 through extension poll/download helpers|Exact identities; decoded1280×720 MP4,1238267bytes, SHA256 `ad2a07eac2393b728875d4f7f13c9b1d7ca9391178def6c45b2cccea6c3bb775`, identical to original|Zero generation/solver; balance1050 before/after|
+|Mac localhost REST and registered MCP before deployment|Original B2/L2f jobs and download hashes preserved; V4u refusal retained;43tools; pro1 disabled; balances1050/1050|Read-only; solver observations unchanged|
+
+One tagged free browser BDD passed with mutations denied before bootstrap,
+original stored account verified, cookie import/token mint disabled and normal
+startup. Unknown background RPCs were aborted, not forwarded. Two earlier runs
+retrieved/decoded the clip but failed overstrict harness assertions (background
+RPC blocking and an assumed `UpteDb` request); both retained their owned output
+directories and submitted zero generations. The final evidence explicitly uses
+an existing generic clip, not a newly accepted extension. Independent static
+correctness/security/compatibility reviewers found no blocker; their stream
+cancellation test suggestion was added and passed. Required final gates and
+publication/deployment evidence are recorded in root `R12_HANDOFF.md`.
+
+Fresh balances are pro2/pro3 **1050/1050**, superseding older1020/1010 readings.
+This balance refresh does not reset allowances: pro2 images6/20, videos5/5,
+audio0/2; pro3 images3/20, videos5/5, audio1/2; solver4/10. Ledgers and historical
+usage remain unchanged. No paid acceptance checkbox changes. Standalone
+extension remains Google-refused; testing improved acceptance requires a new
+explicit video allowance. Automatic renewal and public callback delivery remain
+separate unproved items.
+
 ## Entry checks
 - Record deployed source revision, API/MCP health and empty per-profile queues.
 - Read fresh models, tier, reference capacities and credits on each selected profile.

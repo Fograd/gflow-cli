@@ -2,15 +2,16 @@
 
 The implementation uses the deployed native Flow Angular
 `VideoFxService.BatchAsyncGenerateVideoExtendVideo` (`fZytfe`) request,
-rather than the older labs scene extension and concatenation path. **Google
-acceptance and final downloaded-video verification are pending the final E2E pass.**
+rather than the older labs scene extension and concatenation path. **Accepted standalone extension remains unproved: R12 Google submission was
+explicitly refused.** Free recovery of a retained generic clip is validated; it
+does not prove a newly rendered extension.
 
 ## CLI and SDK
 
 ```sh
-gflow video extension-models --project PROJECT_UUID --profile pro1 --json
+gflow video extension-models --project PROJECT_UUID --profile pro2 --json
 gflow video extend-native SOURCE_MEDIA_UUID --project PROJECT_UUID \
-  --prompt "Continue the camera movement" --profile pro1 --count 1 --json
+  --prompt "Continue the camera movement" --profile pro2 --count 1 --json
 ```
 
 The default reads native GetModels and account tier, then selects the lowest-cost
@@ -92,3 +93,21 @@ dimensions, edit/extension preflight reuses the strict active owned-video lookup
 and bounded MP4 measurement already used by native promotion. Unknown ownership,
 malformed dimensions and unsupported aspect still refuse before solving/dispatch.
 See [actual campaign evidence](FINAL_E2E.md#r12-measured-campaign--5-october-2026).
+
+
+## Validated output recovery
+
+CLI/REST worker and direct MCP extension outputs share exact checkpoint-bound
+download validation. Every result must match the reserved ordered media/project/
+workflow list and fresh owned video metadata before download. Fresh protected
+URLs use the existing unauthenticated bounded downloader: no redirects or
+browser cookies, actual MP4/dimension checks, exclusive writes. Existing output
+files are never overwritten. Use a new recovery directory when validated siblings
+already exist; preserve those siblings and the original checkpoint. A missing,
+invalid or failed download returns nonretryable uncertainty with the original
+handles; cancellation propagates and temporary bytes are removed. Neither path
+replays submission to recover a download.
+
+The PR882 comparison and zero-generation retained-clip proof are documented in
+[FINAL_E2E](FINAL_E2E.md#pr882-focused-comparison-and-recovery-repair--7-october-2026).
+Its scene extension schema is separate from this standalone adapter.

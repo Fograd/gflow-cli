@@ -136,6 +136,7 @@ async def test_private_worker_forwards_canonical_family_to_shared_sdk(
     submit = AsyncMock()
     monkeypatch.setattr(module, "extend_native_video", submit)
     monkeypatch.setattr(module, "wait_native_extension", AsyncMock(return_value=[]))
+    monkeypatch.setattr(module, "download_native_extension", AsyncMock(return_value=()))
     await module._run_extension(
         "pro2", P, {"mediaGenerationId": M, "prompt": "Continue", "model": alias}, tmp_path
     )

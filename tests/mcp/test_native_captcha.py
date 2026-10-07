@@ -87,6 +87,11 @@ async def test_direct_mcp_consumes_scope_without_returning_token(tmp_path, monke
             }[kind],
             AsyncMock(return_value=()),
         )
+        if kind == "extend":
+            monkeypatch.setattr(
+                "gflow_cli.api.native_extension.download_native_extension",
+                AsyncMock(return_value=()),
+            )
         monkeypatch.setattr(tools, "FlowApiClient", lambda **_: client)
         monkeypatch.setattr(tools, "_resolve_and_validate_profile", lambda _: "fixture")
         monkeypatch.setattr(tools._rate_limiter, "acquire", AsyncMock(return_value=True))
