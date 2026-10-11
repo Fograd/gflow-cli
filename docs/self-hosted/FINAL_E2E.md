@@ -764,3 +764,34 @@ results above supersede this preparation checklist without resetting history.
 Automatic renewal remains the separate R10 acceptance boundary. Cookie import,
 profile replacement and pro1 testing remain excluded. No numerical generation
 seed investigation or vendor-wide statistics work is proposed for R12.
+
+
+## R13 free refusal diagnosis — 11 October 2026
+
+Free diagnosis only; native standalone generation remains unproved. Retained V5r
+on original pro2 was not replayed. Fresh ownership reads passed for its original
+source; its reserved output returned gRPC5 NOT_FOUND. Original pro3 and the
+matching pro2 session passed fresh expected-identity,1050-credit and extension
+model reads. Balances stayed1050. Model availability is not acceptance or renewed
+campaign permission.
+
+The guarded current UI did not yield a matching standalone request. Its Agent
+mode transition attempted UpdateUserSettings/UpdateAgentInfo; all four observed
+requests, including UI retries, were aborted. Scene extension is not substituted.
+Current static builder comparison found extra optional setters, with no demonstrated
+required-field mismatch or causal explanation of the refusal. No runtime fix.
+
+Eight original-profile diagnostic invocations established a closed startup proxy,
+context interception and24 aborted pre-navigation canaries. Forwarded RPCs were
+restricted to positively identified reads. All unknown requests/writes, solver
+hosts, token mint and application extension dispatch were blocked. Two initial
+harness failures remain recorded rather than called successful captures. No
+provider mutation, generation, preview, upload, paid solver or provider fixture
+was created. R12 ledger/historical hashes and counters remained unchanged.
+
+The operator's separate R13_HANDOFF.md and private diagnostic ledger contain the
+request comparison, exact guard evidence, fixture hashes, gate/publication state
+and remaining capture blocker. This is diagnosis and source-access evidence, not
+new extension-generation acceptance or authentication renewal. Completed
+implementation checkboxes and unmet paid-acceptance items are unchanged. See
+[the standalone diagnosis](NATIVE_VIDEO_EXTENSION.md#r13-free-diagnosis--11-october-2026).

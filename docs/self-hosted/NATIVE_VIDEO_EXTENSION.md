@@ -111,3 +111,61 @@ replays submission to recover a download.
 The PR882 comparison and zero-generation retained-clip proof are documented in
 [FINAL_E2E](FINAL_E2E.md#pr882-focused-comparison-and-recovery-repair--7-october-2026).
 Its scene extension schema is separate from this standalone adapter.
+
+
+## R13 free diagnosis — 11 October 2026
+
+No demonstrated same-operation request defect was found, so no runtime or DTO
+change was made. The retained R12 V5r standalone extension remains explicitly
+refused (`fZytfe`, `PUBLIC_ERROR_UNUSUAL_ACTIVITY_TOO_MUCH_TRAFFIC`, gRPC8).
+A fresh read of its exact reserved output returned gRPC5 NOT_FOUND; its source
+still passed fresh selected-project/media/workflow ownership checks.
+
+The comparison used V5r's original owning pro2 profile and source. Original pro3
+also passed the required fresh identity, credit and extension-model preflight.
+Both reported1050 credits; final guarded before/after balances were unchanged.
+The exact Lite extension key remains listed alongside Fast/Quality alternatives.
+These reads do not establish generation acceptance or renew campaign allowances.
+
+**No matching standalone UI capture.** The current project displayed the Agent
+composer. The source menu exposed Add to scene and Add to prompt. Switching mode
+attempted `DA4VGb` UpdateUserSettings and `Kcr7Ub` UpdateAgentInfo; the guard aborted
+both, including the UI's repeated attempts. No scene, project, upload, character,
+voice, generation, preview or solver task was created. Media-load errors under
+this restricted guard are not evidence of unavailable standalone extension.
+
+Current official bundle SHA256
+`7747d72648a64754698d09a92a905162b0e165795cd0a4211f7be6b59f6073ab`
+still contains the standalone `EXTEND_VIDEO` branch on `fZytfe`. Source/prompt/
+model/aspect/metadata remain at request fields1/2/3/4/6; source media and optional
+trims remain at source-video fields2/3/4. Tool22, `VIDEO_GENERATION`, project
+context field6 and token field11 are still visible. Additional setters at fields
+8–13 include optional references and non-default resolution. Their presence does
+not prove that matching standalone input must populate them, or that their absence
+caused V5r. This is lower-confidence static evidence, not an actual UI submission.
+
+V5r retained caller arguments, refusal and output checkpoint, not a complete raw
+historical request with headers/token/assignment seeds. Exact wire equivalence,
+current standalone acknowledgement/output correlation and token quality remain
+unmeasured. PR882's scene context/workflow/frame window is still not a justified
+replacement for this standalone DTO.
+
+The diagnostic guard used a closed invocation-local proxy during profile launch,
+then installed browser-context HTTP/WebSocket interception with service workers
+blocked before opening the proxy and allowing bootstrap. Three browser canaries
+per invocation blocked an extension RPC, a mixed read/write batch and an unknown
+GET before navigation. Only positively identified reads were forwarded; uploads,
+resource writes, unknown requests and solver hosts were denied. Eight retained
+invocations passed24 canary checks; two initial harness limitations were recorded.
+Forwarded provider mutations, generation submissions and solver tasks were all0.
+No cookie copying/import, profile replacement, registration changes or deliberate
+sign-out occurred. This does not claim authentication renewal.
+
+R12 ledger and historical budget hashes/counters remained unchanged, including
+both exhausted video allowances. No acceptance checkbox was promoted. First
+obtain a matching standalone blocked capture; changing the current Agent mode
+would require separately authorised writes. No paid retest is justified until a
+concrete difference is demonstrated. A later test would need a new explicit
+count-one video allowance and a separate solver allowance if applicable, with
+no automatic retry. See [R13 verification](FINAL_E2E.md#r13-free-refusal-diagnosis--11-october-2026)
+and the operator's R13_HANDOFF.md for private evidence and exact publication state.

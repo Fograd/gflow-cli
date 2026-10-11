@@ -1223,3 +1223,15 @@ REST/MCP reads show1050/1050. Historical/R12 allowances remain unchanged and bot
 video budgets exhausted. No paid acceptance checkbox changes; see
 [the measured comparison](FINAL_E2E.md#pr882-focused-comparison-and-recovery-repair--7-october-2026)
 and root R12_HANDOFF.md for final gates, exact publication and R13 instructions.
+
+
+### R13 free diagnosis — 11 October 2026
+
+R13 did not restart implementation or the parity audit. Original-account/source
+reads and a guarded current-UI investigation produced no matching standalone
+extension capture: the current Agent mode transition attempted provider settings
+writes, which were blocked. Static builder differences do not establish a local
+request defect or explain V5r's refusal. No runtime/DTO fix or scene-schema port
+was made. Zero paid usage and unchanged R12 counters; implementation checkboxes
+stay completed and paid acceptance/automatic renewal remain unproved. See
+[the diagnosis and guard evidence](NATIVE_VIDEO_EXTENSION.md#r13-free-diagnosis--11-october-2026).
