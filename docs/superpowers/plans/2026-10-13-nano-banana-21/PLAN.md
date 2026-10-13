@@ -24,7 +24,7 @@ Default migration is separate from additive support and waits for live proof.
 - [x] Verify explicit CLI generation and a reference variation; at most two initial
   image submissions, no solver task, video or blind retry of uncertain acceptance.
 - [x] Run the repository checks and independent review; document exact limitations.
-- [ ] Deploy after queue/SQLite checks, verify running source and authenticated API.
+- [x] Deploy after queue/SQLite checks, verify running source and authenticated API.
 
 ## Scenario coverage
 
@@ -72,3 +72,13 @@ agent skill list 2.1; existing root command/index descriptions remain true; erro
 and exit-code contracts are unchanged; batch intake and dynamic model catalogue
 include BELUGA while copied defaults remain unchanged; canonical and generated
 docs agree. Character options deliberately retain their existing model choices.
+
+Focused final regression: 203 passed, two unrelated platform/capability skips.
+Production code commit 1829a5d8 deployed by fast-forward after both queues were
+idle, both SQLite quick checks passed, and restricted database/config backups
+completed. REST and MCP services restarted and remained active with exit status
+zero. Production CLI models lists BELUGA / nano2.1 with a ten-reference ceiling.
+Authenticated REST model reads returned HTTP 200 and BELUGA for both enabled
+accounts; authenticated MCP tool discovery advertises nano2.1, and a fresh MCP
+reference-model read returned BELUGA with ten effective references. No additional
+generation was used for deployment verification. Defaults remain unchanged.
