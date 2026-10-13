@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 MAX_ASSET = 20 * 1024 * 1024
 MODEL_ALIASES = {
+    "nano-banana-2.1": "nano2.1",
     "nano-banana-2": "nano2",
     "nano-banana-2-lite": "nano2-lite",
     "nano-banana-pro": "nano-pro",

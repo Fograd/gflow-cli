@@ -397,6 +397,19 @@ knownMediaGenerationIds/knownWorkflowIds for inspection; it remains nonretryable
 A positively identified Google unusual-activity refusal returns403 without
 outcomeUnknown. No raw worker diagnostics or credentials are projected.
 
+## Nano Banana 2.1 selection
+
+`POST /images` accepts `"model": "nano-banana-2.1"`, mapped to CLI alias
+`nano2.1` and native model key `BELUGA`. Use an enabled account and an existing
+project that expose this model. `nano-banana-2` continues to request `NARWHAL`;
+if that model is unavailable, the request refuses instead of upgrading silently.
+Existing defaults are unchanged.
+
+Fresh pro2/pro3 catalogs on 13 October 2026 advertise BELUGA with ten image
+references and zero credits. The worker still checks current availability and
+reference limits before submission. Catalog availability does not establish
+successful generation or the visual influence of ten references.
+
 ## Ordered native and managed image references
 
 POST /images can mix managed PNG/JPEG IDs from POST /assets/{email} with
@@ -410,7 +423,8 @@ that account/project before uploading managed files or submitting generation.
 A managed asset owned by another registered account refuses before queueing.
 This does not enable arbitrary remote asset download or account-wide discovery.
 
-For aspectRatio:"auto" (also the reference-image default for nano-banana-2),
+For aspectRatio:"auto" (also the reference-image default for nano-banana-2.1,
+nano-banana-2 and nano-banana-pro),
 the first image reference controls the documented nearest-supported-ratio
 approximation. A managed first reference uses its decoded file dimensions.
 A native first reference resolves dimensions inside the selected account worker;

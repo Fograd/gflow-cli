@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Explicit Nano Banana 2.1 selection (`nano2.1` / `BELUGA`) for image CLI,
+  batch/run input and queued MCP; self-hosted REST accepts `nano-banana-2.1`.
+  Fresh account metadata gates availability and the ten-reference ceiling.
+  The existing `nano2` alias and defaults remain unchanged; picker matching
+  distinguishes 2 from 2.1 and refuses unavailable models rather than substituting.
+  Catalog availability is verified separately from live generation acceptance
+  and individual reference influence.
 - Experimental `GFLOW_CLI_CDP_LAUNCH` owned system-Chrome/Patchright startup,
   disabled by default, with local endpoint checks, original-profile leases and
   explicit owned-process cleanup. Unsupported recording options fail before

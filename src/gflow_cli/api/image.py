@@ -98,6 +98,7 @@ class Model(StrEnum):
     first capture.
     """
 
+    BELUGA = "BELUGA"
     NARWHAL = "NARWHAL"
     GEM_PIX_2 = "GEM_PIX_2"
     IMAGEN_3_5 = "IMAGEN_3_5"
@@ -140,6 +141,10 @@ _ASPECT_FROM_CLI: Mapping[str, Aspect] = MappingProxyType(
 
 _MODEL_FROM_CLI: Mapping[str, Model] = MappingProxyType(
     {
+        # BELUGA — Nano Banana 2.1, observed in the native account catalogue.
+        "beluga": Model.BELUGA,
+        "nano2.1": Model.BELUGA,
+        "nano-banana-2.1": Model.BELUGA,
         # NARWHAL — Nano Banana 2
         "narwhal": Model.NARWHAL,
         "nano2": Model.NARWHAL,
@@ -178,6 +183,7 @@ _MODEL_FROM_CLI: Mapping[str, Model] = MappingProxyType(
 MAX_IMAGE_REFERENCES = 10
 _IMAGE_REFERENCE_CAP: Mapping[Model, int] = MappingProxyType(
     {
+        Model.BELUGA: 10,
         Model.NARWHAL: 10,
         Model.GEM_PIX_2: 10,
         Model.HARBOR_SEAL: 10,

@@ -542,7 +542,8 @@ IMAGE_ASPECT_LIGATURE_MEASURED: frozenset[ImageAspect] = frozenset(IMAGE_ASPECT_
 IMAGE_MODEL_MENU_MATCHERS: dict[ImageModel, ModelMenuMatcher] = {
     # Exact enough to exclude the separate "Nano Banana 2 Lite" entry without
     # depending on the decorative banana glyph that precedes both live labels.
-    ImageModel.NARWHAL: ModelMenuMatcher("Nano Banana 2", excludes=("Lite",)),
+    ImageModel.BELUGA: ModelMenuMatcher("Nano Banana 2.1"),
+    ImageModel.NARWHAL: ModelMenuMatcher("Nano Banana 2", excludes=("Lite", "2.")),
     ImageModel.GEM_PIX_2: ModelMenuMatcher("Nano Banana Pro"),
     ImageModel.HARBOR_SEAL: ModelMenuMatcher("Nano Banana 2 Lite"),
 }

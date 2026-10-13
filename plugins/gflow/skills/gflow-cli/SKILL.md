@@ -65,7 +65,7 @@ gflow credits list [--json]                               # all saved profiles
 
 # Image generation (Imagen / Nano Banana)
 gflow image upload <path>                                 # → asset UUID + dimensions
-gflow image t2i "<prompt>" [--model {nano2|nano2-lite|nano-pro|image4}] \
+gflow image t2i "<prompt>" [--model {nano2.1|nano2|nano2-lite|nano-pro|image4}] \
                             [--aspect {9:16|16:9|1:1|4:3|3:4}] \
                             [-n 1..4] [--out DIR]
 gflow image i2i "<prompt>" --ref PATH_OR_UUID [--ref ...] [...same as t2i]
@@ -285,7 +285,7 @@ Documented errors agents commonly make — negative examples for the SkillOpt tr
 | Running two generations on the same `--profile` in parallel | Use different `--profile` names — Chromium refuses two persistent contexts on the same dir |
 | `GFLOW_CLI_HEADLESS=true` to fix reCAPTCHA failures | `GFLOW_CLI_HEADLESS=false` — headless mode *causes* bot-detection, not prevents it |
 | Calling `gflow image upload` again for an already-uploaded UUID | Pass the UUID directly to `--ref UUID` (i2i) or `--initial-frame/--end-frame UUID` (i2v, with `--project`) — no re-upload needed |
-| `--model imagen` / `--model quality` / `--model high` | `--model image4` (Imagen 3.5), `--model nano-pro` (Gem Pix 2), `--model nano2` (Narwhal) |
+| `--model imagen` / `--model quality` / `--model high` | `--model image4` (Imagen 3.5), `--model nano-pro` (Gem Pix 2), `--model nano2.1` (BELUGA), `--model nano2` (NARWHAL) |
 | Python: `client = FlowApiClient(...)` then method calls | Must use `async with FlowApiClient(...) as client:` — it's an async context manager |
 | Python: `from gflow_cli import FlowApiClient` | `from gflow_cli.api.client import FlowApiClient` |
 | `gflow video t2v`/`i2v`/`r2v` with an unported UUID/entity reference or model on an account served `flow.google.com` (exit 36) | Pass local files instead — migrated hosts support video t2v, local-file i2v/r2v, and image t2i/i2i (local refs) only; exit 36 is non-retryable, `GFLOW_CLI_FLOW_HOST=labs.google` is the kill switch (see USAGE § gflow video t2v / i2v / r2v and image sections) |

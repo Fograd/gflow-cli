@@ -40,7 +40,7 @@ Each row reports `model_key`, `advertised_reference_cap`,
 `transport_reference_cap`, `effective_reference_cap`,
 `advertised_character_cap` and `effective_character_cap`.
 Image capacity is the smaller of the advertised capacity and transport ceiling
-(ten for Nano Banana 2/Pro/Lite). Character capacity is separately capped at seven;
+(ten for Nano Banana 2.1/2/Pro/Lite). Character capacity is separately capped at seven;
 advertised zero disallows characters. Every actual owned character image also
 consumes the image pool. Eight standalone images plus a two-image character use
 ten image slots and one character slot. Each separately uploaded local path
@@ -54,6 +54,14 @@ Fresh 5 October pro2/pro3 REST and MCP observations exposed Nano2/Pro/Lite,
 each with ten effective image slots and seven effective character slots.
 Catalog `retained_reference_verified=false` and `rendering_verified=false` describe
 the catalog observation; they do not erase historical accepted evidence.
+
+The 13 October 2026 pro2/pro3 catalogs additionally advertise Nano Banana 2.1
+(`BELUGA`) with ten image references and zero credits. Select `nano2.1` in CLI/MCP
+or `nano-banana-2.1` in REST; current metadata can restrict the capacity further.
+Separate 13 October CLI checks accepted one text-to-image and one single-reference
+edit, each with BELUGA in the outgoing model field and a decoded 1024×1024 JPEG.
+Ten-reference visual fidelity is not established. `nano2` continues to select
+`NARWHAL` and refuses if unavailable.
 
 ## Existing controls and Auto
 

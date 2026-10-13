@@ -1160,7 +1160,9 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                 sources.append({"id": ref, "kind": "managed"})
         payload["_image_reference_sources"] = sources
         default_aspect = (
-            "auto" if refs and model in ("nano-banana-2", "nano-banana-pro") else "16:9"
+            "auto"
+            if refs and model in ("nano-banana-2.1", "nano-banana-2", "nano-banana-pro")
+            else "16:9"
         )
         requested_aspect = payload.setdefault("aspectRatio", default_aspect)
         if isinstance(requested_aspect, str):

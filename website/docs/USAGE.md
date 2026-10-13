@@ -297,7 +297,7 @@ Options:
                             to disable. Widen (e.g. 10-30) if runs hit WAF
                             403s. [default: 0.5-1.5; GFLOW_CLI_JITTER_RANGE
                             overrides the default]
-  --model [nano2|nano-pro|nano2-lite|image4]
+  --model [nano2.1|nano2|nano-pro|nano2-lite|image4]
                             Image model alias.                [default: nano2]
   --aspect [9:16|16:9|1:1|4:3|3:4]
                             Aspect ratio.                     [default: 9:16]
@@ -329,10 +329,27 @@ Options:
 
 | Alias | Backing model | Notes |
 |---|---|---|
-| `nano2` | Nano Banana 2 (`NARWHAL`) | Default. Fast, balanced quality. |
+| `nano2.1` | Nano Banana 2.1 (`BELUGA`) | Explicit selection; requires availability in the current account. |
+| `nano2` | Nano Banana 2 (`NARWHAL`) | Default. Remains the original model; refuses when unavailable instead of selecting 2.1. |
 | `nano-pro` | Nano Banana Pro (`GEM_PIX_2`) | Higher quality, slower. |
 | `nano2-lite` | Nano Banana 2 Lite (`HARBOR_SEAL`) | Lightweight Nano Banana 2 variant. Its native i2i ceiling is ten, restricted by fresh account model metadata; daily quota remains account-specific. |
 | `image4` | Imagen 4 (`IMAGEN_3_5`) | Photoreal-leaning Imagen variant. |
+
+Select Nano Banana 2.1 explicitly for text or reference image generation:
+
+```sh
+gflow image t2i "A blue ceramic mug on a wooden table" --model nano2.1 --profile pro2 --project PROJECT_UUID
+gflow image i2i "Keep the mug, change the background to a garden" --ref ./mug.png --model nano2.1 --profile pro2 --project PROJECT_UUID
+```
+
+The same `nano2.1` value is accepted in batch rows and `gflow run` configuration.
+The picker checks text-only model availability; reference requests additionally
+use fresh account metadata to limit capacity. On 13 October 2026, explicit CLI
+text-to-image and one-reference image editing both submitted `BELUGA` and returned
+1024×1024 JPEGs. The edit preserved the scene and changed the requested teapot
+colour. Both account catalogs advertise ten references and zero credits; the
+two-image check does not establish ten-reference visual fidelity. Defaults remain
+unchanged, and character-generation model choices do not gain a 2.1 option.
 
 **Multi-prompt shortcut.**
 
@@ -439,7 +456,7 @@ Arguments:
 
 Options:
   --ref PATH_OR_UUID        Reference image. Repeat for multiple. [required]
-  --model [nano2|nano-pro|nano2-lite|image4]
+  --model [nano2.1|nano2|nano-pro|nano2-lite|image4]
                             Image model alias.                [default: nano2]
   --aspect [9:16|16:9|1:1|4:3|3:4]
                             Aspect ratio.                     [default: 9:16]
@@ -1840,7 +1857,7 @@ browser, one Flow project; prompts run one after another).
 | `prompts` | **yes** | — | 1–50 entries. |
 | `prompts[].text` | **yes** | — | 1–2000 chars. |
 | `prompts[].aspect_ratio` | no | `9:16` | `9:16` / `16:9` / `1:1` / `4:3` / `3:4`. |
-| `prompts[].model` | no | `nano2` | `nano2` / `nano-pro` / `imagen4`. |
+| `prompts[].model` | no | `nano2` | `nano2.1` / `nano2` / `nano2-lite` / `nano-pro` / `image4` / `imagen4`. |
 | `prompts[].count` | no | `1` | 1–4. |
 | `prompts[].output_filename` | no | `prompt_<index>` | Filename stem; saved as `<stem>_<image-index>.png`. |
 | `prompts[].ref` | no | — | `"batch:N"` (generate from row N's image) or a local image file. See [Referencing an earlier row](#referencing-an-earlier-row) and [Referencing a local file](#referencing-a-local-file). |
