@@ -377,6 +377,23 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
             for value in cast(list[Any], pending)[:100]
             if isinstance(value, str) and _ID.fullmatch(value)
         ]
+    # A typed reference-upload interruption must not masquerade as an output.
+    error = result.get("error")
+    error = cast(dict[str, Any], error) if isinstance(error, dict) else {}
+    if (
+        error.get("code") == "submission_outcome_unknown"
+        and error.get("operation") == "upload"
+        and result.get("generationSubmitted") is False
+    ):
+        safe["generationSubmitted"] = False
+        for key in ("knownReferenceMediaGenerationIds", "pendingReferenceMediaGenerationIds"):
+            values = result.get(key)
+            if isinstance(values, list):
+                safe[key] = [
+                    identifier
+                    for value in cast(list[Any], values)[:100]
+                    if (identifier := _uuid_value(value)) is not None
+                ]
     workflow_ids = result.get("knownWorkflowIds")
     if isinstance(workflow_ids, list):
         safe["knownWorkflowIds"] = [
@@ -447,7 +464,7 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
             )
         )
         or code == "submission_outcome_unknown"
-        or raw.get("exit_code") == 9
+        or raw.get("exit_code") in (9, 40)
         or (code in _NATIVE_UNKNOWN_CODES and raw.get("outcome_unknown") is True)
     )
     detail = (
@@ -455,6 +472,8 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
         if unknown
         else "Google Flow operation failed; inspect this job before another request."
     )
+    if unknown and raw.get("operation") == "upload" and result.get("generationSubmitted") is False:
+        detail = "Reference upload outcome is unknown; image generation was not submitted."
     if code == "upload_rights_required":
         detail = "Video upload requires an explicit rights confirmation for this request."
     elif code == "google_flow_unusual_activity":

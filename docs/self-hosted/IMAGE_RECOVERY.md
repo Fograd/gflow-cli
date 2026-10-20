@@ -63,3 +63,18 @@ stream without consuming its body. Exact-host HTTPS allowlisting, public-address
 pinning, Host/SNI, ten-second timeout, no redirects and five attempts remain enforced.
 This bounds recipient-body memory usage; it does not change at-least-once callback
 semantics or automatically retry generation.
+
+Unrecognized CLI exit40 results retain conservative `outcomeUnknown: true` and
+the trusted admitted project ID, without importing unverified handles or raw
+diagnostics. This does not assert that image generation was submitted. An exact
+typed upload uncertainty during image-reference preparation instead reports
+`errorDetails.operation: upload`, `generationSubmitted: false`, and separate
+`knownReferenceMediaGenerationIds` / `pendingReferenceMediaGenerationIds`. These
+are reference inputs, not generated outputs. The same typed upload contract is
+preserved for image and video asset uploads.
+
+A synchronous asset upload failure returns HTTP502 with a structured `detail`
+containing its durable `jobId`, redacted `errorDetails`, and any allow-listed
+uncertainty/receipt handles. Poll that job before deciding whether to submit a
+new upload. A reported pre-generation upload refusal remains distinct from an
+unknown outcome; no failure causes automatic upload or generation replay.

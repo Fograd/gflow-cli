@@ -1146,6 +1146,15 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             )
         refs = list(plan.image_ids)
         profile = pick_account(payload.get("email"), refs, allow_native=True, operation="images")
+        # Match enqueue's frozen idempotent project before classifying cache IDs.
+        idem = request.headers.get("idempotency-key")
+        existing = store.by_idempotency(idem) if idem else None
+        default_project = (
+            json.loads(existing["payload"])["project"]
+            if existing
+            else cfg.accounts[profile]["project"]
+        )
+        project = uuid_value(payload.get("projectId", default_project), "projectId")
         managed_assets: dict[str, dict[str, Any]] = {}
         sources: list[dict[str, str]] = []
         for ref in refs:
@@ -1156,8 +1165,35 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
             else:
                 if asset["mime"] not in ("image/png", "image/jpeg"):
                     raise HTTPException(422, "Image references must be PNG or JPEG assets")
+                if asset["profile"] != profile:
+                    raise HTTPException(422, "References must belong to the selected account")
                 managed_assets[ref] = asset
-                sources.append({"id": ref, "kind": "managed"})
+                # UUID cache records are acknowledged native images, not arbitrary
+                # local files. Reuse only in their exact account and target project.
+                kind = "native" if asset["project"] == project else "managed"
+                sources.append({"id": ref, "kind": kind})
+        if existing and existing["kind"] == "images" and existing["profile"] == profile:
+            # Source routing is server-owned and changed from managed to native.
+            # Preserve the admitted representation for an exact idempotent replay;
+            # Store still compares every caller field and the original fingerprint.
+            frozen_value = json.loads(existing["payload"]).get("_image_reference_sources")
+            frozen_sources = (
+                cast(list[object], frozen_value) if isinstance(frozen_value, list) else None
+            )
+            if (
+                frozen_sources is not None
+                and len(frozen_sources) == len(sources)
+                and all(
+                    isinstance(frozen, dict)
+                    and set(cast(dict[str, Any], frozen)) == {"id", "kind"}
+                    and cast(dict[str, Any], frozen).get("id") == current["id"]
+                    and cast(dict[str, Any], frozen).get("kind") in ("managed", "native")
+                    for frozen, current in zip(frozen_sources, sources, strict=True)
+                )
+            ):
+                sources = cast(list[dict[str, str]], frozen_sources)
+        if any(source["kind"] == "native" for source in sources):
+            payload["email"] = cfg.accounts[profile]["email"]
         payload["_image_reference_sources"] = sources
         default_aspect = (
             "auto"
@@ -1315,7 +1351,28 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                     "converted": converted,
                 }
             if result["status"] in ("failed", "interrupted"):
-                raise HTTPException(502, result.get("error", "Upload failed"))
+                # Keep the durable upload receipt pollable even when the synchronous
+                # transfer fails. Project no raw worker diagnostics into this response.
+                receipt = store.get_record(job["jobId"])
+                raise HTTPException(
+                    502,
+                    {
+                        "jobId": job["jobId"],
+                        "detail": receipt.get("error", "Upload failed"),
+                        "retryable": False,
+                        **{
+                            key: receipt[key]
+                            for key in (
+                                "projectId",
+                                "errorDetails",
+                                "outcomeUnknown",
+                                "knownMediaGenerationIds",
+                                "pendingMediaGenerationIds",
+                            )
+                            if key in receipt
+                        },
+                    },
+                )
             await asyncio.sleep(0.25)
         raise HTTPException(
             504,
