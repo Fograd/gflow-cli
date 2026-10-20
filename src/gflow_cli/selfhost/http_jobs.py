@@ -377,6 +377,23 @@ def result_record(result: dict[str, Any], *, kind: str | None = None) -> dict[st
             for value in cast(list[Any], pending)[:100]
             if isinstance(value, str) and _ID.fullmatch(value)
         ]
+    # A typed reference-upload interruption must not masquerade as an output.
+    error = result.get("error")
+    error = cast(dict[str, Any], error) if isinstance(error, dict) else {}
+    if (
+        error.get("code") == "submission_outcome_unknown"
+        and error.get("operation") == "upload"
+        and result.get("generationSubmitted") is False
+    ):
+        safe["generationSubmitted"] = False
+        for key in ("knownReferenceMediaGenerationIds", "pendingReferenceMediaGenerationIds"):
+            values = result.get(key)
+            if isinstance(values, list):
+                safe[key] = [
+                    identifier
+                    for value in cast(list[Any], values)[:100]
+                    if (identifier := _uuid_value(value)) is not None
+                ]
     workflow_ids = result.get("knownWorkflowIds")
     if isinstance(workflow_ids, list):
         safe["knownWorkflowIds"] = [
@@ -447,7 +464,7 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
             )
         )
         or code == "submission_outcome_unknown"
-        or raw.get("exit_code") == 9
+        or raw.get("exit_code") in (9, 40)
         or (code in _NATIVE_UNKNOWN_CODES and raw.get("outcome_unknown") is True)
     )
     detail = (
@@ -455,6 +472,8 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
         if unknown
         else "Google Flow operation failed; inspect this job before another request."
     )
+    if unknown and raw.get("operation") == "upload" and result.get("generationSubmitted") is False:
+        detail = "Reference upload outcome is unknown; image generation was not submitted."
     if code == "upload_rights_required":
         detail = "Video upload requires an explicit rights confirmation for this request."
     elif code == "google_flow_unusual_activity":
@@ -472,6 +491,28 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     exit_code = raw.get("exit_code")
     if type(exit_code) is int:
         safe["errorDetails"]["exit_code"] = exit_code
+    if not unknown and code == "gflow_command_failed" and exit_code == 27:
+        from gflow_cli.selfhost.upload_failure import UPLOAD_FAILURE_REASONS
+
+        reason = raw.get("uploadReason")
+        if (
+            raw.get("operation") == "upload"
+            and isinstance(reason, str)
+            and reason in UPLOAD_FAILURE_REASONS
+        ):
+            safe["errorDetails"].update(operation="upload", uploadReason=reason)
+            native_status = raw.get("nativeHttpStatus")
+            if (
+                reason in {"http_error", "acknowledgement_unconfirmed"}
+                and type(native_status) is int
+                and 100 <= native_status <= 599
+            ):
+                safe["errorDetails"]["nativeHttpStatus"] = native_status
+            if result.get("generationSubmitted") is False:
+                safe["generationSubmitted"] = False
+            safe["error"] = (
+                "Google Flow upload did not complete; inspect its upload reason before retrying."
+            )
     if not unknown and code in {"google_flow_native_quota", "google_flow_model_access_denied"}:
         from gflow_cli.selfhost.model_quarantine import job_quota_metadata
 

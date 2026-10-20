@@ -72,6 +72,7 @@ from gflow_cli.api.transports.migrated_image_overrides import (
     ImageOverrides,
     active_overrides,
 )
+from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
 from gflow_cli.api.transports.native_image_prompt import (
     NativeImageBinding,
     NativePromptChunk,
@@ -542,7 +543,8 @@ IMAGE_ASPECT_LIGATURE_MEASURED: frozenset[ImageAspect] = frozenset(IMAGE_ASPECT_
 IMAGE_MODEL_MENU_MATCHERS: dict[ImageModel, ModelMenuMatcher] = {
     # Exact enough to exclude the separate "Nano Banana 2 Lite" entry without
     # depending on the decorative banana glyph that precedes both live labels.
-    ImageModel.NARWHAL: ModelMenuMatcher("Nano Banana 2", excludes=("Lite",)),
+    ImageModel.BELUGA: ModelMenuMatcher("Nano Banana 2.1"),
+    ImageModel.NARWHAL: ModelMenuMatcher("Nano Banana 2", excludes=("Lite", "2.")),
     ImageModel.GEM_PIX_2: ModelMenuMatcher("Nano Banana Pro"),
     ImageModel.HARBOR_SEAL: ModelMenuMatcher("Nano Banana 2 Lite"),
 }
@@ -2221,6 +2223,7 @@ class MigratedComposer:
         upload_request: Any = None
         ambiguous_dispatch = False
         known_media: str | None = None
+        drain = UploadResponseDrain(page, project_id)
 
         async def on_response(response: Any) -> None:
             url = str(getattr(response, "url", ""))
@@ -2319,6 +2322,7 @@ class MigratedComposer:
             # `client.py` is — the file is up to MAX_IMAGE_BYTES.
             # Associate the response with the request observed after this chooser
             # dispatch. Older in-flight uploads cannot supply this binding.
+            await drain.install()
             armed = True
             await chooser.set_files(
                 {
@@ -2389,7 +2393,27 @@ class MigratedComposer:
                     status=status,
                     route=route,
                 )
+            # A typed canonical ACK is recovery evidence even when the independent
+            # stream observation cannot authorize returning/admitting this asset.
             media_id = _uploaded_image_id(text, project_id, display_name)
+            known_media = media_id
+            observation = await drain.result()
+            log.info(
+                "migrated.upload_drain",
+                observed=observation.observed,
+                complete=observation.complete,
+                bytes=observation.bytes,
+                matches=observation.matches,
+            )
+            # The clone only keeps Chromium's canonical body readable. It supplies no
+            # ACK bytes; an observed incomplete/oversized stream still fails closed.
+            if not observation.allows_ack and media_id:
+                raise NativeMediaMutationUnknownError(
+                    operation="upload",
+                    phase="response",
+                    project_id=project_id,
+                    known_media_ids=(media_id,),
+                )
             if media_id is None:
                 raise MediaUploadRejectedError(
                     detail=(
@@ -2399,17 +2423,39 @@ class MigratedComposer:
                     status=status,
                     route=route,
                 )
-            known_media = media_id
             log.info("migrated.frame_uploaded", media_id=media_id, status=status)
             return media_id, display_name
         finally:
             primary = sys.exception()
+            if isinstance(primary, asyncio.CancelledError) and known_media:
+                vars(primary)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
+                    operation="upload",
+                    phase="cancelled",
+                    project_id=project_id,
+                    known_media_ids=(known_media,),
+                )
+            cleanup_cancel: asyncio.CancelledError | None = None
+            try:
+                await drain.close()
+            except asyncio.CancelledError as error:
+                cleanup_cancel = error
             cleanup_error: Exception | None = None
             for event, handler in (("response", on_response), ("request", on_request)):
                 try:
                     page.remove_listener(event, handler)
                 except Exception as error:
                     cleanup_error = cleanup_error or error
+            if cleanup_cancel:
+                if known_media:
+                    vars(cleanup_cancel)["gflow_native_media_unknown"] = (
+                        NativeMediaMutationUnknownError(
+                            operation="upload",
+                            phase="cancelled",
+                            project_id=project_id,
+                            known_media_ids=(known_media,),
+                        )
+                    )
+                raise cleanup_cancel
             if cleanup_error:
                 if known_media:
                     recovery = NativeMediaMutationUnknownError(
@@ -2738,11 +2784,20 @@ class MigratedComposer:
                 bindings.append(NativeImageBinding(media_id, name))
         except asyncio.CancelledError as error:
             if bindings:
+                current = vars(error).get("gflow_native_media_unknown")
+                if not (
+                    isinstance(current, NativeMediaMutationUnknownError)
+                    and current.operation == "upload"
+                    and current.project_id == project_id
+                ):
+                    current = None
                 vars(error)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
                     operation="upload",
                     phase="cancelled",
                     project_id=project_id,
-                    known_media_ids=tuple(binding.media_id for binding in bindings),
+                    known_media_ids=tuple(binding.media_id for binding in bindings)
+                    + (current.known_media_ids if current else ()),
+                    pending_media_ids=current.pending_media_ids if current else (),
                 )
             raise
         except Exception as error:
@@ -3570,6 +3625,7 @@ class MigratedComposer:
         guard_aborted = False
         known_media: tuple[str, ...] = ()
         known_workflows: tuple[str, ...] = ()
+        drain = UploadResponseDrain(page, submission_project or "", rpc=IMAGE_SUBMIT_RPC)
 
         def mark_submit(raw_request: Any) -> None:
             nonlocal submitted, dispatched_request
@@ -3628,6 +3684,21 @@ class MigratedComposer:
                 matching_records = [r for r in records if r.project_id == submission_project]
                 known_media = tuple(r.media_id for r in matching_records)
                 known_workflows = tuple(r.workflow_id for r in matching_records)
+                observation = await drain.result()
+                log.info(
+                    "migrated.image_submit_drain",
+                    observed=observation.observed,
+                    complete=observation.complete,
+                    bytes=observation.bytes,
+                    matches=observation.matches,
+                )
+                # Keep only canonical reply handles on an incomplete observation;
+                # clone bytes never supply acceptance or a reason to replay.
+                if not observation.allows_ack:
+                    raise WireFormatError(
+                        detail="Migrated image response stream was not confirmed complete",
+                        route=f"batchexecute:{IMAGE_SUBMIT_RPC}",
+                    )
                 refusal = _submit_refusal(text, (IMAGE_SUBMIT_RPC,), operation="images")
                 if refusal is not None:
                     if records:
@@ -3742,6 +3813,8 @@ class MigratedComposer:
                         detail="migrated host: image submit stayed disabled (host=migrated)"
                     )
                 await asyncio.sleep(SUBMIT_ENABLE_POLL_S)
+            if submission_project is not None:
+                await drain.install()
             await self._click(page, submit, named=SUBMIT_BUTTON, timeout=5000)
             clicked = True
             done, _ = await asyncio.wait(
@@ -3774,6 +3847,11 @@ class MigratedComposer:
                 raise unknown(phase) from exc
             raise
         finally:
+            cleanup_cancel: asyncio.CancelledError | None = None
+            try:
+                await drain.close()
+            except asyncio.CancelledError as exc:
+                cleanup_cancel = exc
             # Consume the future's exception even on the paths that never read it
             # (a route error raised first, a timeout): otherwise asyncio logs
             # "exception was never retrieved" at GC, in a process that has already
@@ -3785,8 +3863,19 @@ class MigratedComposer:
             page.remove_listener("response", on_response)
             try:
                 await page.unroute(is_image_submit, guard)
+            except asyncio.CancelledError as exc:
+                cleanup_cancel = cleanup_cancel or exc
             except Exception as exc:  # noqa: BLE001 - must not mask the real outcome
                 log.debug("migrated.image_submit_unroute_failed", error=type(exc).__name__)
+            if cleanup_cancel is not None:
+                if submitted or (clicked and not guard_aborted):
+                    cleanup_cancel.add_note(
+                        "Native image submission may have started; do not retry automatically"
+                    )
+                    vars(cleanup_cancel)["gflow_image_generation_unknown"] = unknown(
+                        "image_cancelled"
+                    )
+                raise cleanup_cancel
 
     @staticmethod
     async def _await_terminal(

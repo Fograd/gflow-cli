@@ -63,3 +63,58 @@ stream without consuming its body. Exact-host HTTPS allowlisting, public-address
 pinning, Host/SNI, ten-second timeout, no redirects and five attempts remain enforced.
 This bounds recipient-body memory usage; it does not change at-least-once callback
 semantics or automatically retry generation.
+
+Unrecognized CLI exit40 results retain conservative `outcomeUnknown: true` and
+the trusted admitted project ID, without importing unverified handles or raw
+diagnostics. This does not assert that image generation was submitted. An exact
+typed upload uncertainty during image-reference preparation instead reports
+`errorDetails.operation: upload`, `generationSubmitted: false`, and separate
+`knownReferenceMediaGenerationIds` / `pendingReferenceMediaGenerationIds`. These
+are reference inputs, not generated outputs. The same typed upload contract is
+preserved for image and video asset uploads.
+
+A synchronous asset upload failure returns HTTP502 with a structured `detail`
+containing its durable `jobId`, redacted `errorDetails`, and any allow-listed
+uncertainty/receipt handles. Poll that job before deciding whether to submit a
+new upload. A reported pre-generation upload refusal remains distinct from an
+unknown outcome; no failure causes automatic upload or generation replay.
+
+Canonical media-upload failures (exit27) retain a bounded `errorDetails.uploadReason`
+observation: `http_error`, `acknowledgement_unconfirmed`,
+`response_timeout_after_dispatch`, `not_dispatched`, `dialog_blocked`, or
+`unclassified`. Only an exact observed HTTP-error or unconfirmed-acknowledgement
+branch exposes `nativeHttpStatus`; generic SDK problem statuses are excluded.
+These fields identify the existing upload branch; raw exception detail, route,
+remediation, credentials and incident paths never enter job receipts. Unknown
+phrases remain `unclassified`. An unconfirmed HTTP200 acknowledgement does not
+prove that an upload was rejected. Image generation was not submitted on this
+upload failure path (`generationSubmitted: false`); no automatic replay occurs.
+
+On the migrated host, Chromium can finish the page's streamed response while its
+CDP body read fails with `No data found for resource with given identifier`.
+The native upload, authoritative project timeline, and image-result readers use
+one temporary page-owned fetch workaround, scoped to the exact HTTPS endpoint,
+selected project, and one internal RPC (`maseQ`, `Zzl0ze`, or `ogiZ0b`). It calls
+fetch once, returns the original promise and response, and drains/discards a
+clone of an HTTP200 body. No clone bytes are retained or used as an
+acknowledgement. The canonical `response.text()` and existing identity/ownership
+parsers remain authoritative. There is no replay or additional request.
+
+An observed clone must reach clean EOF within the existing operation budget:
+upload 60 seconds / 1 MiB, project catalog 30 seconds / 2 MiB, and image result
+180 seconds / 2 MiB. Oversized, aborted, ambiguous or incomplete observed streams
+fail closed. The count is a drain budget, not a bound on Chromium's internal tee
+buffers or the existing canonical body read. Unavailable hooks and requests
+that bypass this fetch wrapper preserve the canonical path; they are not
+reported as workaround coverage. Cleanup inactivates the wrapper and restores
+fetch only while it still owns that slot. Project navigation installs an owned
+main-world CDP init script before the new document starts, removes that exact
+registration afterward, and carries an absolute expiry to prevent later rearm.
+No Network interception or alternate response-body source is used.
+
+Drain observations contain only completion flags and byte/match counts. A lost
+image acknowledgement remains an unknown generation outcome and is never
+replayed. Canonically acknowledged media/workflow IDs survive cleanup
+cancellation. Opt-in native BDD checks require positive workaround use for both
+the synthetic upload and a read-only project timeline; offline fault cases cover
+incomplete/oversized streams and cancellation in each affected path.

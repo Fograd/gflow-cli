@@ -133,7 +133,10 @@ IMAGE_MODEL_OPTION_SELECTORS: dict[Model, tuple[str, ...]] = {
     # matches raw innerText, which carries a newline between the emoji and the
     # label. Keeping a selector that only matches in the fixture would make the
     # governance test bless something that cannot work against Flow.
-    Model.NARWHAL: ("[role='menuitem']:has-text('Nano Banana 2'):not(:has-text('Lite'))",),
+    Model.BELUGA: ("[role='menuitem']:has-text('Nano Banana 2.1')",),
+    Model.NARWHAL: (
+        "[role='menuitem']:has-text('Nano Banana 2'):not(:has-text('Lite')):not(:has-text('2.'))",
+    ),
     Model.GEM_PIX_2: ("[role='menuitem']:has-text('Nano Banana Pro')",),
     Model.HARBOR_SEAL: ("[role='menuitem']:has-text('Nano Banana 2 Lite')",),
     Model.IMAGEN_3_5: ("[role='menuitem']:has-text('Imagen 4')",),
@@ -3875,7 +3878,7 @@ class UiAutomationTransport(VideoGenerationMixin):
     #: not localized, which is why matching entries by display text is permitted
     #: here where the locale-invariance rule otherwise forbids it.
     _CHARACTER_MODEL_MATCHERS: ClassVar[dict[str, ModelMenuMatcher]] = {
-        "nano2": ModelMenuMatcher("Nano Banana 2", excludes="Lite"),
+        "nano2": ModelMenuMatcher("Nano Banana 2", excludes=("Lite", "2.")),
         "nanopro": ModelMenuMatcher("Nano Banana Pro", excludes=None),
     }
 

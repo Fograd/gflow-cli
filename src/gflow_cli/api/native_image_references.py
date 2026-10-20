@@ -207,6 +207,7 @@ async def validate_native_image_references(
                 ),
             )
             canonical = {
+                "BELUGA": "nano-banana-2.1",
                 "NARWHAL": "nano-banana-2",
                 "GEM_PIX_2": "nano-banana-pro",
                 "HARBOR_SEAL": "nano-banana-2-lite",

@@ -119,7 +119,9 @@ async def test_marked_http_job_uses_private_worker_plan_not_plain_cli(
     monkeypatch.setattr(runtime, "subprocess_run", subprocess)
     await runtime.execute(cfg, store, dict(job))
     assert observed["reference_prompt_plan"]["image_ids"] == [IMAGE]
-    assert observed["refPaths"] == [str(tmp_path / "managed.png")]
+    assert observed["refs"] == [IMAGE]
+    assert observed["refPaths"] == []
+    assert observed["local_ref_ids"] == []
 
     from gflow_cli.worker.codec import build_image_request
 
@@ -132,5 +134,6 @@ async def test_marked_http_job_uses_private_worker_plan_not_plain_cli(
         }
     )
     assert typed.reference_prompt_plan.image_ids == (IMAGE,)
-    assert len(typed.ref_paths) == 1
+    assert typed.ref_paths == ()
+    assert [ref.name for ref in typed.refs] == [IMAGE]
     assert typed.aspect == type(typed.aspect).from_cli(observed["aspectRatio"])

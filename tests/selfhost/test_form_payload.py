@@ -162,7 +162,8 @@ def test_multipart_header_parameter_defects_refuse_before_queue(
 
 @pytest.mark.parametrize("kind", ["multipart", "json"])
 def test_excessive_json_nesting_refuses_before_queue(tmp_path, kind):
-    deep = "[" * 2000 + "0" + "]" * 2000
+    # Python 3.12's C decoder accepts 2,000 levels; exercise actual parser rejection.
+    deep = "[" * 10_000 + "0" + "]" * 10_000
     with TestClient(create_app(configuration(tmp_path), start_workers=False)) as client:
         if kind == "multipart":
             response = form(client, [("prompt", (None, "fixture")), ("media", (None, deep))])

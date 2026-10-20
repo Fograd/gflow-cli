@@ -42,6 +42,9 @@ async def test_native_and_managed_refs_keep_original_plan_in_private_worker(
     tmp_path, monkeypatch, native_first
 ):
     cfg, store = setup(tmp_path)
+    # A reference copied from another project still needs its original bytes.
+    asset = store.asset_get(IMAGE)
+    store.asset(IMAGE, "one", NATIVE, asset["path"], asset["mime"])
     payload = body()
     if not native_first:
         payload.update(reference_1=IMAGE, reference_2=NATIVE)
@@ -265,3 +268,254 @@ async def test_native_auto_resolution_failure_prevents_worker_generation(tmp_pat
     client.resolve_native_image_aspect.assert_awaited_once_with(PROJECT, NATIVE)
     client.generate_images_batch.assert_not_awaited()
     captcha_policy.assert_not_awaited()
+
+
+def test_cached_native_reference_uses_its_owned_project_without_explicit_account(tmp_path):
+    cfg, store = setup(tmp_path)
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json=body(
+                prompt="Use @reference_1.",
+                reference_1=IMAGE,
+                reference_2=IMAGE,
+            )
+            | {"email": None},
+        )
+        assert response.status_code == 201, response.text
+    queued = json.loads(store.claim("one")["payload"])
+    assert queued["email"] == "test@example.org"
+    assert queued["project"] == PROJECT
+    assert queued["_image_reference_sources"] == [{"id": IMAGE, "kind": "native"}]
+
+
+@pytest.mark.asyncio
+async def test_cached_native_reference_worker_does_not_upload_its_bytes_again(
+    tmp_path, monkeypatch
+):
+    cfg, store = setup(tmp_path)
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json=body(reference_1=IMAGE, reference_2=IMAGE),
+        )
+        assert response.status_code == 201, response.text
+        job = store.claim("one")
+    observed = {}
+
+    async def subprocess(args, *a, **kw):
+        assert "gflow_cli.selfhost.image_worker" in args
+        observed.update(json.loads(Path(args[-1]).read_text()))
+        return 1, b""
+
+    monkeypatch.setattr(runtime, "subprocess_run", subprocess)
+    await runtime.execute(cfg, store, dict(job))
+    assert observed["refs"] == [IMAGE]
+    assert observed["refPaths"] == []
+    assert observed["local_ref_ids"] == []
+    assert observed["reference_prompt_plan"]["image_ids"] == [IMAGE]
+
+
+def test_worker_reuses_owned_cached_native_in_an_older_managed_source_record(tmp_path):
+    cfg, store = setup(tmp_path)
+    assert runtime.image_reference_inputs(
+        cfg,
+        store,
+        "one",
+        {
+            "project": PROJECT,
+            "_image_reference_sources": [{"id": IMAGE, "kind": "managed"}],
+        },
+        [IMAGE],
+    ) == ([IMAGE], [], [])
+
+
+def test_worker_rejects_cached_native_record_from_another_project(tmp_path):
+    cfg, store = setup(tmp_path)
+    with pytest.raises(ValueError):
+        runtime.image_reference_inputs(
+            cfg,
+            store,
+            "one",
+            {
+                "email": "test@example.org",
+                "project": NATIVE,
+                "_image_reference_sources": [{"id": IMAGE, "kind": "native"}],
+            },
+            [IMAGE],
+        )
+
+
+@pytest.mark.parametrize("project", [PROJECT, NATIVE])
+def test_cached_reference_in_a_different_target_project_keeps_local_copy(tmp_path, project):
+    cfg, store = setup(tmp_path)
+    target = NATIVE if project == PROJECT else PROJECT
+    asset = store.asset_get(IMAGE)
+    store.asset(IMAGE, "one", project, asset["path"], asset["mime"])
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        response = client.post(
+            "/v1/google-flow/images",
+            headers=AUTH,
+            json=body(reference_1=IMAGE, reference_2=IMAGE, projectId=target),
+        )
+        assert response.status_code == 201, response.text
+    queued = json.loads(store.claim("one")["payload"])
+    assert queued["project"] == target
+    assert queued["_image_reference_sources"] == [{"id": IMAGE, "kind": "managed"}]
+    assert runtime.image_reference_inputs(cfg, store, "one", queued, [IMAGE]) == (
+        [],
+        [IMAGE],
+        [str(tmp_path / "managed.png")],
+    )
+
+
+def test_non_uuid_local_cache_is_not_promoted_to_native(tmp_path):
+    cfg, store = setup(tmp_path)
+    asset = store.asset_get(IMAGE)
+    local_id = "local-only"
+    store.asset(local_id, "one", PROJECT, asset["path"], asset["mime"])
+    assert runtime.image_reference_inputs(
+        cfg,
+        store,
+        "one",
+        {
+            "project": PROJECT,
+            "_image_reference_sources": [{"id": local_id, "kind": "managed"}],
+        },
+        [local_id],
+    ) == ([], [local_id], [str(tmp_path / "managed.png")])
+
+
+def test_legacy_plain_cli_reference_keeps_its_local_input(tmp_path):
+    cfg, store = setup(tmp_path)
+    assert runtime.image_reference_inputs(cfg, store, "one", {"project": PROJECT}, [IMAGE]) == (
+        [],
+        [IMAGE],
+        [str(tmp_path / "managed.png")],
+    )
+
+
+def test_idempotent_cached_reference_keeps_its_original_project_after_account_change(tmp_path):
+    cfg, store = setup(tmp_path)
+    payload = body(reference_1=IMAGE, reference_2=IMAGE)
+    headers = {**AUTH, "Idempotency-Key": "cached-native-project"}
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        first = client.post("/v1/google-flow/images", headers=headers, json=payload)
+        assert first.status_code == 201, first.text
+        cfg.accounts["one"]["project"] = NATIVE
+        replay = client.post("/v1/google-flow/images", headers=headers, json=payload)
+        assert replay.status_code == 201, replay.text
+    assert len(store.job_page(limit=10)["jobs"]) == 1
+    assert replay.json()["jobid"] == first.json()["jobid"]
+    queued = json.loads(store.claim("one")["payload"])
+    assert queued["project"] == PROJECT
+    assert queued["_image_reference_sources"] == [{"id": IMAGE, "kind": "native"}]
+
+
+def test_worker_rejects_cached_reference_rebound_to_another_account(tmp_path):
+    cfg, store = setup(tmp_path)
+    asset = store.asset_get(IMAGE)
+    store.asset(IMAGE, "foreign", PROJECT, asset["path"], asset["mime"])
+    with pytest.raises(ValueError):
+        runtime.image_reference_inputs(
+            cfg,
+            store,
+            "one",
+            {
+                "email": "test@example.org",
+                "project": PROJECT,
+                "_image_reference_sources": [{"id": IMAGE, "kind": "native"}],
+            },
+            [IMAGE],
+        )
+
+
+def test_cache_without_native_project_does_not_get_promoted(tmp_path):
+    cfg, store = setup(tmp_path)
+    asset = store.asset_get(IMAGE)
+    store.asset(IMAGE, "one", "", asset["path"], asset["mime"])
+    assert runtime.image_reference_inputs(
+        cfg,
+        store,
+        "one",
+        {
+            "project": "",
+            "_image_reference_sources": [{"id": IMAGE, "kind": "managed"}],
+        },
+        [IMAGE],
+    ) == ([], [IMAGE], [str(tmp_path / "managed.png")])
+
+
+def _legacy_cached_request(store, job_id, caller):
+    """Reproduce the pre-reuse payload/fingerprint in an isolated fixture store."""
+    import hashlib
+
+    with store.connection() as connection:
+        row = connection.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        frozen = json.loads(row["payload"])
+        if "email" in caller:
+            frozen["email"] = caller["email"]
+        else:
+            frozen.pop("email", None)
+        frozen["_image_reference_sources"] = [
+            {"id": item["id"], "kind": "managed"} for item in frozen["_image_reference_sources"]
+        ]
+        semantic = json.dumps(
+            {key: value for key, value in frozen.items() if key != "_delivery_async"},
+            sort_keys=True,
+        )
+        fingerprint = hashlib.sha256(f"images:one:{semantic}".encode()).hexdigest()
+        connection.execute(
+            "UPDATE jobs SET payload=?,fingerprint=? WHERE id=?",
+            (json.dumps(frozen, sort_keys=True), fingerprint, job_id),
+        )
+    return frozen, fingerprint
+
+
+@pytest.mark.parametrize("email", ["omitted", None, "test@example.org"])
+def test_idempotent_legacy_cached_request_replays_the_original_job(tmp_path, email):
+    cfg, store = setup(tmp_path)
+    caller = body(reference_1=IMAGE, reference_2=IMAGE)
+    if email == "omitted":
+        caller.pop("email")
+    else:
+        caller["email"] = email
+    headers = {**AUTH, "Idempotency-Key": "legacy-cached-source"}
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        original = client.post("/v1/google-flow/images", headers=headers, json=caller)
+        assert original.status_code == 201, original.text
+        frozen, fingerprint = _legacy_cached_request(store, original.json()["jobId"], caller)
+        replay = client.post("/v1/google-flow/images", headers=headers, json=caller)
+        assert replay.status_code == 201, replay.text
+    assert replay.json()["jobId"] == original.json()["jobId"]
+    row = store.by_idempotency("legacy-cached-source")
+    assert row["fingerprint"] == fingerprint
+    assert json.loads(row["payload"]) == frozen
+    assert len(store.jobs()) == 1
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"prompt": "Different"},
+        {"model": "nano-banana-pro"},
+        {"projectId": NATIVE},
+        {"reference_1": NATIVE},
+    ],
+)
+def test_legacy_cached_request_replay_still_rejects_changed_caller_input(tmp_path, change):
+    cfg, store = setup(tmp_path)
+    caller = body(reference_1=IMAGE, reference_2=IMAGE)
+    headers = {**AUTH, "Idempotency-Key": "legacy-changed-source"}
+    with TestClient(create_app(cfg, start_workers=False)) as client:
+        original = client.post("/v1/google-flow/images", headers=headers, json=caller)
+        assert original.status_code == 201, original.text
+        frozen, fingerprint = _legacy_cached_request(store, original.json()["jobId"], caller)
+        replay = client.post("/v1/google-flow/images", headers=headers, json={**caller, **change})
+        assert replay.status_code == 409, replay.text
+    row = store.by_idempotency("legacy-changed-source")
+    assert row["fingerprint"] == fingerprint
+    assert json.loads(row["payload"]) == frozen
+    assert len(store.jobs()) == 1

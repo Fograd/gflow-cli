@@ -152,8 +152,14 @@ async def subprocess_run(
 def image_reference_inputs(
     cfg: Settings, store: Store, profile: str, payload: dict[str, Any], refs: list[str]
 ) -> tuple[list[str], list[str], list[str]]:
-    """Revalidate server-owned source records; paths never come from callers."""
+    """Reuse owned native bindings; only cross-project/local inputs need uploading.
+
+    Production image cache IDs come from successful native uploads, generation
+    receipts or validated native downloads. The cache selects the account/project;
+    the SDK still proves current native ownership before any generation dispatch.
+    """
     records: object = payload.get("_image_reference_sources")
+    private_worker = records is not None
     if records is None:
         records = [{"id": value, "kind": "managed"} for value in refs]
     if not isinstance(records, list):
@@ -161,6 +167,15 @@ def image_reference_inputs(
     rows = cast(list[object], records)
     if len(rows) != len(refs):
         raise ValueError("Image reference source records do not match inputs")
+    project = payload.get("project")
+    try:
+        native_project = (
+            isinstance(project, str)
+            and len(project) == 36
+            and str(uuid.UUID(project)) == project.lower()
+        )
+    except ValueError:
+        native_project = False
     native: list[str] = []
     local_ids: list[str] = []
     paths: list[str] = []
@@ -175,16 +190,44 @@ def image_reference_inputs(
             or record.get("kind") not in {"managed", "native"}
         ):
             raise ValueError("Image reference source record is invalid")
+        try:
+            asset = store.asset_get(identifier)
+        except KeyError:
+            asset = None
+        try:
+            native_id = len(identifier) == 36 and str(uuid.UUID(identifier)) == identifier.lower()
+        except (ValueError, AttributeError):
+            native_id = False
         if record["kind"] == "native":
-            if payload.get("email") != cfg.accounts[profile]["email"]:
+            if (
+                not native_id
+                or not native_project
+                or payload.get("email") != cfg.accounts[profile]["email"]
+            ):
                 raise ValueError("Native references require the selected configured account")
+            if asset is not None and (
+                asset["profile"] != profile
+                or asset["project"] != payload.get("project")
+                or asset["mime"] not in {"image/png", "image/jpeg"}
+            ):
+                raise ValueError("Cached native image is outside the selected account/project")
             native.append(identifier)
         else:
-            asset = store.asset_get(identifier)
-            if asset["profile"] != profile or asset["mime"] not in ("image/png", "image/jpeg"):
+            if (
+                asset is None
+                or asset["profile"] != profile
+                or asset["mime"] not in {"image/png", "image/jpeg"}
+            ):
                 raise ValueError("Managed image reference is not owned by the selected account")
-            paths.append(str(contained_file(asset["path"], cfg.root)))
-            local_ids.append(identifier)
+            if private_worker and native_id and native_project and asset["project"] == project:
+                # Older queued private-worker requests call these bindings managed.
+                # They retain their original IDs and canonical slot order.
+                if payload.get("email") not in (None, cfg.accounts[profile]["email"]):
+                    raise ValueError("Cached native image requires its configured account")
+                native.append(identifier)
+            else:
+                paths.append(str(contained_file(asset["path"], cfg.root)))
+                local_ids.append(identifier)
     return native, local_ids, paths
 
 
@@ -831,6 +874,19 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         except (ValueError, TypeError, KeyError, AttributeError):
             pass
     if code:
+        if code == 27 and kind in {"assets", "images"} and len(raw) <= 65536:
+            from gflow_cli.selfhost.upload_failure import media_upload_failure
+
+            try:
+                upload_failure = media_upload_failure(parse_json_output(raw), code)
+                if upload_failure is not None:
+                    return {
+                        "projectId": project,
+                        "generationSubmitted": False,
+                        "error": upload_failure,
+                    }
+            except (ValueError, TypeError, KeyError):
+                pass
         if (
             code in {4, 5, 10}
             and kind in {"images", "images/upscale", "videos"}
@@ -842,14 +898,28 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                     return {"projectId": project, "error": refusal}
             except (ValueError, TypeError, KeyError, AttributeError):
                 pass
-        if kind == "assets" and payload["mime"] == "video/mp4" and len(raw) <= 65536:
+        if kind in {"assets", "images"} and len(raw) <= 65536:
             from gflow_cli.selfhost.unknown_native_media import unknown_native_media_result
 
             try:
                 unknown = unknown_native_media_result(
-                    parse_json_output(raw), code, project, "upload", store.get(job["id"])
+                    parse_json_output(raw),
+                    code,
+                    project,
+                    "upload",
+                    store.get(job["id"]) if kind == "assets" else None,
                 )
                 if unknown is not None:
+                    if kind == "images":
+                        # Reference upload happens before Generate. These handles are
+                        # inputs, never generated outputs or proof of a billed submit.
+                        unknown["generationSubmitted"] = False
+                        unknown["knownReferenceMediaGenerationIds"] = unknown.pop(
+                            "knownMediaGenerationIds"
+                        )
+                        unknown["pendingReferenceMediaGenerationIds"] = unknown.pop(
+                            "pendingMediaGenerationIds"
+                        )
                     store.checkpoint(job["id"], unknown)
                     return unknown
             except (ValueError, TypeError, KeyError):
@@ -879,12 +949,15 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
                 pass
         # Keep potentially sensitive CLI output local.
         return {
+            # Exit 40 denotes uncertain mutation families. An unrecognized envelope
+            # cannot prove acceptance or rejection; retain only the admitted scope.
+            **({"projectId": project, "outcomeUnknown": True} if code == 40 else {}),
             "error": {
                 "code": "gflow_command_failed",
                 "exit_code": code,
                 "retryable": False,
                 "detail": "Google Flow command failed; inspect the local diagnostic log.",
-            }
+            },
         }
     if kind == "videos" and payload.get("count", 1) > 1:
         from gflow_cli.selfhost.video_batch_output import publish_video_batch

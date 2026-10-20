@@ -204,7 +204,12 @@ def validate_reference_budget(
     if native_image_cap is not None and (type(native_image_cap) is not int or native_image_cap < 0):
         raise ReferenceContractError("Native image budget must be a nonnegative integer")
     if surface == "image":
-        if model not in {"nano-banana-2-lite", "nano-banana-2", "nano-banana-pro"}:
+        if model not in {
+            "nano-banana-2.1",
+            "nano-banana-2-lite",
+            "nano-banana-2",
+            "nano-banana-pro",
+        }:
             raise ReferenceContractError("Unsupported image reference model")
         if plan.audio_ids or plan.video_ids or start_image or end_image:
             raise ReferenceContractError(

@@ -18,6 +18,7 @@ from gflow_cli.api.transports.migrated_resources import (
     read_project_payload,
     trash_media,
 )
+from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
 from gflow_cli.api.transports.native_image_prompt import (
     NativeImageBinding,
     materialize_reference_prompt,
@@ -44,6 +45,15 @@ def configured(monkeypatch, tmp_path):
     path = tmp_path / ("unsafe@reference\ncaption.png" if unsafe_caption else "synthetic-owned.png")
     Image.new("RGB", (48, 32), (25, 85, 145)).save(path)
     case = {**values, "path": path, "generation_requests": 0, "unsafe_caption": unsafe_caption}
+    original_result = UploadResponseDrain.result
+
+    async def record_drain(drain):
+        observation = await original_result(drain)
+        if drain.rpc == "maseQ":
+            case["drain"] = observation
+        return observation
+
+    monkeypatch.setattr(UploadResponseDrain, "result", record_drain)
     unique_name = migrated_composer._unique_display_name
 
     def capture_name(image_path):
@@ -184,3 +194,13 @@ def verified(case):
     assert case["chip"] is True
     assert case["archived"] is True
     assert case["generation_requests"] == 0
+
+
+@then("the scoped stream workaround drains one complete response without retaining its body")
+def drain_used(case):
+    observation = case["drain"]
+    assert observation.observed is True
+    assert observation.matches == 1
+    assert observation.complete is True
+    assert 0 < observation.bytes <= 1024 * 1024
+    assert observation.allows_ack is True

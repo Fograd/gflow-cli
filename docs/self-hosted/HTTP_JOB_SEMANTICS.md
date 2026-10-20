@@ -61,7 +61,7 @@ Image callbacks use the upstream five-second HTTP timeout; other callback types 
 
 ## Image Auto policy
 
-For image-to-image requests, explicit `aspectRatio: "auto"` resolves locally from the first actual supplied reference image in numeric slot order. Nano Banana 2/Pro I2I default to this policy; Nano Banana 2 Lite defaults to 16:9. Text-only Auto and character-only Auto are invalid.
+For image-to-image requests, explicit `aspectRatio: "auto"` resolves locally from the first actual supplied reference image in numeric slot order. Nano Banana 2.1/2/Pro I2I default to this policy; Nano Banana 2 Lite defaults to 16:9. Text-only Auto and character-only Auto are invalid.
 
 The resolver chooses the nearest of Google's five supported ratios using symmetric logarithmic distance. It decodes a verified managed PNG/JPEG, bounded to 20 MiB and 25 megapixels, after account/project/path checks. This is a documented local approximation, not a claim to reproduce Google's or useapi's unspecified internal sizing algorithm. The transport receives an explicit supported ratio; no native Auto enum is invented.
 

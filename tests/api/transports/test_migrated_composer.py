@@ -3470,3 +3470,348 @@ async def test_later_upload_cleanup_failure_preserves_all_acknowledged_ids(tmp_p
         await composer.upload_reference_bindings(FakePage(), PROJ_UUID, (_png(tmp_path),) * 2)
     assert err.value.known_media_ids == (MEDIA_UP, current)
     assert calls == 2
+
+
+@pytest.mark.parametrize(
+    "size,complete,matches", [(1048577, False, 1), (11, False, 1), (11, True, 2)]
+)
+async def test_toolbar_rejects_observed_incomplete_drain_even_with_valid_canonical_ack(
+    tmp_path, monkeypatch, size, complete, matches
+):
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation, UploadResponseDrain
+    from gflow_cli.errors import NativeMediaMutationUnknownError
+
+    install = AsyncMock()
+    close = AsyncMock()
+    result = AsyncMock(return_value=DrainObservation(True, complete, size, matches))
+    monkeypatch.setattr(UploadResponseDrain, "install", install)
+    monkeypatch.setattr(UploadResponseDrain, "result", result)
+    monkeypatch.setattr(UploadResponseDrain, "close", close)
+    page = FakePage()
+    decoder = migrated_composer._uploaded_image_id
+    decoded = []
+
+    def decode_once(*args):
+        decoded.append(args)
+        return decoder(*args)
+
+    monkeypatch.setattr(migrated_composer, "_uploaded_image_id", decode_once)
+    with pytest.raises(NativeMediaMutationUnknownError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert err.value.operation == "upload" and err.value.phase == "response"
+    assert err.value.project_id == PROJ_UUID
+    assert err.value.known_media_ids == (MEDIA_UP,)
+    assert len(decoded) == 1
+    assert len(page.dom.chosen_files) == 1
+    install.assert_awaited_once()
+    result.assert_awaited_once()
+    close.assert_awaited_once()
+
+
+async def test_toolbar_observed_clean_drain_does_not_replace_canonical_decoder(
+    tmp_path, monkeypatch
+):
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation, UploadResponseDrain
+
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(
+        UploadResponseDrain, "result", AsyncMock(return_value=DrainObservation(True, True, 11, 1))
+    )
+    close = AsyncMock()
+    monkeypatch.setattr(UploadResponseDrain, "close", close)
+    page = FakePage()
+    page.dom.maseq_reply = "no_id"
+    with pytest.raises(MediaUploadRejectedError):
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    close.assert_awaited_once()
+
+
+async def test_toolbar_drain_cleanup_cancellation_preserves_ack_and_removes_listeners(
+    tmp_path, monkeypatch
+):
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation, UploadResponseDrain
+
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(
+        UploadResponseDrain, "result", AsyncMock(return_value=DrainObservation(True, True, 11, 1))
+    )
+    monkeypatch.setattr(
+        UploadResponseDrain, "close", AsyncMock(side_effect=asyncio.CancelledError())
+    )
+    page = FakePage()
+    with pytest.raises(asyncio.CancelledError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert page.listeners("response") == []
+    assert page.listeners("request") == []
+    assert vars(err.value)["gflow_native_media_unknown"].known_media_ids == (MEDIA_UP,)
+
+
+async def test_second_upload_cancellation_merges_prior_and_current_ack(tmp_path, monkeypatch):
+    from gflow_cli.errors import NativeMediaMutationUnknownError
+
+    current = "99999999-9999-4999-8999-999999999999"
+    composer = migrated_composer.MigratedComposer()
+    calls = 0
+
+    async def upload(page, project, path):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            error = asyncio.CancelledError()
+            vars(error)["gflow_native_media_unknown"] = NativeMediaMutationUnknownError(
+                operation="upload",
+                phase="cancelled",
+                project_id=PROJ_UUID,
+                known_media_ids=(current,),
+            )
+            raise error
+        return MEDIA_UP, "owned-upload"
+
+    monkeypatch.setattr(composer, "_upload_via_toolbar", upload)
+    with pytest.raises(asyncio.CancelledError) as err:
+        await composer.upload_reference_bindings(FakePage(), PROJ_UUID, (_png(tmp_path),) * 2)
+    assert vars(err.value)["gflow_native_media_unknown"].known_media_ids == (MEDIA_UP, current)
+    assert calls == 2
+
+
+IMAGE_DRAIN_PROJECT = "33333333-3333-4333-8333-333333333333"
+
+
+@pytest.mark.parametrize(
+    "complete,size,matches", [(False, 11, 1), (False, 2097153, 1), (True, 11, 2)]
+)
+async def test_image_scoped_stream_rejects_bad_observation_and_retains_native_handles(
+    monkeypatch, complete, size, matches
+):
+    from types import SimpleNamespace
+
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation
+    from gflow_cli.errors import ImageGenerationUnknownError
+    from tests.api.transports.test_migrated_images import MEDIA, WORKFLOW
+
+    drain = SimpleNamespace(
+        install=AsyncMock(),
+        result=AsyncMock(return_value=DrainObservation(True, complete, size, matches)),
+        close=AsyncMock(),
+    )
+
+    def factory(*args, **kwargs):
+        return drain
+
+    monkeypatch.setattr(migrated_composer, "UploadResponseDrain", factory)
+    page = FakePage(url="https://flow.google.com/project/" + IMAGE_DRAIN_PROJECT)
+    page.dom.prompt = "a blue cup"
+    page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
+    with pytest.raises(ImageGenerationUnknownError) as caught:
+        await migrated_composer.MigratedComposer().submit_images_and_observe(
+            page, GenerateImageRequest(prompt="a blue cup"), project_id=IMAGE_DRAIN_PROJECT
+        )
+    assert caught.value.retryable is False
+    assert caught.value.phase == "image_response"
+    assert caught.value.media_ids == (MEDIA,)
+    assert caught.value.workflow_ids == (WORKFLOW,)
+    assert page.dom.submit_clicked == 1
+    drain.install.assert_awaited_once()
+    drain.result.assert_awaited_once()
+    drain.close.assert_awaited_once()
+    assert page.listeners("response") == []
+
+
+@pytest.mark.parametrize("observed", [True, False])
+async def test_image_scoped_stream_installs_immediately_before_click_and_keeps_canonical_ack(
+    monkeypatch, observed
+):
+    from types import SimpleNamespace
+
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation
+
+    events = []
+
+    async def install():
+        events.append("install")
+
+    drain = SimpleNamespace(
+        install=AsyncMock(side_effect=install),
+        result=AsyncMock(
+            return_value=DrainObservation(
+                observed, observed, 11 if observed else 0, 1 if observed else 0
+            )
+        ),
+        close=AsyncMock(),
+    )
+    constructed = []
+
+    def factory(page, project, **kwargs):
+        constructed.append((project, kwargs))
+        return drain
+
+    monkeypatch.setattr(migrated_composer, "UploadResponseDrain", factory)
+    page = FakePage(url="https://flow.google.com/project/" + IMAGE_DRAIN_PROJECT)
+    page.dom.prompt = "a blue cup"
+    page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
+    composer = migrated_composer.MigratedComposer()
+    original = composer._click
+
+    async def click(*args, **kwargs):
+        events.append("click")
+        return await original(*args, **kwargs)
+
+    composer._click = click
+    images = await composer.submit_images_and_observe(
+        page, GenerateImageRequest(prompt="a blue cup"), project_id=IMAGE_DRAIN_PROJECT
+    )
+    assert len(images) == 1
+    assert events == ["install", "click"]
+    assert constructed == [(IMAGE_DRAIN_PROJECT, {"rpc": "ogiZ0b"})]
+    drain.result.assert_awaited_once()
+    drain.close.assert_awaited_once()
+
+
+@pytest.mark.parametrize("cleanup", ["drain", "unroute"])
+async def test_image_scoped_stream_cleanup_cancellation_retains_acknowledged_handles(
+    monkeypatch, cleanup
+):
+    from types import SimpleNamespace
+
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation
+    from tests.api.transports.test_migrated_images import MEDIA, WORKFLOW
+
+    cancelled = asyncio.CancelledError()
+    drain = SimpleNamespace(
+        install=AsyncMock(),
+        result=AsyncMock(return_value=DrainObservation(True, True, 11, 1)),
+        close=AsyncMock(side_effect=cancelled if cleanup == "drain" else None),
+    )
+    monkeypatch.setattr(migrated_composer, "UploadResponseDrain", lambda *args, **kwargs: drain)
+    page = FakePage(url="https://flow.google.com/project/" + IMAGE_DRAIN_PROJECT)
+    page.dom.prompt = "a blue cup"
+    page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
+    page.unroute = AsyncMock(side_effect=cancelled if cleanup == "unroute" else None)
+    with pytest.raises(asyncio.CancelledError) as caught:
+        await migrated_composer.MigratedComposer().submit_images_and_observe(
+            page, GenerateImageRequest(prompt="a blue cup"), project_id=IMAGE_DRAIN_PROJECT
+        )
+    assert caught.value is cancelled
+    recovery = vars(caught.value)["gflow_image_generation_unknown"]
+    assert recovery.media_ids == (MEDIA,)
+    assert recovery.workflow_ids == (WORKFLOW,)
+    assert recovery.project_id == IMAGE_DRAIN_PROJECT
+    assert recovery.phase == "image_cancelled" and recovery.retryable is False
+    assert page.listeners("response") == []
+    page.unroute.assert_awaited_once()
+
+
+async def test_image_scoped_stream_install_cancellation_precedes_dispatch(monkeypatch):
+    from types import SimpleNamespace
+
+    drain = SimpleNamespace(
+        install=AsyncMock(side_effect=asyncio.CancelledError()),
+        result=AsyncMock(),
+        close=AsyncMock(),
+    )
+    monkeypatch.setattr(migrated_composer, "UploadResponseDrain", lambda *args, **kwargs: drain)
+    page = FakePage()
+    page.dom.prompt = "a blue cup"
+    page.scripted_responses = [(_batch_url("ogiZ0b"), _image_frame())]
+    with pytest.raises(asyncio.CancelledError) as caught:
+        await migrated_composer.MigratedComposer().submit_images_and_observe(
+            page, GenerateImageRequest(prompt="a blue cup")
+        )
+    assert page.dom.submit_clicked == 0
+    assert "gflow_image_generation_unknown" not in vars(caught.value)
+    drain.close.assert_awaited_once()
+    assert page.listeners("response") == []
+
+
+async def test_toolbar_drain_result_cancellation_preserves_canonical_ack(tmp_path, monkeypatch):
+    from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
+
+    cancelled = asyncio.CancelledError()
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(UploadResponseDrain, "result", AsyncMock(side_effect=cancelled))
+    close = AsyncMock()
+    monkeypatch.setattr(UploadResponseDrain, "close", close)
+    page = FakePage()
+    with pytest.raises(asyncio.CancelledError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert err.value is cancelled
+    recovery = vars(err.value)["gflow_native_media_unknown"]
+    assert recovery.known_media_ids == (MEDIA_UP,)
+    assert recovery.project_id == PROJ_UUID and recovery.phase == "cancelled"
+    assert page.listeners("response") == [] and page.listeners("request") == []
+    assert len(page.dom.chosen_files) == 1
+    close.assert_awaited_once()
+
+
+@pytest.mark.parametrize("ack", ["no_id", "project_first"])
+async def test_bad_drain_cannot_promote_unconfirmed_upload_ack(tmp_path, monkeypatch, ack):
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation, UploadResponseDrain
+
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(
+        UploadResponseDrain, "result", AsyncMock(return_value=DrainObservation(True, False, 11, 1))
+    )
+    monkeypatch.setattr(UploadResponseDrain, "close", AsyncMock())
+    page = FakePage()
+    page.dom.maseq_reply = ack
+    with pytest.raises(MediaUploadRejectedError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert "gflow_native_media_unknown" not in vars(err.value)
+    assert len(page.dom.chosen_files) == 1
+
+
+async def test_bad_drain_cannot_promote_foreign_project_upload_ack(tmp_path, monkeypatch):
+    from gflow_cli.api.transports.migrated_upload_drain import DrainObservation, UploadResponseDrain
+
+    async def foreign_reply(chooser, files):
+        chooser.page.dom.chosen_files.append(files["name"])
+        chooser.page._fire_request(_batch_url("maseQ"))
+        chooser.page._fire_response(
+            FakeResponse(
+                _batch_url("maseQ"),
+                _frame("maseQ", [MEDIA_UP, "99999999-9999-4999-8999-999999999999", "CAE"]),
+            )
+        )
+
+    monkeypatch.setattr(FakeFileChooser, "set_files", foreign_reply)
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(
+        UploadResponseDrain, "result", AsyncMock(return_value=DrainObservation(True, False, 11, 1))
+    )
+    monkeypatch.setattr(UploadResponseDrain, "close", AsyncMock())
+    page = FakePage()
+    with pytest.raises(MediaUploadRejectedError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert "gflow_native_media_unknown" not in vars(err.value)
+    assert len(page.dom.chosen_files) == 1
+
+
+async def test_drain_result_cancellation_cannot_promote_unconfirmed_ack(tmp_path, monkeypatch):
+    from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
+
+    monkeypatch.setattr(UploadResponseDrain, "install", AsyncMock())
+    monkeypatch.setattr(
+        UploadResponseDrain, "result", AsyncMock(side_effect=asyncio.CancelledError())
+    )
+    monkeypatch.setattr(UploadResponseDrain, "close", AsyncMock())
+    page = FakePage()
+    page.dom.maseq_reply = "no_id"
+    with pytest.raises(asyncio.CancelledError) as err:
+        await migrated_composer.MigratedComposer()._upload_via_toolbar(
+            page, PROJ_UUID, _png(tmp_path)
+        )
+    assert "gflow_native_media_unknown" not in vars(err.value)
+    assert len(page.dom.chosen_files) == 1
+    assert page.listeners("response") == [] and page.listeners("request") == []
