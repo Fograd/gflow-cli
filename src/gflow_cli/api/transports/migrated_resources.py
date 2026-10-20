@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.transports.batchexecute import parse_frames
+from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
@@ -138,6 +139,7 @@ async def read_project_payload(
     if allow_empty_catalog and not require_request_project:
         raise ValueError("Empty catalog observations require the exact project request context")
     reply: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+    drain = UploadResponseDrain(page, project_id, rpc="Zzl0ze")
 
     async def on_response(response: Any) -> None:
         if (
@@ -170,6 +172,13 @@ async def read_project_payload(
                 return
         except Exception:
             return  # A previous navigation can abort a response body; it is not this read.
+        observation = await drain.result()
+        if not observation.allows_ack:
+            if not reply.done():
+                reply.set_exception(
+                    ValueError("Native project response stream could not be confirmed")
+                )
+            return
         try:
             for rpc, payload in parse_frames(text):
                 if rpc == "Zzl0ze":
@@ -184,11 +193,16 @@ async def read_project_payload(
 
     page.on("response", on_response)
     try:
+        # Arm before navigation so the new document's app sees the scoped wrapper.
+        await drain.install(navigation=True)
         # A fresh project navigation ensures the SPA emits its authoritative timeline.
         await page.goto(f"https://flow.google.com/project/{project_id}")
         return list(await asyncio.wait_for(reply, timeout=30))
     finally:
-        page.remove_listener("response", on_response)
+        try:
+            page.remove_listener("response", on_response)
+        finally:
+            await drain.close()
 
 
 async def read_project(page: Any, project_id: str) -> list[dict[str, Any]]:

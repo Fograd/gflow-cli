@@ -89,3 +89,32 @@ remediation, credentials and incident paths never enter job receipts. Unknown
 phrases remain `unclassified`. An unconfirmed HTTP200 acknowledgement does not
 prove that an upload was rejected. Image generation was not submitted on this
 upload failure path (`generationSubmitted: false`); no automatic replay occurs.
+
+On the migrated host, Chromium can finish the page's streamed response while its
+CDP body read fails with `No data found for resource with given identifier`.
+The native upload, authoritative project timeline, and image-result readers use
+one temporary page-owned fetch workaround, scoped to the exact HTTPS endpoint,
+selected project, and one internal RPC (`maseQ`, `Zzl0ze`, or `ogiZ0b`). It calls
+fetch once, returns the original promise and response, and drains/discards a
+clone of an HTTP200 body. No clone bytes are retained or used as an
+acknowledgement. The canonical `response.text()` and existing identity/ownership
+parsers remain authoritative. There is no replay or additional request.
+
+An observed clone must reach clean EOF within the existing operation budget:
+upload 60 seconds / 1 MiB, project catalog 30 seconds / 2 MiB, and image result
+180 seconds / 2 MiB. Oversized, aborted, ambiguous or incomplete observed streams
+fail closed. The count is a drain budget, not a bound on Chromium's internal tee
+buffers or the existing canonical body read. Unavailable hooks and requests
+that bypass this fetch wrapper preserve the canonical path; they are not
+reported as workaround coverage. Cleanup inactivates the wrapper and restores
+fetch only while it still owns that slot. Project navigation installs an owned
+main-world CDP init script before the new document starts, removes that exact
+registration afterward, and carries an absolute expiry to prevent later rearm.
+No Network interception or alternate response-body source is used.
+
+Drain observations contain only completion flags and byte/match counts. A lost
+image acknowledgement remains an unknown generation outcome and is never
+replayed. Canonically acknowledged media/workflow IDs survive cleanup
+cancellation. Opt-in native BDD checks require positive workaround use for both
+the synthetic upload and a read-only project timeline; offline fault cases cover
+incomplete/oversized streams and cancellation in each affected path.
