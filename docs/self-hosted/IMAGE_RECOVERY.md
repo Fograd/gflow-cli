@@ -78,3 +78,14 @@ containing its durable `jobId`, redacted `errorDetails`, and any allow-listed
 uncertainty/receipt handles. Poll that job before deciding whether to submit a
 new upload. A reported pre-generation upload refusal remains distinct from an
 unknown outcome; no failure causes automatic upload or generation replay.
+
+Canonical media-upload failures (exit27) retain a bounded `errorDetails.uploadReason`
+observation: `http_error`, `acknowledgement_unconfirmed`,
+`response_timeout_after_dispatch`, `not_dispatched`, `dialog_blocked`, or
+`unclassified`. Only an exact observed HTTP-error or unconfirmed-acknowledgement
+branch exposes `nativeHttpStatus`; generic SDK problem statuses are excluded.
+These fields identify the existing upload branch; raw exception detail, route,
+remediation, credentials and incident paths never enter job receipts. Unknown
+phrases remain `unclassified`. An unconfirmed HTTP200 acknowledgement does not
+prove that an upload was rejected. Image generation was not submitted on this
+upload failure path (`generationSubmitted: false`); no automatic replay occurs.

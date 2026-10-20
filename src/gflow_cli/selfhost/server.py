@@ -1366,6 +1366,7 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
                                 "projectId",
                                 "errorDetails",
                                 "outcomeUnknown",
+                                "generationSubmitted",
                                 "knownMediaGenerationIds",
                                 "pendingMediaGenerationIds",
                             )

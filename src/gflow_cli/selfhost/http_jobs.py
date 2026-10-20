@@ -491,6 +491,28 @@ def error_record(result: dict[str, Any], state: str) -> dict[str, Any]:
     exit_code = raw.get("exit_code")
     if type(exit_code) is int:
         safe["errorDetails"]["exit_code"] = exit_code
+    if not unknown and code == "gflow_command_failed" and exit_code == 27:
+        from gflow_cli.selfhost.upload_failure import UPLOAD_FAILURE_REASONS
+
+        reason = raw.get("uploadReason")
+        if (
+            raw.get("operation") == "upload"
+            and isinstance(reason, str)
+            and reason in UPLOAD_FAILURE_REASONS
+        ):
+            safe["errorDetails"].update(operation="upload", uploadReason=reason)
+            native_status = raw.get("nativeHttpStatus")
+            if (
+                reason in {"http_error", "acknowledgement_unconfirmed"}
+                and type(native_status) is int
+                and 100 <= native_status <= 599
+            ):
+                safe["errorDetails"]["nativeHttpStatus"] = native_status
+            if result.get("generationSubmitted") is False:
+                safe["generationSubmitted"] = False
+            safe["error"] = (
+                "Google Flow upload did not complete; inspect its upload reason before retrying."
+            )
     if not unknown and code in {"google_flow_native_quota", "google_flow_model_access_denied"}:
         from gflow_cli.selfhost.model_quarantine import job_quota_metadata
 

@@ -874,6 +874,19 @@ async def _execute(cfg: Settings, store: Store, job: dict[str, Any]) -> dict[str
         except (ValueError, TypeError, KeyError, AttributeError):
             pass
     if code:
+        if code == 27 and kind in {"assets", "images"} and len(raw) <= 65536:
+            from gflow_cli.selfhost.upload_failure import media_upload_failure
+
+            try:
+                upload_failure = media_upload_failure(parse_json_output(raw), code)
+                if upload_failure is not None:
+                    return {
+                        "projectId": project,
+                        "generationSubmitted": False,
+                        "error": upload_failure,
+                    }
+            except (ValueError, TypeError, KeyError):
+                pass
         if (
             code in {4, 5, 10}
             and kind in {"images", "images/upscale", "videos"}
