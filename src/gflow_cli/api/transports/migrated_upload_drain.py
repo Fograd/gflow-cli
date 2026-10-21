@@ -20,10 +20,13 @@ if TYPE_CHECKING:
     from playwright.async_api import Page
 
 MAX_DRAIN_BYTES = 1024 * 1024
+# Project timelines contain metadata for every uploaded and generated asset.
+# Share this bounded budget with the canonical Python response reader.
+MAX_PROJECT_RESPONSE_BYTES = 16 * 1024 * 1024
 DRAIN_TIMEOUT_MS = 60_000
 _RPC_BUDGETS = {
     "maseQ": (MAX_DRAIN_BYTES, DRAIN_TIMEOUT_MS),
-    "Zzl0ze": (2 * 1024 * 1024, 30_000),
+    "Zzl0ze": (MAX_PROJECT_RESPONSE_BYTES, 30_000),
     "ogiZ0b": (2 * 1024 * 1024, 180_000),
 }
 

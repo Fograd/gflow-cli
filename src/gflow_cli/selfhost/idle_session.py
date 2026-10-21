@@ -1,4 +1,4 @@
-"""Optional idle project-access scheduling; never renews authentication."""
+"""Optional serialized project-access scheduling; never renews authentication."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def maintenance_status(
         due = anchor + delay
         result["nextDueAt"] = None if pending else due
         result["state"] = (
-            "pending" if pending else "queue_busy" if busy else "due" if now >= due else "waiting"
+            "pending" if pending else "due" if now >= due else "queue_busy" if busy else "waiting"
         )
     return result
 

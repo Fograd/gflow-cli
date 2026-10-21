@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Native project metadata reads share a bounded 16 MiB reader/drain budget,
+  allowing populated projects to pass ownership checks without raising upload
+  or generation-response limits.
+- Due self-hosted session checks join the existing profile FIFO during long
+  batches. Current-scope manual checks prevent duplicate maintenance, while
+  strict identity, registration-epoch and backoff checks remain enforced.
 - Self-hosted raw uploads stage cache bytes atomically and reuse existing files
   only after matching size and SHA-256. Local staging failures return HTTP507
   before queue creation and preserve previously saved reference bytes.
