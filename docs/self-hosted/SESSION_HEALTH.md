@@ -126,20 +126,23 @@ project-access scheduling is described below; it is separate from renewal.
 Public output contains fixed statuses and metadata rather than principal values, timeline data,
 cookie values, raw exception messages, or signed URLs.
 
-## Optional idle project-access maintenance
+## Optional periodic project-access maintenance
 
 Set `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS=1800` or a longer finite interval
 in the daemon environment and restart the service to enable periodic ordinary
 project access. The default is `0`, which performs no scheduled reads. This can
-exercise a saved session during idle time; whether Google naturally maintains
-that session is unverified. It does not extend a cookie, authenticate a private
+exercise a saved session between ordinary operations; whether Google naturally
+maintains that session is unverified. It does not extend a cookie, authenticate a private
 marker, refresh login, prevent a human identity challenge, or complete R10's
 unattended-renewal acceptance.
 
-The scheduler admits the existing `accounts/health` job only when its currently
-enabled, verified profile is due and has no created/running queue work. Disabled,
-unverified and removed registrations are skipped, including the reserved disabled
-account. There is at most one outstanding maintenance job across the daemon.
+The scheduler admits the existing `accounts/health` job when its currently
+enabled, verified profile is due, including during a busy batch. It joins that
+profile's FIFO behind previously accepted work and never interrupts an active
+operation. A pending manual health check in the current registration epoch
+prevents duplicate admission. Disabled, unverified and removed registrations are
+skipped, including the reserved disabled account. There is at most one outstanding
+scheduled maintenance job across the daemon.
 The first due time is registration time plus the configured interval; an older
 idle registration can be due immediately when scheduling is first enabled.
 SQLite admission and a small registration-scoped scheduler record survive
@@ -166,8 +169,9 @@ access. Failure never changes account enabled/verified attestation.
 `mode: "periodic-project-access"`, `refreshAttempted: false`, `state`,
 `nextDueAt`, `lastJobId` and `lastObservation`. `nextDueAt` is a Unix timestamp
 in seconds, or null while disabled/pending. State is disabled, due, waiting,
-queue_busy or pending. A global outstanding read can defer a due idle profile;
-that profile remains due until admitted. `lastObservation` is the newest scoped completed health projection, including a newer
+queue_busy or pending. Busy profiles remain queue_busy until due; due takes
+precedence so continuous submissions cannot prevent admission. A global outstanding
+read can defer another due profile; that profile remains due until admitted. `lastObservation` is the newest scoped completed health projection, including a newer
 manual check, or null before a completed check; raw principal,
 cookies, URLs and errors are omitted. Registration `health` keeps its existing
 attestation meaning. Poll `lastJobId` through the normal job route for its result.
@@ -189,7 +193,8 @@ No browser profile is deleted or signed out.
 
 Offline tests cover admission races, one global outstanding job, restart,
 configuration/account disable, manual-work preservation, registration reversion,
-backoff, pre-subprocess guards, private status projection and daemon cancellation.
+backoff, FIFO admission during queued/running image batches, pre-subprocess guards,
+private status projection and daemon cancellation.
 Actual scheduled reads on both original test profiles were recorded on 4–5 October
 (see the dated R10 evidence below). They establish periodic access survival, not
 genuine long idle time or authentication-renewal-boundary survival.

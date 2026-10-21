@@ -95,9 +95,9 @@ def test_concurrent_admission_and_global_single_outstanding(case):
     assert len(store.jobs()) == 1
 
 
-@pytest.mark.parametrize("kind", ["images", "accounts/health"])
 @pytest.mark.parametrize("running", [False, True])
-def test_busy_profile_never_admits_maintenance(case, kind, running):
+def test_manual_health_already_pending_prevents_duplicate_maintenance(case, running):
+    kind = "accounts/health"
     _, store, _ = case
     existing = store.submit(kind, "pro2", {"project": P}, None)
     if running:
@@ -428,3 +428,38 @@ def test_upgrade_existing_queue_and_recover_maintenance_without_replay(case):
     assert store.get(job["id"])["sessionHealth"]["reason"] == "interrupted"
     assert store.enqueue_idle_health("pro2", INTERVAL) is False
     assert store.idle_session_status("pro2", INTERVAL)["nextDueAt"] == clock[0] + 2 * INTERVAL
+
+
+@pytest.mark.parametrize("running", [False, True])
+def test_due_health_queues_behind_images_without_interrupting_them(case, running):
+    cfg, store, clock = case
+    image = store.submit("images", "pro2", {"project": P}, None)
+    if running:
+        assert store.claim("pro2")["id"] == image["jobId"]
+    clock[0] += 1
+    assert store.idle_session_status("pro2", INTERVAL)["state"] == "due"
+    assert store.enqueue_idle_health("pro2", INTERVAL) is True
+    assert store.enqueue_idle_health("pro2", INTERVAL) is False
+    assert store.cancel_idle_health(INTERVAL, cfg.accounts) == 0
+    clock[0] += 1
+    later = store.submit("images", "pro2", {"project": P}, None)
+    if not running:
+        assert store.claim("pro2")["id"] == image["jobId"]
+    assert store.claim("pro2") is None
+    assert next(row for row in _rows(store) if row["id"] == image["jobId"])["state"] == "running"
+    store.finish(image["jobId"], "completed", {})
+    maintenance = store.claim("pro2")
+    assert maintenance["kind"] == "accounts/health"
+    assert store.idle_health_current(maintenance, INTERVAL, cfg.accounts)
+    assert store.claim("pro2") is None
+    store.finish(
+        maintenance["id"],
+        "completed",
+        {
+            "sessionHealth": health_observation(
+                "OK", "project_access_verified", identity_verified=True
+            )
+        },
+    )
+    assert store.claim("pro2")["id"] == later["jobId"]
+    assert store.enqueue_idle_health("pro2", INTERVAL) is False

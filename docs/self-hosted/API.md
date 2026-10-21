@@ -20,7 +20,7 @@ Use TLS or an SSH tunnel across untrusted networks.
 | `GFLOW_SELFHOST_PORT` | Listen port; default `8844` |
 | `GFLOW_SELFHOST_CALLBACK_HOSTS` | Comma-separated exact HTTPS hostnames; empty disables callbacks |
 | `GFLOW_SELFHOST_SYNC_WAIT_SECONDS` | Default 600; range 0–900; per-route ceiling 600 seconds (concatenation 180); zero returns HTTP 408 immediately while processing continues |
-| `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS` | Default 0 (disabled); finite seconds >=1800 when enabled; queues bounded idle project-access health reads. This is not authentication renewal. |
+| `GFLOW_SELFHOST_IDLE_SESSION_INTERVAL_SECONDS` | Default 0 (disabled); finite seconds >=1800 when enabled; queues bounded project-access health reads in the profile FIFO, including during a busy batch. This is not authentication renewal. |
 | `GFLOW_SELFHOST_ALLOW_VIDEO` | Set `1` to enable generation that spends video credits; default disabled |
 
 Keep existing `GFLOW_CLI_HOME`, `GFLOW_CLI_HEADLESS=false`, and `DISPLAY` settings
@@ -64,6 +64,11 @@ for the running adapter's declared scope. `GET /openapi.json` describes its rout
 | `GET /videos/extend/models`, `/videos/edit/models`, `/videos/reference/models` | Fresh native model keys and credit costs for the selected account/project |
 | `POST /videos/upscale`, `/videos/gif` | Default native1080p promotion, optional720p/4k subject to entitlement; explicit operation=export retains legacy exports. GIF is270p export. Paid promotion acceptance remains pending. |
 | `POST /videos/concatenate` | Local ffmpeg on 2–10 managed/native owned videos; fresh native validation/cache, same account/project/dimensions, trims and inputsCount |
+
+Due session checks join the existing profile FIFO, so sustained generation cannot starve them. They run after the active operation, never alongside it; one outstanding scheduled check is admitted daemon-wide. Existing manual checks prevent duplicate admission, and account mapping, enabled status, identity proof and error backoff remain enforced.
+
+Native project metadata reads have a shared 16 MiB response and stream-drain budget. This accommodates populated projects without raising upload or generation-RPC limits. Oversized or unconfirmed responses still fail closed.
+
 
 Generation, upscale, GIF export and concatenation accept async (boolean).
 Explicit async returns HTTP 201 with the durable job identity immediately.

@@ -211,6 +211,19 @@ class Store:
                     ).fetchone()
                     if latest and (last_job is None or latest["updated"] >= last_job["updated"]):
                         last_job = dict(latest)
+        # A manual or scheduled health read already in the FIFO is sufficient.
+        # Other queued work must not starve a due observation in a long batch.
+        from gflow_cli.selfhost.session_status import health_scope_current
+
+        active_health = conn.execute(
+            "SELECT * FROM jobs WHERE profile=? AND kind='accounts/health' "
+            "AND state IN ('created','running') ORDER BY created",
+            (profile,),
+        ).fetchall()
+        for candidate in active_health:
+            if health_scope_current(conn, dict(candidate)):
+                last_job = dict(candidate)
+                break
         busy = (
             conn.execute(
                 "SELECT 1 FROM jobs WHERE profile=? AND state IN ('created','running') LIMIT 1",
@@ -228,7 +241,7 @@ class Store:
             return self._idle_session_state(conn, profile, interval, time.time())
 
     def enqueue_idle_health(self, profile: str, interval: float) -> bool:
-        """Atomically admit one due read into an idle profile; bound daemon-wide work."""
+        """Atomically queue one due read in the profile FIFO; bound daemon-wide work."""
         from gflow_cli.selfhost.config import validate_idle_interval
         from gflow_cli.selfhost.idle_session import maintenance_scope
 

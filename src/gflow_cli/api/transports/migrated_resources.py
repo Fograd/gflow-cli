@@ -8,7 +8,10 @@ from urllib.parse import parse_qs, urlsplit
 
 from gflow_cli.api._engine import page_owned_evaluate_kwargs
 from gflow_cli.api.transports.batchexecute import parse_frames
-from gflow_cli.api.transports.migrated_upload_drain import UploadResponseDrain
+from gflow_cli.api.transports.migrated_upload_drain import (
+    MAX_PROJECT_RESPONSE_BYTES,
+    UploadResponseDrain,
+)
 from gflow_cli.api.transports.migrated_video_upload import is_uuid
 from gflow_cli.errors import NativeMediaMutationUnknownError
 
@@ -162,13 +165,23 @@ async def read_project_payload(
             return
         try:
             length = response.headers.get("content-length")
-            if length and int(length) > 2 * 1024 * 1024:
-                reply.set_exception(ValueError("Native project response exceeds 2 MiB"))
+            if length and int(length) > MAX_PROJECT_RESPONSE_BYTES:
+                reply.set_exception(
+                    ValueError(
+                        "Native project response exceeds "
+                        f"{MAX_PROJECT_RESPONSE_BYTES // (1024 * 1024)} MiB"
+                    )
+                )
                 return
             text = await response.text()
-            if len(text.encode("utf-8")) > 2 * 1024 * 1024:
+            if len(text.encode("utf-8")) > MAX_PROJECT_RESPONSE_BYTES:
                 if not reply.done():
-                    reply.set_exception(ValueError("Native project response exceeds 2 MiB"))
+                    reply.set_exception(
+                        ValueError(
+                            "Native project response exceeds "
+                            f"{MAX_PROJECT_RESPONSE_BYTES // (1024 * 1024)} MiB"
+                        )
+                    )
                 return
         except Exception:
             return  # A previous navigation can abort a response body; it is not this read.

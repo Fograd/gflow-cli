@@ -31,7 +31,7 @@ async def test_catalog_init_registration_precedes_navigation_and_is_removed():
     assert "worldName" not in params
     observation = await drain.result()
     assert observation.allows_ack is True
-    assert observation.limit == 2097152
+    assert observation.limit == source.MAX_PROJECT_RESPONSE_BYTES
     await drain.close()
     assert session.send.call_args_list[2].args == (
         "Page.removeScriptToEvaluateOnNewDocument",
