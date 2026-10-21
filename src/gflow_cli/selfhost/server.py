@@ -1328,13 +1328,18 @@ def create_app(cfg: Settings, *, start_workers: bool = True) -> FastAPI:
         )
         if not valid:
             raise HTTPException(422, "Asset signature does not match content type")
+        from gflow_cli.selfhost.image_upload import stage_upload_bytes
+
         directory = cfg.root / "uploads"
-        directory.mkdir(exist_ok=True)
         path = directory / (
             hashlib.sha256(data).hexdigest()
             + (".png" if mime == "image/png" else ".mp4" if mime == "video/mp4" else ".jpg")
         )
-        path.write_bytes(data)
+        try:
+            directory.mkdir(exist_ok=True)
+            stage_upload_bytes(path, data)
+        except OSError:
+            raise HTTPException(507, "Upload storage unavailable; no job was queued") from None
         upload_payload: dict[str, Any] = {"input": str(path), "mime": mime}
         if mime == "video/mp4":
             upload_payload["rightsConfirmed"] = rights == "true"

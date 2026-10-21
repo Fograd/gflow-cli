@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Self-hosted raw uploads stage cache bytes atomically and reuse existing files
+  only after matching size and SHA-256. Local staging failures return HTTP507
+  before queue creation and preserve previously saved reference bytes.
 - Self-hosted R11 contract closure: HTTP extension defaults to the currently
   available Fast family, supports explicit Veo aliases or an exclusive native key,
   normalizes native aspect/4K controls and multipart extension trims, refuses
