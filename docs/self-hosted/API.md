@@ -80,6 +80,12 @@ documented self-hosted extension where useapi does not advertise it. Read
 
 Raw uploads return HTTP200 with
 `mediaGenerationId: { "mediaGenerationId": "Google UUID" }` and `email`.
+Before queueing, the server stages bytes atomically in its private upload cache.
+An existing hash-named file is reused only when its size and SHA-256 match.
+Local staging failures return HTTP507 without queueing an upload; previously
+saved reference bytes remain unchanged. Restore available storage before retrying
+that refused request. A response carrying a jobId still follows the tracked-job
+rules below and must be polled before any retry.
 MP4 uploads require the exact lowercase header `X-Flow-Rights-Confirmed: true` for every request; absent, false or malformed values fail 422 before queue creation. Only send true when you can confirm rights for this upload. The assertion is per request, never an account preference, and participates in idempotency. The header is rejected on image uploads. This strict consent requirement is a deliberate fork difference from the earlier conditional-notice behavior.
 
 References must be IDs issued by this service. The registry retains account,

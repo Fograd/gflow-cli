@@ -1,9 +1,13 @@
-"""Normalize declared WebP images to PNG for the native owned-upload binding."""
+"""Normalize WebP references and safely stage local upload bytes."""
 
 from __future__ import annotations
 
+import hashlib
+import os
+import tempfile
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
 
@@ -55,3 +59,30 @@ def prepare_image_upload(
     if len(converted) > max_bytes:
         raise ValueError("Converted image exceeds upload byte limit")
     return PreparedImageUpload(converted, "image/png", content_type, True)
+
+
+def stage_upload_bytes(path: Path, data: bytes | bytearray) -> None:
+    """Publish complete bytes atomically; never truncate an already-shared reference."""
+    digest = hashlib.sha256(data).digest()
+    try:
+        if (
+            path.stat().st_size == len(data)
+            and hashlib.sha256(path.read_bytes()).digest() == digest
+        ):
+            return
+    except FileNotFoundError:
+        pass
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent, delete=False
+        ) as output:
+            temporary = Path(output.name)
+            if output.write(data) != len(data):
+                raise OSError("Incomplete upload cache write")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
